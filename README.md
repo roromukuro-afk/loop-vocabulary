@@ -496,7 +496,13 @@ Vercel 本番 URL が確定したら Supabase に戻って:
 - 管理者で `/admin/materials` から教材追加 → 一般ユーザーで見えるか確認
 - 一般ユーザーで `/admin` にアクセス → `/dashboard` にリダイレクトされる
 
-### 13-9. (推奨) 本番設定の最終調整
+### 13-9. (必須) ストア申請前の最終調整
+
+- [ ] **サポートメール置換**: Vercel 環境変数 `NEXT_PUBLIC_SUPPORT_EMAIL` に実メール (例: `support@yourdomain.com`) を設定 → 再デプロイ。`/contact` / `/privacy` / `/terms` / `/account/delete` / 設定画面の削除パネルに自動反映される
+- [ ] **削除リクエスト用 SQL を本番に投入**: Supabase SQL Editor で `supabase/migrations/002_account_deletion.sql` を実行
+- [ ] **アカウント削除動線テスト**: 設定 → アカウント削除 → リクエスト送信 → Supabase で `account_deletion_requests` に行が入ることを確認
+
+### 13-10. (推奨) 本番運用の最終調整
 
 - [ ] Supabase Auth → Confirm email を **ON** に変更
 - [ ] Supabase → Database → Backups を Pro プランで日次バックアップ ON

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
+import { SUPPORT_EMAIL } from "@/lib/support";
+import { DeleteAccountPanel } from "@/components/account/DeleteAccountPanel";
 import { LogoutButton } from "./LogoutButton";
 
 export const dynamic = "force-dynamic";
@@ -35,13 +36,27 @@ export default async function SettingsPage() {
       </Card>
 
       <Card className="mt-4">
-        <CardTitle>リンク</CardTitle>
+        <CardTitle>サポート・規約</CardTitle>
         <ul className="text-sm text-navy-700 space-y-2">
           <li><Link href="/premium" className="underline">広告非表示プラン</Link></li>
+          <li><Link href="/contact" className="underline">お問い合わせ</Link></li>
           <li><Link href="/privacy" className="underline">プライバシーポリシー</Link></li>
           <li><Link href="/terms" className="underline">利用規約</Link></li>
           {profile?.is_admin && <li><Link href="/admin/materials" className="underline text-navy-800 font-semibold">管理画面へ</Link></li>}
         </ul>
+      </Card>
+
+      <Card className="mt-4 border-red-200">
+        <CardTitle className="text-red-700">アカウント削除</CardTitle>
+        <p className="text-sm text-navy-600 mb-3">
+          アカウントを削除すると、登録した単語帳・学習履歴・AI 利用履歴・チケットなど、
+          ユーザーに紐づくデータがすべて削除対象となります。
+          削除完了までに数営業日かかる場合があります。
+        </p>
+        <DeleteAccountPanel supportEmail={SUPPORT_EMAIL} />
+        <p className="text-xs text-navy-500 mt-3">
+          Web からも削除リクエストできます: <Link href="/account/delete" className="underline">/account/delete</Link>
+        </p>
       </Card>
 
       <div className="mt-5"><BannerAdPlaceholder /></div>

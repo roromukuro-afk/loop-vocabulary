@@ -14,7 +14,9 @@ Google Play / App Store 公開前に埋めるチェックリスト。
 | **本番 Web URL** | <https://loop-vocabulary.vercel.app> |
 | **プライバシーポリシー URL** | <https://loop-vocabulary.vercel.app/privacy> |
 | **利用規約 URL** | <https://loop-vocabulary.vercel.app/terms> |
-| **サポート / お問い合わせ** | (未設定: 問い合わせフォームを `/contact` に追加するか、サポートメールを設定) |
+| **サポート / お問い合わせ URL** | <https://loop-vocabulary.vercel.app/contact> |
+| **アカウント削除 URL (Web から開始)** | <https://loop-vocabulary.vercel.app/account/delete> |
+| **サポートメール** | (要置換) `support@example.com` ← 本番前に実メールに差し替え。環境変数 `NEXT_PUBLIC_SUPPORT_EMAIL` または `src/lib/support.ts` |
 | **対象年齢** | 13 歳以上 |
 | **広告** | あり (AdMob)。トラッキング ON/OFF はユーザー選択に委ねる方針 |
 | **アプリ内課金** | 現状なし。将来: Android = Google Play Billing / iOS = Apple In-App Purchase |
@@ -160,6 +162,57 @@ Google Play / App Store 公開前に埋めるチェックリスト。
 
 Apple は 2022 年から、Google は 2024 年から **アプリ内からのアカウント削除導線を必須化**。
 
-- [ ] アプリ内に「アカウント削除」ボタンを実装 (`/settings` 内が自然)
-- [ ] サーバ側で auth.users → cascade で全データ削除 (`on delete cascade` が既に設定済)
-- [ ] 削除リクエスト用の問い合わせメール / フォームも合わせて設置
+### 実装済 (2026-05-23)
+
+- [x] **アプリ内**: 「設定」 → 「アカウント削除」セクションに削除リクエストパネルを実装
+  - 確認チェックボックス + 「削除する」テキスト入力 + 確認ダイアログの三段階で誤操作防止
+- [x] **Web**: `/account/delete` ページを新設。アンインストール後でもログインして削除可能
+- [x] **API**: `POST /api/account/delete-request` で `account_deletion_requests` に記録
+  - `user_id` ごとに pending を 1 件に制限 (unique index)
+  - RLS で本人のみ作成/閲覧、管理者は全件管理
+- [x] **/privacy**: 削除リクエスト方法・対象データ・完了目安・法令上保持の説明を追記
+- [x] **/terms**: アカウント削除と運営者による利用停止条項を追記
+- [x] **/contact**: サポート窓口ページ新設 (mailto テンプレ付き)
+
+### 物理削除フロー (運営者が手動 / 別ジョブで実行)
+
+`account_deletion_requests` は **リクエストの記録のみ**。実際の `auth.users` 削除は `service_role` キーが必要なため、現状は管理者が手動で以下を実行する想定:
+
+1. 管理画面 (将来追加予定) または Supabase Studio で pending リクエスト一覧を確認
+2. 本人確認 (必要に応じてメールで連絡)
+3. Supabase SQL Editor で:
+
+```sql
+-- 1. ユーザーを削除 (cascade で profiles / words / word_books / 履歴等すべて消える)
+delete from auth.users where id = '<USER_UUID>';
+
+-- 2. リクエストを完了状態に
+update public.account_deletion_requests
+   set status = 'completed', completed_at = now()
+ where user_id = '<USER_UUID>';
+```
+
+### Google Play Data safety で書く内容
+
+| 項目 | 値 |
+|------|----|
+| データ削除のリクエスト方法 (アプリ内) | あり: 「設定」 → 「アカウント削除」 |
+| データ削除のリクエスト方法 (Web URL) | <https://loop-vocabulary.vercel.app/account/delete> |
+| サポート URL | <https://loop-vocabulary.vercel.app/contact> |
+
+### App Store Connect Review Notes に書く内容
+
+```
+Account deletion is available from two places:
+1. Inside the app: Settings → Account deletion (red section, with a confirm checkbox and "delete" text input)
+2. Web: https://loop-vocabulary.vercel.app/account/delete
+
+Both options call POST /api/account/delete-request which records the request
+in account_deletion_requests table. The user receives a confirmation message
+on screen. Actual physical deletion is performed by the operator within a few
+business days after manual identity verification.
+
+Support contact: https://loop-vocabulary.vercel.app/contact
+Privacy policy: https://loop-vocabulary.vercel.app/privacy
+Terms of use:  https://loop-vocabulary.vercel.app/terms
+```

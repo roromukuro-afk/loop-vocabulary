@@ -224,6 +224,25 @@ create table if not exists public.test_templates (
   created_at timestamptz not null default now()
 );
 
+-- ============== アカウント削除リクエスト ==============
+-- Apple/Google ストア要件「アプリ内からアカウント削除を開始できる」を満たすため
+create table if not exists public.account_deletion_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  email text,
+  reason text,
+  status text not null default 'pending'
+    check (status in ('pending', 'processing', 'completed', 'rejected')),
+  requested_at timestamptz not null default now(),
+  completed_at timestamptz,
+  admin_note text
+);
+create index if not exists adr_user_idx   on public.account_deletion_requests(user_id);
+create index if not exists adr_status_idx on public.account_deletion_requests(status);
+create unique index if not exists adr_one_pending_per_user
+  on public.account_deletion_requests(user_id)
+  where status = 'pending';
+
 -- updated_at 自動更新
 create or replace function public.touch_updated_at()
 returns trigger language plpgsql as $$

@@ -122,3 +122,15 @@ alter table public.test_templates enable row level security;
 drop policy if exists "templates owner all" on public.test_templates;
 create policy "templates owner all" on public.test_templates
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ============== account_deletion_requests ==============
+alter table public.account_deletion_requests enable row level security;
+drop policy if exists "adr self select"  on public.account_deletion_requests;
+drop policy if exists "adr self insert"  on public.account_deletion_requests;
+drop policy if exists "adr admin all"    on public.account_deletion_requests;
+create policy "adr self select" on public.account_deletion_requests
+  for select using (auth.uid() = user_id);
+create policy "adr self insert" on public.account_deletion_requests
+  for insert with check (auth.uid() = user_id);
+create policy "adr admin all" on public.account_deletion_requests
+  for all using (public.is_admin()) with check (public.is_admin());
