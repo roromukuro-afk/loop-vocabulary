@@ -6,6 +6,9 @@
 
 スマホ片手操作・テンポ重視の UI を最優先に、将来的に React Native / Capacitor でスマホアプリ化し AdMob を載せられる構造にしています。
 
+- **GitHub**: <https://github.com/roromukuro-afk/loop-vocabulary>
+- **本番 URL**: 未デプロイ (Vercel に Import 後にここに追記)
+
 ---
 
 ## 1. 機能
@@ -87,6 +90,7 @@ npm run dev
   1. `supabase/schema.sql` (テーブル定義 + `on_auth_user_created` トリガ)
   2. `supabase/rls.sql` (Row Level Security)
   3. `supabase/seed.sql` (初期 30 語の公開教材)
+- [ ] (任意) `supabase/rls-check.sql` を SQL Editor で実行し、RLS が期待通り動いているかを確認 (各クエリの「期待結果」と一致すれば OK)
 
 ### 4-2. Authentication 設定
 
@@ -398,7 +402,111 @@ loop_vocabulary/
 
 ---
 
-## 13. ライセンス / 著作権
+## 13. 人間が今から実施する作業 (本番デプロイ前)
+
+GitHub push 完了済み (<https://github.com/roromukuro-afk/loop-vocabulary>)。
+ここから先は外部サービス操作で、人間の認証情報が必要なため、以下を順番に実施してください。
+
+### 13-1. Supabase プロジェクト作成 (5 分)
+
+1. <https://supabase.com> にログイン → "New project"
+2. Name: `loop-vocabulary`、Region: `Northeast Asia (Tokyo)` 推奨
+3. Database Password を控えておく
+4. プロジェクト作成完了後、Project Settings → API から:
+   - `Project URL` ← `NEXT_PUBLIC_SUPABASE_URL`
+   - `anon public` key ← `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `service_role` key ← `SUPABASE_SERVICE_ROLE_KEY` (Vercel のみ、サーバ専用)
+
+### 13-2. SQL 投入 (3 分)
+
+SQL Editor で **必ずこの順** に実行:
+
+1. `supabase/schema.sql`
+2. `supabase/rls.sql`
+3. `supabase/seed.sql`
+4. (任意検証) `supabase/rls-check.sql`
+
+### 13-3. Authentication 設定 (3 分)
+
+- Authentication → Providers → **Email** を有効化
+- 開発中: Confirm email は OFF (テストが楽)
+- Authentication → URL Configuration:
+  - `Site URL`: 後ほど Vercel 本番 URL に変更 (まずは `http://localhost:3000`)
+  - `Redirect URLs`:
+    - `http://localhost:3000/**`
+    - `http://localhost:3001/**`, `http://localhost:3002/**` (port フォールバック用)
+    - 後で Vercel URL を追加
+
+### 13-4. ローカル動作確認 (10 分)
+
+```bash
+cd C:\Users\rorom\loop_vocabulary
+cp .env.local.example .env.local
+# .env.local に取得した URL と anon key を貼る
+npm run dev
+```
+
+`TESTING.md` の §0〜§17 を順番に潰す。最低限の確認:
+- signup → メール認証 → ダッシュボード遷移
+- 単語帳作成 → 単語追加 → 4択テスト → 結果が DB に保存
+- `/setup` フォールバックが動く (`.env.local` をリネームして確認)
+
+### 13-5. 管理者化 (1 分)
+
+ローカルで signup したアカウントを管理者に。Supabase SQL Editor で:
+
+```sql
+update public.profiles set is_admin = true where email = 'your-email@example.com';
+```
+
+→ アプリを再ログインすると `/admin` 配下が解放される。
+→ `/admin/materials` から教材追加、`/admin/import` で CSV/JSON インポートをテスト。
+
+### 13-6. Vercel デプロイ (5 分)
+
+1. <https://vercel.com> にログイン → "Add New" → "Project"
+2. "Import Git Repository" で `roromukuro-afk/loop-vocabulary` を選択
+3. Framework Preset: Next.js (自動検出)、Root Directory: 空、Build Command / Install Command: デフォルト
+4. **Environment Variables** に設定 (Production / Preview / Development 全環境):
+   - `NEXT_PUBLIC_SUPABASE_URL` = (上で取得した URL)
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = (上で取得した anon key)
+   - `NEXT_PUBLIC_SITE_URL` = `https://<your-vercel-domain>.vercel.app` (Deploy 後に判明する URL)
+   - (任意) `SUPABASE_SERVICE_ROLE_KEY` = (将来のサーバ専用処理用)
+   - (任意) `NEXT_PUBLIC_ADS_ENABLED` = `true`
+5. Deploy → 数分待つ → 本番 URL 確定
+
+### 13-7. Supabase 本番 URL 反映 (2 分)
+
+Vercel 本番 URL が確定したら Supabase に戻って:
+
+- Authentication → URL Configuration:
+  - `Site URL` を本番 URL に変更
+  - `Redirect URLs` に `https://<your-vercel-domain>.vercel.app/**` と `https://*.vercel.app/**` (プレビューデプロイ用) を追加
+
+その後 Vercel 側で `NEXT_PUBLIC_SITE_URL` も本番 URL に更新 → Vercel ダッシュボードから Redeploy。
+
+### 13-8. 本番 URL テスト (15 分)
+
+本番 URL で `TESTING.md` の §2〜§15 を全部潰す。特に:
+
+- signup でメール認証が来る (Confirm email を本番では ON 推奨)
+- ログイン後、`/dashboard` まで遷移
+- 単語帳作成 → 単語追加 → 4択テスト → SRS 反映
+- 別ブラウザ (別ユーザー) で signup し、他人の単語が見えないことを確認 (RLS の本番動作確認)
+- 管理者で `/admin/materials` から教材追加 → 一般ユーザーで見えるか確認
+- 一般ユーザーで `/admin` にアクセス → `/dashboard` にリダイレクトされる
+
+### 13-9. (推奨) 本番設定の最終調整
+
+- [ ] Supabase Auth → Confirm email を **ON** に変更
+- [ ] Supabase → Database → Backups を Pro プランで日次バックアップ ON
+- [ ] Vercel → Analytics / Speed Insights を有効化
+- [ ] Sentry 等のエラートラッキング検討
+- [ ] 独自ドメイン設定 (任意)
+
+---
+
+## 14. ライセンス / 著作権
 
 - 本アプリのコード: 制作者に帰属
 - 教材データ: `materials.license_status='approved'` & `is_public=true` のものだけが公開画面に出ます (RLS で強制)
