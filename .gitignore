@@ -7,3 +7,22 @@ out
 .vercel
 next-env.d.ts
 tsconfig.tsbuildinfo
+
+# Capacitor 生成物 (Android/iOS プロジェクトはコミットする)
+mobile-shell/
+# Android build artifacts
+android/.gradle/
+android/app/build/
+android/build/
+android/captures/
+android/local.properties
+android/app/release/
+# iOS build artifacts
+ios/App/build/
+ios/App/Pods/
+ios/App/Podfile.lock
+ios/DerivedData/
+ios/*.xcuserstate
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/

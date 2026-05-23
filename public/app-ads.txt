@@ -1,0 +1,7 @@
+# Loop Vocabulary - app-ads.txt
+# ----------------------------------------------------------------------
+# AdMob 申請承認後、pub-XXXXXXXXXXXXXXXX を実際の Publisher ID に置換し
+# Vercel を再デプロイすると、AdMob が https://loop-vocabulary.vercel.app/app-ads.txt
+# をクロールしてアプリと販売者の紐づけを確認できる。
+# ----------------------------------------------------------------------
+google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0

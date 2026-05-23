@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Loop Vocabulary</string>
+    <string name="title_activity_main">Loop Vocabulary</string>
+    <string name="package_name">com.loopvocabulary.app</string>
+    <string name="custom_url_scheme">com.loopvocabulary.app</string>
+</resources>

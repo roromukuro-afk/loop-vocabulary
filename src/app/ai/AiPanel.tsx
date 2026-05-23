@@ -3,8 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { RewardedAdButton } from "@/components/ads/AdComponents";
-import { createClient } from "@/lib/supabase/client";
+import { AppRewardedAdButton } from "@/components/ads/AppAds";
 
 type Kind = "example" | "explain" | "etymology" | "mnemonic";
 
@@ -40,15 +39,6 @@ export function AiPanel({ initialWord, initialMeaning }: { initialWord: string; 
     if (typeof data.remaining === "number") setRemaining(data.remaining);
   };
 
-  const grantTicket = async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from("reward_tickets").insert({ user_id: user.id, kind: "ai", amount: 1 });
-    setLimitReached(false);
-    setError(null);
-  };
-
   return (
     <div className="grid gap-3">
       <Field label="英単語">
@@ -68,7 +58,11 @@ export function AiPanel({ initialWord, initialMeaning }: { initialWord: string; 
       {remaining != null && <div className="text-xs text-navy-400">本日残り: {remaining} 回</div>}
       {error && <div className="text-sm text-red-600">{error}</div>}
       {limitReached && (
-        <RewardedAdButton label="リワード広告を見て AI を +1 回使う" onReward={grantTicket} />
+        <AppRewardedAdButton
+          kind="ai_generation"
+          label="リワード広告を見て AI を +1 回使う"
+          onReward={() => { setLimitReached(false); setError(null); }}
+        />
       )}
       {result && (
         <pre className="whitespace-pre-wrap text-sm bg-navy-50 border border-navy-100 rounded-xl p-4 text-navy-700">

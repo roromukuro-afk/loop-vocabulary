@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       .from("reward_tickets")
       .select("id, amount, used_amount")
       .eq("user_id", user.id)
-      .eq("kind", "ai")
+      .eq("kind", "ai_generation")
       .gt("amount", 0)
       .order("granted_at", { ascending: true })
       .limit(1)

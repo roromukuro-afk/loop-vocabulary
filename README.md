@@ -506,7 +506,164 @@ Vercel 本番 URL が確定したら Supabase に戻って:
 
 ---
 
-## 14. ライセンス / 著作権
+## 14. スマホアプリ化 (Capacitor + AdMob)
+
+Loop Vocabulary は **Capacitor** を介して Android / iOS のネイティブアプリにパッケージ化し、AdMob で広告収益化する設計です。
+
+### 14-1. アーキテクチャ方針: WebView Wrapper + Native Plugins
+
+Loop Vocabulary は Next.js の Server Components / middleware / Supabase SSR を多用しているため **static export では動きません**。そこで Capacitor の `server.url` 機能で本番 Vercel URL を WebView 内に読み込み、AdMob・StatusBar・SplashScreen 等のネイティブ機能だけプラグイン経由で提供する Hybrid 構成を採用。
+
+- メリット: 既存 Web/PWA を一切壊さない、Vercel push で即時 OTA 反映、Server Component が無傷
+- デメリット: 完全オフライン動作はしない (Web 版も同条件)
+- 設定: [`capacitor.config.ts`](capacitor.config.ts)
+
+### 14-2. AdMob 広告コンポーネント
+
+新規追加: [`src/components/ads/AppAds.tsx`](src/components/ads/AppAds.tsx)
+
+| コンポーネント / フック | 説明 |
+|---|---|
+| `<AppBannerAd />` | Web: プレースホルダ枠、Native: 画面下部に AdMob Adaptive Banner |
+| `<AppNativeAdCard />` | 一覧内のネイティブ広告枠 |
+| `<AppRewardedAdButton kind={...} />` | リワード視聴 → `reward_tickets` に 1 枚付与 |
+| `useAppInterstitial()` | 結果画面等の自然な切れ目で呼ぶインタースティシャル |
+| `useTicketBalance(kind)` | チケット残数表示用フック |
+
+旧 `BannerAdPlaceholder` / `RewardedAdButton` / `NativeAdCard` / `useInterstitialAdTrigger` は互換シムを通して `AppAds.tsx` に転送されるため既存ページは変更不要。
+
+#### 広告表示ルール (実装に組み込み済み)
+
+| 画面 | 広告 |
+|---|---|
+| `/dashboard`, `/wordbooks`, `/stats`, `/settings`, `/premium`, `/materials/[id]` | Banner / Native |
+| テスト結果画面 | Banner + (任意で Interstitial) |
+| AI 上限到達時 | Rewarded |
+| `/test/choice` 実行中, `/test/input` 実行中, `/review` 実行中, `/wordbooks/[id]/add` 入力中, `/admin/*`, `/login`, `/signup` | **広告なし** |
+
+#### リワード広告のチケット種別
+
+`src/lib/native/rewards.ts` の `RewardKind`:
+- `ai_generation` — AI 例文・解説生成
+- `pdf_export` — PDF 出力回数
+- `extra_review` — 復習対象拡張
+- `weak_word_test` — 苦手単語テスト追加
+- `analysis_ticket` — 詳細分析ロック解除 (将来用)
+
+### 14-3. 広告 ID の本番切替
+
+開発中は AdMob 公式テスト広告 ID にフォールバックする実装 (`src/lib/native/admob.ts`)。本番リリース時は以下を設定:
+
+```env
+# .env.local (Vercel 環境変数にも反映)
+NEXT_PUBLIC_ADMOB_USE_TEST_IDS=false
+
+NEXT_PUBLIC_ADMOB_ANDROID_BANNER=ca-app-pub-<your>/<your>
+NEXT_PUBLIC_ADMOB_ANDROID_INTERSTITIAL=ca-app-pub-<your>/<your>
+NEXT_PUBLIC_ADMOB_ANDROID_REWARDED=ca-app-pub-<your>/<your>
+NEXT_PUBLIC_ADMOB_IOS_BANNER=ca-app-pub-<your>/<your>
+NEXT_PUBLIC_ADMOB_IOS_INTERSTITIAL=ca-app-pub-<your>/<your>
+NEXT_PUBLIC_ADMOB_IOS_REWARDED=ca-app-pub-<your>/<your>
+```
+
+加えて、**App ID** は AndroidManifest / Info.plist にビルド時焼き込み:
+- `android/app/src/main/AndroidManifest.xml` の `com.google.android.gms.ads.APPLICATION_ID`
+- `ios/App/App/Info.plist` の `GADApplicationIdentifier`
+
+書き換えたら `npx cap sync` で再同期。
+
+### 14-4. app-ads.txt
+
+[`public/app-ads.txt`](public/app-ads.txt) を Vercel 経由で `https://loop-vocabulary.vercel.app/app-ads.txt` として公開。AdMob 申請が承認されたら `pub-XXXXXXXXXXXXXXXX` を本物の Publisher ID に置換 → 再デプロイ。Play Console と App Store Connect の "Developer Website / Marketing URL" を Vercel URL に向けることで、AdMob がクロールしてアプリと販売者の紐づけを認識する。
+
+### 14-5. Android ビルド手順
+
+#### 前提
+
+- [ ] **Android Studio** 最新版インストール (<https://developer.android.com/studio>)
+- [ ] **JDK 17** が入っていること (`java -version` で確認、Android Studio に同梱されている)
+- [ ] Android SDK Platform 34+ / Build-Tools 最新
+
+#### 初回ビルド
+
+```bash
+# 1. Web shell 生成 + Capacitor sync
+npm run cap:sync           # = build-mobile-shell.mjs + npx cap sync
+
+# 2. Android Studio で開く
+npm run cap:open:android   # = npx cap open android
+```
+
+Android Studio が起動 → 初回は Gradle Sync で数分 → 完了後:
+
+- **▶ Run** ボタンでエミュレータ or 接続実機にインストール
+- ログ (Logcat) で `[AdMob]` を grep するとテスト広告のロード状況が見える
+
+#### Google Play 内部テスト → クローズドテスト → 本番
+
+詳細は [STORE_RELEASE.md](STORE_RELEASE.md) 「Google Play 公開チェックリスト」参照。
+
+### 14-6. iOS ビルド手順
+
+#### 前提
+
+- [ ] **Mac** (Windows 上では iOS ビルド不可)
+- [ ] **Xcode 16+** (Mac App Store)
+- [ ] **Apple Developer Program** 登録済 (年 $99)
+- [ ] (Capacitor 8 は SPM を使うため CocoaPods は不要)
+
+#### 初回ビルド
+
+```bash
+# Mac 上で
+npm install
+npm run cap:sync           # build-mobile-shell.mjs + npx cap sync
+npm run cap:open:ios       # Xcode が起動
+```
+
+Xcode が起動したら:
+
+1. プロジェクト → Signing & Capabilities → Team を選択
+2. Bundle Identifier が `com.loopvocabulary.app` であることを確認
+3. ▶ Run ボタンでシミュレータ or 実機にインストール
+
+#### TestFlight → 本番
+
+詳細は [STORE_RELEASE.md](STORE_RELEASE.md) 「Apple App Store 公開チェックリスト」参照。
+
+### 14-7. 検証用テスト広告 ID
+
+開発中は以下の Google 公式テスト広告 ID が自動利用される (本番に出ても請求されない):
+
+| プラットフォーム | スロット | テスト ID |
+|---|---|---|
+| Android | App ID | `ca-app-pub-3940256099942544~3347511713` |
+| Android | Banner | `ca-app-pub-3940256099942544/6300978111` |
+| Android | Interstitial | `ca-app-pub-3940256099942544/1033173712` |
+| Android | Rewarded | `ca-app-pub-3940256099942544/5224354917` |
+| iOS | App ID | `ca-app-pub-3940256099942544~1458502117` |
+| iOS | Banner | `ca-app-pub-3940256099942544/2934735716` |
+| iOS | Interstitial | `ca-app-pub-3940256099942544/4411468910` |
+| iOS | Rewarded | `ca-app-pub-3940256099942544/1712485313` |
+
+### 14-8. プライバシー / 13 歳未満対応 / ATT
+
+- 主対象は **13 歳以上** (利用規約 `/terms` に明記)
+- AdMob 既定で **非パーソナライズ広告** (`npa: true`) を要求する実装
+- iOS では `NSUserTrackingUsageDescription` + ATT ダイアログを表示
+- ATT 拒否時も非パーソナライズ広告は配信される設計
+- ユーザーが入力した個人データ (メール / 単語 / 学習履歴) は Supabase で暗号化保存、第三者提供なし (詳細は `/privacy`)
+
+### 14-9. 将来の課金 (Premium プラン)
+
+現状は `/premium` ページで案内のみ。実装時:
+- **Android**: Google Play Billing 必須 (デジタル商品)。Capacitor プラグイン `@capacitor-community/in-app-purchases` 等
+- **iOS**: StoreKit 2 / IAP 必須。同上
+- Stripe 等の外部決済はデジタル商品では両ストアで禁止
+
+---
+
+## 15. ライセンス / 著作権
 
 - 本アプリのコード: 制作者に帰属
 - 教材データ: `materials.license_status='approved'` & `is_public=true` のものだけが公開画面に出ます (RLS で強制)
