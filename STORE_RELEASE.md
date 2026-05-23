@@ -16,7 +16,7 @@ Google Play / App Store 公開前に埋めるチェックリスト。
 | **利用規約 URL** | <https://loop-vocabulary.vercel.app/terms> |
 | **サポート / お問い合わせ URL** | <https://loop-vocabulary.vercel.app/contact> |
 | **アカウント削除 URL (Web から開始)** | <https://loop-vocabulary.vercel.app/account/delete> |
-| **サポートメール** | (要置換) `support@example.com` ← 本番前に実メールに差し替え。環境変数 `NEXT_PUBLIC_SUPPORT_EMAIL` または `src/lib/support.ts` |
+| **サポートメール** | `sato.learning@gmail.com` (環境変数 `NEXT_PUBLIC_SUPPORT_EMAIL` で上書き可) |
 | **対象年齢** | 13 歳以上 |
 | **広告** | あり (AdMob)。トラッキング ON/OFF はユーザー選択に委ねる方針 |
 | **アプリ内課金** | 現状なし。将来: Android = Google Play Billing / iOS = Apple In-App Purchase |

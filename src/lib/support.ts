@@ -1,8 +1,8 @@
 // ============================================================
-// サポート問い合わせ先 (プレースホルダ)
+// サポート問い合わせ先
 // ------------------------------------------------------------
-// 本番リリース前に必ず実メールに置き換えること。
-// 環境変数 NEXT_PUBLIC_SUPPORT_EMAIL があれば優先する。
+// 環境変数 NEXT_PUBLIC_SUPPORT_EMAIL を優先し、未設定なら
+// デフォルトの本番メールにフォールバック。
 // ============================================================
 export const SUPPORT_EMAIL =
-  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@example.com";
+  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "sato.learning@gmail.com";
