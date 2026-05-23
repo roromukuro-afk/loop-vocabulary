@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Loop Vocabulary brand icon
+       Concept: 「L」が無限ループ (∞) を描く = 学習が回り続ける
+       Colors:  navy / sky / white -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#243860"/>
+      <stop offset="100%" stop-color="#111e38"/>
+    </linearGradient>
+    <linearGradient id="loop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#bcdcff"/>
+      <stop offset="100%" stop-color="#6b87b3"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 角丸ベース -->
+  <rect x="0" y="0" width="512" height="512" rx="96" ry="96" fill="url(#bg)"/>
+
+  <!-- L 字の縦棒 -->
+  <rect x="128" y="100" width="56" height="280" rx="28" fill="white"/>
+  <!-- L 字の横棒 -->
+  <rect x="128" y="324" width="200" height="56" rx="28" fill="white"/>
+
+  <!-- 学習ループを示す円弧 (右上から L の終点へ巻きつく) -->
+  <path d="
+      M 360 132
+      a 84 84 0 1 1 -84 84
+      L 276 380
+    "
+    fill="none"
+    stroke="url(#loop)"
+    stroke-width="38"
+    stroke-linecap="round"/>
+
+  <!-- アクセントドット -->
+  <circle cx="360" cy="380" r="22" fill="#bcdcff"/>
+</svg>

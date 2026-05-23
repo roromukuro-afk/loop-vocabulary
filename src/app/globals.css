@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand: #243860;
+  --brand-light: #bcdcff;
+  --bg: #f7f9fc;
+}
+
+html, body {
+  background: var(--bg);
+  color: #1a2a4a;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (max-width: 640px) {
+  html { font-size: 15px; }
+}
+
+/* スクロール禁止用 (テスト集中モード) */
+.no-scroll { overflow: hidden; }
+
+/* 印刷用 (PDF / 小テスト出力) */
+@media print {
+  body { background: white; color: black; }
+  .no-print { display: none !important; }
+  .page-break { page-break-after: always; }
+}
