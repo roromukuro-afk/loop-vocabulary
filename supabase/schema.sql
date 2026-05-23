@@ -128,7 +128,7 @@ create table if not exists public.words (
   example_ja text,
   etymology text,
   nuance text,
-  similar text,
+  similar_words text,
   antonym text,
   derivative text,
   idiom text,

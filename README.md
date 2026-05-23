@@ -7,7 +7,7 @@
 スマホ片手操作・テンポ重視の UI を最優先に、将来的に React Native / Capacitor でスマホアプリ化し AdMob を載せられる構造にしています。
 
 - **GitHub**: <https://github.com/roromukuro-afk/loop-vocabulary>
-- **本番 URL**: 未デプロイ (Vercel に Import 後にここに追記)
+- **本番 URL**: <https://loop-vocabulary.vercel.app>
 
 ---
 

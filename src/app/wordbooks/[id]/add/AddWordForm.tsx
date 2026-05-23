@@ -10,7 +10,7 @@ export function AddWordForm({ wordBookId }: { wordBookId: string }) {
   const [w, setW] = useState({
     word: "", meaning: "", pos: "", phonetic: "",
     example: "", example_ja: "",
-    etymology: "", nuance: "", similar: "", antonym: "", derivative: "", idiom: "",
+    etymology: "", nuance: "", similar_words: "", antonym: "", derivative: "", idiom: "",
     importance: 3,
   });
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export function AddWordForm({ wordBookId }: { wordBookId: string }) {
       <Field label="例文の和訳"><Textarea value={w.example_ja} onChange={set("example_ja")} /></Field>
       <Field label="語源メモ"><Textarea value={w.etymology} onChange={set("etymology")} /></Field>
       <Field label="ニュアンス"><Textarea value={w.nuance} onChange={set("nuance")} /></Field>
-      <Field label="似た単語"><Input value={w.similar} onChange={set("similar")} /></Field>
+      <Field label="似た単語"><Input value={w.similar_words} onChange={set("similar_words")} /></Field>
       <Field label="反意語"><Input value={w.antonym} onChange={set("antonym")} /></Field>
       <Field label="派生語"><Input value={w.derivative} onChange={set("derivative")} /></Field>
       <Field label="熟語"><Input value={w.idiom} onChange={set("idiom")} /></Field>

@@ -55,7 +55,7 @@ export type Word = {
   example_ja: string | null;
   etymology: string | null;
   nuance: string | null;
-  similar: string | null;
+  similar_words: string | null;
   antonym: string | null;
   derivative: string | null;
   idiom: string | null;
