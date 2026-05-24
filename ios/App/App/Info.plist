@@ -49,13 +49,13 @@
 	<true/>
 
 	<!-- ============================================================
-	     AdMob iOS 設定
-	     - 開発中はテスト App ID
-	       (ca-app-pub-3940256099942544~1458502117)
-	     - 本番 App ID は AdMob 承認後に取得し、ここを置換して再ビルド
+	     AdMob iOS 設定 (本番、Publisher pub-7135124532952935)
+	     - Info.plist はビルド時に焼き込まれるため、変更時は npx cap sync ios が必要
+	     - 開発中の広告表示はテスト Unit ID を使用すること
+	       (環境変数 NEXT_PUBLIC_ADMOB_USE_TEST_IDS=true で制御)
 	     ============================================================ -->
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458502117</string>
+	<string>ca-app-pub-7135124532952935~9277520565</string>
 
 	<!-- App Tracking Transparency
 	     - iOS 14.5+ で広告 ID (IDFA) アクセスに必要
