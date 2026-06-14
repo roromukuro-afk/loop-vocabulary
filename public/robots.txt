@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /wordbooks/
+Disallow: /test/
+Disallow: /review
+Disallow: /ai
+Disallow: /stats
+Disallow: /settings
+Disallow: /weak
+Disallow: /account/
+Disallow: /admin/
+
+Sitemap: https://loop-vocabulary.vercel.app/sitemap.xml
