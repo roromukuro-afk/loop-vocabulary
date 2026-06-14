@@ -3,6 +3,7 @@ import { Card, CardTitle, Stat } from "@/components/ui/Card";
 import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { StudyCalendar } from "./StudyCalendar";
+import { StudyWeekGraph } from "./StudyWeekGraph";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,11 @@ export default async function StatsPage() {
         <Stat label="苦手単語" value={weakWords ?? 0} />
         <Stat label="今週学習日" value={`${weekSessions}日`} />
       </div>
+
+      <Card className="mt-5">
+        <CardTitle>学習グラフ (直近7日)</CardTitle>
+        <StudyWeekGraph days={weekStats ?? []} />
+      </Card>
 
       <Card className="mt-5">
         <CardTitle>学習カレンダー (直近30日)</CardTitle>

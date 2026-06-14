@@ -1,11 +1,14 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
 import { sample, shuffle } from "@/lib/utils/shuffle";
 import { saveStudyResult } from "@/lib/srs/saveResult";
+import { useAppInterstitial, AppRewardedAdButton } from "@/components/ads/AppAds";
+import { speakEn } from "@/lib/tts";
+import { PronounceButton } from "@/components/ui/PronounceButton";
 
 type W = { id: string; word: string; meaning: string; streak: number; is_weak: boolean };
 
@@ -26,10 +29,11 @@ function buildQuestions(pool: W[], mode: "en2ja" | "ja2en", n: number): Q[] {
 }
 
 export function ChoiceTestRunner({
-  pool, mode, count,
-}: { pool: W[]; mode: "en2ja" | "ja2en"; count: number }) {
+  pool, mode, count, placement = "choice_test",
+}: { pool: W[]; mode: "en2ja" | "ja2en"; count: number; placement?: string }) {
   const router = useRouter();
-  const [qs] = useState(() => buildQuestions(pool, mode, count));
+  const showInterstitial = useAppInterstitial();
+  const [qs, setQs] = useState(() => buildQuestions(pool, mode, count));
   const [idx, setIdx] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [results, setResults] = useState<{ word: string; meaning: string; ok: boolean }[]>([]);
@@ -38,10 +42,21 @@ export function ChoiceTestRunner({
   const cur = qs[idx];
   const ok = picked != null && picked === cur?.answer;
 
+  // テスト完了時にインタースティシャル広告を表示
+  useEffect(() => {
+    if (done) void showInterstitial(placement);
+  }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 英語→日本語モード: 問題が変わるたびに英単語を自動読み上げ
+  useEffect(() => {
+    if (!done && mode === "en2ja" && cur?.prompt) {
+      speakEn(cur.prompt);
+    }
+  }, [cur?.prompt, mode, done]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const onPick = (c: string) => {
     if (picked != null) return;
     setPicked(c);
-    // 結果を即記録
     const isOk = c === cur.answer;
     setResults((r) => [...r, { word: cur.w.word, meaning: cur.w.meaning, ok: isOk }]);
     void saveStudyResult(cur.w, isOk);
@@ -56,8 +71,37 @@ export function ChoiceTestRunner({
     setIdx(idx + 1);
   };
 
+  const restart = () => {
+    setQs(buildQuestions(pool, mode, count));
+    setIdx(0);
+    setResults([]);
+    setDone(false);
+    setPicked(null);
+    router.refresh();
+  };
+
+  // リワード広告視聴後に追加10問を開始
+  const onRewardedExtra = () => {
+    setQs(buildQuestions(pool, mode, Math.min(10, pool.length)));
+    setIdx(0);
+    setResults([]);
+    setDone(false);
+    setPicked(null);
+  };
+
   const correctCount = results.filter((r) => r.ok).length;
   const acc = results.length ? Math.round((correctCount / results.length) * 100) : 0;
+
+  const shareResult = async () => {
+    const emoji = acc >= 90 ? "🎯" : acc >= 70 ? "📚" : "💪";
+    const text = `${emoji} Loop Vocabulary で ${results.length}問中${correctCount}問正解！正答率${acc}%\n英単語学習アプリ → https://loop-vocabulary.vercel.app`;
+    if (navigator.share) {
+      await navigator.share({ text }).catch(() => {});
+    } else {
+      const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+      window.open(url, "_blank", "noopener");
+    }
+  };
 
   if (done) {
     return (
@@ -67,6 +111,12 @@ export function ChoiceTestRunner({
           <div className="text-sm text-navy-500">正答率</div>
           <div className="text-5xl font-bold text-navy-800 mt-1">{acc}%</div>
           <div className="text-sm text-navy-500 mt-2">{correctCount} / {results.length} 正解</div>
+          <button
+            onClick={shareResult}
+            className="mt-4 inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-full bg-sky-100 text-sky-700 font-semibold hover:bg-sky-200 transition-colors"
+          >
+            <span>📤</span> 結果をシェア
+          </button>
         </div>
 
         <h2 className="mt-6 font-bold text-navy-800">間違えた単語</h2>
@@ -82,10 +132,18 @@ export function ChoiceTestRunner({
           )}
         </ul>
 
-        <div className="mt-6 grid grid-cols-2 gap-2">
-          <Button fullWidth onClick={() => { setIdx(0); setResults([]); setDone(false); setPicked(null); router.refresh(); }}>
-            もう一度
-          </Button>
+        {pool.length >= 4 && (
+          <div className="mt-4">
+            <AppRewardedAdButton
+              kind="extra_review"
+              label="広告を見てもう10問チャレンジ"
+              onReward={onRewardedExtra}
+            />
+          </div>
+        )}
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button fullWidth onClick={restart}>もう一度</Button>
           <Link href="/dashboard"><Button fullWidth variant="secondary">ホームへ</Button></Link>
         </div>
       </div>
@@ -108,10 +166,13 @@ export function ChoiceTestRunner({
           {mode === "en2ja" ? "意味を選ぼう" : "英単語を選ぼう"}
         </div>
         <div className={cn(
-          "mt-2 font-bold text-navy-900",
+          "mt-2 font-bold text-navy-900 flex items-center justify-center gap-2",
           mode === "en2ja" ? "text-4xl" : "text-2xl",
         )}>
           {cur.prompt}
+          {mode === "en2ja" && (
+            <PronounceButton word={cur.prompt} size="lg" />
+          )}
         </div>
       </div>
 

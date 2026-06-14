@@ -26,7 +26,7 @@ export default async function ReviewPage({
   const pool = (due ?? []).filter((w) => w.word && w.meaning);
 
   if (sp.start === "1" && pool.length >= 4) {
-    return <ChoiceTestRunner pool={pool} mode="en2ja" count={Math.min(10, pool.length)} />;
+    return <ChoiceTestRunner pool={pool} mode="en2ja" count={Math.min(10, pool.length)} placement="review" />;
   }
 
   return (

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
+import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 
 export const dynamic = "force-dynamic";
@@ -62,8 +62,17 @@ export default async function WeakPage({ searchParams }: { searchParams: Promise
                   </div>
                   <div className="text-sm text-navy-600 truncate">{w.meaning}</div>
                 </div>
-                <div className="text-[11px] text-navy-400 text-right">
-                  正 {w.correct_count} / 誤 {w.wrong_count}<br />正答率 {acc}%
+                <div className="flex flex-col items-end gap-1.5">
+                  <div className="text-[11px] text-navy-400 text-right">
+                    正 {w.correct_count} / 誤 {w.wrong_count}<br />正答率 {acc}%
+                  </div>
+                  <Link
+                    href={`/ai?word=${encodeURIComponent(w.word)}&meaning=${encodeURIComponent(w.meaning)}`}
+                    className="text-[10px] px-2 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 font-semibold whitespace-nowrap"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    🤖 AI解説
+                  </Link>
                 </div>
               </li>
             );
