@@ -154,9 +154,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `AI生成に失敗しました: ${msg}` }, { status: 500 });
   }
 
-  await supabase.from("ai_usage_logs").insert({
-    user_id: user.id, kind, prompt: `${word} / ${meaning}`, result,
-  }).then(() => {}).catch(() => {});
+  try {
+    await supabase.from("ai_usage_logs").insert({
+      user_id: user.id, kind, prompt: `${word} / ${meaning}`, result,
+    });
+  } catch { /* ignore logging errors */ }
 
   return NextResponse.json({ result, remaining: Math.max(0, DAILY_LIMIT - used - 1) });
 }
