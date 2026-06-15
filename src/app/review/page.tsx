@@ -11,18 +11,20 @@ export const dynamic = "force-dynamic";
 
 export default async function ReviewPage({
   searchParams,
-}: { searchParams: Promise<{ start?: string; mode?: string }> }) {
+}: { searchParams: Promise<{ start?: string; mode?: string; book?: string }> }) {
   const { user, supabase } = await requireUser();
   const sp = await searchParams;
 
   const now = new Date().toISOString();
-  const { data: due } = await supabase
+  let dueQuery = supabase
     .from("words")
     .select("id, word, meaning, phonetic, streak, is_weak, next_review_at")
     .eq("user_id", user.id)
     .or(`next_review_at.lte.${now},is_weak.eq.true`)
     .order("next_review_at", { ascending: true, nullsFirst: true })
     .limit(50);
+  if (sp.book) dueQuery = (dueQuery as typeof dueQuery).eq("word_book_id", sp.book);
+  const { data: due } = await dueQuery;
 
   const pool = (due ?? []).filter((w) => w.word && w.meaning);
   const mode = sp.mode === "choice" ? "choice" : "flip";

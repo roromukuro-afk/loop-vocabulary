@@ -30,6 +30,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/faq`,                lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/test`,              lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/vocab-check`,       lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${base}/vocab-check/toeic`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${base}/vocab-check/eiken`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${base}/privacy`,            lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
     { url: `${base}/terms`,              lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
     { url: `${base}/contact`,            lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
