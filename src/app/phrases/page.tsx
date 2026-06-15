@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PhraseTtsButton } from "./PhraseTtsButton";
 
 export const metadata: Metadata = {
   title: "英語フレーズ集【英検・TOEIC・大学受験】| Loop Vocabulary",
@@ -85,7 +86,10 @@ export default function PhrasesPage() {
             <div className="space-y-3">
               {PHRASES.filter((p) => p.level === lv).map((p) => (
                 <div key={p.phrase} className="bg-white rounded-2xl border border-navy-100 p-4">
-                  <div className="font-black text-navy-900 text-base">{p.phrase}</div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="font-black text-navy-900 text-base flex-1">{p.phrase}</div>
+                    <PhraseTtsButton phrase={p.phrase} />
+                  </div>
                   <div className="text-sm font-semibold text-sky-700 mt-1">{p.meaning}</div>
                   <div className="mt-2 bg-navy-50 rounded-lg px-3 py-2">
                     <p className="text-xs text-navy-600 italic">"{p.example}"</p>
