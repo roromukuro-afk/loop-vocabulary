@@ -11,6 +11,7 @@ import { ExportButton } from "./ExportButton";
 import { ReferralCard } from "./ReferralCard";
 import { NotificationToggles } from "./NotificationToggles";
 import { DisplayNameForm } from "./DisplayNameForm";
+import { ExamCountdown } from "@/components/dashboard/ExamCountdown";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export default async function SettingsPage() {
   const { user, supabase } = await requireUser();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, is_admin, is_premium, plan, daily_ai_used, daily_ai_reset_at, notify_weekly_email, notify_push_enabled")
+    .select("display_name, is_admin, is_premium, plan, daily_ai_used, daily_ai_reset_at, notify_weekly_email, notify_push_enabled, exam_goal, exam_date")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -82,6 +83,16 @@ export default async function SettingsPage() {
             </Link>
           </div>
         )}
+      </Card>
+
+      {/* 学習目標 */}
+      <Card className="mt-4">
+        <CardTitle>学習目標・試験日</CardTitle>
+        <p className="text-xs text-navy-500 mb-1">設定した試験日はダッシュボードにカウントダウン表示されます。</p>
+        <ExamCountdown
+          examGoal={profile?.exam_goal ?? null}
+          examDate={profile?.exam_date ?? null}
+        />
       </Card>
 
       {/* 通知設定 */}
