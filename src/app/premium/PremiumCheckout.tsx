@@ -52,7 +52,7 @@ export function PremiumCheckout(props: Props) {
 
   if (!props.loggedIn) {
     return (
-      <div className="bg-white rounded-3xl shadow-card p-6 text-center space-y-4">
+      <div className="space-y-3 text-center">
         <p className="text-sm text-navy-600">プレミアムに登録するにはログインが必要です</p>
         <Link
           href="/auth/login?next=/premium"
@@ -66,18 +66,15 @@ export function PremiumCheckout(props: Props) {
 
   if (!props.stripeReady) {
     return (
-      <div className="bg-white rounded-3xl shadow-card p-6 text-center space-y-3">
-        <div className="text-sm text-navy-600 font-semibold">準備中</div>
-        <p className="text-xs text-navy-500">
-          決済機能は現在準備中です。しばらくお待ちください。
-        </p>
-        <Link href="/contact" className="text-xs text-sky-600 underline">お問い合わせ</Link>
+      <div className="text-center space-y-2 py-2">
+        <div className="text-sm text-navy-600 font-semibold">決済機能は準備中です</div>
+        <p className="text-xs text-navy-400">もうしばらくお待ちください。</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-3xl shadow-card p-6 space-y-3">
+    <div className="space-y-3">
       <button
         onClick={() => startCheckout("yearly")}
         disabled={loading}
@@ -97,9 +94,6 @@ export function PremiumCheckout(props: Props) {
         月額プラン ¥480/月
       </button>
       {error && <p className="text-xs text-red-600 text-center">{error}</p>}
-      <p className="text-center text-[10px] text-navy-400">
-        いつでもキャンセル可 · Stripe 安全決済
-      </p>
     </div>
   );
 }
