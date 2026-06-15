@@ -3,7 +3,12 @@ import type { MetadataRoute } from "next";
 const GUIDE_SLUGS = [
   "daigaku-juken-tango",
   "eiken-2kyu-tango",
+  "eiken-jun1-tango",
+  "chugaku-eigo-tango",
+  "eiken-conversation",
+  "ielts-tango",
   "toeic-tango",
+  "business-english-tango",
 ] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -22,6 +27,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: 0.7,
     })),
+    { url: `${base}/faq`,                lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/privacy`,            lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
     { url: `${base}/terms`,              lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
     { url: `${base}/contact`,            lastModified: now, changeFrequency: "yearly",  priority: 0.3 },

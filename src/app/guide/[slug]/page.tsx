@@ -198,6 +198,512 @@ Loop Vocabulary では連続学習日数（ストリーク）バッジ、正答�
     `,
   },
 
+  "chugaku-eigo-tango": {
+    title: "中学英語の単語を完璧に覚える方法【基礎固め完全版】",
+    description: "高校受験・英検3級・日常会話の基礎となる中学英単語1,200語の効率的な覚え方を解説します。",
+    tag: "中学英語",
+    published: "2024-12-01",
+    content: `
+## 中学英語の単語を覚えることがなぜ重要か
+
+中学英語の単語（約1,200語）は、高校英語・大学受験・英検・TOEICすべての **土台** となります。ここが曖昧なまま高校・大学の単語に進んでも、定着しません。
+
+「英語が苦手」という人の多くは、中学単語が不完全なケースがほとんどです。
+
+---
+
+## 中学英語の頻出単語カテゴリ
+
+### 基本動詞（最重要）
+
+中学英語で最も大切なのは **基本動詞の使い方** です。
+
+| 動詞 | 意味 | 例文ヒント |
+|---|---|---|
+| get | 得る・なる | get tired（疲れる） |
+| take | 取る・かかる | take a bus（バスに乗る） |
+| make | 作る・〜させる | make friends（友達を作る） |
+| give | 与える | give up（諦める） |
+| put | 置く | put on（着る） |
+
+### 形容詞・副詞
+
+| 単語 | 意味 |
+|---|---|
+| important | 重要な |
+| difficult | 難しい |
+| necessary | 必要な |
+| suddenly | 突然 |
+| carefully | 注意深く |
+
+---
+
+## 中学単語の効率的な覚え方
+
+### 1. 品詞のセットで覚える
+
+単語は単独ではなく、**品詞のセット** で覚えると記憶に残りやすいです。
+
+- beauty（名詞）→ beautiful（形容詞）→ beautifully（副詞）
+- health（名詞）→ healthy（形容詞）→ healthily（副詞）
+
+### 2. 例文の中で覚える
+
+丸暗記より例文の中で覚えるほうが長持ちします。Loop Vocabulary の AI解説機能で、中学レベルの例文を自動生成して確認しましょう。
+
+### 3. 小テストで定着確認
+
+単語を「知っている」と「書ける」は別です。Loop Vocabulary の **入力テスト** で、スペルまで書ける状態を目指しましょう。
+
+---
+
+## 高校受験・英検3級との対応
+
+中学英語の語彙は以下の試験に直結します。
+
+| 試験 | 必要な中学単語の割合 |
+|---|---|
+| 高校受験（公立） | 約80% |
+| 英検3級 | 約90% |
+| 英検準2級 | 約50% |
+
+高校受験を控えている人は、中学単語を完璧にしてから高校単語に進むのが最も効率的です。
+
+---
+
+## 中学英語単語の学習スケジュール
+
+| 期間 | 目標 | 1日の学習量 |
+|---|---|---|
+| 1ヶ月目 | 400語 | 15語/日 |
+| 2ヶ月目 | 800語 | 15語/日（復習含む） |
+| 3ヶ月目 | 1,200語完了 | 10語/日＋復習 |
+
+SRS（忘却曲線復習）を使えば、3ヶ月で中学単語を完全習得できます。
+
+---
+
+## まとめ
+
+中学英語単語の完全習得は「英語の土台作り」です。Loop Vocabulary で単語を登録し、忘却曲線に沿った自動復習で、確実に長期記憶に定着させましょう。
+
+まずは無料で始めて、今日から1日15語の学習を始めてみましょう。
+    `,
+  },
+
+  "eiken-conversation": {
+    title: "英会話に効く英単語の覚え方【使える語彙を増やす】",
+    description: "日常英会話・旅行英語・ビジネス会話で実際に使える単語の覚え方と、アウトプット練習法を解説します。",
+    tag: "英会話",
+    published: "2024-12-15",
+    content: `
+## 英会話に必要な単語は「教科書英語」と違う
+
+英会話で使う語彙は、試験英語と重なる部分もありますが、**口語表現・フレーズ・感情表現** など特有の語彙があります。
+
+テストで高得点でも英会話が苦手な人が多い理由：
+- 知識として単語を知っているが、**瞬時に口から出てこない**
+- 自然な口語表現（スラング・コロケーション）を知らない
+- フレーズ単位で覚えていない
+
+---
+
+## 英会話頻出フレーズ・表現
+
+### 相づち・返答
+
+| 表現 | 使う場面 |
+|---|---|
+| That makes sense. | なるほど、理解した |
+| Absolutely. | 全くその通り |
+| No worries. | 大丈夫、気にしないで |
+| Fair enough. | まあ、そうだね |
+| I hear you. | おっしゃる通り |
+
+### 気持ちを表す表現
+
+| 単語・表現 | 意味 |
+|---|---|
+| thrilled | 大興奮している |
+| overwhelmed | 圧倒されている |
+| relieved | ほっとした |
+| frustrated | イライラしている |
+| grateful | ありがたく思っている |
+
+### 依頼・提案
+
+| 表現 | 意味 |
+|---|---|
+| Could you...? | 〜していただけますか？ |
+| Would you mind...? | 〜してもいいですか？ |
+| How about...? | 〜はどうですか？ |
+| Why don't we...? | 〜しませんか？ |
+
+---
+
+## 旅行英語の必須単語
+
+旅行で使う単語は限られていますが、これを覚えるだけで大きく変わります。
+
+**空港・交通**
+- departure（出発）/ arrival（到着）/ gate（搭乗口）/ transit（乗り継ぎ）/ fare（運賃）
+
+**ホテル**
+- check-in / check-out / reservation（予約）/ vacancy（空室）/ concierge（コンシェルジュ）
+
+**レストラン**
+- menu / recommendation（おすすめ）/ allergy（アレルギー）/ bill / takeout
+
+---
+
+## 英会話に効く単語の覚え方
+
+### フレーズ単位で登録する
+
+単語単体ではなく、**よく使うフレーズごと** Loop Vocabulary に登録するのが英会話上達の近道です。
+
+例：
+- "make sense" → 「意味をなす・理解できる」
+- "keep in touch" → 「連絡を取り合う」
+- "look forward to" → 「楽しみにしている」
+
+### AI解説で使い方を確認
+
+Loop Vocabulary の AI解説機能で「どんな場面で使うか」「似た表現との違い」を確認することで、実際の会話で使えるようになります。
+
+### 音声読み上げで発音を確認
+
+英会話では発音が重要です。単語を登録したら必ず **音声読み上げボタン** で発音を確認しましょう。正しい発音を耳に慣らすことで、ネイティブの英語も聞き取りやすくなります。
+
+---
+
+## 英会話力を上げるための学習サイクル
+
+1. **Input**：Loop Vocabulary で新しいフレーズ・単語を登録
+2. **Review**：忘却曲線で自動復習→長期記憶へ
+3. **Output**：覚えたフレーズを実際の会話・メモ・日記で使う
+4. **Feedback**：間違えた表現を苦手リストで管理
+
+---
+
+## まとめ
+
+英会話に効く語彙は、フレーズ単位・感情表現・口語表現など、教科書にない表現が多くあります。Loop Vocabulary に日常で出会った表現をどんどん登録し、SRS で定着させることで、実践的な英語力が身につきます。
+
+まず旅行英語か日常会話フレーズから始めてみましょう。
+    `,
+  },
+
+  "ielts-tango": {
+    title: "IELTSの英単語学習法【アカデミック語彙を効率的に覚える】",
+    description: "IELTS Academic/General の頻出語彙・AWL（アカデミック語彙リスト）の攻略法と、スコア帯別の学習戦略を解説します。",
+    tag: "IELTS",
+    published: "2025-01-05",
+    content: `
+## IELTSに必要な語彙の特徴
+
+IELTS（International English Language Testing System）は、英国・オーストラリア・カナダ留学や就労ビザに必要な英語力試験です。
+
+TOEICや英検と大きく異なる点：
+- **アカデミック語彙**（学術論文・レポートで使う語彙）が中心
+- 4技能（Reading / Listening / Writing / Speaking）すべてで語彙力が問われる
+- 日本の英語教育では出てこない表現が多い
+
+---
+
+## AWL（Academic Word List）とは
+
+IELTS対策で最重要なのが **AWL（Academic Word List）** です。学術文書で頻出する570語のリストで、IELTSのリーディング・ライティングに頻出します。
+
+AWLの特徴：
+- 日常会話ではあまり使わない「論文語」
+- 同じ語根を持つ派生語が多い（analyze → analysis → analytical）
+- 抽象概念を表す語が多い
+
+---
+
+## IELTSスコア帯別の必要語彙数
+
+| スコア（Band） | 必要語彙数の目安 |
+|---|---|
+| Band 5〜5.5 | 4,000〜5,000語 |
+| Band 6〜6.5 | 6,000〜7,000語 |
+| Band 7〜7.5 | 9,000〜10,000語 |
+| Band 8以上 | 12,000語以上 |
+
+---
+
+## IELTSで頻出するアカデミック単語
+
+**分析・論述**
+- analyze / evaluate / demonstrate / indicate / suggest / argue
+
+**変化・影響**
+- significant（重要な）/ considerable（かなりの）/ dramatic（劇的な）/ gradual（徐々の）
+
+**比較・対比**
+- whereas（〜である一方）/ nevertheless（それにもかかわらず）/ conversely（逆に）
+
+**因果関係**
+- consequently（結果として）/ therefore / thus / hence / as a result
+
+**抽象概念**
+- concept / framework / perspective / approach / aspect / factor
+
+---
+
+## IELTSライティングで差がつく語彙
+
+Writingでは同じ単語の繰り返しを避け、言い換え表現を使うことが高得点のカギです。
+
+| 基本語 | 言い換え（上級） |
+|---|---|
+| show | demonstrate / indicate / reveal |
+| big | substantial / considerable / significant |
+| problem | challenge / issue / concern |
+| use | utilize / employ / implement |
+| help | facilitate / assist / contribute to |
+
+---
+
+## Loop VocabularyでのIELTS対策
+
+### AWL単語帳を作る
+
+AWLの570語をカテゴリ別（Sublist 1〜10）に分けて単語帳を作成し、SRS で繰り返し復習します。
+
+### プレミアムのCSVインポートを活用
+
+AWLの単語リストをCSVでまとめて作成し、Loop Vocabulary にインポートすることで、効率よく570語を管理できます。
+
+### AI解説でコロケーションを確認
+
+IELTSでは単語の「組み合わせ（コロケーション）」が重要です。
+
+例：「conduct research」は正しいが「make research」は間違い。AI解説でこうした使い方の違いを確認しましょう。
+
+---
+
+## IELTSに向けた学習スケジュール
+
+| 現在のスコア | 目標 | 推奨学習期間 |
+|---|---|---|
+| Band 5 | Band 6 | 3〜4ヶ月 |
+| Band 6 | Band 7 | 6〜9ヶ月 |
+| Band 7 | Band 7.5 | 6ヶ月〜1年 |
+
+毎日1時間の語彙学習（SRS）+ 週3回の過去問演習が最短ルートです。
+
+---
+
+## まとめ
+
+IELTSの語彙学習は、AWLを中心としたアカデミック英語の習得が核心です。Loop Vocabulary でAWL単語帳を作り、SRS で定着させながら、AI解説でコロケーション・使い方を深く理解することで、スコアアップが実現できます。
+
+まず無料プランで始めて、AWL Sublist 1（60語）から学習を開始しましょう。
+    `,
+  },
+
+  "eiken-jun1-tango": {
+    title: "英検準1級 単語の攻略法と学習ロードマップ",
+    description: "英検準1級合格に必要な語彙数・頻出テーマ・学習スケジュールを徹底解説。2級合格後の次のステップとして。",
+    tag: "英検準1級",
+    published: "2024-11-01",
+    content: `
+## 英検準1級の難易度と必要な語彙数
+
+英検準1級は「大学中級程度」の英語力を測る試験で、合格率は約15〜20%と難関です。必要な語彙数は **7,500〜9,000語** とされており、2級（5,000語）から大きくジャンプします。
+
+語彙問題（大問1）は41問中25問を占め、**ここで高得点を取れるかどうかが合否を分けます**。
+
+---
+
+## 英検準1級の頻出テーマと重要単語
+
+準1級の語彙問題は「抽象度の高い表現」が多く出題されます。日常会話では使わないが、論説文・ニュース記事では必須の単語が中心です。
+
+**政治・社会**
+- implement（実施する）/ advocate（提唱する）/ legislation（法律制定）/ sanction（制裁）
+
+**経済・ビジネス**
+- revenue（収益）/ fiscal（財政の）/ deficit（赤字）/ incentive（奨励策）
+
+**科学・環境**
+- sustainable（持続可能な）/ emit（排出する）/ biodiversity（生物多様性）/ deteriorate（悪化する）
+
+**医療・福祉**
+- chronic（慢性的な）/ alleviate（緩和する）/ susceptible（影響を受けやすい）/ resilient（回復力のある）
+
+---
+
+## 2級合格後から準1級までのロードマップ
+
+### フェーズ1：語彙強化（3〜4ヶ月）
+
+準1級の核心は語彙です。まず専用単語帳（「英検準1級でる順パス単」など）を使い、3,000〜4,000語を集中習得します。
+
+Loop Vocabulary での学習法：
+- 1日 **50語** を SRS で回す
+- 間違えた単語は「苦手フラグ」で管理し、集中的に再出題
+- AI解説で語源・類義語・使い方を深掘り
+
+### フェーズ2：過去問演習（2〜3ヶ月）
+
+語彙の土台ができたら過去問に取り組みます。
+
+- 語彙問題：25問中20問以上を目標
+- 長文読解：内容一致問題の精度を上げる
+- 英作文（ライティング）：250語前後の意見文を書く練習
+
+### フェーズ3：弱点補強・仕上げ（1ヶ月）
+
+Loop Vocabulary の「苦手単語」機能で、繰り返し間違える単語を集中補強します。
+
+---
+
+## 準1級の語彙問題の解き方
+
+準1級の語彙問題は「文脈から意味を推測する力」も求められます。
+
+**解法のポイント：**
+1. 選択肢の4語をすべて確認し、知らない語をメモ
+2. 文の主語・動詞・目的語の関係から、入る品詞を確認
+3. 同じ語根を持つ単語から意味を類推
+
+例：「The policy was designed to **alleviate** poverty.」→「緩和する」が入ると推測
+
+---
+
+## 準1級合格に必要な勉強時間
+
+英検2級合格者が準1級に合格するまでの目安：
+
+| 週の学習時間 | 合格までの期間 |
+|---|---|
+| 週5時間 | 約12〜18ヶ月 |
+| 週10時間 | 約6〜9ヶ月 |
+| 週20時間 | 約3〜4ヶ月 |
+
+「毎日コツコツ」が最も効果的です。Loop Vocabulary のストリーク機能で継続を可視化しましょう。
+
+---
+
+## まとめ
+
+英検準1級合格のカギは **語彙力の圧倒的な底上げ** です。1日50語のSRS学習を継続し、AI解説で語の深い理解を積み重ねることで、合格に近づけます。
+
+まずは無料プランで単語帳を作り、準1級頻出語の学習を今日から始めましょう。
+    `,
+  },
+
+  "business-english-tango": {
+    title: "ビジネス英語の必須単語300選と実践的な覚え方",
+    description: "会議・メール・プレゼンで使えるビジネス英語の頻出単語と表現を厳選。TOEIC・英検との違いと実践活用法も解説。",
+    tag: "ビジネス英語",
+    published: "2024-11-15",
+    content: `
+## ビジネス英語単語が「普通の英語」と違う理由
+
+ビジネス英語には、日常英語やテスト英語とは異なる **特有の語彙・表現・略語** が存在します。会議で"Let's circle back on this."と言われて固まった経験はありませんか？
+
+ビジネス英語の特徴：
+- **略語・バズワード**：KPI、ROI、B2B、synergy など
+- **婉曲表現**：「却下する」を"decline to proceed"と言う
+- **動詞の名詞化**：utilization（利用）、implementation（実施）
+
+---
+
+## シーン別・必須ビジネス英語単語
+
+### 会議・ディスカッション
+
+| 単語・表現 | 意味 |
+|---|---|
+| agenda | 議題・アジェンダ |
+| minutes | 議事録 |
+| follow up | フォローアップする |
+| circle back | 後で再確認する |
+| action item | 決定事項・タスク |
+| deliverable | 成果物 |
+| bottleneck | ボトルネック・障害 |
+
+### メール・コミュニケーション
+
+| 単語・表現 | 意味 |
+|---|---|
+| regarding | 〜について（件名に使う） |
+| as per | 〜に従って |
+| acknowledge | 確認・受領する |
+| enclosed | 添付の・同封の |
+| revert | 返信する（アジア英語） |
+| cc / bcc | CC / BCC |
+
+### プレゼン・提案
+
+| 単語・表現 | 意味 |
+|---|---|
+| overview | 概要 |
+| benchmark | 基準・目標値 |
+| projection | 予測・見込み |
+| stakeholder | 利害関係者 |
+| scalable | スケーラブルな |
+| pivot | 方向転換する |
+
+---
+
+## KPI・数値関連の重要単語
+
+ビジネスでは数値を表す英語が頻出します。
+
+- **revenue**（収益）vs **profit**（利益）：revenue は売上全体、profit はコスト差し引き後
+- **gross**（総〜）vs **net**（純〜）：gross profit（粗利）、net profit（純利益）
+- **forecast**（予測）vs **projection**（見込み）：forecast は過去データ基準、projection は仮定基準
+- **YoY**（前年比）/ **QoQ**（前四半期比）/ **MoM**（前月比）
+
+---
+
+## ビジネスメールで差がつく動詞
+
+単純な動詞をビジネス英語に格上げする表現集：
+
+| 日常表現 | ビジネス英語 | ニュアンス |
+|---|---|---|
+| tell | inform / notify | フォーマル |
+| need | require / necessitate | 書き言葉 |
+| use | utilize / leverage | 積極的活用 |
+| start | initiate / commence | 公式文書向け |
+| end | conclude / terminate | 正式終了 |
+| help | facilitate / assist | サポート |
+
+---
+
+## ビジネス英語の学習法
+
+### 実務との組み合わせが最速
+
+英単語帳だけでなく、実際のビジネス文書から単語を抽出するのが最も定着が早い方法です。
+
+1. **仕事のメール・資料から単語を抽出** → Loop Vocabulary に登録
+2. SRS で繰り返し出題し、スペルと意味を確実に覚える
+3. AI解説でビジネス文脈での使い方を確認
+4. 実際に自分のメール・資料で使ってみる
+
+### Loop Vocabulary でのビジネス英語管理
+
+- 単語帳を「会議用」「メール用」「財務用」に分けて管理
+- CSV インポート（プレミアム）で、用語集・対訳表を一括取り込み
+- 週1回「苦手単語」を集中復習して完全定着
+
+---
+
+## まとめ
+
+ビジネス英語の語彙は、テスト英語と重なる部分もありますが、会議・メール・プレゼン特有の表現が多数あります。実務で使う単語を積極的に Loop Vocabulary に登録し、SRS で定着させることで、実践的な英語力が身につきます。
+
+無料プランで今すぐビジネス英語の単語帳を作りましょう。
+    `,
+  },
+
   "toeic-tango": {
     title: "TOEICスコアアップの英単語学習法【600→800点】",
     description: "TOEIC L&R テストの頻出単語の特徴とスコア帯別の学習戦略を解説。アプリを使った継続学習のコツも紹介します。",
@@ -403,13 +909,36 @@ function renderInline(text: string): React.ReactNode {
   });
 }
 
+const SITE_URL = "https://loop-vocabulary.app";
+
 export default async function GuidePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const article = ARTICLES[slug];
   if (!article) notFound();
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": article.title,
+    "description": article.description,
+    "datePublished": article.published,
+    "author": { "@type": "Organization", "name": "Loop Vocabulary" },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Loop Vocabulary",
+      "url": SITE_URL,
+    },
+    "url": `${SITE_URL}/guide/${slug}`,
+    "mainEntityOfPage": `${SITE_URL}/guide/${slug}`,
+    "keywords": article.tag,
+  };
+
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* ヘッダー */}
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-10 pb-14 text-white">
         <div className="max-w-2xl mx-auto">

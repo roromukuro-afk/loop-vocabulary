@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { WordListWithDrawer } from "./WordListWithDrawer";
+import { ShareButton } from "@/components/wordbooks/ShareButton";
+import { AiSuggestButton } from "@/components/wordbooks/AiSuggestButton";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,9 @@ export default async function WordBookDetailPage({ params }: { params: Promise<{
     .eq("user_id", user.id)
     .eq("word_book_id", id)
     .order("created_at", { ascending: false });
+
+  const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
+  const isPremium = profile?.plan === "premium";
 
   const masteredCount = (words ?? []).filter(w => (w.mastery ?? 0) >= 80).length;
   const totalCount = words?.length ?? 0;
@@ -72,6 +77,7 @@ export default async function WordBookDetailPage({ params }: { params: Promise<{
         <Link href={`/review?book=${book.id}`}><Button fullWidth variant="secondary">この帳を復習</Button></Link>
         <Link href={`/wordbooks/${book.id}/csv-import`}><Button fullWidth variant="secondary">📁 CSV インポート</Button></Link>
       </div>
+      <AiSuggestButton wordbookId={book.id} isPremium={isPremium} />
 
       <Card className="mt-5">
         <CardTitle>
@@ -80,6 +86,15 @@ export default async function WordBookDetailPage({ params }: { params: Promise<{
         </CardTitle>
         <WordListWithDrawer words={words ?? []} />
       </Card>
+
+      {/* 単語帳シェア */}
+      <div className="mt-4">
+        <ShareButton
+          wordbookId={book.id}
+          initialShared={book.is_shared ?? false}
+          initialCode={book.share_code ?? null}
+        />
+      </div>
 
       <div className="mt-5"><BannerAdPlaceholder /></div>
     </AppShell>

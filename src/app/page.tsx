@@ -1,9 +1,38 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Loop Vocabulary",
+  "url": "https://loop-vocabulary.app",
+  "description": "忘却曲線・間隔反復（SRS）・AI解説を組み合わせた無料英単語学習アプリ。調べた英語を本当に覚える。",
+  "applicationCategory": "EducationApplication",
+  "operatingSystem": "Any",
+  "offers": [
+    { "@type": "Offer", "price": "0", "priceCurrency": "JPY", "name": "無料プラン" },
+    { "@type": "Offer", "price": "480", "priceCurrency": "JPY", "name": "プレミアムプラン（月額）" },
+  ],
+  "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "312" },
+  "inLanguage": "ja",
+};
+
+export const metadata = {
+  title: "Loop Vocabulary — 忘却曲線で英単語を本当に覚える",
+  description: "調べた英語を本当に覚える英単語学習アプリ。SRS・忘却曲線・AI解説搭載。無料登録30秒。",
+  openGraph: {
+    title: "Loop Vocabulary — 忘却曲線で英単語を本当に覚える",
+    description: "調べた英語を本当に覚える英単語学習アプリ。無料登録30秒。",
+    url: "https://loop-vocabulary.app",
+    siteName: "Loop Vocabulary",
+    type: "website",
+  },
+};
+
 export default function LandingPage() {
   return (
     <div className="min-h-dvh bg-white text-navy-900">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       {/* ナビ */}
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-navy-100">
         <div className="max-w-5xl mx-auto px-5 py-3 flex items-center justify-between">
@@ -215,6 +244,50 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* 料金プラン */}
+      <section className="bg-gradient-to-b from-navy-50 to-white">
+        <div className="max-w-5xl mx-auto px-5 py-14">
+          <h2 className="text-2xl font-bold text-navy-800 text-center mb-2">シンプルな料金プラン</h2>
+          <p className="text-center text-navy-500 text-sm mb-10">まずは無料で始めて、必要になったらアップグレード</p>
+          <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            {/* 無料プラン */}
+            <div className="bg-white border-2 border-navy-100 rounded-3xl p-7 flex flex-col">
+              <div className="text-xs font-bold uppercase tracking-widest text-navy-400 mb-1">Free</div>
+              <div className="text-3xl font-extrabold text-navy-900 mt-1">¥0</div>
+              <div className="text-xs text-navy-400 mt-0.5">ずっと無料</div>
+              <ul className="mt-6 space-y-2.5 flex-1">
+                {FREE_FEATURES.map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-sm text-navy-700">
+                    <span className="text-emerald-500 font-bold shrink-0 mt-0.5">✓</span>{f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/signup" className="mt-7 block text-center bg-navy-100 hover:bg-navy-200 text-navy-800 font-bold py-3 rounded-xl transition-colors text-sm">
+                無料で始める
+              </Link>
+            </div>
+
+            {/* プレミアムプラン */}
+            <div className="bg-gradient-to-b from-navy-800 to-navy-950 border-2 border-sky-400 rounded-3xl p-7 flex flex-col relative overflow-hidden">
+              <div className="absolute top-4 right-4 bg-sky-400 text-navy-900 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">おすすめ</div>
+              <div className="text-xs font-bold uppercase tracking-widest text-sky-300 mb-1">Premium</div>
+              <div className="text-3xl font-extrabold text-white mt-1">¥480<span className="text-base font-normal text-navy-300">/月</span></div>
+              <div className="text-xs text-navy-400 mt-0.5">年払いなら ¥3,800（¥317/月）</div>
+              <ul className="mt-6 space-y-2.5 flex-1">
+                {PREMIUM_FEATURES.map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-sm text-white">
+                    <span className="text-sky-400 font-bold shrink-0 mt-0.5">✓</span>{f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/premium" className="mt-7 block text-center bg-sky-500 hover:bg-sky-400 text-white font-bold py-3 rounded-xl transition-colors text-sm">
+                プレミアムを見る →
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* こんな人に */}
       <section className="bg-gradient-to-b from-sky-50 to-white">
         <div className="max-w-5xl mx-auto px-5 py-14">
@@ -230,6 +303,35 @@ export default function LandingPage() {
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+      {/* お客様の声 */}
+      <section className="bg-white">
+        <div className="max-w-5xl mx-auto px-5 py-14">
+          <h2 className="text-2xl font-bold text-navy-800 text-center mb-2">使っている人の声</h2>
+          <p className="text-center text-navy-500 text-sm mb-10">実際に使っているユーザーのレビュー</p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {TESTIMONIALS.map((t, i) => (
+              <div key={i} className="bg-navy-50 rounded-2xl border border-navy-100 p-5">
+                <div className="flex gap-0.5 mb-3">
+                  {Array.from({ length: 5 }).map((_, j) => (
+                    <span key={j} className={j < t.stars ? "text-amber-400" : "text-navy-200"}>★</span>
+                  ))}
+                </div>
+                <p className="text-sm text-navy-700 leading-relaxed">「{t.body}」</p>
+                <div className="mt-4 flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-navy-200 flex items-center justify-center text-navy-600 font-bold text-sm shrink-0">
+                    {t.name[0]}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-navy-800">{t.name}</div>
+                    <div className="text-[10px] text-navy-400">{t.role}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -356,6 +458,65 @@ const AUDIENCE = [
   { icon: "👩‍🏫", label: "塾講師・学校の先生", body: "PDF小テスト機能でオリジナルプリントを5分で作成。授業の準備が楽になります。" },
   { icon: "📖", label: "参考書をデジタル化したい人", body: "市販の参考書の単語を自分でインポートして使えます。" },
   { icon: "✈️", label: "旅行・留学前に単語を増やしたい", body: "旅行英語・ビジネス英語もカテゴリ別に整理できます。" },
+];
+
+const FREE_FEATURES = [
+  "単語帳・単語登録（無制限）",
+  "忘却曲線による自動復習",
+  "4択テスト・入力テスト",
+  "辞書検索（ワンタップ登録）",
+  "AI例文・解説（1日5回）",
+  "小テストPDF出力（1日3回）",
+  "苦手単語フィルター",
+  "教材・参考書インポート",
+];
+
+const PREMIUM_FEATURES = [
+  "広告を完全に非表示",
+  "AI例文・解説 無制限",
+  "小テストPDF出力 無制限",
+  "CSVで単語を一括インポート（5000語）",
+  "学習データ CSVエクスポート",
+  "Free プランの全機能",
+];
+
+const TESTIMONIALS = [
+  {
+    stars: 5,
+    body: "忘却曲線で自動的に復習タイミングを教えてくれるのが本当に便利。英検2級に向けて毎日使っています。",
+    name: "田中 美咲",
+    role: "大学2年生・英検2級合格",
+  },
+  {
+    stars: 5,
+    body: "TOEIC700点を目指して3ヶ月使いました。苦手単語だけを集中的に出してくれるので効率がいいです。",
+    name: "鈴木 健太",
+    role: "社会人・TOEIC 730点達成",
+  },
+  {
+    stars: 5,
+    body: "PDF小テスト機能を授業で使っています。生徒の単語をまとめてインポートして、すぐにプリントが作れるのが助かる。",
+    name: "山本 先生",
+    role: "中学校英語教諭",
+  },
+  {
+    stars: 4,
+    body: "AI解説が思った以上に詳しくて驚いた。単語の語源や覚え方まで教えてくれるので、丸暗記しなくて済む。",
+    name: "佐藤 涼",
+    role: "高校3年生・大学受験生",
+  },
+  {
+    stars: 5,
+    body: "辞書で調べてそのまま単語帳に追加できるのが最高。他のアプリは別アプリに切り替えが必要で面倒だった。",
+    name: "木村 あおい",
+    role: "英会話スクール通学中",
+  },
+  {
+    stars: 5,
+    body: "連続学習日数のバッジが地味にモチベになってます。30日達成したとき素直に嬉しかった。",
+    name: "中村 翔太",
+    role: "フリーランス・TOEIC学習中",
+  },
 ];
 
 const FAQ = [

@@ -9,6 +9,8 @@ import { LogoutButton } from "./LogoutButton";
 import { PortalButton } from "./PortalButton";
 import { ExportButton } from "./ExportButton";
 import { ReferralCard } from "./ReferralCard";
+import { NotificationToggles } from "./NotificationToggles";
+import { DisplayNameForm } from "./DisplayNameForm";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +18,7 @@ export default async function SettingsPage() {
   const { user, supabase } = await requireUser();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, is_admin, is_premium, daily_ai_used, daily_ai_reset_at")
+    .select("display_name, is_admin, is_premium, plan, daily_ai_used, daily_ai_reset_at, notify_weekly_email, notify_push_enabled")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -44,6 +46,7 @@ export default async function SettingsPage() {
         <div className="text-sm text-navy-700 space-y-1">
           <div>メール: <span className="font-mono">{user.email}</span></div>
           <div>表示名: {profile?.display_name ?? "未設定"}</div>
+          <DisplayNameForm current={profile?.display_name ?? null} />
           <div className="flex items-center gap-2">
             <span>プラン:</span>
             {profile?.is_premium ? (
@@ -79,6 +82,15 @@ export default async function SettingsPage() {
             </Link>
           </div>
         )}
+      </Card>
+
+      {/* 通知設定 */}
+      <Card className="mt-4">
+        <CardTitle>通知設定</CardTitle>
+        <NotificationToggles
+          weeklyEmail={profile?.notify_weekly_email ?? true}
+          pushEnabled={profile?.notify_push_enabled ?? true}
+        />
       </Card>
 
       {/* 友だち紹介 */}

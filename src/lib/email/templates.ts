@@ -1,0 +1,99 @@
+export function welcomeEmailHtml(displayName: string): string {
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f7f9fc;font-family:'Helvetica Neue',Arial,sans-serif;">
+<div style="max-width:560px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+  <div style="background:linear-gradient(135deg,#1e3a5f,#0f2540);padding:32px 32px 24px;text-align:center;">
+    <div style="font-size:28px;font-weight:900;color:#fff;letter-spacing:-0.5px;">Loop <span style="color:#38bdf8;">Vocabulary</span></div>
+    <p style="color:#94a3b8;margin:8px 0 0;font-size:14px;">英単語学習アプリ</p>
+  </div>
+  <div style="padding:32px;">
+    <h1 style="font-size:20px;color:#1e3a5f;margin:0 0 16px;">ようこそ、${displayName || "学習者"}さん！ 🎉</h1>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 20px;">
+      Loop Vocabulary へのご登録ありがとうございます。<br>
+      忘却曲線・AI解説・4択テストを組み合わせた学習で、英単語を長期記憶に定着させましょう。
+    </p>
+    <div style="background:#f0f9ff;border-radius:12px;padding:20px;margin:20px 0;">
+      <p style="font-size:13px;font-weight:700;color:#0369a1;margin:0 0 12px;">まずはこの3ステップから</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${["1️⃣ 単語帳を作る — テーマを決めてスタート", "2️⃣ 最初の10語を登録 — 辞書検索からワンタップ", "3️⃣ 今日の復習 — SRSが自動でスケジュール"].map(s => `<div style="font-size:13px;color:#1e3a5f;">${s}</div>`).join("")}
+      </div>
+    </div>
+    <div style="text-align:center;margin:28px 0 0;">
+      <a href="https://loop-vocabulary.vercel.app/dashboard" style="display:inline-block;background:#1e3a5f;color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:700;font-size:15px;">
+        ダッシュボードへ →
+      </a>
+    </div>
+  </div>
+  <div style="border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
+    <p style="color:#94a3b8;font-size:12px;margin:0;">
+      このメールはLoop Vocabularyに登録したアカウントに送信されています。<br>
+      <a href="https://loop-vocabulary.vercel.app/settings" style="color:#64748b;">通知設定</a> |
+      <a href="https://loop-vocabulary.vercel.app/privacy" style="color:#64748b;">プライバシーポリシー</a>
+    </p>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+export function weeklyDigestHtml(opts: {
+  displayName: string;
+  weeklyStudied: number;
+  weeklyCorrect: number;
+  dueCount: number;
+  streak: number;
+}): string {
+  const { displayName, weeklyStudied, weeklyCorrect, dueCount, streak } = opts;
+  const acc = weeklyStudied > 0 ? Math.round((weeklyCorrect / weeklyStudied) * 100) : 0;
+  const emoji = acc >= 80 ? "🎯" : acc >= 60 ? "📚" : "💪";
+
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f7f9fc;font-family:'Helvetica Neue',Arial,sans-serif;">
+<div style="max-width:560px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+  <div style="background:linear-gradient(135deg,#1e3a5f,#0f2540);padding:28px 32px;text-align:center;">
+    <div style="font-size:22px;font-weight:900;color:#fff;">Loop <span style="color:#38bdf8;">Vocabulary</span></div>
+    <p style="color:#94a3b8;margin:6px 0 0;font-size:13px;">週次学習レポート</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <h1 style="font-size:18px;color:#1e3a5f;margin:0 0 4px;">${emoji} 今週もお疲れさまでした！</h1>
+    <p style="color:#64748b;font-size:14px;margin:0 0 24px;">${displayName || "学習者"}さんの今週の学習まとめ</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px;">
+      ${[
+        ["今週の学習数", `${weeklyStudied}語`, "#dbeafe", "#1d4ed8"],
+        ["正答率", `${acc}%`, "#dcfce7", "#15803d"],
+        ["連続学習", `${streak}日`, "#fef3c7", "#d97706"],
+      ].map(([label, val, bg, color]) =>
+        `<div style="background:${bg};border-radius:12px;padding:14px;text-align:center;">
+          <div style="font-size:22px;font-weight:900;color:${color};">${val}</div>
+          <div style="font-size:11px;color:#475569;margin-top:4px;">${label}</div>
+        </div>`
+      ).join("")}
+    </div>
+    ${dueCount > 0 ? `
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <p style="font-size:14px;color:#9a3412;font-weight:700;margin:0 0 4px;">📌 復習待ち: ${dueCount}語</p>
+      <p style="font-size:13px;color:#c2410c;margin:0;">忘れる前に復習しておきましょう！</p>
+    </div>` : `
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <p style="font-size:14px;color:#15803d;font-weight:700;margin:0;">✅ 復習はすべて完了しています！</p>
+    </div>`}
+    <div style="text-align:center;">
+      <a href="https://loop-vocabulary.vercel.app/dashboard" style="display:inline-block;background:#1e3a5f;color:#fff;text-decoration:none;padding:13px 32px;border-radius:10px;font-weight:700;font-size:14px;">
+        今週も学習を続ける →
+      </a>
+    </div>
+  </div>
+  <div style="border-top:1px solid #e2e8f0;padding:16px 32px;text-align:center;">
+    <p style="color:#94a3b8;font-size:11px;margin:0;">
+      <a href="https://loop-vocabulary.vercel.app/settings" style="color:#64748b;">通知設定を変更</a> |
+      <a href="https://loop-vocabulary.vercel.app/privacy" style="color:#64748b;">プライバシーポリシー</a>
+    </p>
+  </div>
+</div>
+</body>
+</html>`;
+}

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils/cn";
 import { PronounceButton } from "@/components/ui/PronounceButton";
@@ -25,6 +25,8 @@ type Word = {
   derivative: string | null;
 };
 
+type Filter = "all" | "weak" | "unmastered" | "mastered";
+
 function masteryColor(pct: number) {
   if (pct >= 80) return "bg-emerald-400";
   if (pct >= 40) return "bg-amber-400";
@@ -44,6 +46,27 @@ function formatDate(iso: string | null) {
 export function WordListWithDrawer({ words }: { words: Word[] }) {
   const [selected, setSelected] = useState<Word | null>(null);
   const [closing, setClosing] = useState(false);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+
+  const filtered = useMemo(() => {
+    let list = words;
+    if (filter === "weak") list = list.filter((w) => w.is_weak);
+    else if (filter === "unmastered") list = list.filter((w) => (w.mastery ?? 0) < 80);
+    else if (filter === "mastered") list = list.filter((w) => (w.mastery ?? 0) >= 80);
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      list = list.filter((w) => w.word.toLowerCase().includes(q) || w.meaning.toLowerCase().includes(q));
+    }
+    return list;
+  }, [words, filter, query]);
+
+  const FILTERS: { key: Filter; label: string; count: number }[] = [
+    { key: "all", label: "すべて", count: words.length },
+    { key: "weak", label: "苦手", count: words.filter((w) => w.is_weak).length },
+    { key: "unmastered", label: "未習得", count: words.filter((w) => (w.mastery ?? 0) < 80).length },
+    { key: "mastered", label: "習得済み", count: words.filter((w) => (w.mastery ?? 0) >= 80).length },
+  ];
 
   const openDrawer = (w: Word) => {
     setClosing(false);
@@ -63,8 +86,35 @@ export function WordListWithDrawer({ words }: { words: Word[] }) {
 
   return (
     <>
+      {/* 検索・フィルター */}
+      <div className="mb-3 space-y-2">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="単語・意味で検索…"
+          className="w-full border border-navy-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+        />
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={cn(
+                "shrink-0 text-xs px-3 py-1 rounded-full border font-medium transition-colors",
+                filter === f.key
+                  ? "bg-navy-800 text-white border-navy-800"
+                  : "bg-white text-navy-600 border-navy-200 hover:bg-navy-50",
+              )}
+            >
+              {f.label} <span className="opacity-70">({f.count})</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <ul className="divide-y divide-navy-100">
-        {words.map((w) => {
+        {filtered.map((w) => {
           const pct = w.mastery ?? 0;
           return (
             <li
@@ -95,12 +145,13 @@ export function WordListWithDrawer({ words }: { words: Word[] }) {
             </li>
           );
         })}
-        {words.length === 0 && (
+        {filtered.length === 0 && (
           <li className="py-6 text-sm text-navy-500 text-center">
-            この単語帳にはまだ単語がありません。「＋ 単語追加」から登録してください。
+            {query || filter !== "all" ? "条件に一致する単語がありません。" : "この単語帳にはまだ単語がありません。「＋ 単語追加」から登録してください。"}
           </li>
         )}
       </ul>
+      <p className="text-[11px] text-navy-400 mt-2 text-right">{filtered.length}/{words.length} 件表示</p>
 
       {/* オーバーレイ */}
       {selected && (

@@ -22,17 +22,67 @@ const GUIDES = [
     readTime: "4分",
   },
   {
+    slug: "chugaku-eigo-tango",
+    title: "中学英語の単語を完璧に覚える方法【基礎固め完全版】",
+    description: "高校受験・英検3級の基礎となる中学英単語1,200語の効率的な覚え方を解説。",
+    tag: "中学英語",
+    readTime: "4分",
+  },
+  {
+    slug: "eiken-jun1-tango",
+    title: "英検準1級 単語の攻略法と学習ロードマップ",
+    description: "準1級合格に必要な語彙数・頻出テーマ・学習スケジュールを徹底解説。2級合格後の次のステップ。",
+    tag: "英検準1級",
+    readTime: "5分",
+  },
+  {
     slug: "toeic-tango",
     title: "TOEICスコアアップの英単語学習法【600→800点】",
     description: "TOEIC頻出単語の特徴と、スコア帯別の学習戦略。アプリで継続するコツも解説。",
     tag: "TOEIC",
     readTime: "6分",
   },
+  {
+    slug: "eiken-conversation",
+    title: "英会話に効く英単語の覚え方【使える語彙を増やす】",
+    description: "日常英会話・旅行英語で実際に使える単語とフレーズの覚え方とアウトプット練習法を解説。",
+    tag: "英会話",
+    readTime: "4分",
+  },
+  {
+    slug: "ielts-tango",
+    title: "IELTSの英単語学習法【アカデミック語彙を効率的に覚える】",
+    description: "IELTS頻出語彙・AWL攻略法とスコア帯別の学習戦略。留学・就労ビザ取得を目指す方向け。",
+    tag: "IELTS",
+    readTime: "5分",
+  },
+  {
+    slug: "business-english-tango",
+    title: "ビジネス英語の必須単語300選と実践的な覚え方",
+    description: "会議・メール・プレゼンで使えるビジネス英語の頻出単語と表現を厳選。実践活用法も解説。",
+    tag: "ビジネス英語",
+    readTime: "5分",
+  },
 ];
+
+const LIST_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "英単語学習ガイド",
+  "description": "受験・英検・TOEICの英単語を効率よく覚えるためのガイド記事一覧",
+  "url": "https://loop-vocabulary.app/guide",
+  "itemListElement": GUIDES.map((g, i) => ({
+    "@type": "ListItem",
+    "position": i + 1,
+    "url": `https://loop-vocabulary.app/guide/${g.slug}`,
+    "name": g.title,
+  })),
+};
 
 export default function GuidePage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(LIST_JSON_LD) }} />
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
         <div className="text-xs font-bold uppercase tracking-widest text-sky-300 mb-3">Loop Vocabulary</div>
         <h1 className="text-2xl font-black leading-tight">英単語学習ガイド</h1>

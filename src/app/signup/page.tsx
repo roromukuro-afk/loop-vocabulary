@@ -31,6 +31,8 @@ export default function SignupPage() {
       setBusy(false);
       if (error) return setError(error.message);
       if (data.session) {
+        // ウェルカムメールをバックグラウンドで送信
+        fetch("/api/email/welcome", { method: "POST" }).catch(() => {});
         router.replace("/dashboard");
         router.refresh();
         return;

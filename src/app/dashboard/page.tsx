@@ -5,6 +5,8 @@ import { Card, CardTitle, Stat } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { BannerAdPlaceholder, NativeAdCard } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
+import { PushPermission } from "@/components/push/PushPermission";
+import { StudyCalendar } from "@/components/stats/StudyCalendar";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +43,7 @@ export default async function DashboardPage() {
   const { user, supabase } = await requireUser();
 
   const today = new Date().toISOString().slice(0, 10);
-  const monthAgo = new Date(Date.now() - 31 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const monthAgo = new Date(Date.now() - 91 * 24 * 3600 * 1000).toISOString().slice(0, 10);
   const hour = new Date().getHours();
 
   const [
@@ -53,6 +55,7 @@ export default async function DashboardPage() {
     { count: materialWordCount },
     { data: recentWords },
     { data: profile },
+    { data: todaysWord },
   ] = await Promise.all([
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id),
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id).lte("next_review_at", new Date().toISOString()),
@@ -62,6 +65,7 @@ export default async function DashboardPage() {
     supabase.from("material_words").select("*", { count: "exact", head: true }),
     supabase.from("words").select("word, meaning, correct_count, wrong_count").eq("user_id", user.id).order("last_studied_at", { ascending: false }).limit(5),
     supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle(),
+    supabase.from("words").select("word, meaning, phonetic").eq("user_id", user.id).is("last_studied_at", null).limit(20),
   ]);
 
   const isPremium = profile?.is_premium ?? false;
@@ -89,6 +93,29 @@ export default async function DashboardPage() {
   const greeting = getGreeting(hour);
   const displayName = user.email?.split("@")[0] ?? "";
 
+  // 今日の一語（未学習からランダム1語）
+  const unstudied = todaysWord ?? [];
+  const todayIdx = new Date().getDate() % Math.max(unstudied.length, 1);
+  const featuredWord = unstudied.length > 0 ? unstudied[todayIdx] : null;
+
+  // 週間チャレンジ計算（今週月曜〜今日）
+  const dayOfWeek = new Date().getDay(); // 0=Sun
+  const daysFromMon = (dayOfWeek + 6) % 7;
+  const mondayStr = new Date(Date.now() - daysFromMon * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const weeklyStudied = (recentStats ?? [])
+    .filter((d) => d.day >= mondayStr)
+    .reduce((s, d) => s + (d.studied_count ?? 0), 0);
+  const WEEKLY_GOAL = 100;
+  const weeklyPct = Math.min(100, Math.round((weeklyStudied / WEEKLY_GOAL) * 100));
+  const weeklyDone = weeklyStudied >= WEEKLY_GOAL;
+
+  // XP・レベル計算
+  const totalCorrect = (recentStats ?? []).reduce((s, d) => s + (d.studied_count ?? 0), 0);
+  const xp = (wordCount ?? 0) * 10 + totalCorrect * 2 + streak * 100;
+  const level = Math.floor(xp / 1000) + 1;
+  const xpInLevel = xp % 1000;
+  const xpPct = Math.round((xpInLevel / 1000) * 100);
+
   return (
     <AppShell>
       <OnboardingModal />
@@ -108,6 +135,9 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* プッシュ通知許可バナー */}
+      <PushPermission />
 
       {/* 今日の目標進捗バー */}
       <div className="mt-4">
@@ -180,6 +210,46 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {/* 週間チャレンジ */}
+      <div className="mt-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl px-4 py-3">
+        <div className="flex items-center justify-between text-xs mb-1.5">
+          <span className="font-bold text-amber-800">🏅 週間チャレンジ</span>
+          <span className={weeklyDone ? "text-emerald-600 font-bold" : "text-amber-700"}>
+            {weeklyDone ? "✅ クリア！" : `${weeklyStudied} / ${WEEKLY_GOAL} 語`}
+          </span>
+        </div>
+        <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${weeklyDone ? "bg-emerald-400" : "bg-amber-400"}`}
+            style={{ width: `${weeklyPct}%` }}
+          />
+        </div>
+        <p className="text-[10px] text-amber-600 mt-1">今週（月〜日）で {WEEKLY_GOAL} 語学習しよう</p>
+      </div>
+
+      {/* XP・レベル */}
+      <Card className="mt-5">
+        <div className="flex items-center justify-between mb-2">
+          <CardTitle>Lv.{level} <span className="text-navy-400 font-normal text-xs">学習者</span></CardTitle>
+          <span className="text-xs text-navy-400">{xpInLevel.toLocaleString()} / 1,000 XP</span>
+        </div>
+        <div className="h-2.5 bg-navy-100 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-sky-400 to-emerald-400 rounded-full transition-all duration-700"
+            style={{ width: `${xpPct}%` }}
+          />
+        </div>
+        <p className="mt-1.5 text-[10px] text-navy-400">単語登録×10・正解×2・連続学習×100 でXP獲得</p>
+      </Card>
+
+      {/* 学習カレンダー */}
+      <Card className="mt-4">
+        <CardTitle>学習カレンダー</CardTitle>
+        <div className="mt-2">
+          <StudyCalendar stats={(recentStats ?? []).map((s) => ({ day: s.day, studied_count: s.studied_count }))} />
+        </div>
+      </Card>
+
       {/* 最近学習した単語 */}
       {(recentWords ?? []).length > 0 && (
         <Card className="mt-5">
@@ -205,6 +275,21 @@ export default async function DashboardPage() {
             })}
           </ul>
         </Card>
+      )}
+
+      {/* 今日の一語 */}
+      {featuredWord && (
+        <div className="mt-5 bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-200 rounded-2xl px-5 py-4">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-sky-600 mb-1">今日の一語</div>
+          <div className="text-2xl font-black text-navy-900">{featuredWord.word}</div>
+          {featuredWord.phonetic && (
+            <div className="text-xs text-navy-400 font-mono mt-0.5">{featuredWord.phonetic}</div>
+          )}
+          <div className="text-sm text-navy-600 mt-1">{featuredWord.meaning}</div>
+          <div className="mt-3">
+            <Link href="/review" className="text-xs text-sky-600 font-semibold underline">復習で覚える →</Link>
+          </div>
+        </div>
       )}
 
       {/* プレミアムアップセルバナー（無料ユーザーのみ） */}
@@ -251,6 +336,17 @@ export default async function DashboardPage() {
           <Card>
             <CardTitle>小テストPDF出力</CardTitle>
             <p className="text-sm text-navy-600">英→日・日→英・4択・記述の小テストを作成。</p>
+          </Card>
+        </Link>
+        <Link href="/ranking" className="block sm:col-span-2">
+          <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>週間ランキング 🏆</CardTitle>
+                <p className="text-sm text-navy-600 mt-0.5">今週の学習語数で競おう！ランキングを確認する →</p>
+              </div>
+              <span className="text-3xl">🥇</span>
+            </div>
           </Card>
         </Link>
       </section>
