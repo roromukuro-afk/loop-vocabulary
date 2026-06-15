@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 
 export const metadata: Metadata = {
   title: "英検3級の単語・語彙対策【頻出800語一覧】| Loop Vocabulary",
@@ -163,6 +164,15 @@ export default function Eiken3KyuPage() {
             <Link href="/signup" className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">SRS学習を始める</Link>
           </div>
         </div>
+
+        <AmazonBookSection
+          heading="📚 英検3級おすすめ参考書（Amazon）"
+          books={[
+            { title: "英検3級 でる順パス単 5訂版", author: "旺文社", asin: "4010947403", price: "¥880", label: "一番売れてる英検3級単語帳" },
+            { title: "7日間完成 英検3級 予想問題ドリル 6訂版", author: "旺文社", asin: "401094696X", price: "¥990", label: "直前対策に最適" },
+            { title: "英検3級 過去6回全問題集", author: "旺文社", asin: "4010946997", price: "¥1,320", label: "本番形式で仕上げ" },
+          ]}
+        />
 
         {/* 関連リンク */}
         <div className="grid grid-cols-2 gap-3">

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 
 export const metadata: Metadata = {
   title: "英検準2級 単語対策【頻出1000語カテゴリ別】| Loop Vocabulary",
@@ -232,6 +233,16 @@ export default function EikenJun2Page() {
             <Link href="/signup" className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">無料学習を始める</Link>
           </div>
         </div>
+
+        <AmazonBookSection
+          heading="📚 英検準2級おすすめ参考書（Amazon）"
+          books={[
+            { title: "英検準2級 でる順パス単 5訂版", author: "旺文社", asin: "4010947411", price: "¥880", label: "準2級単語帳シェアNo.1" },
+            { title: "7日間完成 英検準2級 予想問題ドリル 6訂版", author: "旺文社", asin: "4010947055", price: "¥990", label: "直前対策に最適" },
+            { title: "英検準2級 過去6回全問題集", author: "旺文社", asin: "4010947080", price: "¥1,320", label: "本番形式で仕上げ" },
+            { title: "システム英単語 改訂新版", author: "霜康司・刀祢雅彦", asin: "4796111727", price: "¥1,210", label: "準2級以上の語彙補強に" },
+          ]}
+        />
 
         {/* 関連ガイド */}
         <div className="grid grid-cols-2 gap-3">

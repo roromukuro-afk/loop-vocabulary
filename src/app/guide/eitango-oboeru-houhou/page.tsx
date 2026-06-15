@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 
 export const metadata: Metadata = {
   title: "英単語の覚え方・効率的な記憶術【2024年版】| Loop Vocabulary",
@@ -200,6 +201,16 @@ export default function EitangoOboeruPage() {
             <Link href="/vocab-check" className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">語彙力チェック</Link>
           </div>
         </div>
+
+        <AmazonBookSection
+          heading="📚 英単語学習おすすめ参考書（Amazon）"
+          books={[
+            { title: "英単語の語源図鑑", author: "清水建二・すずきひろし", asin: "4046021969", price: "¥1,650", label: "語源学習の定番" },
+            { title: "システム英単語 改訂新版", author: "霜康司・刀祢雅彦", asin: "4796111727", price: "¥1,210", label: "大学受験・TOEIC兼用" },
+            { title: "ターゲット1900 6訂版", author: "旺文社", asin: "4010773634", price: "¥1,100", label: "大学受験最定番" },
+            { title: "TOEIC L&Rテスト 出る単特急 金のフレーズ", author: "TEX加藤", asin: "4023315079", price: "¥990", label: "TOEIC最強単語帳" },
+          ]}
+        />
 
         {/* 関連記事 */}
         <div className="grid grid-cols-2 gap-3">
