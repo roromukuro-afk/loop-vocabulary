@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ReactNode } from "react";
 import { BottomNav } from "./BottomNav";
+import { InstallBanner } from "@/components/pwa/InstallBanner";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -22,6 +23,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {children}
       </main>
       <BottomNav />
+      <InstallBanner />
     </div>
   );
 }
