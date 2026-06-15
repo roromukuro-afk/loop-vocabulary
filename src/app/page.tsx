@@ -421,6 +421,7 @@ export default function LandingPage() {
             <Link href="/phrases" className="hover:text-navy-700">英語フレーズ集</Link>
             <Link href="/shadowing" className="hover:text-navy-700">シャドーイング</Link>
             <Link href="/faq" className="hover:text-navy-700">FAQ</Link>
+            <Link href="/roadmap" className="hover:text-navy-700">学習ロードマップ</Link>
           </div>
         </div>
       </footer>
