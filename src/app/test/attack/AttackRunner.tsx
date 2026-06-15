@@ -6,6 +6,7 @@ import { shuffle } from "@/lib/utils/shuffle";
 type Word = { id: string; word: string; meaning: string; streak: number; is_weak: boolean };
 
 const TIME_LIMIT = 60;
+const BEST_KEY = "attack_best_score";
 
 function makeQuestion(word: Word, pool: Word[]) {
   const distractors = shuffle(pool.filter((p) => p.id !== word.id)).slice(0, 3).map((p) => p.meaning);
@@ -24,7 +25,12 @@ export function AttackRunner({ pool }: { pool: Word[] }) {
   const [choices, setChoices] = useState<string[]>([]);
   const [flash, setFlash] = useState<"correct" | "wrong" | null>(null);
   const [history, setHistory] = useState<{ word: string; meaning: string; ok: boolean }[]>([]);
+  const [bestScore, setBestScore] = useState<number>(() => {
+    if (typeof window === "undefined") return 0;
+    return parseInt(localStorage.getItem(BEST_KEY) ?? "0", 10);
+  });
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scoreRef = useRef(0);
   const poolRef = useRef(shuffle(pool));
   const poolIdxRef = useRef(0);
 
@@ -42,6 +48,7 @@ export function AttackRunner({ pool }: { pool: Word[] }) {
   const start = () => {
     poolRef.current = shuffle(pool);
     poolIdxRef.current = 0;
+    scoreRef.current = 0;
     setScore(0);
     setCombo(0);
     setMaxCombo(0);
@@ -58,6 +65,12 @@ export function AttackRunner({ pool }: { pool: Word[] }) {
       setTimeLeft((t) => {
         if (t <= 1) {
           clearInterval(timerRef.current!);
+          const finalScore = scoreRef.current;
+          const prev = parseInt(localStorage.getItem(BEST_KEY) ?? "0", 10);
+          if (finalScore > prev) {
+            localStorage.setItem(BEST_KEY, String(finalScore));
+            setBestScore(finalScore);
+          }
           setPhase("done");
           return 0;
         }
@@ -73,7 +86,7 @@ export function AttackRunner({ pool }: { pool: Word[] }) {
     void saveStudyResult(curWord, ok);
     setHistory((h) => [...h, { word: curWord.word, meaning: curWord.meaning, ok }]);
     if (ok) {
-      setScore((s) => s + 1);
+      setScore((s) => { scoreRef.current = s + 1; return s + 1; });
       setCombo((co) => {
         const next = co + 1;
         setMaxCombo((mc) => Math.max(mc, next));
@@ -122,6 +135,11 @@ export function AttackRunner({ pool }: { pool: Word[] }) {
             <div className="text-[10px] text-navy-500 mt-1">英→日</div>
           </div>
         </div>
+        {bestScore > 0 && (
+          <div className="text-center text-sm text-navy-500">
+            🏅 自己ベスト: <span className="font-black text-navy-800">{bestScore}問</span>
+          </div>
+        )}
         <button onClick={start} className="w-full py-4 rounded-2xl bg-amber-500 text-white font-black text-lg hover:bg-amber-600 transition-colors">
           スタート！
         </button>
@@ -131,12 +149,16 @@ export function AttackRunner({ pool }: { pool: Word[] }) {
 
   if (phase === "done") {
     const acc = total > 0 ? Math.round((score / total) * 100) : 0;
+    const isNewBest = score > 0 && score >= bestScore;
     const shareText = `60秒タイムアタック結果: ${score}問正解（正答率${acc}%・最大コンボ${maxCombo}）⚡ #Loop_Vocabulary`;
     return (
       <div className="space-y-5">
         <div className="text-center">
-          <div className="text-5xl mb-3">{score >= 20 ? "🏆" : score >= 10 ? "⚡" : "💪"}</div>
-          <h2 className="text-2xl font-black text-navy-800">タイム終了！</h2>
+          <div className="text-5xl mb-3">{isNewBest ? "🎉" : score >= 20 ? "🏆" : score >= 10 ? "⚡" : "💪"}</div>
+          <h2 className="text-2xl font-black text-navy-800">{isNewBest ? "新記録！" : "タイム終了！"}</h2>
+          {bestScore > 0 && (
+            <p className="text-xs text-navy-400 mt-1">ベスト: {bestScore}問 {isNewBest && <span className="text-amber-500 font-bold">→ 更新！</span>}</p>
+          )}
           <div className="mt-4 grid grid-cols-3 gap-3">
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
               <div className="text-2xl font-black text-amber-700">{score}</div>
