@@ -21,6 +21,7 @@ import {
   ticketBalance,
   type RewardKind,
 } from "@/lib/native/rewards";
+import { AdSenseBanner, AdSenseRectangle, AdSenseInFeed } from "./AdSense";
 
 const ADS_ENABLED = process.env.NEXT_PUBLIC_ADS_ENABLED !== "false";
 
@@ -56,23 +57,8 @@ export function AppBannerAd({ className }: { className?: string }) {
   // Native はバナーが画面外に重畳表示されるため、UI 側にプレースホルダは出さない
   if (isNative()) return null;
 
-  return (
-    <div
-      role="complementary"
-      aria-label="広告"
-      className={cn(
-        "w-full max-w-2xl mx-auto rounded-xl bg-navy-50 border border-dashed border-navy-200",
-        "px-3 py-4 flex flex-col items-center gap-1",
-        className,
-      )}
-    >
-      <AdLabel />
-      <div className="text-sm text-navy-500">Banner Ad (320×100)</div>
-      <div className="text-[11px] text-navy-400">
-        Native ビルドでは AdMob Adaptive Banner に切り替わります
-      </div>
-    </div>
-  );
+  // Web: Google AdSense バナー
+  return <AdSenseBanner className={cn("w-full max-w-2xl mx-auto", className)} />;
 }
 
 // ============================================================
@@ -82,20 +68,9 @@ export function AppBannerAd({ className }: { className?: string }) {
 // ============================================================
 export function AppNativeAdCard() {
   if (!ADS_ENABLED) return null;
-  return (
-    <div className="rounded-2xl bg-sky-50 border border-sky-200 p-4 flex items-start gap-3">
-      <div className="size-12 rounded-xl bg-white border border-sky-200 flex items-center justify-center text-navy-400 text-xs">
-        AD
-      </div>
-      <div className="flex-1">
-        <AdLabel />
-        <div className="font-semibold text-navy-800 mt-0.5">Native Ad Placeholder</div>
-        <div className="text-xs text-navy-500">
-          単語帳一覧やダッシュボードに差し込まれる広告枠
-        </div>
-      </div>
-    </div>
-  );
+  if (isNative()) return null;
+  // Web: Google AdSense インフィード広告
+  return <AdSenseInFeed className="w-full" />;
 }
 
 // ============================================================

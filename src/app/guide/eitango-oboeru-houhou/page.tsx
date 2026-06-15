@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
+import { GuideTracker } from "@/components/guide/GuideTracker";
 
 export const metadata: Metadata = {
   title: "英単語の覚え方・効率的な記憶術【2024年版】| Loop Vocabulary",
@@ -107,6 +108,7 @@ const JSON_LD = {
 export default function EitangoOboeruPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+      <GuideTracker slug="eitango-oboeru-houhou" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
         <div className="text-[10px] font-bold uppercase tracking-widest text-sky-300 mb-3">学習法ガイド</div>

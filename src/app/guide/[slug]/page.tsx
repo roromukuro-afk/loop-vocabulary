@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
+import { GuideTracker } from "@/components/guide/GuideTracker";
 
 type Article = {
   title: string;
@@ -972,6 +973,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
 
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+      <GuideTracker slug={slug} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

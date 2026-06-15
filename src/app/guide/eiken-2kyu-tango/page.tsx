@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
+import { GuideTracker } from "@/components/guide/GuideTracker";
 
 export const metadata: Metadata = {
   title: "英検2級 単語対策【頻出1,500語カテゴリ別解説】| Loop Vocabulary",
@@ -81,6 +82,7 @@ const JSON_LD = {
 export default function Eiken2KyuPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+      <GuideTracker slug="eiken-2kyu-tango" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       {/* ヘッダー */}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
+import { GuideTracker } from "@/components/guide/GuideTracker";
 
 export const metadata: Metadata = {
   title: "TOEIC頻出単語・語彙対策【スコア別必須リスト】| Loop Vocabulary",
@@ -64,6 +65,7 @@ const JSON_LD = {
 export default function ToeicTangoPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+      <GuideTracker slug="toeic-tango" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       {/* ヘッダー */}

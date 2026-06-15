@@ -9,6 +9,7 @@ import { PushPermission } from "@/components/push/PushPermission";
 import { StudyCalendar } from "@/components/stats/StudyCalendar";
 import { ExamCountdown } from "@/components/dashboard/ExamCountdown";
 import { DailyMissions } from "@/components/dashboard/DailyMissions";
+import { StreakShareCard } from "@/components/dashboard/StreakShareCard";
 
 export const dynamic = "force-dynamic";
 
@@ -225,6 +226,9 @@ export default async function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* 連続学習シェアカード */}
+      <StreakShareCard streak={streak} />
 
       {/* 週間チャレンジ */}
       <div className="mt-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl px-4 py-3">
