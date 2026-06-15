@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   // メール通知ONのユーザーを取得
   const { data: profiles } = await admin
     .from("profiles")
-    .select("id, display_name, notify_weekly_email")
+    .select("id, display_name, notify_weekly_email, is_premium")
     .eq("notify_weekly_email", true)
     .limit(500);
 
@@ -79,6 +79,7 @@ export async function GET(req: NextRequest) {
           weeklyCorrect,
           dueCount,
           streak,
+          isPremium: (profile as Record<string, unknown>).is_premium as boolean ?? false,
         }),
       });
       sent++;

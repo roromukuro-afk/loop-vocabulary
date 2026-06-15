@@ -44,8 +44,9 @@ export function weeklyDigestHtml(opts: {
   weeklyCorrect: number;
   dueCount: number;
   streak: number;
+  isPremium?: boolean;
 }): string {
-  const { displayName, weeklyStudied, weeklyCorrect, dueCount, streak } = opts;
+  const { displayName, weeklyStudied, weeklyCorrect, dueCount, streak, isPremium = false } = opts;
   const acc = weeklyStudied > 0 ? Math.round((weeklyCorrect / weeklyStudied) * 100) : 0;
   const emoji = acc >= 80 ? "🎯" : acc >= 60 ? "📚" : "💪";
 
@@ -81,11 +82,22 @@ export function weeklyDigestHtml(opts: {
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;margin-bottom:24px;">
       <p style="font-size:14px;color:#15803d;font-weight:700;margin:0;">✅ 復習はすべて完了しています！</p>
     </div>`}
-    <div style="text-align:center;">
+    <div style="text-align:center;margin-bottom:${isPremium ? "0" : "20px"};">
       <a href="https://loop-vocabulary.vercel.app/dashboard" style="display:inline-block;background:#1e3a5f;color:#fff;text-decoration:none;padding:13px 32px;border-radius:10px;font-weight:700;font-size:14px;">
         今週も学習を続ける →
       </a>
     </div>
+    ${!isPremium ? `
+    <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:12px;padding:20px;text-align:center;">
+      <div style="font-size:15px;font-weight:900;color:#92400e;margin-bottom:8px;">⚡ Premiumにアップグレードしませんか？</div>
+      <p style="font-size:13px;color:#78350f;margin:0 0 14px;line-height:1.6;">
+        広告なし・AI解説無制限・弱点分析・CSV一括インポートが<br>
+        <strong>月額たった¥480</strong> で使えます。
+      </p>
+      <a href="https://loop-vocabulary.vercel.app/premium" style="display:inline-block;background:#92400e;color:#fff;text-decoration:none;padding:11px 28px;border-radius:10px;font-weight:700;font-size:13px;">
+        詳しく見る →
+      </a>
+    </div>` : ""}
   </div>
   <div style="border-top:1px solid #e2e8f0;padding:16px 32px;text-align:center;">
     <p style="color:#94a3b8;font-size:11px;margin:0;">
