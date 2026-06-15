@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getResend, FROM_EMAIL } from "@/lib/email/resend";
+import { premiumWelcomeHtml } from "@/lib/email/templates";
 
 export const runtime = "nodejs";
 
@@ -58,6 +60,24 @@ export async function POST(req: NextRequest) {
           stripe_customer_id: customerId,
           premium_expires_at: null,
         }).eq("id", userId);
+
+        // プレミアム登録おめでとうメール
+        if (process.env.RESEND_API_KEY) {
+          try {
+            const { data: authUser } = await admin.auth.admin.getUserById(userId);
+            const email = authUser?.user?.email;
+            const { data: profile } = await admin.from("profiles").select("display_name").eq("id", userId).maybeSingle();
+            const plan: "monthly" | "yearly" = (session.metadata?.plan as "monthly" | "yearly") ?? "monthly";
+            if (email) {
+              await getResend().emails.send({
+                from: FROM_EMAIL,
+                to: email,
+                subject: "🎉 Loop Vocabulary Premium へようこそ！",
+                html: premiumWelcomeHtml((profile?.display_name as string) ?? email.split("@")[0], plan),
+              });
+            }
+          } catch { /* メール送信失敗は無視 */ }
+        }
       }
       break;
     }

@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
     success_url: `${BASE_URL}/premium/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:  `${BASE_URL}/premium`,
     allow_promotion_codes: true,
+    metadata: { supabase_user_id: user.id, plan },
     subscription_data: {
       metadata: { supabase_user_id: user.id },
     },
