@@ -2,8 +2,8 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { Card, CardTitle } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { requireUser } from "@/lib/supabase/requireUser";
+import { WeaknessAnalysis } from "./WeaknessAnalysis";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,8 @@ type OrderKey = keyof typeof ORDERS;
 export default async function WeakPage({ searchParams }: { searchParams: Promise<{ order?: string }> }) {
   const { user, supabase } = await requireUser();
   const sp = await searchParams;
+  const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
+  const isPremium = profile?.plan === "premium";
   const key = (sp.order as OrderKey) in ORDERS ? (sp.order as OrderKey) : "wrong";
   const ord = ORDERS[key];
 
@@ -82,6 +84,8 @@ export default async function WeakPage({ searchParams }: { searchParams: Promise
           )}
         </ul>
       </Card>
+
+      <WeaknessAnalysis isPremium={isPremium} />
 
       <div className="mt-5"><BannerAdPlaceholder /></div>
     </AppShell>
