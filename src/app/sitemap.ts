@@ -4,6 +4,7 @@ const GUIDE_SLUGS = [
   "daigaku-juken-tango",
   "eiken-2kyu-tango",
   "eiken-jun1-tango",
+  "eiken-1kyu-tango",
   "chugaku-eigo-tango",
   "eiken-conversation",
   "ielts-tango",

@@ -36,6 +36,13 @@ const GUIDES = [
     readTime: "5分",
   },
   {
+    slug: "eiken-1kyu-tango",
+    title: "英検1級 単語対策【15,000語レベルへの学習戦略】",
+    description: "英検1級合格に必要な語彙数・カテゴリ別頻出語・12ヶ月攻略戦略を完全解説。準1級からのステップアップ。",
+    tag: "英検1級",
+    readTime: "6分",
+  },
+  {
     slug: "toeic-tango",
     title: "TOEICスコアアップの英単語学習法【600→800点】",
     description: "TOEIC頻出単語の特徴と、スコア帯別の学習戦略。アプリで継続するコツも解説。",
