@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 
 type Article = {
   title: string;
@@ -8,6 +9,42 @@ type Article = {
   tag: string;
   published: string;
   content: string;
+};
+
+type BookRec = { title: string; author: string; asin: string; price: string; label?: string };
+const BOOKS: Record<string, BookRec[]> = {
+  "daigaku-juken-tango": [
+    { title: "ターゲット1900 6訂版", author: "旺文社", asin: "4010773634", price: "¥1,100", label: "大学受験最定番" },
+    { title: "システム英単語 改訂新版", author: "霜康司・刀祢雅彦", asin: "4796111727", price: "¥1,210", label: "共通テスト〜早慶対応" },
+    { title: "DUO 3.0", author: "鈴木陽一", asin: "4900790052", price: "¥1,430", label: "例文でセット暗記" },
+    { title: "英単語の語源図鑑", author: "清水建二・すずきひろし", asin: "4046021969", price: "¥1,650", label: "語根で語彙爆増" },
+  ],
+  "chugaku-eigo-tango": [
+    { title: "中学英単語1800 ターゲット", author: "旺文社", asin: "4010941847", price: "¥880", label: "中学必須単語の定番" },
+    { title: "中学英語をもう一度ひとつひとつわかりやすく。", author: "学研プラス", asin: "4053037042", price: "¥1,320", label: "基礎固めにベスト" },
+  ],
+  "eiken-jun1-tango": [
+    { title: "英検準1級 でる順パス単 5訂版", author: "旺文社", asin: "4010947500", price: "¥1,100", label: "準1級単語帳の王道" },
+    { title: "英検準1級 過去6回全問題集", author: "旺文社", asin: "401094757X", price: "¥1,540", label: "本番形式で仕上げ" },
+    { title: "英検準1級 二次試験・面接 完全予想問題", author: "旺文社", asin: "4010947705", price: "¥1,540", label: "面接対策も" },
+  ],
+  "eiken-conversation": [
+    { title: "英会話フレーズ大特訓", author: "Phyllis Tanaka", asin: "4010910720", price: "¥1,540", label: "日常英会話の決定版" },
+    { title: "DUO 3.0", author: "鈴木陽一", asin: "4900790052", price: "¥1,430", label: "フレーズで覚える" },
+  ],
+  "ielts-tango": [
+    { title: "IELTS必須英単語3500", author: "旺文社", asin: "4010946032", price: "¥1,980", label: "IELTS語彙の定番" },
+    { title: "Complete IELTS Bands 4-5 Student's Book with Answers", author: "Cambridge", asin: "0521179289", price: "¥3,800", label: "Band 5〜6目標" },
+  ],
+  "business-english-tango": [
+    { title: "TOEIC L&Rテスト 出る単特急 金のフレーズ", author: "TEX加藤", asin: "4023315079", price: "¥990", label: "ビジネス英語にも直結" },
+    { title: "ビジネス英語パーフェクトフレーズ", author: "デイビッド・セイン", asin: "4797361581", price: "¥1,540", label: "メール・会議対応" },
+  ],
+  "toeic-tango": [
+    { title: "TOEIC L&Rテスト 出る単特急 金のフレーズ", author: "TEX加藤", asin: "4023315079", price: "¥990", label: "TOEIC単語帳の決定版" },
+    { title: "TOEIC L&Rテスト 出る単特急 金のセンテンス", author: "TEX加藤", asin: "4023316075", price: "¥990", label: "例文で覚えるTOEIC語彙" },
+    { title: "TOEIC L&R TEST 出る問 特急 パート5&6", author: "神崎正哉他", asin: "4023315087", price: "¥990", label: "Part5&6特訓" },
+  ],
 };
 
 const ARTICLES: Record<string, Article> = {
@@ -956,6 +993,14 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-6">
           {renderContent(article.content)}
         </div>
+
+        {/* Amazon アフィリエイト */}
+        {BOOKS[slug] && (
+          <AmazonBookSection
+            books={BOOKS[slug]}
+            heading="📚 あわせて読みたい参考書（Amazon）"
+          />
+        )}
 
         {/* CTA */}
         <div className="mt-6 bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-6 text-white text-center">
