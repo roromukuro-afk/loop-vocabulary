@@ -11,12 +11,17 @@ tsconfig.tsbuildinfo
 # Capacitor 生成物 (Android/iOS プロジェクトはコミットする)
 mobile-shell/
 # Android build artifacts
+android/.idea/
 android/.gradle/
 android/app/build/
 android/build/
 android/captures/
 android/local.properties
 android/app/release/
+# Keystore（絶対に GitHub に push しない）
+*.jks
+*.keystore
+keystore.properties
 # iOS build artifacts
 ios/App/build/
 ios/App/Pods/
@@ -26,3 +31,5 @@ ios/*.xcuserstate
 ios/App/App.xcworkspace/xcuserdata/
 ios/App/App.xcodeproj/xcuserdata/
 ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+
+.vercel
