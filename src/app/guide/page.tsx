@@ -63,6 +63,20 @@ const GUIDES = [
     tag: "ビジネス英語",
     readTime: "5分",
   },
+  {
+    slug: "eitango-oboeru-houhou",
+    title: "英単語の覚え方・効率的な記憶術【科学的アプローチ】",
+    description: "SRS・語源・例文記憶・ニーモニックなど、認知科学に基づく英単語の覚え方を徹底解説。忘却曲線を攻略しよう。",
+    tag: "学習法",
+    readTime: "7分",
+  },
+  {
+    slug: "eiken-3kyu-tango",
+    title: "英検3級 単語・語彙対策【頻出800語カテゴリ別解説】",
+    description: "英検3級合格に必要な必須単語800語をカテゴリ別に解説。10週間合格プランと語彙問題攻略ポイントも掲載。",
+    tag: "英検3級",
+    readTime: "5分",
+  },
 ];
 
 const LIST_JSON_LD = {

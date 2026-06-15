@@ -9,6 +9,8 @@ const GUIDE_SLUGS = [
   "ielts-tango",
   "toeic-tango",
   "business-english-tango",
+  "eitango-oboeru-houhou",
+  "eiken-3kyu-tango",
 ] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
