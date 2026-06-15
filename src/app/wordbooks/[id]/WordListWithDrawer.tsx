@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils/cn";
 import { PronounceButton } from "@/components/ui/PronounceButton";
+import { useRouter } from "next/navigation";
 
 type Word = {
   id: string;
@@ -43,11 +44,14 @@ function formatDate(iso: string | null) {
   return `${diff}日後`;
 }
 
-export function WordListWithDrawer({ words }: { words: Word[] }) {
+export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
+  const [words, setWords] = useState(initialWords);
   const [selected, setSelected] = useState<Word | null>(null);
   const [closing, setClosing] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [deleting, setDeleting] = useState(false);
+  const router = useRouter();
 
   const filtered = useMemo(() => {
     let list = words;
@@ -76,6 +80,17 @@ export function WordListWithDrawer({ words }: { words: Word[] }) {
   const closeDrawer = () => {
     setClosing(true);
     setTimeout(() => { setSelected(null); setClosing(false); }, 280);
+  };
+
+  const deleteWord = async () => {
+    if (!selected || !confirm(`「${selected.word}」を削除しますか？`)) return;
+    setDeleting(true);
+    const res = await fetch(`/api/words/${selected.id}`, { method: "DELETE" });
+    setDeleting(false);
+    if (!res.ok) { alert("削除に失敗しました"); return; }
+    setWords((prev) => prev.filter((w) => w.id !== selected.id));
+    closeDrawer();
+    router.refresh();
   };
 
   const acc = selected
@@ -277,6 +292,13 @@ export function WordListWithDrawer({ words }: { words: Word[] }) {
                 className="border border-navy-200 text-navy-600 font-semibold py-3 rounded-2xl text-sm hover:bg-navy-50"
               >
                 閉じる
+              </button>
+              <button
+                onClick={deleteWord}
+                disabled={deleting}
+                className="col-span-2 border border-red-200 text-red-600 font-semibold py-2.5 rounded-2xl text-sm hover:bg-red-50 disabled:opacity-50 transition-colors"
+              >
+                {deleting ? "削除中…" : "🗑 この単語を削除"}
               </button>
             </div>
           </div>
