@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/supabase/requireUser";
 import { WordListWithDrawer } from "./WordListWithDrawer";
 import { ShareButton } from "@/components/wordbooks/ShareButton";
 import { AiSuggestButton } from "@/components/wordbooks/AiSuggestButton";
+import { QuickAddWord } from "./QuickAddWord";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,7 @@ export default async function WordBookDetailPage({ params }: { params: Promise<{
           <span className="ml-2 text-[11px] text-navy-400 font-normal">単語をタップで詳細</span>
         </CardTitle>
         <WordListWithDrawer words={words ?? []} />
+        <QuickAddWord wordBookId={book.id} />
       </Card>
 
       {/* 単語帳シェア */}
