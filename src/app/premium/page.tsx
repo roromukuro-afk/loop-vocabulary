@@ -74,6 +74,7 @@ export default async function PremiumPage() {
             { label: "単語帳・テスト", free: "✓", prem: "✓" },
             { label: "AI解説", free: "5回/日", prem: "無制限" },
             { label: "タイピング練習", free: "—", prem: "✓" },
+            { label: "リスニングテスト", free: "—", prem: "✓" },
             { label: "広告", free: "あり", prem: "なし ✓" },
             { label: "CSVインポート", free: "—", prem: "✓" },
             { label: "統計エクスポート", free: "—", prem: "✓" },

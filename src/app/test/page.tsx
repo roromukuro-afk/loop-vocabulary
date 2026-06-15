@@ -34,6 +34,13 @@ const MODES = [
     desc: "意味を見て英単語をリアルタイムでタイプ。文字ごとに正誤が色で表示され、速度と正確性を同時に鍛えられる。",
     premium: true,
   },
+  {
+    href: "/test/listening",
+    icon: "🎧",
+    title: "リスニングテスト",
+    desc: "英単語の音声を聞いてスペルを入力するリスニング練習。リスニング力とスペリング力を同時に強化。",
+    premium: true,
+  },
 ];
 
 export default async function TestPage() {
@@ -90,7 +97,7 @@ export default async function TestPage() {
       {!isPremium && (
         <Link href="/premium" className="block mt-5">
           <div className="bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-4 text-white text-center">
-            <div className="font-black">タイピング練習を解放する</div>
+            <div className="font-black">タイピング練習・リスニングテストを解放する</div>
             <div className="text-xs text-navy-300 mt-1">月額 ¥480〜 でプレミアムにアップグレード →</div>
           </div>
         </Link>
