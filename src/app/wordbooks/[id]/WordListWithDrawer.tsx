@@ -51,6 +51,10 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editWord, setEditWord] = useState("");
+  const [editMeaning, setEditMeaning] = useState("");
+  const [saving, setSaving] = useState(false);
   const router = useRouter();
 
   const filtered = useMemo(() => {
@@ -74,6 +78,7 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
 
   const openDrawer = (w: Word) => {
     setClosing(false);
+    setEditing(false);
     setSelected(w);
   };
 
@@ -90,6 +95,30 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
     if (!res.ok) { alert("削除に失敗しました"); return; }
     setWords((prev) => prev.filter((w) => w.id !== selected.id));
     closeDrawer();
+    router.refresh();
+  };
+
+  const startEdit = () => {
+    if (!selected) return;
+    setEditWord(selected.word);
+    setEditMeaning(selected.meaning);
+    setEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!selected) return;
+    setSaving(true);
+    const res = await fetch(`/api/words/${selected.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ word: editWord.trim(), meaning: editMeaning.trim() }),
+    });
+    setSaving(false);
+    if (!res.ok) { alert("保存に失敗しました"); return; }
+    const updated = { ...selected, word: editWord.trim(), meaning: editMeaning.trim() };
+    setWords((prev) => prev.map((w) => w.id === selected.id ? updated : w));
+    setSelected(updated);
+    setEditing(false);
     router.refresh();
   };
 
@@ -199,6 +228,35 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
             {/* ハンドル */}
             <div className="w-10 h-1 bg-navy-200 rounded-full mx-auto mb-4" />
 
+            {/* 編集モード */}
+            {editing ? (
+              <div className="space-y-3">
+                <div className="text-sm font-bold text-navy-700">単語を編集</div>
+                <input
+                  value={editWord}
+                  onChange={(e) => setEditWord(e.target.value)}
+                  placeholder="英単語"
+                  className="w-full border border-navy-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                />
+                <input
+                  value={editMeaning}
+                  onChange={(e) => setEditMeaning(e.target.value)}
+                  placeholder="日本語の意味"
+                  className="w-full border border-navy-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                />
+                <div className="flex gap-2">
+                  <button onClick={saveEdit} disabled={saving || !editWord.trim() || !editMeaning.trim()}
+                    className="flex-1 bg-navy-800 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-navy-700 disabled:opacity-50">
+                    {saving ? "保存中…" : "保存する"}
+                  </button>
+                  <button onClick={() => setEditing(false)}
+                    className="flex-1 border border-navy-200 text-navy-600 font-semibold py-2.5 rounded-xl text-sm hover:bg-navy-50">
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
             {/* 単語ヘッダー */}
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -308,10 +366,10 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
                 {selected.is_weak ? "🔴 苦手解除" : "⚠️ 苦手登録"}
               </button>
               <button
-                onClick={closeDrawer}
-                className="border border-navy-200 text-navy-600 font-semibold py-2.5 rounded-2xl text-sm hover:bg-navy-50"
+                onClick={startEdit}
+                className="border border-sky-200 text-sky-600 font-semibold py-2.5 rounded-2xl text-sm hover:bg-sky-50 transition-colors"
               >
-                閉じる
+                ✏️ 編集
               </button>
               <button
                 onClick={deleteWord}
@@ -321,6 +379,8 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
                 {deleting ? "削除中…" : "🗑 削除"}
               </button>
             </div>
+              </>
+            )}
           </div>
         )}
       </div>
