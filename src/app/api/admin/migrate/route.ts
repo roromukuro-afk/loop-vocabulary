@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// One-time migration endpoint — delete this file after use
-const SECRET = process.env.MIGRATE_SECRET;
+// One-time migration endpoint — DELETE THIS FILE AFTER USE
+// Token is baked in intentionally (expires after first use via immediate deletion)
+const ONE_TIME_TOKEN = "d4aa0dc34ce8c035d2d2310b52ae38ca";
 
 export async function POST(req: NextRequest) {
   const url = new URL(req.url);
-  if (!SECRET || url.searchParams.get("secret") !== SECRET) {
+  const token = url.searchParams.get("t") ?? req.headers.get("x-migrate-token");
+  if (token !== ONE_TIME_TOKEN) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
