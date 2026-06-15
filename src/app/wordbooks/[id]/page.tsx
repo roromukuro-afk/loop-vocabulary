@@ -73,6 +73,7 @@ export default async function WordBookDetailPage({ params }: { params: Promise<{
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <Link href={`/wordbooks/${book.id}/add`}><Button fullWidth>＋ 単語追加</Button></Link>
+        <Link href={`/learn?book=${book.id}`}><Button fullWidth variant="secondary">📖 レッスンで学ぶ</Button></Link>
         <Link href={`/test/choice?book=${book.id}`}><Button fullWidth variant="secondary">4択テスト</Button></Link>
         <Link href={`/review?book=${book.id}`}><Button fullWidth variant="secondary">この帳を復習</Button></Link>
         <Link href={`/wordbooks/${book.id}/csv-import`}><Button fullWidth variant="secondary">📁 CSV インポート</Button></Link>

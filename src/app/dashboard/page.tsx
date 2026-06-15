@@ -163,7 +163,12 @@ export default async function DashboardPage() {
       </section>
 
       {/* アクションボタン */}
-      <section className="mt-5 grid grid-cols-2 gap-3">
+      <section className="mt-5 space-y-3">
+        <Link href="/learn">
+          <Button fullWidth size="lg">📖 レッスンで新単語を学ぶ</Button>
+        </Link>
+      </section>
+      <section className="mt-3 grid grid-cols-2 gap-3">
         <Link href="/review">
           <Button fullWidth size="lg" className="relative">
             今日の復習
