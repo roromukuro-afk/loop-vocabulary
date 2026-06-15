@@ -5,6 +5,7 @@ import { Field, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { AppRewardedAdButton } from "@/components/ads/AppAds";
 import { UpsellModal } from "@/components/premium/UpsellModal";
+import { trackAiLimitHit } from "@/lib/analytics/events";
 
 type Kind = "example" | "explain" | "etymology" | "mnemonic";
 
@@ -69,7 +70,7 @@ export function AiPanel({ initialWord, initialMeaning }: { initialWord: string; 
       body: JSON.stringify({ kind, word: word.trim(), meaning: meaning.trim() }),
     });
     setBusy(false);
-    if (res.status === 429) { setLimitReached(true); setError("本日の利用上限に達しました"); setShowUpsell(true); return; }
+    if (res.status === 429) { setLimitReached(true); setError("本日の利用上限に達しました"); setShowUpsell(true); trackAiLimitHit(); return; }
     const data = await res.json();
     if (!res.ok) { setError(data.error ?? "失敗しました"); return; }
     setResult(data.result);

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { trackWordAdded } from "@/lib/analytics/events";
 
 export function QuickAddWord({ wordBookId }: { wordBookId: string }) {
   const [open, setOpen] = useState(false);
@@ -26,6 +27,7 @@ export function QuickAddWord({ wordBookId }: { wordBookId: string }) {
     });
     setSaving(false);
     if (!error) {
+      trackWordAdded();
       setWord("");
       setMeaning("");
       setSuccess(true);
