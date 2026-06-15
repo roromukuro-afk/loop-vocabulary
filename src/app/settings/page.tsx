@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/supabase/requireUser";
 import { SUPPORT_EMAIL } from "@/lib/support";
 import { DeleteAccountPanel } from "@/components/account/DeleteAccountPanel";
 import { LogoutButton } from "./LogoutButton";
+import { PortalButton } from "./PortalButton";
 
 export const dynamic = "force-dynamic";
 
@@ -21,16 +22,41 @@ export default async function SettingsPage() {
     <AppShell>
       <h1 className="text-xl font-bold text-navy-800">設定</h1>
 
+      {/* プレミアムバナー（無料ユーザーのみ） */}
+      {!profile?.is_premium && (
+        <div className="mt-4 bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-4 text-white">
+          <div className="text-xs font-bold uppercase tracking-widest text-sky-300 mb-1">Premium</div>
+          <div className="font-bold text-base">広告ゼロ・AI無制限</div>
+          <div className="text-xs text-navy-300 mt-0.5">月額 ¥480 〜 でアップグレード</div>
+          <Link
+            href="/premium"
+            className="mt-3 inline-block px-4 py-2 rounded-lg bg-white text-navy-800 text-xs font-bold hover:bg-navy-50 transition-colors"
+          >
+            プレミアムを見る →
+          </Link>
+        </div>
+      )}
+
       <Card className="mt-4">
         <CardTitle>アカウント</CardTitle>
         <div className="text-sm text-navy-700 space-y-1">
           <div>メール: <span className="font-mono">{user.email}</span></div>
           <div>表示名: {profile?.display_name ?? "未設定"}</div>
-          <div>プラン: {profile?.is_premium ? "Premium" : "Free"}</div>
-          <div>本日の AI 利用: {profile?.daily_ai_used ?? 0} / 5</div>
+          <div className="flex items-center gap-2">
+            <span>プラン:</span>
+            {profile?.is_premium ? (
+              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">Premium ✓</span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full bg-navy-100 text-navy-600 text-xs">Free</span>
+            )}
+          </div>
+          <div>本日の AI 利用: {profile?.daily_ai_used ?? 0} / {profile?.is_premium ? "∞" : "5"}</div>
           {profile?.is_admin && <div className="text-navy-800 font-semibold">管理者アカウント</div>}
         </div>
-        <div className="mt-3">
+        <div className="mt-3 flex flex-col gap-2">
+          {profile?.is_premium && (
+            <PortalButton />
+          )}
           <LogoutButton />
         </div>
       </Card>

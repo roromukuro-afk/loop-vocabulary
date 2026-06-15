@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { AppRewardedAdButton } from "@/components/ads/AppAds";
+import { UpsellModal } from "@/components/premium/UpsellModal";
 
 type Kind = "example" | "explain" | "etymology" | "mnemonic";
 
@@ -57,6 +58,7 @@ export function AiPanel({ initialWord, initialMeaning }: { initialWord: string; 
   const [limitReached, setLimitReached] = useState(false);
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [showUpsell, setShowUpsell] = useState(false);
 
   const run = async () => {
     if (!word.trim()) return;
@@ -67,7 +69,7 @@ export function AiPanel({ initialWord, initialMeaning }: { initialWord: string; 
       body: JSON.stringify({ kind, word: word.trim(), meaning: meaning.trim() }),
     });
     setBusy(false);
-    if (res.status === 429) { setLimitReached(true); setError("本日の利用上限に達しました"); return; }
+    if (res.status === 429) { setLimitReached(true); setError("本日の利用上限に達しました"); setShowUpsell(true); return; }
     const data = await res.json();
     if (!res.ok) { setError(data.error ?? "失敗しました"); return; }
     setResult(data.result);
@@ -91,6 +93,9 @@ export function AiPanel({ initialWord, initialMeaning }: { initialWord: string; 
 
   return (
     <div className="space-y-4">
+      {showUpsell && (
+        <UpsellModal trigger="ai_limit" onClose={() => setShowUpsell(false)} />
+      )}
       {/* 入力フォーム */}
       <div className="grid grid-cols-2 gap-3">
         <Field label="英単語">
