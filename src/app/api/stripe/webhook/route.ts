@@ -52,8 +52,9 @@ export async function POST(req: NextRequest) {
       const sub = event.data.object as Stripe.Subscription;
       const customerId = sub.customer as string;
       const active = sub.status === "active" || sub.status === "trialing";
-      const expiresAt = !active
-        ? new Date(sub.current_period_end * 1000).toISOString()
+      const periodEnd = (sub as unknown as { current_period_end?: number }).current_period_end;
+      const expiresAt = !active && periodEnd
+        ? new Date(periodEnd * 1000).toISOString()
         : null;
       await admin.from("profiles").update({
         is_premium: active,

@@ -1,34 +1,29 @@
 import type { MetadataRoute } from "next";
 
+const GUIDE_SLUGS = [
+  "daigaku-juken-tango",
+  "eiken-2kyu-tango",
+  "toeic-tango",
+] as const;
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const base =
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.vercel.app";
   const now = new Date();
   return [
-    { url: base, lastModified: now, changeFrequency: "weekly", priority: 1.0 },
-    {
-      url: `${base}/auth/login`,
+    { url: base,                         lastModified: now, changeFrequency: "weekly",  priority: 1.0 },
+    { url: `${base}/login`,              lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${base}/signup`,             lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${base}/premium`,            lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/guide`,              lastModified: now, changeFrequency: "weekly",  priority: 0.8 },
+    ...GUIDE_SLUGS.map((slug) => ({
+      url: `${base}/guide/${slug}`,
       lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
-      url: `${base}/privacy`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
-    {
-      url: `${base}/terms`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
-    {
-      url: `${base}/contact`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
+    { url: `${base}/privacy`,            lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
+    { url: `${base}/terms`,              lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
+    { url: `${base}/contact`,            lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
   ];
 }

@@ -52,6 +52,7 @@ export default async function DashboardPage() {
     { count: materialCount },
     { count: materialWordCount },
     { data: recentWords },
+    { data: profile },
   ] = await Promise.all([
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id),
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id).lte("next_review_at", new Date().toISOString()),
@@ -60,7 +61,10 @@ export default async function DashboardPage() {
     supabase.from("materials").select("*", { count: "exact", head: true }).eq("is_public", true).eq("license_status", "approved"),
     supabase.from("material_words").select("*", { count: "exact", head: true }),
     supabase.from("words").select("word, meaning, correct_count, wrong_count").eq("user_id", user.id).order("last_studied_at", { ascending: false }).limit(5),
+    supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle(),
   ]);
+
+  const isPremium = profile?.is_premium ?? false;
 
   const studied = todayStats?.studied_count ?? 0;
   const correct = todayStats?.correct_count ?? 0;
@@ -201,6 +205,20 @@ export default async function DashboardPage() {
             })}
           </ul>
         </Card>
+      )}
+
+      {/* プレミアムアップセルバナー（無料ユーザーのみ） */}
+      {!isPremium && (
+        <Link href="/premium" className="block mt-5">
+          <div className="relative overflow-hidden bg-gradient-to-r from-navy-800 to-navy-950 rounded-2xl p-4 text-white hover:opacity-90 transition-opacity">
+            <div className="relative z-10">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-sky-300 mb-1">Premium</div>
+              <div className="font-black text-base leading-tight">広告ゼロ · AI無制限 · CSV一括インポート</div>
+              <div className="text-xs text-navy-300 mt-1">月額 ¥480 〜 でアップグレード →</div>
+            </div>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-20">⚡</div>
+          </div>
+        </Link>
       )}
 
       <div className="mt-5">
