@@ -41,6 +41,13 @@ const MODES = [
     desc: "英単語の音声を聞いてスペルを入力するリスニング練習。リスニング力とスペリング力を同時に強化。",
     premium: true,
   },
+  {
+    href: "/test/attack",
+    icon: "⚡",
+    title: "60秒タイムアタック",
+    desc: "60秒以内に何問正解できるか！コンボを繋いで高スコアを目指せ。SNSシェアで友達と競い合おう。",
+    premium: false,
+  },
 ];
 
 export default async function TestPage() {
