@@ -7,6 +7,8 @@ import { SUPPORT_EMAIL } from "@/lib/support";
 import { DeleteAccountPanel } from "@/components/account/DeleteAccountPanel";
 import { LogoutButton } from "./LogoutButton";
 import { PortalButton } from "./PortalButton";
+import { ExportButton } from "./ExportButton";
+import { ReferralCard } from "./ReferralCard";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +61,30 @@ export default async function SettingsPage() {
           )}
           <LogoutButton />
         </div>
+      </Card>
+
+      {/* 学習データエクスポート */}
+      <Card className="mt-4">
+        <CardTitle>学習データ</CardTitle>
+        {profile?.is_premium ? (
+          <div className="space-y-2">
+            <p className="text-xs text-navy-500">単語・学習履歴を CSV ファイルでダウンロードできます。</p>
+            <ExportButton />
+          </div>
+        ) : (
+          <div>
+            <p className="text-sm text-navy-600">学習データの CSV エクスポートはプレミアム限定機能です。</p>
+            <Link href="/premium" className="mt-2 inline-block text-sm text-sky-600 font-semibold underline">
+              プレミアムにアップグレード →
+            </Link>
+          </div>
+        )}
+      </Card>
+
+      {/* 友だち紹介 */}
+      <Card className="mt-4">
+        <CardTitle>友だち紹介</CardTitle>
+        <ReferralCard userId={user.id} />
       </Card>
 
       <Card className="mt-4">

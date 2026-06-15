@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 type Props = {
   trigger: "ai_limit" | "csv" | "generic";
   onClose: () => void;
+  showCredits?: boolean;
 };
 
 const TRIGGER_COPY: Record<Props["trigger"], { title: string; subtitle: string }> = {
@@ -21,10 +22,24 @@ const FEATURES = [
   { icon: "⚡", text: "優先サポート" },
 ];
 
-export function UpsellModal({ trigger, onClose }: Props) {
+export function UpsellModal({ trigger, onClose, showCredits }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [creditsLoading, setCreditsLoading] = useState(false);
   const copy = TRIGGER_COPY[trigger];
+
+  const buyCredits = async (pack: "30" | "100") => {
+    setCreditsLoading(true);
+    const res = await fetch("/api/stripe/checkout-credits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pack }),
+    });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+    else if (data.error === "stripe_not_configured") { router.push("/premium"); onClose(); }
+    else setCreditsLoading(false);
+  };
 
   const startCheckout = async (plan: "monthly" | "yearly") => {
     setLoading(true);
@@ -92,6 +107,31 @@ export function UpsellModal({ trigger, onClose }: Props) {
           <p className="text-center text-[10px] text-navy-400">
             いつでもキャンセル可 · クレジットカード · Stripe 決済
           </p>
+
+          {/* AI クレジット追加購入（AI上限時のみ表示） */}
+          {(trigger === "ai_limit" || showCredits) && (
+            <div className="mt-4 pt-4 border-t border-navy-100">
+              <p className="text-[11px] text-navy-500 text-center mb-2">月額不要で今すぐ使いたい場合</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => buyCredits("30")}
+                  disabled={creditsLoading || loading}
+                  className="py-2 rounded-xl border border-navy-200 text-navy-700 text-xs font-bold hover:bg-navy-50 transition-colors disabled:opacity-60"
+                >
+                  <div>30回パック</div>
+                  <div className="text-[10px] font-normal text-navy-400">¥300</div>
+                </button>
+                <button
+                  onClick={() => buyCredits("100")}
+                  disabled={creditsLoading || loading}
+                  className="py-2 rounded-xl border border-navy-200 text-navy-700 text-xs font-bold hover:bg-navy-50 transition-colors disabled:opacity-60"
+                >
+                  <div>100回パック</div>
+                  <div className="text-[10px] font-normal text-navy-400">¥800</div>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

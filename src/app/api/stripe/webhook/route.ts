@@ -29,10 +29,24 @@ export async function POST(req: NextRequest) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       const customerId = session.customer as string;
-      const userId = session.subscription
-        ? undefined
-        : (session.metadata?.supabase_user_id ?? undefined);
+      const userId = session.metadata?.supabase_user_id ?? undefined;
 
+      // AI クレジット一回払い
+      if (session.mode === "payment" && session.metadata?.kind === "ai_credits" && userId) {
+        const credits = parseInt(session.metadata.credits ?? "0");
+        if (credits > 0) {
+          await admin.from("reward_tickets").insert({
+            user_id: userId,
+            kind: "ai_generation",
+            amount: credits,
+            used_amount: 0,
+            granted_at: new Date().toISOString(),
+          });
+        }
+        break;
+      }
+
+      // サブスクリプション購入
       await admin.from("profiles").update({
         is_premium: true,
         premium_expires_at: null,

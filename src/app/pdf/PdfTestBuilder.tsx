@@ -5,6 +5,9 @@ import { Field, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { sample } from "@/lib/utils/shuffle";
 import { createClient } from "@/lib/supabase/client";
+import { UpsellModal } from "@/components/premium/UpsellModal";
+
+const FREE_PDF_LIMIT = 3;
 
 type SourceKind = "book" | "material";
 type Direction = "en2ja" | "ja2en";
@@ -25,6 +28,7 @@ export function PdfTestBuilder({
   const [withAnswer, setWithAnswer] = useState<boolean>(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [showUpsell, setShowUpsell] = useState(false);
 
   const fetchRows = async (): Promise<Row[]> => {
     const supabase = createClient();
@@ -53,6 +57,26 @@ export function PdfTestBuilder({
   const generate = async () => {
     setBusy(true); setMsg(null);
     try {
+      // PDF 利用上限チェック（無料ユーザーは1日3回まで）
+      const supabaseCheck = createClient();
+      const { data: { user: checkUser } } = await supabaseCheck.auth.getUser();
+      if (checkUser) {
+        const { data: prof } = await supabaseCheck
+          .from("profiles").select("is_premium").eq("id", checkUser.id).maybeSingle();
+        if (!prof?.is_premium) {
+          const today = new Date().toISOString().slice(0, 10);
+          const { count } = await supabaseCheck
+            .from("pdf_exports")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", checkUser.id)
+            .gte("created_at", `${today}T00:00:00Z`);
+          if ((count ?? 0) >= FREE_PDF_LIMIT) {
+            setShowUpsell(true);
+            return;
+          }
+        }
+      }
+
       const all = await fetchRows();
       const rows = sample(all, Math.min(count, all.length));
       if (rows.length === 0) { setMsg("対象の単語が見つかりませんでした"); return; }
@@ -91,6 +115,11 @@ export function PdfTestBuilder({
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
+      {showUpsell && (
+        <div className="sm:col-span-2">
+          <UpsellModal trigger="generic" onClose={() => setShowUpsell(false)} />
+        </div>
+      )}
       <Field label="ソース">
         <Select value={src} onChange={(e) => { setSrc(e.target.value as SourceKind); setSourceId(""); }}>
           <option value="book">自分の単語帳</option>
@@ -135,6 +164,7 @@ export function PdfTestBuilder({
         </Button>
         <p className="text-[11px] text-navy-400 mt-2">
           ※ 別タブで印刷プレビューが開きます。ブラウザの「PDFで保存」で PDF 化できます。
+          無料プランは1日 {FREE_PDF_LIMIT} 回まで。プレミアムで無制限。
         </p>
       </div>
       {msg && <div className="text-sm text-red-600 sm:col-span-2">{msg}</div>}
