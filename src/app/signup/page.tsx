@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isSupabaseNotConfigured } from "@/lib/supabase/env";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
+import { trackSignupComplete } from "@/lib/analytics/events";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export default function SignupPage() {
       setBusy(false);
       if (error) return setError(error.message);
       if (data.session) {
+        trackSignupComplete("email");
         // ウェルカムメールをバックグラウンドで送信
         fetch("/api/email/welcome", { method: "POST" }).catch(() => {});
         router.replace("/dashboard");
@@ -55,6 +57,7 @@ export default function SignupPage() {
         options: { redirectTo: `${window.location.origin}/dashboard` },
       });
       if (error) { setError(error.message); setGoogleBusy(false); }
+      else { trackSignupComplete("google"); }
     } catch (e) {
       setGoogleBusy(false);
       setError(e instanceof Error ? e.message : "予期せぬエラー");

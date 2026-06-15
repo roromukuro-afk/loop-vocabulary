@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isSupabaseNotConfigured } from "@/lib/supabase/env";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
+import { trackLoginComplete } from "@/lib/analytics/events";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setBusy(false);
       if (error) { setError(error.message); return; }
+      trackLoginComplete("email");
       router.replace("/dashboard");
       router.refresh();
     } catch (e) {
@@ -43,6 +45,7 @@ export default function LoginPage() {
         options: { redirectTo: `${window.location.origin}/dashboard` },
       });
       if (error) { setError(error.message); setGoogleBusy(false); }
+      else { trackLoginComplete("google"); }
     } catch (e) {
       setGoogleBusy(false);
       setError(e instanceof Error ? e.message : "予期せぬエラー");
