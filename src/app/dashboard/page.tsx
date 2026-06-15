@@ -177,6 +177,7 @@ export default async function DashboardPage() {
         <Link href="/test"><Button fullWidth size="lg" variant="secondary">テストを始める</Button></Link>
         <Link href="/test/typing"><Button fullWidth size="md" variant="secondary">⌨️ タイピング練習</Button></Link>
         <Link href="/extract"><Button fullWidth size="md" variant="secondary">✨ 英文から単語抽出</Button></Link>
+        <Link href="/plan" className="col-span-2"><Button fullWidth size="md" variant="secondary">🗓️ AIパーソナル学習プラン</Button></Link>
       </section>
 
       {/* 実績バッジ */}
