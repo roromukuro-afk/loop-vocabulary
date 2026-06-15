@@ -403,6 +403,7 @@ export default function LandingPage() {
             { slug: "eiken-3kyu-tango", tag: "英検3級", title: "英検3級 頻出単語対策", desc: "頻出800語をカテゴリ別に完全解説" },
             { slug: "eiken-jun2-tango", tag: "英検準2級", title: "英検準2級 単語対策", desc: "テーマ別1,000語と6週間合格プラン" },
             { slug: "eiken-2kyu-tango", tag: "英検2級", title: "英検2級 単語対策", desc: "社会・医療・科学の頻出1,500語" },
+            { slug: "eiken-jun1-tango", tag: "英検準1級", title: "英検準1級 単語対策", desc: "7,000〜8,000語レベルをカテゴリ別に攻略" },
             { slug: "toeic-tango", tag: "TOEIC", title: "TOEIC 頻出単語 スコア別解説", desc: "600点〜990点を目指す語彙学習戦略" },
             { slug: "daigaku-juken-tango", tag: "大学受験", title: "大学受験英単語の覚え方", desc: "共通テスト〜難関大に必要な3,000〜5,000語" },
           ].map((g) => (
