@@ -78,6 +78,7 @@ export default async function PremiumPage() {
             { label: "CSVインポート", free: "—", prem: "✓" },
             { label: "統計エクスポート", free: "—", prem: "✓" },
             { label: "PDFテスト出力", free: "3回/日", prem: "無制限" },
+            { label: "英文から単語自動抽出", free: "—", prem: "✓" },
           ].map((r) => (
             <div key={r.label} className="grid grid-cols-3 text-[12px] border-b border-navy-50 last:border-0">
               <div className="py-3 px-3 text-navy-600 font-medium">{r.label}</div>

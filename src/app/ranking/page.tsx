@@ -24,12 +24,12 @@ async function getRanking(myId: string) {
 
   const { data: rows } = await admin
     .from("daily_stats")
-    .select("user_id, words_studied")
-    .gte("studied_date", weekStartDate);
+    .select("user_id, studied_count")
+    .gte("day", weekStartDate);
 
   const totals: Record<string, number> = {};
   for (const r of rows ?? []) {
-    totals[r.user_id] = (totals[r.user_id] ?? 0) + (r.words_studied ?? 0);
+    totals[r.user_id] = (totals[r.user_id] ?? 0) + (r.studied_count ?? 0);
   }
 
   const sorted = Object.entries(totals)
