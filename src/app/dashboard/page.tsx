@@ -7,6 +7,7 @@ import { BannerAdPlaceholder, NativeAdCard } from "@/components/ads/AdComponents
 import { requireUser } from "@/lib/supabase/requireUser";
 import { PushPermission } from "@/components/push/PushPermission";
 import { StudyCalendar } from "@/components/stats/StudyCalendar";
+import { ExamCountdown } from "@/components/dashboard/ExamCountdown";
 
 export const dynamic = "force-dynamic";
 
@@ -64,11 +65,13 @@ export default async function DashboardPage() {
     supabase.from("materials").select("*", { count: "exact", head: true }).eq("is_public", true).eq("license_status", "approved"),
     supabase.from("material_words").select("*", { count: "exact", head: true }),
     supabase.from("words").select("word, meaning, correct_count, wrong_count").eq("user_id", user.id).order("last_studied_at", { ascending: false }).limit(5),
-    supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("is_premium, exam_goal, exam_date").eq("id", user.id).maybeSingle(),
     supabase.from("words").select("word, meaning, phonetic").eq("user_id", user.id).is("last_studied_at", null).limit(20),
   ]);
 
   const isPremium = profile?.is_premium ?? false;
+  const examGoal = profile?.exam_goal ?? null;
+  const examDate = profile?.exam_date ?? null;
 
   const studied = todayStats?.studied_count ?? 0;
   const correct = todayStats?.correct_count ?? 0;
@@ -138,6 +141,9 @@ export default async function DashboardPage() {
 
       {/* プッシュ通知許可バナー */}
       <PushPermission />
+
+      {/* 試験日カウントダウン */}
+      <ExamCountdown examGoal={examGoal} examDate={examDate} />
 
       {/* 今日の目標進捗バー */}
       <div className="mt-4">
