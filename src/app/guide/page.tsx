@@ -77,6 +77,13 @@ const GUIDES = [
     tag: "英検3級",
     readTime: "5分",
   },
+  {
+    slug: "eiken-jun2-tango",
+    title: "英検準2級 単語対策【頻出1,000語テーマ別】",
+    description: "英検準2級合格に必要な単語1,000語を環境・医療・テクノロジーなどテーマ別に解説。6週間合格プランと語彙問題攻略法も掲載。",
+    tag: "英検準2級",
+    readTime: "6分",
+  },
 ];
 
 const LIST_JSON_LD = {
