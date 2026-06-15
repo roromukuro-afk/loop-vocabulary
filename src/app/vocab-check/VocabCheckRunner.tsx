@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { trackVocabCheckComplete } from "@/lib/analytics/events";
 
 type Question = {
   word: string;
@@ -74,6 +75,9 @@ export function VocabCheckRunner() {
   const next = () => {
     setPicked(null);
     if (idx + 1 >= QUESTIONS.length) {
+      const finalCorrect = [...results, picked === cur.answer].filter(Boolean).length;
+      const finalResult = getResult(finalCorrect);
+      trackVocabCheckComplete(finalCorrect, finalResult.level);
       setDone(true);
       return;
     }
