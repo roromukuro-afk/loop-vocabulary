@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
+import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 
 export const metadata: Metadata = {
   title: "英検準2級 単語対策【頻出1000語カテゴリ別】| Loop Vocabulary",
@@ -225,6 +226,8 @@ export default function EikenJun2Page() {
             ))}
           </div>
         </div>
+
+        <GuideEmailCapture slug="eiken-jun2-tango" />
 
         {/* CTA */}
         <div className="bg-gradient-to-r from-sky-600 to-sky-700 rounded-2xl p-5 text-white text-center">

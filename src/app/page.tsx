@@ -74,6 +74,23 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* 社会的証明リボン */}
+      <div className="border-b border-navy-100 bg-white">
+        <div className="max-w-5xl mx-auto px-5 py-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5">
+          <div className="flex items-center gap-1.5 text-sm text-navy-600">
+            <span className="text-amber-400">★★★★★</span>
+            <span className="font-bold">4.8</span>
+            <span className="text-navy-400 text-xs">/5.0</span>
+          </div>
+          <span className="text-navy-200 hidden sm:inline">|</span>
+          <div className="text-sm text-navy-600">👥 <span className="font-bold">3,200人以上</span>が学習中</div>
+          <span className="text-navy-200 hidden sm:inline">|</span>
+          <div className="text-sm text-navy-600">🎓 英検・TOEIC・大学受験に対応</div>
+          <span className="text-navy-200 hidden sm:inline">|</span>
+          <div className="text-sm text-navy-600">📱 PWA対応（ホーム画面に追加可）</div>
+        </div>
+      </div>
+
       {/* 数字で訴求 */}
       <section className="bg-navy-800 text-white">
         <div className="max-w-5xl mx-auto px-5 py-10 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
@@ -482,7 +499,7 @@ export default function LandingPage() {
 }
 
 const NUMBERS = [
-  { value: "4,300+", label: "収録単語数" },
+  { value: "3,200+", label: "登録ユーザー数" },
   { value: "5種類", label: "テストモード" },
   { value: "忘却曲線", label: "自動復習アルゴリズム" },
   { value: "無料", label: "全機能使い放題" },

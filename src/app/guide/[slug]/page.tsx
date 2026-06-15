@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
+import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 
 type Article = {
   title: string;
@@ -1003,6 +1004,8 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
             heading="📚 あわせて読みたい参考書（Amazon）"
           />
         )}
+
+        <GuideEmailCapture slug={slug} />
 
         {/* CTA */}
         <div className="mt-6 bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-6 text-white text-center">

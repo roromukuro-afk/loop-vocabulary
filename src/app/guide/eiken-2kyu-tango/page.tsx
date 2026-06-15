@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
+import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 
 export const metadata: Metadata = {
   title: "英検2級 単語対策【頻出1,500語カテゴリ別解説】| Loop Vocabulary",
@@ -185,6 +186,8 @@ export default function Eiken2KyuPage() {
             { title: "システム英単語 改訂新版", author: "霜康司・刀祢雅彦", asin: "4796111727", price: "¥1,210", label: "語彙の底上げに" },
           ]}
         />
+
+        <GuideEmailCapture slug="eiken-2kyu-tango" />
 
         {/* CTA */}
         <div className="bg-gradient-to-r from-navy-800 to-navy-900 rounded-2xl p-5 text-white text-center">

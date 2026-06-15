@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
+import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 
 export const metadata: Metadata = {
   title: "大学受験英単語の効率的な覚え方【2025年版 共通テスト〜難関大】| Loop Vocabulary",
@@ -184,6 +185,8 @@ export default function DaigakuJukenPage() {
 
         {/* Amazon書籍 */}
         <AmazonBookSection books={BOOKS} heading="📚 大学受験定番の単語帳（Amazon）" />
+
+        <GuideEmailCapture slug="daigaku-juken-tango" />
 
         {/* CTA */}
         <div className="bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-6 text-white text-center">

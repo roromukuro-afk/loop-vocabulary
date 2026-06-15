@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
+import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 
 export const metadata: Metadata = {
   title: "英単語の覚え方・効率的な記憶術【2024年版】| Loop Vocabulary",

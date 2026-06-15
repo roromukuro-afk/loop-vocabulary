@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
+import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 
 export const metadata: Metadata = {
   title: "TOEIC頻出単語・語彙対策【スコア別必須リスト】| Loop Vocabulary",
@@ -162,6 +163,8 @@ export default function ToeicTangoPage() {
             { title: "英単語ターゲット1900 6訂版", author: "旺文社", asin: "4010773634", price: "¥1,100", label: "汎用的な基礎固めに" },
           ]}
         />
+
+        <GuideEmailCapture slug="toeic-tango" />
 
         {/* CTA */}
         <div className="bg-gradient-to-r from-navy-800 to-navy-900 rounded-2xl p-5 text-white text-center">

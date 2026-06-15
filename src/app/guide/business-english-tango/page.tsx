@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
+import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 
 export const metadata: Metadata = {
   title: "ビジネス英語 必須単語300選と実践的な覚え方 | Loop Vocabulary",
@@ -210,6 +211,8 @@ export default function BusinessEnglishPage() {
 
         {/* Amazon書籍 */}
         <AmazonBookSection books={BOOKS} heading="📚 ビジネス英語を伸ばすおすすめ書籍（Amazon）" />
+
+        <GuideEmailCapture slug="business-english-tango" />
 
         {/* CTA */}
         <div className="bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-6 text-white text-center">

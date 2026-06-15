@@ -70,3 +70,7 @@ export function trackReferralShare() {
 export function trackWordAdded() {
   gtag("word_added", { event_category: "engagement" });
 }
+
+export function trackEmailCapture(slug: string) {
+  gtag("email_capture", { guide_slug: slug, event_category: "lead_gen" });
+}
