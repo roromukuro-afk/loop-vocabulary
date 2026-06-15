@@ -93,6 +93,15 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
     router.refresh();
   };
 
+  const toggleWeak = async () => {
+    if (!selected) return;
+    const res = await fetch(`/api/words/${selected.id}/toggle-weak`, { method: "POST" });
+    if (!res.ok) return;
+    const { is_weak } = await res.json() as { is_weak: boolean };
+    setWords((prev) => prev.map((w) => w.id === selected.id ? { ...w, is_weak } : w));
+    setSelected((prev) => prev ? { ...prev, is_weak } : prev);
+  };
+
   const acc = selected
     ? selected.correct_count + selected.wrong_count > 0
       ? Math.round((selected.correct_count / (selected.correct_count + selected.wrong_count)) * 100)
@@ -288,17 +297,28 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
                 🤖 AI解説を見る
               </Link>
               <button
+                onClick={toggleWeak}
+                className={cn(
+                  "py-3 rounded-2xl text-sm font-semibold transition-colors",
+                  selected.is_weak
+                    ? "bg-red-100 text-red-700 hover:bg-red-200"
+                    : "border border-navy-200 text-navy-600 hover:bg-navy-50",
+                )}
+              >
+                {selected.is_weak ? "🔴 苦手解除" : "⚠️ 苦手登録"}
+              </button>
+              <button
                 onClick={closeDrawer}
-                className="border border-navy-200 text-navy-600 font-semibold py-3 rounded-2xl text-sm hover:bg-navy-50"
+                className="border border-navy-200 text-navy-600 font-semibold py-2.5 rounded-2xl text-sm hover:bg-navy-50"
               >
                 閉じる
               </button>
               <button
                 onClick={deleteWord}
                 disabled={deleting}
-                className="col-span-2 border border-red-200 text-red-600 font-semibold py-2.5 rounded-2xl text-sm hover:bg-red-50 disabled:opacity-50 transition-colors"
+                className="border border-red-200 text-red-600 font-semibold py-2.5 rounded-2xl text-sm hover:bg-red-50 disabled:opacity-50 transition-colors"
               >
-                {deleting ? "削除中…" : "🗑 この単語を削除"}
+                {deleting ? "削除中…" : "🗑 削除"}
               </button>
             </div>
           </div>
