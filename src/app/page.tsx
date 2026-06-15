@@ -405,6 +405,7 @@ export default function LandingPage() {
             { slug: "eiken-2kyu-tango", tag: "英検2級", title: "英検2級 単語対策", desc: "社会・医療・科学の頻出1,500語" },
             { slug: "eiken-jun1-tango", tag: "英検準1級", title: "英検準1級 単語対策", desc: "7,000〜8,000語レベルをカテゴリ別に攻略" },
             { slug: "toeic-tango", tag: "TOEIC", title: "TOEIC 頻出単語 スコア別解説", desc: "600点〜990点を目指す語彙学習戦略" },
+            { slug: "business-english-tango", tag: "ビジネス英語", title: "ビジネス英語 必須単語300選", desc: "メール・会議・プレゼン・交渉シーン別に厳選" },
             { slug: "daigaku-juken-tango", tag: "大学受験", title: "大学受験英単語の覚え方", desc: "共通テスト〜難関大に必要な3,000〜5,000語" },
           ].map((g) => (
             <Link key={g.slug} href={`/guide/${g.slug}`} className="block bg-white border border-navy-100 rounded-2xl p-5 hover:shadow-md transition-shadow">
@@ -418,6 +419,25 @@ export default function LandingPage() {
         <div className="text-center mt-6">
           <Link href="/guide" className="inline-block text-sm text-sky-600 font-bold hover:underline">
             すべてのガイドを見る →
+          </Link>
+        </div>
+      </section>
+
+      {/* 語彙力チェックバナー */}
+      <section className="bg-white py-10">
+        <div className="max-w-5xl mx-auto px-5">
+          <Link href="/vocab-check" className="block">
+            <div className="bg-gradient-to-r from-sky-500 to-indigo-600 rounded-3xl p-6 sm:p-8 text-white hover:opacity-95 transition-opacity flex flex-col sm:flex-row items-center gap-5">
+              <div className="text-5xl">📊</div>
+              <div className="flex-1 text-center sm:text-left">
+                <div className="text-[11px] font-bold uppercase tracking-widest text-sky-200 mb-1">無料診断</div>
+                <div className="text-xl font-black leading-tight">あなたの英語語彙力を今すぐチェック</div>
+                <p className="text-sm text-sky-100 mt-1">20問・3分・ログイン不要。中学〜IELTS上級まで5段階で判定します。</p>
+              </div>
+              <div className="shrink-0 px-5 py-3 rounded-2xl bg-white text-sky-700 font-black text-sm hover:bg-sky-50 transition-colors">
+                今すぐ診断 →
+              </div>
+            </div>
           </Link>
         </div>
       </section>
