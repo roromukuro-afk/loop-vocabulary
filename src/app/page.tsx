@@ -348,6 +348,34 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Premium AI機能紹介 */}
+      <section className="max-w-5xl mx-auto px-5 py-14">
+        <div className="text-center mb-8">
+          <div className="text-xs font-bold uppercase tracking-widest text-amber-600 mb-2">Premium AI Features</div>
+          <h2 className="text-2xl font-bold text-navy-800">AIで学習効率を最大化</h2>
+          <p className="text-sm text-navy-500 mt-2">プレミアムプランで使えるAI機能で、学習の質と速度を飛躍的に向上させます</p>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          {[
+            { icon: "✨", title: "英文から単語を自動抽出", desc: "英語ニュース・メールを貼り付けるだけでAIが学習すべき語彙を自動抽出して単語帳に追加。" },
+            { icon: "🗓️", title: "AIパーソナル学習プラン", desc: "英検2級・TOEIC800点など目標を入力するとAIが最適な学習スケジュールを自動生成。" },
+            { icon: "🔬", title: "AI弱点分析レポート", desc: "間違いのパターンをAIが分析し、苦手な単語の傾向と具体的な改善策を提案。" },
+            { icon: "🎧", title: "リスニングテスト", desc: "英単語の音声を聞いてスペルを入力するリスニング×スペリング同時練習。" },
+          ].map((f) => (
+            <div key={f.title} className="bg-gradient-to-br from-navy-50 to-white border border-navy-100 rounded-2xl p-5">
+              <div className="text-3xl mb-2">{f.icon}</div>
+              <div className="font-bold text-navy-800">{f.title}</div>
+              <p className="text-sm text-navy-600 mt-1">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+        <div className="text-center mt-6">
+          <Link href="/premium">
+            <Button variant="secondary" size="lg">プレミアムの全機能を見る →</Button>
+          </Link>
+        </div>
+      </section>
+
       {/* 語彙力チェックCTA */}
       <section className="bg-sky-600">
         <div className="max-w-5xl mx-auto px-5 py-12 text-center">
@@ -387,7 +415,12 @@ export default function LandingPage() {
             <Link href="/contact" className="hover:text-navy-700">お問い合わせ</Link>
             <Link href="/premium" className="hover:text-navy-700">広告非表示プラン</Link>
             <Link href="/vocab-check" className="hover:text-navy-700">語彙力チェック</Link>
+            <Link href="/vocab-check/toeic" className="hover:text-navy-700">TOEIC語彙チェック</Link>
+            <Link href="/vocab-check/eiken" className="hover:text-navy-700">英検語彙チェック</Link>
             <Link href="/guide" className="hover:text-navy-700">学習ガイド</Link>
+            <Link href="/phrases" className="hover:text-navy-700">英語フレーズ集</Link>
+            <Link href="/shadowing" className="hover:text-navy-700">シャドーイング</Link>
+            <Link href="/faq" className="hover:text-navy-700">FAQ</Link>
           </div>
         </div>
       </footer>
