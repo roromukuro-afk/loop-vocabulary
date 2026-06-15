@@ -38,7 +38,7 @@ export default async function PremiumPage() {
         <h1 className="text-3xl font-black leading-tight">
           最強の英単語学習を<br />ロック解除しよう
         </h1>
-        <p className="mt-3 text-sm text-navy-300">広告なし・AI無制限・CSV一括インポート</p>
+        <p className="mt-3 text-sm text-navy-300">広告なし・AI無制限・タイピング練習・CSV一括インポート</p>
         {isPremium && (
           <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-sm font-bold">
             ✓ 現在プレミアム会員です
@@ -73,9 +73,11 @@ export default async function PremiumPage() {
           {[
             { label: "単語帳・テスト", free: "✓", prem: "✓" },
             { label: "AI解説", free: "5回/日", prem: "無制限" },
+            { label: "タイピング練習", free: "—", prem: "✓" },
             { label: "広告", free: "あり", prem: "なし ✓" },
             { label: "CSVインポート", free: "—", prem: "✓" },
             { label: "統計エクスポート", free: "—", prem: "✓" },
+            { label: "PDFテスト出力", free: "3回/日", prem: "無制限" },
           ].map((r) => (
             <div key={r.label} className="grid grid-cols-3 text-[12px] border-b border-navy-50 last:border-0">
               <div className="py-3 px-3 text-navy-600 font-medium">{r.label}</div>

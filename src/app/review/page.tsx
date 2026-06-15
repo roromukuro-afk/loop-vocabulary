@@ -58,6 +58,11 @@ export default async function ReviewPage({
             ✏️ 4択テストで復習
           </Button>
         </Link>
+        <Link href="/test/typing">
+          <Button fullWidth size="lg" variant="secondary">
+            ⌨️ タイピング練習（Premium）
+          </Button>
+        </Link>
         <Link href="/weak">
           <Button fullWidth size="lg" variant="secondary">
             苦手単語を見る

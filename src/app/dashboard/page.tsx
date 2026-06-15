@@ -174,8 +174,8 @@ export default async function DashboardPage() {
             )}
           </Button>
         </Link>
-        <Link href="/test/choice"><Button fullWidth size="lg" variant="secondary">4択テスト</Button></Link>
-        <Link href="/test/input"><Button fullWidth size="md" variant="secondary">入力テスト</Button></Link>
+        <Link href="/test"><Button fullWidth size="lg" variant="secondary">テストを始める</Button></Link>
+        <Link href="/test/typing"><Button fullWidth size="md" variant="secondary">⌨️ タイピング練習</Button></Link>
         <Link href="/dictionary"><Button fullWidth size="md" variant="secondary">辞書で調べる</Button></Link>
       </section>
 

@@ -348,6 +348,20 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* 語彙力チェックCTA */}
+      <section className="bg-sky-600">
+        <div className="max-w-5xl mx-auto px-5 py-12 text-center">
+          <div className="text-xs font-bold uppercase tracking-widest text-sky-200 mb-2">無料 · ログイン不要 · 20問</div>
+          <h2 className="text-2xl font-extrabold text-white mb-2">まず語彙力チェックを試す</h2>
+          <p className="text-sky-100 text-sm mb-6">20問の4択クイズで、あなたの英語語彙レベルを診断。中学〜IELTS上級まで5段階判定。</p>
+          <Link href="/vocab-check">
+            <Button size="lg" className="bg-white hover:bg-sky-50 text-sky-700 px-10 font-bold">
+              語彙力チェックを始める（無料）→
+            </Button>
+          </Link>
+        </div>
+      </section>
+
       {/* 最終CTA */}
       <section className="bg-navy-800">
         <div className="max-w-5xl mx-auto px-5 py-16 text-center">
@@ -372,6 +386,8 @@ export default function LandingPage() {
             <Link href="/terms" className="hover:text-navy-700">利用規約</Link>
             <Link href="/contact" className="hover:text-navy-700">お問い合わせ</Link>
             <Link href="/premium" className="hover:text-navy-700">広告非表示プラン</Link>
+            <Link href="/vocab-check" className="hover:text-navy-700">語彙力チェック</Link>
+            <Link href="/guide" className="hover:text-navy-700">学習ガイド</Link>
           </div>
         </div>
       </footer>

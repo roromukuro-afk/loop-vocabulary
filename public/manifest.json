@@ -31,6 +31,12 @@
       "short_name": "AI",
       "url": "/ai",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "タイピング練習",
+      "short_name": "タイピング",
+      "url": "/test/typing",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
