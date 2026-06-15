@@ -23,30 +23,43 @@ export async function POST(req: NextRequest) {
       ON guide_email_captures (email);
   `;
 
-  // Use Supabase Management SQL API via fetch
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-  const projectRef = supabaseUrl.replace("https://", "").replace(".supabase.co", "");
 
-  const res = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/database/query`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${serviceKey}`,
-    },
-    body: JSON.stringify({ query: sql }),
-  });
+  // Try Supabase internal SQL endpoint (used by CLI)
+  const endpoints = [
+    `${supabaseUrl}/pg/query`,
+    `${supabaseUrl}/rest/v1/rpc/pg_query`,
+  ];
 
-  if (!res.ok) {
-    const text = await res.text();
-    // Fallback: Try creating table via insert (if table already exists, that's fine)
-    const { error: checkErr } = await admin.from("guide_email_captures").select("id").limit(1);
-    if (!checkErr) {
-      return NextResponse.json({ ok: true, note: "Table already exists" });
+  let lastErr = "";
+  for (const endpoint of endpoints) {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+      },
+      body: JSON.stringify({ query: sql }),
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return NextResponse.json({ ok: true, endpoint, data });
     }
-    return NextResponse.json({ error: text, fallback_err: checkErr?.message }, { status: 500 });
+    lastErr = await res.text();
   }
 
-  const data = await res.json();
-  return NextResponse.json({ ok: true, data });
+  // Final fallback: check if table already exists
+  const { error: checkErr } = await admin.from("guide_email_captures").select("id").limit(1);
+  if (!checkErr) {
+    return NextResponse.json({ ok: true, note: "Table already exists" });
+  }
+
+  return NextResponse.json({
+    error: "Could not execute SQL via any endpoint",
+    last_error: lastErr.slice(0, 200),
+    table_check: checkErr?.message,
+    sql_to_run_manually: sql,
+  }, { status: 500 });
 }
