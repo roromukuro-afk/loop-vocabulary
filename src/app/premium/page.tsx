@@ -38,7 +38,7 @@ export default async function PremiumPage() {
         <h1 className="text-3xl font-black leading-tight">
           最強の英単語学習を<br />ロック解除しよう
         </h1>
-        <p className="mt-3 text-sm text-navy-300">広告なし・AI無制限・タイピング練習・CSV一括インポート</p>
+        <p className="mt-3 text-sm text-navy-300">広告なし・AI無制限・英文抽出・学習プラン・弱点分析・リスニング</p>
         {isPremium && (
           <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-sm font-bold">
             ✓ 現在プレミアム会員です
@@ -63,8 +63,24 @@ export default async function PremiumPage() {
           />
         )}
 
+        {/* AI機能ショーケース */}
+        <div className="mt-8 grid grid-cols-2 gap-3">
+          {[
+            { icon: "✨", title: "英文から単語抽出", desc: "英語記事を貼るだけでAIが語彙を自動抽出" },
+            { icon: "🗓️", title: "AI学習プラン", desc: "試験日を入力するとAIが最適スケジュール生成" },
+            { icon: "🔬", title: "AI弱点分析", desc: "苦手単語のパターンをAIが分析して改善策を提案" },
+            { icon: "🎧", title: "リスニングテスト", desc: "音声を聞いてスペルを入力するリスニング練習" },
+          ].map((f) => (
+            <div key={f.title} className="bg-white rounded-2xl border border-navy-100 p-4">
+              <div className="text-2xl mb-2">{f.icon}</div>
+              <div className="font-bold text-navy-800 text-sm">{f.title}</div>
+              <p className="text-xs text-navy-500 mt-1">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+
         {/* 機能比較 */}
-        <div className="mt-8 bg-white rounded-2xl border border-navy-100 overflow-hidden shadow-sm">
+        <div className="mt-6 bg-white rounded-2xl border border-navy-100 overflow-hidden shadow-sm">
           <div className="grid grid-cols-3 text-[11px] font-bold text-center text-navy-500 border-b border-navy-100">
             <div className="py-3">機能</div>
             <div className="py-3 border-l border-navy-100">無料</div>
@@ -81,6 +97,8 @@ export default async function PremiumPage() {
             { label: "PDFテスト出力", free: "3回/日", prem: "無制限" },
             { label: "英文から単語自動抽出", free: "—", prem: "✓" },
             { label: "AIパーソナル学習プラン", free: "—", prem: "✓" },
+            { label: "AI弱点分析レポート", free: "—", prem: "✓" },
+            { label: "レッスンモード", free: "✓", prem: "✓" },
           ].map((r) => (
             <div key={r.label} className="grid grid-cols-3 text-[12px] border-b border-navy-50 last:border-0">
               <div className="py-3 px-3 text-navy-600 font-medium">{r.label}</div>
