@@ -390,6 +390,37 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* 学習ガイドセクション */}
+      <section className="max-w-5xl mx-auto px-5 py-14">
+        <div className="text-center mb-8">
+          <div className="text-xs font-bold uppercase tracking-widest text-sky-600 mb-2">学習ガイド</div>
+          <h2 className="text-2xl font-bold text-navy-800">英語試験別 単語学習ガイド</h2>
+          <p className="text-sm text-navy-500 mt-2">目標別に最短ルートを解説</p>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            { slug: "eitango-oboeru-houhou", tag: "学習法", title: "英単語の覚え方・効率的な記憶術", desc: "SRS・語源・例文記憶など科学的な学習法を解説" },
+            { slug: "eiken-3kyu-tango", tag: "英検3級", title: "英検3級 頻出単語対策", desc: "頻出800語をカテゴリ別に完全解説" },
+            { slug: "eiken-jun2-tango", tag: "英検準2級", title: "英検準2級 単語対策", desc: "テーマ別1,000語と6週間合格プラン" },
+            { slug: "eiken-2kyu-tango", tag: "英検2級", title: "英検2級 単語対策", desc: "社会・医療・科学の頻出1,500語" },
+            { slug: "toeic-tango", tag: "TOEIC", title: "TOEIC 頻出単語 スコア別解説", desc: "600点〜990点を目指す語彙学習戦略" },
+            { slug: "daigaku-juken-tango", tag: "大学受験", title: "大学受験英単語の覚え方", desc: "共通テスト〜難関大に必要な3,000〜5,000語" },
+          ].map((g) => (
+            <Link key={g.slug} href={`/guide/${g.slug}`} className="block bg-white border border-navy-100 rounded-2xl p-5 hover:shadow-md transition-shadow">
+              <div className="text-[11px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-semibold inline-block mb-2">{g.tag}</div>
+              <div className="font-bold text-navy-800 text-sm leading-snug">{g.title}</div>
+              <p className="text-xs text-navy-500 mt-1">{g.desc}</p>
+              <div className="mt-3 text-xs text-sky-600 font-semibold">続きを読む →</div>
+            </Link>
+          ))}
+        </div>
+        <div className="text-center mt-6">
+          <Link href="/guide" className="inline-block text-sm text-sky-600 font-bold hover:underline">
+            すべてのガイドを見る →
+          </Link>
+        </div>
+      </section>
+
       {/* 最終CTA */}
       <section className="bg-navy-800">
         <div className="max-w-5xl mx-auto px-5 py-16 text-center">
