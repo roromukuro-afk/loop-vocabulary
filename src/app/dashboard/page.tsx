@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/supabase/requireUser";
 import { PushPermission } from "@/components/push/PushPermission";
 import { StudyCalendar } from "@/components/stats/StudyCalendar";
 import { ExamCountdown } from "@/components/dashboard/ExamCountdown";
+import { DailyMissions } from "@/components/dashboard/DailyMissions";
 
 export const dynamic = "force-dynamic";
 
@@ -190,6 +191,9 @@ export default async function DashboardPage() {
         <Link href="/extract"><Button fullWidth size="md" variant="secondary">✨ 英文から単語抽出</Button></Link>
         <Link href="/plan" className="col-span-2"><Button fullWidth size="md" variant="secondary">🗓️ AIパーソナル学習プラン</Button></Link>
       </section>
+
+      {/* デイリーミッション */}
+      <DailyMissions studied={studied} dailyGoal={DAILY_GOAL} streak={streak} wordCount={wordCount ?? 0} />
 
       {/* 実績バッジ */}
       {badges.length > 0 && (
