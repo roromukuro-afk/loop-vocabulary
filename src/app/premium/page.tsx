@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { PremiumCheckout } from "./PremiumCheckout";
+import { PremiumTracker } from "./PremiumTracker";
 
 export const metadata: Metadata = {
   title: "プレミアムプラン | Loop Vocabulary",
@@ -67,6 +68,7 @@ export default async function PremiumPage() {
 
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+      <PremiumTracker />
 
       {/* ヒーロー */}
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-10 pb-20 text-white text-center relative overflow-hidden">
