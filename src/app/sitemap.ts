@@ -13,6 +13,9 @@ const GUIDE_SLUGS = [
   "eitango-oboeru-houhou",
   "eiken-3kyu-tango",
   "eiken-jun2-tango",
+  "eigo-hatsuon-renshu",
+  "koukou-eigo-tango",
+  "toeic-900ten",
 ] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {

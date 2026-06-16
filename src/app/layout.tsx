@@ -21,6 +21,14 @@ export const metadata: Metadata = {
     description:
       "辞書検索からそのまま単語帳へ。忘却曲線で自動復習。4択テスト・AI解説・PDF出力まで1アプリで。完全無料。",
     locale: "ja_JP",
+    images: [
+      {
+        url: `${APP_URL}/api/og`,
+        width: 1200,
+        height: 630,
+        alt: "Loop Vocabulary — 調べた英語を、覚える英語へ。",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -28,6 +36,7 @@ export const metadata: Metadata = {
     description:
       "辞書検索からそのまま単語帳へ。忘却曲線・4択テスト・AI解説・PDF出力まで1アプリで。完全無料。",
     creator: "@LoopVocabulary",
+    images: [`${APP_URL}/api/og`],
   },
   appleWebApp: {
     capable: true,
@@ -71,12 +80,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </>
         )}
         {ADSENSE_CLIENT && (
-          <Script
-            id="adsense-init"
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
-            strategy="afterInteractive"
-            crossOrigin="anonymous"
-          />
+          <>
+            <Script
+              id="adsense-init"
+              src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+              strategy="afterInteractive"
+              crossOrigin="anonymous"
+            />
+            <Script id="adsense-auto-ads" strategy="afterInteractive">
+              {`(window.adsbygoogle=window.adsbygoogle||[]).push({google_ad_client:"${ADSENSE_CLIENT}",enable_page_level_ads:true});`}
+            </Script>
+          </>
         )}
       </body>
     </html>

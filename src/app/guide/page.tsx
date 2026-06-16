@@ -91,6 +91,27 @@ const GUIDES = [
     tag: "英検準2級",
     readTime: "6分",
   },
+  {
+    slug: "eigo-hatsuon-renshu",
+    title: "英語の発音練習方法【フォニックス・シャドーイング完全ガイド】",
+    description: "英語の発音を独学で改善する方法を徹底解説。フォニックス・シャドーイング・IPA活用法から日本人が苦手な音の攻略法まで。",
+    tag: "発音練習",
+    readTime: "5分",
+  },
+  {
+    slug: "koukou-eigo-tango",
+    title: "高校英語の単語を完全に覚える方法【大学受験対応・2,000語攻略】",
+    description: "共通テスト・難関私大・国立大に対応した高校英語の単語学習法。レベル別ロードマップとSRS活用法で2,000〜5,000語を最短習得。",
+    tag: "高校英語",
+    readTime: "5分",
+  },
+  {
+    slug: "toeic-900ten",
+    title: "TOEIC 900点の勉強法【スコアアップ戦略と学習スケジュール】",
+    description: "TOEIC 900点突破のための現在スコア別ロードマップ・パート別攻略法・必須語彙強化法を実践的に解説。",
+    tag: "TOEIC 900点",
+    readTime: "6分",
+  },
 ];
 
 const LIST_JSON_LD = {
