@@ -1,5 +1,1 @@
-# Google AdSense ads.txt
-# このファイルはGoogle AdSenseの掲載承認後に以下の形式で更新してください:
-# google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
-#
-# pub-XXXXXXXXXXXXXXXX → AdSense Console のパブリッシャーID（ca-pub-で始まる番号）に置き換えてください
+google.com, pub-5148247638505100, DIRECT, f08c47fec0942fa0
