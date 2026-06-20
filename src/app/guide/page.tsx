@@ -112,6 +112,27 @@ const GUIDES = [
     tag: "TOEIC 900点",
     readTime: "6分",
   },
+  {
+    slug: "eigo-listening-renshu",
+    title: "英語リスニング練習方法【初心者〜上級者別 完全ガイド】",
+    description: "シャドーイング・ディクテーション・多聴の効果的な使い方からレベル別おすすめ教材まで。TOEICリスニング対策にも対応。",
+    tag: "リスニング",
+    readTime: "5分",
+  },
+  {
+    slug: "eibunpo-kiso",
+    title: "英文法 基礎の覚え方【中学〜高校・大学受験 完全ガイド】",
+    description: "英文法のつまずきポイント5選と3ステップ攻略法。時制・仮定法・関係代名詞を理解ベースで攻略。英検・TOEIC文法対策にも対応。",
+    tag: "英文法",
+    readTime: "5分",
+  },
+  {
+    slug: "eigo-dokkai-houhou",
+    title: "英語長文読解の勉強法【大学受験・英検・TOEIC対応】",
+    description: "英語長文を速く正確に解く4つのスキルと試験別攻略法。語彙力・精読・速読・パラグラフ読みを段階的に強化。",
+    tag: "長文読解",
+    readTime: "5分",
+  },
 ];
 
 const LIST_JSON_LD = {

@@ -16,6 +16,9 @@ const GUIDE_SLUGS = [
   "eigo-hatsuon-renshu",
   "koukou-eigo-tango",
   "toeic-900ten",
+  "eigo-listening-renshu",
+  "eibunpo-kiso",
+  "eigo-dokkai-houhou",
 ] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
