@@ -16,11 +16,14 @@ import wordsVol2 from "@/data/seed-words-vol2.json";
 // 初学者向け基礎語彙 (material_id 000000000033-36)
 import eikenPre2Words from "@/data/seed-eiken-pre2.json";
 import eikenPre2B2 from "@/data/seed-eiken-pre2-b2.json";
+import eikenPre2B3 from "@/data/seed-eiken-pre2-b3.json";
 import eiken3Words from "@/data/seed-eiken3.json";
 import eiken3B2 from "@/data/seed-eiken3-b2.json";
+import eiken3B3 from "@/data/seed-eiken3-b3.json";
 import eiken45Words from "@/data/seed-eiken45.json";
 import eiken45B2 from "@/data/seed-eiken45-b2.json";
 import eiken45B3 from "@/data/seed-eiken45-b3.json";
+import eiken45B4 from "@/data/seed-eiken45-b4.json";
 import basicDailyWords from "@/data/seed-basic-daily.json";
 import basicDailyB2 from "@/data/seed-basic-daily-b2.json";
 
@@ -350,6 +353,7 @@ export async function POST(req: NextRequest) {
     const allEikenPre2 = [
       ...(eikenPre2Words as WordRow[]),
       ...(eikenPre2B2 as WordRow[]),
+      ...(eikenPre2B3 as WordRow[]),
     ];
     results.eikenPre2 = await upsertChunked(supabase, allEikenPre2);
   }
@@ -359,6 +363,7 @@ export async function POST(req: NextRequest) {
     const allEiken3 = [
       ...(eiken3Words as WordRow[]),
       ...(eiken3B2 as WordRow[]),
+      ...(eiken3B3 as WordRow[]),
     ];
     results.eiken3 = await upsertChunked(supabase, allEiken3);
   }
@@ -369,6 +374,7 @@ export async function POST(req: NextRequest) {
       ...(eiken45Words as WordRow[]),
       ...(eiken45B2 as WordRow[]),
       ...(eiken45B3 as WordRow[]),
+      ...(eiken45B4 as WordRow[]),
     ];
     results.eiken45 = await upsertChunked(supabase, allEiken45);
   }
