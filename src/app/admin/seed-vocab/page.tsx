@@ -5,17 +5,17 @@ import { createClient } from "@/lib/supabase/client";
 type Dataset = "all" | "eiken45" | "eiken3" | "eikenPre2" | "basicDaily" | "highschool" | "toeic" | "eiken2" | "eikenP1" | "eiken1" | "junior" | "daigaku";
 
 const DATASETS: { value: Dataset; label: string; count: string; tag?: string }[] = [
-  { value: "all", label: "全データセット（推奨）", count: "~7,700語" },
-  { value: "eiken45", label: "英検5・4級 基礎単語", count: "~296語", tag: "初学者" },
-  { value: "eiken3", label: "英検3級 重要単語", count: "~280語", tag: "初学者" },
-  { value: "eikenPre2", label: "英検準2級 重要単語", count: "~250語", tag: "基礎" },
-  { value: "basicDaily", label: "日常英会話 基礎フレーズ", count: "~200語", tag: "基礎" },
+  { value: "all", label: "全データセット（推奨）", count: "~10,000語+" },
+  { value: "eiken45", label: "英検5・4級 基礎単語", count: "~506語", tag: "初学者" },
+  { value: "eiken3", label: "英検3級 重要単語", count: "~453語", tag: "初学者" },
+  { value: "eikenPre2", label: "英検準2級 重要単語", count: "~445語", tag: "基礎" },
+  { value: "basicDaily", label: "日常英会話 基礎フレーズ", count: "~309語", tag: "基礎" },
   { value: "highschool", label: "高校英語基礎 B1+B2+B3", count: "~662語" },
-  { value: "toeic", label: "TOEIC 頻出 B1〜B5", count: "~663語" },
+  { value: "toeic", label: "TOEIC 頻出 B1〜B6", count: "~793語" },
   { value: "eiken2", label: "英検2級 B1〜B5", count: "~591語" },
   { value: "eikenP1", label: "英検準1級 B1+B2+B3", count: "~480語" },
   { value: "eiken1", label: "英検1級 B1+B2+B3", count: "~544語" },
-  { value: "junior", label: "中学英語 B1〜B5", count: "~1,051語" },
+  { value: "junior", label: "中学英語 B1〜B6", count: "~1,195語" },
   { value: "daigaku", label: "大学受験 B2〜B8", count: "~776語" },
 ];
 

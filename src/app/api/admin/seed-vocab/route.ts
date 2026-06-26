@@ -15,10 +15,14 @@ import wordsVol2 from "@/data/seed-words-vol2.json";
 
 // 初学者向け基礎語彙 (material_id 000000000033-36)
 import eikenPre2Words from "@/data/seed-eiken-pre2.json";
+import eikenPre2B2 from "@/data/seed-eiken-pre2-b2.json";
 import eiken3Words from "@/data/seed-eiken3.json";
+import eiken3B2 from "@/data/seed-eiken3-b2.json";
 import eiken45Words from "@/data/seed-eiken45.json";
 import eiken45B2 from "@/data/seed-eiken45-b2.json";
+import eiken45B3 from "@/data/seed-eiken45-b3.json";
 import basicDailyWords from "@/data/seed-basic-daily.json";
+import basicDailyB2 from "@/data/seed-basic-daily-b2.json";
 
 // Batch 2
 import highschoolB2 from "@/data/seed-highschool-b2.json";
@@ -37,10 +41,12 @@ import juniorB2 from "@/data/seed-junior-b2.json";
 import juniorB3 from "@/data/seed-junior-b3.json";
 import juniorB4 from "@/data/seed-junior-b4.json";
 import juniorB5 from "@/data/seed-junior-b5.json";
+import juniorB6 from "@/data/seed-junior-b6.json";
 import toeicB2 from "@/data/seed-toeic-b2.json";
 import toeicB3 from "@/data/seed-toeic-b3.json";
 import toeicB4 from "@/data/seed-toeic-b4.json";
 import toeicB5 from "@/data/seed-toeic-b5.json";
+import toeicB6 from "@/data/seed-toeic-b6.json";
 import eiken2B2 from "@/data/seed-eiken2-b2.json";
 import eiken2B3 from "@/data/seed-eiken2-b3.json";
 import eiken2B4 from "@/data/seed-eiken2-b4.json";
@@ -262,7 +268,7 @@ export async function POST(req: NextRequest) {
     results.highschool = await upsertChunked(supabase, allHighschool);
   }
 
-  // TOEIC (batch1 + b2 + b3 + b4 + b5)
+  // TOEIC (batch1 + b2 + b3 + b4 + b5 + b6)
   if (dataset === "all" || dataset === "toeic") {
     const allToeic = [
       ...(toeicWords as WordRow[]),
@@ -270,6 +276,7 @@ export async function POST(req: NextRequest) {
       ...(toeicB3 as WordRow[]),
       ...(toeicB4 as WordRow[]),
       ...(toeicB5 as WordRow[]),
+      ...(toeicB6 as WordRow[]),
     ];
     results.toeic = await upsertChunked(supabase, allToeic);
   }
@@ -306,7 +313,7 @@ export async function POST(req: NextRequest) {
     results.eiken1 = await upsertChunked(supabase, allEiken1);
   }
 
-  // 中学英語 (batch1 + b2 + b3 + b4 + b5)
+  // 中学英語 (batch1 + b2 + b3 + b4 + b5 + b6)
   if (dataset === "all" || dataset === "junior") {
     const allJunior = [
       ...(juniorExtra as WordRow[]),
@@ -314,6 +321,7 @@ export async function POST(req: NextRequest) {
       ...(juniorB3 as WordRow[]),
       ...(juniorB4 as WordRow[]),
       ...(juniorB5 as WordRow[]),
+      ...(juniorB6 as WordRow[]),
     ];
     results.junior = await upsertChunked(supabase, allJunior);
   }
@@ -339,12 +347,20 @@ export async function POST(req: NextRequest) {
 
   // 英検準2級 (material 33)
   if (dataset === "all" || dataset === "eikenPre2") {
-    results.eikenPre2 = await upsertChunked(supabase, eikenPre2Words as WordRow[]);
+    const allEikenPre2 = [
+      ...(eikenPre2Words as WordRow[]),
+      ...(eikenPre2B2 as WordRow[]),
+    ];
+    results.eikenPre2 = await upsertChunked(supabase, allEikenPre2);
   }
 
   // 英検3級 (material 34)
   if (dataset === "all" || dataset === "eiken3") {
-    results.eiken3 = await upsertChunked(supabase, eiken3Words as WordRow[]);
+    const allEiken3 = [
+      ...(eiken3Words as WordRow[]),
+      ...(eiken3B2 as WordRow[]),
+    ];
+    results.eiken3 = await upsertChunked(supabase, allEiken3);
   }
 
   // 英検5・4級 (material 35)
@@ -352,13 +368,18 @@ export async function POST(req: NextRequest) {
     const allEiken45 = [
       ...(eiken45Words as WordRow[]),
       ...(eiken45B2 as WordRow[]),
+      ...(eiken45B3 as WordRow[]),
     ];
     results.eiken45 = await upsertChunked(supabase, allEiken45);
   }
 
   // 日常英会話基礎 (material 36)
   if (dataset === "all" || dataset === "basicDaily") {
-    results.basicDaily = await upsertChunked(supabase, basicDailyWords as WordRow[]);
+    const allBasicDaily = [
+      ...(basicDailyWords as WordRow[]),
+      ...(basicDailyB2 as WordRow[]),
+    ];
+    results.basicDaily = await upsertChunked(supabase, allBasicDaily);
   }
 
   const { count: total } = await supabase
