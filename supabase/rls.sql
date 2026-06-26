@@ -9,8 +9,9 @@
 -- ============================================================
 
 -- 管理者判定ヘルパー
+-- SECURITY DEFINER: profilesへのアクセス時にRLSを回避（無限ループ防止）
 create or replace function public.is_admin()
-returns boolean language sql stable as $$
+returns boolean language sql stable security definer as $$
   select coalesce((select is_admin from public.profiles where id = auth.uid()), false);
 $$;
 
@@ -33,7 +34,7 @@ alter table public.materials enable row level security;
 drop policy if exists "materials public read" on public.materials;
 drop policy if exists "materials admin all"   on public.materials;
 create policy "materials public read" on public.materials
-  for select using (is_public = true and license_status = 'approved');
+  for select using (is_public = true and license_status in ('approved', 'original'));
 create policy "materials admin all" on public.materials
   for all using (public.is_admin()) with check (public.is_admin());
 
@@ -47,7 +48,7 @@ create policy "material_units public read" on public.material_units
       select 1 from public.materials m
       where m.id = material_units.material_id
         and m.is_public = true
-        and m.license_status = 'approved'
+        and m.license_status in ('approved', 'original')
     )
   );
 create policy "material_units admin all" on public.material_units
@@ -63,7 +64,7 @@ create policy "material_words public read" on public.material_words
       select 1 from public.materials m
       where m.id = material_words.material_id
         and m.is_public = true
-        and m.license_status = 'approved'
+        and m.license_status in ('approved', 'original')
     )
   );
 create policy "material_words admin all" on public.material_words

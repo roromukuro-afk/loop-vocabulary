@@ -45,17 +45,24 @@ import juniorB3 from "@/data/seed-junior-b3.json";
 import juniorB4 from "@/data/seed-junior-b4.json";
 import juniorB5 from "@/data/seed-junior-b5.json";
 import juniorB6 from "@/data/seed-junior-b6.json";
+import juniorB7 from "@/data/seed-junior-b7.json";
 import toeicB2 from "@/data/seed-toeic-b2.json";
 import toeicB3 from "@/data/seed-toeic-b3.json";
 import toeicB4 from "@/data/seed-toeic-b4.json";
 import toeicB5 from "@/data/seed-toeic-b5.json";
 import toeicB6 from "@/data/seed-toeic-b6.json";
+import toeicB7 from "@/data/seed-toeic-b7.json";
 import eiken2B2 from "@/data/seed-eiken2-b2.json";
 import eiken2B3 from "@/data/seed-eiken2-b3.json";
 import eiken2B4 from "@/data/seed-eiken2-b4.json";
 import eiken2B5 from "@/data/seed-eiken2-b5.json";
 import eikenP1B2 from "@/data/seed-eiken-p1-b2.json";
 import eikenP1B3 from "@/data/seed-eiken-p1-b3.json";
+import highschoolB4 from "@/data/seed-highschool-b4.json";
+import eiken3B4 from "@/data/seed-eiken3-b4.json";
+import eikenPre2B4 from "@/data/seed-eiken-pre2-b4.json";
+import eiken45B5 from "@/data/seed-eiken45-b5.json";
+import basicDailyB3 from "@/data/seed-basic-daily-b3.json";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -68,7 +75,7 @@ const NEW_MATERIALS = [
     level: "高校基礎",
     exam_type: "一般",
     is_public: true,
-    license_status: "original",
+    license_status: "approved",
     license_note: "Loop Vocabularyオリジナル教材",
     source_url: null,
   },
@@ -79,7 +86,7 @@ const NEW_MATERIALS = [
     level: "TOEIC",
     exam_type: "TOEIC",
     is_public: true,
-    license_status: "original",
+    license_status: "approved",
     license_note: "Loop Vocabularyオリジナル教材",
     source_url: null,
   },
@@ -90,7 +97,7 @@ const NEW_MATERIALS = [
     level: "英検1級",
     exam_type: "英検",
     is_public: true,
-    license_status: "original",
+    license_status: "approved",
     license_note: "Loop Vocabularyオリジナル教材",
     source_url: null,
   },
@@ -101,7 +108,7 @@ const NEW_MATERIALS = [
     level: "英検準2級",
     exam_type: "英検",
     is_public: true,
-    license_status: "original",
+    license_status: "approved",
     license_note: "Loop Vocabularyオリジナル教材",
     source_url: null,
   },
@@ -112,7 +119,7 @@ const NEW_MATERIALS = [
     level: "英検3級",
     exam_type: "英検",
     is_public: true,
-    license_status: "original",
+    license_status: "approved",
     license_note: "Loop Vocabularyオリジナル教材",
     source_url: null,
   },
@@ -123,7 +130,7 @@ const NEW_MATERIALS = [
     level: "英検4・5級",
     exam_type: "英検",
     is_public: true,
-    license_status: "original",
+    license_status: "approved",
     license_note: "Loop Vocabularyオリジナル教材",
     source_url: null,
   },
@@ -134,7 +141,7 @@ const NEW_MATERIALS = [
     level: "日常会話",
     exam_type: "一般",
     is_public: true,
-    license_status: "original",
+    license_status: "approved",
     license_note: "Loop Vocabularyオリジナル教材",
     source_url: null,
   },
@@ -212,13 +219,17 @@ async function upsertChunked(
 async function isAdminUser(token: string): Promise<boolean> {
   const env = getSupabaseEnv();
   if (!env.ok) return false;
+  // トークン検証は anon client で（JWT署名を検証）
   const client = createServerClient(env.url!, env.anon!, {
     cookies: { getAll: () => [], setAll: () => {} },
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
   const { data: { user }, error } = await client.auth.getUser(token);
   if (error || !user) return false;
-  const { data } = await client.from("profiles").select("is_admin").eq("id", user.id).maybeSingle();
+  // profiles 参照は service_role（RLS無限ループ回避）
+  let adminClient: ReturnType<typeof createAdminClient>;
+  try { adminClient = createAdminClient(); } catch { return false; }
+  const { data } = await adminClient.from("profiles").select("is_admin").eq("id", user.id).maybeSingle();
   return !!data?.is_admin;
 }
 
@@ -261,17 +272,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 高校英語基礎 (batch1 + b2 + b3)
+  // 高校英語基礎 (batch1 + b2 + b3 + b4)
   if (dataset === "all" || dataset === "highschool") {
     const allHighschool = [
       ...(highschoolWords as WordRow[]),
       ...(highschoolB2 as WordRow[]),
       ...(highschoolB3 as WordRow[]),
+      ...(highschoolB4 as WordRow[]),
     ];
     results.highschool = await upsertChunked(supabase, allHighschool);
   }
 
-  // TOEIC (batch1 + b2 + b3 + b4 + b5 + b6)
+  // TOEIC (batch1 + b2 + b3 + b4 + b5 + b6 + b7)
   if (dataset === "all" || dataset === "toeic") {
     const allToeic = [
       ...(toeicWords as WordRow[]),
@@ -280,6 +292,7 @@ export async function POST(req: NextRequest) {
       ...(toeicB4 as WordRow[]),
       ...(toeicB5 as WordRow[]),
       ...(toeicB6 as WordRow[]),
+      ...(toeicB7 as WordRow[]),
     ];
     results.toeic = await upsertChunked(supabase, allToeic);
   }
@@ -316,7 +329,7 @@ export async function POST(req: NextRequest) {
     results.eiken1 = await upsertChunked(supabase, allEiken1);
   }
 
-  // 中学英語 (batch1 + b2 + b3 + b4 + b5 + b6)
+  // 中学英語 (batch1 + b2 + b3 + b4 + b5 + b6 + b7)
   if (dataset === "all" || dataset === "junior") {
     const allJunior = [
       ...(juniorExtra as WordRow[]),
@@ -325,6 +338,7 @@ export async function POST(req: NextRequest) {
       ...(juniorB4 as WordRow[]),
       ...(juniorB5 as WordRow[]),
       ...(juniorB6 as WordRow[]),
+      ...(juniorB7 as WordRow[]),
     ];
     results.junior = await upsertChunked(supabase, allJunior);
   }
@@ -354,6 +368,7 @@ export async function POST(req: NextRequest) {
       ...(eikenPre2Words as WordRow[]),
       ...(eikenPre2B2 as WordRow[]),
       ...(eikenPre2B3 as WordRow[]),
+      ...(eikenPre2B4 as WordRow[]),
     ];
     results.eikenPre2 = await upsertChunked(supabase, allEikenPre2);
   }
@@ -364,6 +379,7 @@ export async function POST(req: NextRequest) {
       ...(eiken3Words as WordRow[]),
       ...(eiken3B2 as WordRow[]),
       ...(eiken3B3 as WordRow[]),
+      ...(eiken3B4 as WordRow[]),
     ];
     results.eiken3 = await upsertChunked(supabase, allEiken3);
   }
@@ -375,6 +391,7 @@ export async function POST(req: NextRequest) {
       ...(eiken45B2 as WordRow[]),
       ...(eiken45B3 as WordRow[]),
       ...(eiken45B4 as WordRow[]),
+      ...(eiken45B5 as WordRow[]),
     ];
     results.eiken45 = await upsertChunked(supabase, allEiken45);
   }
@@ -384,6 +401,7 @@ export async function POST(req: NextRequest) {
     const allBasicDaily = [
       ...(basicDailyWords as WordRow[]),
       ...(basicDailyB2 as WordRow[]),
+      ...(basicDailyB3 as WordRow[]),
     ];
     results.basicDaily = await upsertChunked(supabase, allBasicDaily);
   }
