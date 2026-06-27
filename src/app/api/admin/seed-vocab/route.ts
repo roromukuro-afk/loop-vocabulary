@@ -73,6 +73,12 @@ import basicDailyB3 from "@/data/seed-basic-daily-b3.json";
 import basicDailyB4 from "@/data/seed-basic-daily-b4.json";
 import toeicB8 from "@/data/seed-toeic-b8.json";
 import toeicB9 from "@/data/seed-toeic-b9.json";
+import toeicB10 from "@/data/seed-toeic-b10.json";
+import toeicB11 from "@/data/seed-toeic-b11.json";
+import basicDailyB5 from "@/data/seed-basic-daily-b5.json";
+import eiken3B7 from "@/data/seed-eiken3-b7.json";
+import eikenPre2B7 from "@/data/seed-eiken-pre2-b7.json";
+import eiken45B7 from "@/data/seed-eiken45-b7.json";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -305,6 +311,8 @@ export async function POST(req: NextRequest) {
       ...(toeicB7 as WordRow[]),
       ...(toeicB8 as WordRow[]),
       ...(toeicB9 as WordRow[]),
+      ...(toeicB10 as WordRow[]),
+      ...(toeicB11 as WordRow[]),
     ];
     results.toeic = await upsertChunked(supabase, allToeic);
   }
@@ -385,6 +393,7 @@ export async function POST(req: NextRequest) {
       ...(eikenPre2B4 as WordRow[]),
       ...(eikenPre2B5 as WordRow[]),
       ...(eikenPre2B6 as WordRow[]),
+      ...(eikenPre2B7 as WordRow[]),
     ];
     results.eikenPre2 = await upsertChunked(supabase, allEikenPre2);
   }
@@ -398,6 +407,7 @@ export async function POST(req: NextRequest) {
       ...(eiken3B4 as WordRow[]),
       ...(eiken3B5 as WordRow[]),
       ...(eiken3B6 as WordRow[]),
+      ...(eiken3B7 as WordRow[]),
     ];
     results.eiken3 = await upsertChunked(supabase, allEiken3);
   }
@@ -411,6 +421,7 @@ export async function POST(req: NextRequest) {
       ...(eiken45B4 as WordRow[]),
       ...(eiken45B5 as WordRow[]),
       ...(eiken45B6 as WordRow[]),
+      ...(eiken45B7 as WordRow[]),
     ];
     results.eiken45 = await upsertChunked(supabase, allEiken45);
   }
@@ -422,6 +433,7 @@ export async function POST(req: NextRequest) {
       ...(basicDailyB2 as WordRow[]),
       ...(basicDailyB3 as WordRow[]),
       ...(basicDailyB4 as WordRow[]),
+      ...(basicDailyB5 as WordRow[]),
     ];
     results.basicDaily = await upsertChunked(supabase, allBasicDaily);
   }
