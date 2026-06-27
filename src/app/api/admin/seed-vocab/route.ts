@@ -75,10 +75,15 @@ import toeicB8 from "@/data/seed-toeic-b8.json";
 import toeicB9 from "@/data/seed-toeic-b9.json";
 import toeicB10 from "@/data/seed-toeic-b10.json";
 import toeicB11 from "@/data/seed-toeic-b11.json";
+import toeicB12 from "@/data/seed-toeic-b12.json";
 import basicDailyB5 from "@/data/seed-basic-daily-b5.json";
+import basicDailyB6 from "@/data/seed-basic-daily-b6.json";
 import eiken3B7 from "@/data/seed-eiken3-b7.json";
 import eikenPre2B7 from "@/data/seed-eiken-pre2-b7.json";
 import eiken45B7 from "@/data/seed-eiken45-b7.json";
+import eiken1B4 from "@/data/seed-eiken1-b4.json";
+import eikenPre2B8 from "@/data/seed-eiken-pre2-b8.json";
+import eiken45B8 from "@/data/seed-eiken45-b8.json";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -313,6 +318,7 @@ export async function POST(req: NextRequest) {
       ...(toeicB9 as WordRow[]),
       ...(toeicB10 as WordRow[]),
       ...(toeicB11 as WordRow[]),
+      ...(toeicB12 as WordRow[]),
     ];
     results.toeic = await upsertChunked(supabase, allToeic);
   }
@@ -347,6 +353,7 @@ export async function POST(req: NextRequest) {
       ...(eiken1Words as WordRow[]),
       ...(eiken1B2 as WordRow[]),
       ...(eiken1B3 as WordRow[]),
+      ...(eiken1B4 as WordRow[]),
     ];
     results.eiken1 = await upsertChunked(supabase, allEiken1);
   }
@@ -394,6 +401,7 @@ export async function POST(req: NextRequest) {
       ...(eikenPre2B5 as WordRow[]),
       ...(eikenPre2B6 as WordRow[]),
       ...(eikenPre2B7 as WordRow[]),
+      ...(eikenPre2B8 as WordRow[]),
     ];
     results.eikenPre2 = await upsertChunked(supabase, allEikenPre2);
   }
@@ -422,6 +430,7 @@ export async function POST(req: NextRequest) {
       ...(eiken45B5 as WordRow[]),
       ...(eiken45B6 as WordRow[]),
       ...(eiken45B7 as WordRow[]),
+      ...(eiken45B8 as WordRow[]),
     ];
     results.eiken45 = await upsertChunked(supabase, allEiken45);
   }
@@ -434,6 +443,7 @@ export async function POST(req: NextRequest) {
       ...(basicDailyB3 as WordRow[]),
       ...(basicDailyB4 as WordRow[]),
       ...(basicDailyB5 as WordRow[]),
+      ...(basicDailyB6 as WordRow[]),
     ];
     results.basicDaily = await upsertChunked(supabase, allBasicDaily);
   }
