@@ -76,6 +76,7 @@ import toeicB9 from "@/data/seed-toeic-b9.json";
 import toeicB10 from "@/data/seed-toeic-b10.json";
 import toeicB11 from "@/data/seed-toeic-b11.json";
 import toeicB12 from "@/data/seed-toeic-b12.json";
+import toeicB13 from "@/data/seed-toeic-b13.json";
 import basicDailyB5 from "@/data/seed-basic-daily-b5.json";
 import basicDailyB6 from "@/data/seed-basic-daily-b6.json";
 import eiken3B7 from "@/data/seed-eiken3-b7.json";
@@ -322,6 +323,7 @@ export async function POST(req: NextRequest) {
       ...(toeicB10 as WordRow[]),
       ...(toeicB11 as WordRow[]),
       ...(toeicB12 as WordRow[]),
+      ...(toeicB13 as WordRow[]),
     ];
     results.toeic = await upsertChunked(supabase, allToeic);
   }
