@@ -63,8 +63,10 @@ import eikenP1B4 from "@/data/seed-eiken-p1-b4.json";
 import highschoolB4 from "@/data/seed-highschool-b4.json";
 import eiken3B4 from "@/data/seed-eiken3-b4.json";
 import eiken3B5 from "@/data/seed-eiken3-b5.json";
+import eiken3B6 from "@/data/seed-eiken3-b6.json";
 import eikenPre2B4 from "@/data/seed-eiken-pre2-b4.json";
 import eikenPre2B5 from "@/data/seed-eiken-pre2-b5.json";
+import eikenPre2B6 from "@/data/seed-eiken-pre2-b6.json";
 import eiken45B5 from "@/data/seed-eiken45-b5.json";
 import eiken45B6 from "@/data/seed-eiken45-b6.json";
 import basicDailyB3 from "@/data/seed-basic-daily-b3.json";
@@ -382,6 +384,7 @@ export async function POST(req: NextRequest) {
       ...(eikenPre2B3 as WordRow[]),
       ...(eikenPre2B4 as WordRow[]),
       ...(eikenPre2B5 as WordRow[]),
+      ...(eikenPre2B6 as WordRow[]),
     ];
     results.eikenPre2 = await upsertChunked(supabase, allEikenPre2);
   }
@@ -394,6 +397,7 @@ export async function POST(req: NextRequest) {
       ...(eiken3B3 as WordRow[]),
       ...(eiken3B4 as WordRow[]),
       ...(eiken3B5 as WordRow[]),
+      ...(eiken3B6 as WordRow[]),
     ];
     results.eiken3 = await upsertChunked(supabase, allEiken3);
   }
