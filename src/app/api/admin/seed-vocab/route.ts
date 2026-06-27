@@ -56,13 +56,21 @@ import eiken2B2 from "@/data/seed-eiken2-b2.json";
 import eiken2B3 from "@/data/seed-eiken2-b3.json";
 import eiken2B4 from "@/data/seed-eiken2-b4.json";
 import eiken2B5 from "@/data/seed-eiken2-b5.json";
+import eiken2B6 from "@/data/seed-eiken2-b6.json";
 import eikenP1B2 from "@/data/seed-eiken-p1-b2.json";
 import eikenP1B3 from "@/data/seed-eiken-p1-b3.json";
+import eikenP1B4 from "@/data/seed-eiken-p1-b4.json";
 import highschoolB4 from "@/data/seed-highschool-b4.json";
 import eiken3B4 from "@/data/seed-eiken3-b4.json";
+import eiken3B5 from "@/data/seed-eiken3-b5.json";
 import eikenPre2B4 from "@/data/seed-eiken-pre2-b4.json";
+import eikenPre2B5 from "@/data/seed-eiken-pre2-b5.json";
 import eiken45B5 from "@/data/seed-eiken45-b5.json";
+import eiken45B6 from "@/data/seed-eiken45-b6.json";
 import basicDailyB3 from "@/data/seed-basic-daily-b3.json";
+import basicDailyB4 from "@/data/seed-basic-daily-b4.json";
+import toeicB8 from "@/data/seed-toeic-b8.json";
+import toeicB9 from "@/data/seed-toeic-b9.json";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -283,7 +291,7 @@ export async function POST(req: NextRequest) {
     results.highschool = await upsertChunked(supabase, allHighschool);
   }
 
-  // TOEIC (batch1 + b2 + b3 + b4 + b5 + b6 + b7)
+  // TOEIC (batch1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9)
   if (dataset === "all" || dataset === "toeic") {
     const allToeic = [
       ...(toeicWords as WordRow[]),
@@ -293,11 +301,13 @@ export async function POST(req: NextRequest) {
       ...(toeicB5 as WordRow[]),
       ...(toeicB6 as WordRow[]),
       ...(toeicB7 as WordRow[]),
+      ...(toeicB8 as WordRow[]),
+      ...(toeicB9 as WordRow[]),
     ];
     results.toeic = await upsertChunked(supabase, allToeic);
   }
 
-  // 英検2級 (batch1 + b2 + b3 + b4 + b5)
+  // 英検2級 (batch1 + b2 + b3 + b4 + b5 + b6)
   if (dataset === "all" || dataset === "eiken2") {
     const allEiken2 = [
       ...(eiken2Extra as WordRow[]),
@@ -305,16 +315,18 @@ export async function POST(req: NextRequest) {
       ...(eiken2B3 as WordRow[]),
       ...(eiken2B4 as WordRow[]),
       ...(eiken2B5 as WordRow[]),
+      ...(eiken2B6 as WordRow[]),
     ];
     results.eiken2 = await upsertChunked(supabase, allEiken2);
   }
 
-  // 英検準1級 (batch1 + b2 + b3)
+  // 英検準1級 (batch1 + b2 + b3 + b4)
   if (dataset === "all" || dataset === "eikenP1") {
     const allEikenP1 = [
       ...(eikenP1Extra as WordRow[]),
       ...(eikenP1B2 as WordRow[]),
       ...(eikenP1B3 as WordRow[]),
+      ...(eikenP1B4 as WordRow[]),
     ];
     results.eikenP1 = await upsertChunked(supabase, allEikenP1);
   }
@@ -369,6 +381,7 @@ export async function POST(req: NextRequest) {
       ...(eikenPre2B2 as WordRow[]),
       ...(eikenPre2B3 as WordRow[]),
       ...(eikenPre2B4 as WordRow[]),
+      ...(eikenPre2B5 as WordRow[]),
     ];
     results.eikenPre2 = await upsertChunked(supabase, allEikenPre2);
   }
@@ -380,6 +393,7 @@ export async function POST(req: NextRequest) {
       ...(eiken3B2 as WordRow[]),
       ...(eiken3B3 as WordRow[]),
       ...(eiken3B4 as WordRow[]),
+      ...(eiken3B5 as WordRow[]),
     ];
     results.eiken3 = await upsertChunked(supabase, allEiken3);
   }
@@ -392,6 +406,7 @@ export async function POST(req: NextRequest) {
       ...(eiken45B3 as WordRow[]),
       ...(eiken45B4 as WordRow[]),
       ...(eiken45B5 as WordRow[]),
+      ...(eiken45B6 as WordRow[]),
     ];
     results.eiken45 = await upsertChunked(supabase, allEiken45);
   }
@@ -402,6 +417,7 @@ export async function POST(req: NextRequest) {
       ...(basicDailyWords as WordRow[]),
       ...(basicDailyB2 as WordRow[]),
       ...(basicDailyB3 as WordRow[]),
+      ...(basicDailyB4 as WordRow[]),
     ];
     results.basicDaily = await upsertChunked(supabase, allBasicDaily);
   }
