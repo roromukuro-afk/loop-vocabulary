@@ -84,6 +84,8 @@ import eiken45B7 from "@/data/seed-eiken45-b7.json";
 import eiken1B4 from "@/data/seed-eiken1-b4.json";
 import eikenPre2B8 from "@/data/seed-eiken-pre2-b8.json";
 import eiken45B8 from "@/data/seed-eiken45-b8.json";
+import highschoolB5 from "@/data/seed-highschool-b5.json";
+import eiken3B8 from "@/data/seed-eiken3-b8.json";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -300,6 +302,7 @@ export async function POST(req: NextRequest) {
       ...(highschoolB2 as WordRow[]),
       ...(highschoolB3 as WordRow[]),
       ...(highschoolB4 as WordRow[]),
+      ...(highschoolB5 as WordRow[]),
     ];
     results.highschool = await upsertChunked(supabase, allHighschool);
   }
@@ -416,6 +419,7 @@ export async function POST(req: NextRequest) {
       ...(eiken3B5 as WordRow[]),
       ...(eiken3B6 as WordRow[]),
       ...(eiken3B7 as WordRow[]),
+      ...(eiken3B8 as WordRow[]),
     ];
     results.eiken3 = await upsertChunked(supabase, allEiken3);
   }
