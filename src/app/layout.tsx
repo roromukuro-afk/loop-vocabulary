@@ -67,6 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <head>
+        <meta name="google-adsense-account" content="ca-pub-5148247638505100" />
         {GA_ID && (
           <>
             {/* GA4 must be in <head> for Google Search Console verification */}
