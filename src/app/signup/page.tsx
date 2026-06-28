@@ -23,23 +23,31 @@ export default function SignupPage() {
     setMessage(null);
     setBusy(true);
     try {
-      const supabase = createClient();
-      const { error, data } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
+      // Step 1: サーバー側で管理API経由ユーザー作成（メール確認不要）
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
+      const json = await res.json();
+      if (!res.ok) {
+        setBusy(false);
+        return setError(json.error ?? "登録に失敗しました");
+      }
+
+      // Step 2: 作成直後にサインイン
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       setBusy(false);
-      if (error) return setError(error.message);
-      if (data.session) {
-        trackSignupComplete("email");
-        // ウェルカムメールをバックグラウンドで送信
-        fetch("/api/email/welcome", { method: "POST" }).catch(() => {});
-        router.replace("/dashboard");
-        router.refresh();
+      if (signInError) {
+        setError("アカウントは作成されました。ログインページからサインインしてください。");
         return;
       }
-      setMessage("確認メールを送信しました。メール内のリンクから認証してください。");
+
+      trackSignupComplete("email");
+      fetch("/api/email/welcome", { method: "POST" }).catch(() => {});
+      router.replace("/dashboard");
+      router.refresh();
     } catch (e) {
       setBusy(false);
       if (isSupabaseNotConfigured(e)) { router.push("/setup"); return; }
