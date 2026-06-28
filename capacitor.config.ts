@@ -25,7 +25,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const SITE_URL =
   process.env.CAP_SERVER_URL ??
   process.env.NEXT_PUBLIC_SITE_URL ??
-  "https://loop-vocabulary.vercel.app";
+  "https://loop-vocabulary.app";
 
 const config: CapacitorConfig = {
   appId: "com.loopvocabulary.app",
@@ -39,6 +39,7 @@ const config: CapacitorConfig = {
     // 信頼するナビゲーション先 (外部リンクは Capacitor Browser で開く)
     allowNavigation: [
       "*.supabase.co",
+      "loop-vocabulary.app",
       "loop-vocabulary.vercel.app",
       "*.vercel.app",
     ],
