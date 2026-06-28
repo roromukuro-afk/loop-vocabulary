@@ -12,4 +12,4 @@ Disallow: /weak
 Disallow: /account/
 Disallow: /admin/
 
-Sitemap: https://loop-vocabulary.vercel.app/sitemap.xml
+Sitemap: https://loop-vocabulary.app/sitemap.xml

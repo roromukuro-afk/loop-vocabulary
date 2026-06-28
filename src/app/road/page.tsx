@@ -31,7 +31,7 @@ type Level = {
 const LEVELS: Omit<Level, "materials">[] = [
   {
     label: "入門",
-    sublabel: "はじめての英語",
+    sublabel: "英検5・4級レベル",
     emoji: "🌱",
     colorHeader: "bg-green-500",
     colorBar: "bg-green-400",
@@ -40,7 +40,7 @@ const LEVELS: Omit<Level, "materials">[] = [
   },
   {
     label: "初級",
-    sublabel: "日常会話の基礎",
+    sublabel: "中学英語レベル",
     emoji: "📗",
     colorHeader: "bg-teal-500",
     colorBar: "bg-teal-400",
@@ -49,7 +49,7 @@ const LEVELS: Omit<Level, "materials">[] = [
   },
   {
     label: "初中級",
-    sublabel: "読む力を伸ばす",
+    sublabel: "高校英語レベル",
     emoji: "📘",
     colorHeader: "bg-blue-500",
     colorBar: "bg-blue-400",
@@ -58,7 +58,7 @@ const LEVELS: Omit<Level, "materials">[] = [
   },
   {
     label: "中級",
-    sublabel: "実用・ビジネス英語",
+    sublabel: "大学受験・英検2級",
     emoji: "📙",
     colorHeader: "bg-indigo-500",
     colorBar: "bg-indigo-400",
@@ -67,7 +67,7 @@ const LEVELS: Omit<Level, "materials">[] = [
   },
   {
     label: "上級",
-    sublabel: "難関英語を制覇",
+    sublabel: "英検準1級・1級・TOEIC",
     emoji: "🏆",
     colorHeader: "bg-red-500",
     colorBar: "bg-red-400",
@@ -78,13 +78,26 @@ const LEVELS: Omit<Level, "materials">[] = [
 
 // materialId → {levelIndex, displayName}
 const MATERIAL_MAP: Record<string, { levelIdx: number; name: string }> = {
-  "00000000-0000-0000-0000-000000000035": { levelIdx: 0, name: "基礎単語セット" },
-  "00000000-0000-0000-0000-000000000036": { levelIdx: 0, name: "日常会話フレーズ" },
-  "00000000-0000-0000-0000-000000000034": { levelIdx: 1, name: "日常英語" },
-  "00000000-0000-0000-0000-000000000030": { levelIdx: 2, name: "高校基礎英語" },
-  "00000000-0000-0000-0000-000000000033": { levelIdx: 3, name: "実用英語" },
-  "00000000-0000-0000-0000-000000000031": { levelIdx: 3, name: "ビジネス英語" },
-  "00000000-0000-0000-0000-000000000032": { levelIdx: 4, name: "上級語彙" },
+  // 入門 (英検5・4級)
+  "00000000-0000-0000-0000-000000000010": { levelIdx: 0, name: "Loop 基本英単語 30" },
+  "00000000-0000-0000-0000-000000000035": { levelIdx: 0, name: "英検5・4級 基礎単語" },
+  // 初級 (中学レベル)
+  "00000000-0000-0000-0000-000000000021": { levelIdx: 1, name: "中学校英単語 基礎・標準" },
+  "00000000-0000-0000-0000-000000000036": { levelIdx: 1, name: "日常英会話 基礎フレーズ" },
+  "00000000-0000-0000-0000-000000000034": { levelIdx: 1, name: "英検3級 重要単語" },
+  // 初中級 (高校レベル)
+  "00000000-0000-0000-0000-000000000040": { levelIdx: 2, name: "高校1年英語 重要単語" },
+  "00000000-0000-0000-0000-000000000041": { levelIdx: 2, name: "高校2年英語 重要単語" },
+  "00000000-0000-0000-0000-000000000030": { levelIdx: 2, name: "高校英語基礎 重要単語" },
+  "00000000-0000-0000-0000-000000000033": { levelIdx: 2, name: "英検準2級 重要単語" },
+  // 中級 (大学受験・英検2級)
+  "00000000-0000-0000-0000-000000000042": { levelIdx: 3, name: "高校3年・共通テスト重要語" },
+  "00000000-0000-0000-0000-000000000020": { levelIdx: 3, name: "大学入試頻出英単語 2000+" },
+  "00000000-0000-0000-0000-000000000022": { levelIdx: 3, name: "英検2級 重要単語" },
+  // 上級 (英検準1級・1級・TOEIC)
+  "00000000-0000-0000-0000-000000000023": { levelIdx: 4, name: "英検準1級 重要単語" },
+  "00000000-0000-0000-0000-000000000031": { levelIdx: 4, name: "TOEIC 頻出単語 800" },
+  "00000000-0000-0000-0000-000000000032": { levelIdx: 4, name: "英検1級 必須単語" },
 };
 
 const ALL_MATERIAL_IDS = Object.keys(MATERIAL_MAP);
@@ -166,7 +179,7 @@ export default async function RoadPage() {
             style={{ width: `${totalPct}%` }}
           />
         </div>
-        <div className="mt-1.5 text-[10px] text-navy-400">5レベル · 7教材 · 全 {totalWords.toLocaleString()} 語収録</div>
+        <div className="mt-1.5 text-[10px] text-navy-400">5レベル · 15教材 · 全 {totalWords.toLocaleString()} 語収録</div>
       </div>
 
       {/* レベルリスト */}
