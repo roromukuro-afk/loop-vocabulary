@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle } from "@/components/ui/Card";
+import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 
 export const dynamic = "force-dynamic";
@@ -191,6 +192,9 @@ export default async function MaterialsPage({
           </li>
         )}
       </ul>
+      <div className="mt-5">
+        <BannerAdPlaceholder />
+      </div>
     </AppShell>
   );
 }

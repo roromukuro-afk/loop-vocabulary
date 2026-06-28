@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
+import { BannerAdPlaceholder, NativeAdCard } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 
 export const metadata: Metadata = {
@@ -259,13 +260,22 @@ export default async function RoadPage() {
         })}
       </div>
 
+      {/* 中級レベル後に広告 */}
+      <div className="mt-2">
+        <NativeAdCard />
+      </div>
+
       {/* 他の教材へ */}
-      <div className="mt-6 bg-navy-50 rounded-2xl p-4 text-center">
+      <div className="mt-4 bg-navy-50 rounded-2xl p-4 text-center">
         <p className="text-sm text-navy-600 font-medium">他の教材を探す</p>
         <p className="text-xs text-navy-400 mt-1">大学受験・英検2級・準1級など、さらに多くの教材が揃っています</p>
         <Link href="/materials" className="mt-3 inline-block text-xs font-bold text-navy-700 underline underline-offset-2">
           すべての教材を見る →
         </Link>
+      </div>
+
+      <div className="mt-4">
+        <BannerAdPlaceholder />
       </div>
     </AppShell>
   );

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { BannerAdPlaceholder, NativeAdCard } from "@/components/ads/AdComponents";
 
 type Word = { id: string; word: string; meaning: string; phonetic?: string | null; example?: string | null; example_ja?: string | null };
 
@@ -216,7 +217,6 @@ export function LearnRunner({ words, onComplete }: { words: Word[]; onComplete?:
           {wrong.length > 0 && (
             <button
               onClick={() => {
-                const wrongWords = [...wrong];
                 setWrong([]);
                 setResults([]);
                 setQuizIdx(0);
@@ -237,6 +237,21 @@ export function LearnRunner({ words, onComplete }: { words: Word[]; onComplete?:
           >
             このレッスンをもう一度
           </button>
+        </div>
+
+        {/* プレミアムアップセル */}
+        <a href="/premium" className="mt-6 block bg-gradient-to-r from-navy-800 to-navy-900 rounded-2xl p-4 text-white hover:opacity-90 transition-opacity">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-sky-300 mb-1">Premium</div>
+          <div className="font-black text-sm leading-tight">広告なし · AI解説無制限 · 全機能開放</div>
+          <div className="text-xs text-navy-300 mt-0.5">月額 ¥480 〜 → 詳しく見る</div>
+        </a>
+
+        {/* 広告 */}
+        <div className="mt-4">
+          <NativeAdCard />
+        </div>
+        <div className="mt-3">
+          <BannerAdPlaceholder />
         </div>
       </div>
     </div>
