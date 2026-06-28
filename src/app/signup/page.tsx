@@ -27,7 +27,7 @@ export default function SignupPage() {
       const { error, data } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
       });
       setBusy(false);
       if (error) return setError(error.message);
@@ -54,7 +54,7 @@ export default function SignupPage() {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/dashboard` },
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
       });
       if (error) { setError(error.message); setGoogleBusy(false); }
       else { trackSignupComplete("google"); }

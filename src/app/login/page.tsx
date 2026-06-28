@@ -8,15 +8,19 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { trackLoginComplete } from "@/lib/analytics/events";
 
+type Mode = "password" | "magic";
+
 export default function LoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setBusy(true);
@@ -35,17 +39,49 @@ export default function LoginPage() {
     }
   };
 
+  const onSubmitMagic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setMessage(null);
+    setBusy(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        },
+      });
+      setBusy(false);
+      if (error) { setError(error.message); return; }
+      setMessage(`${email} にログインリンクを送信しました。メールのリンクをクリックしてください。`);
+    } catch (e) {
+      setBusy(false);
+      if (isSupabaseNotConfigured(e)) { router.push("/setup"); return; }
+      setError(e instanceof Error ? e.message : "予期せぬエラー");
+    }
+  };
+
   const onGoogle = async () => {
     setError(null);
     setGoogleBusy(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOAuth({
+      const redirectTo = `${window.location.origin}/auth/callback?next=/dashboard`;
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/dashboard` },
+        options: { redirectTo },
       });
-      if (error) { setError(error.message); setGoogleBusy(false); }
-      else { trackLoginComplete("google"); }
+      if (error) {
+        setError(`Googleログインエラー: ${error.message}`);
+        setGoogleBusy(false);
+      } else if (!data.url) {
+        setError("Google認証URLが取得できませんでした。SupabaseダッシュボードでGoogle Providerを有効化してください。");
+        setGoogleBusy(false);
+      } else {
+        trackLoginComplete("google");
+        window.location.href = data.url;
+      }
     } catch (e) {
       setGoogleBusy(false);
       setError(e instanceof Error ? e.message : "予期せぬエラー");
@@ -74,6 +110,12 @@ export default function LoginPage() {
           {googleBusy ? "リダイレクト中…" : "Google でログイン"}
         </button>
 
+        {error && (
+          <div className="mt-3 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg border border-red-200">
+            {error}
+          </div>
+        )}
+
         <div className="relative mt-5 mb-2">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-navy-100" />
@@ -83,18 +125,51 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <Field label="メールアドレス">
-            <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-          </Field>
-          <Field label="パスワード">
-            <Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-          </Field>
-          {error && <div className="text-sm text-red-600">{error}</div>}
-          <Button type="submit" fullWidth size="lg" disabled={busy || googleBusy}>
-            {busy ? "ログイン中..." : "ログイン"}
-          </Button>
-        </form>
+        {/* モード切替タブ */}
+        <div className="flex rounded-xl border border-navy-100 overflow-hidden mb-4">
+          <button
+            onClick={() => { setMode("password"); setError(null); setMessage(null); }}
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "password" ? "bg-navy-800 text-white" : "text-navy-500 hover:bg-navy-50"}`}
+          >
+            パスワード
+          </button>
+          <button
+            onClick={() => { setMode("magic"); setError(null); setMessage(null); }}
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === "magic" ? "bg-navy-800 text-white" : "text-navy-500 hover:bg-navy-50"}`}
+          >
+            メールリンク
+          </button>
+        </div>
+
+        {mode === "password" ? (
+          <form onSubmit={onSubmitPassword} className="space-y-4">
+            <Field label="メールアドレス">
+              <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+            </Field>
+            <Field label="パスワード">
+              <Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+            </Field>
+            <Button type="submit" fullWidth size="lg" disabled={busy || googleBusy}>
+              {busy ? "ログイン中..." : "ログイン"}
+            </Button>
+          </form>
+        ) : (
+          <form onSubmit={onSubmitMagic} className="space-y-4">
+            <Field label="メールアドレス" hint="登録済みのメールアドレスを入力してください">
+              <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="example@gmail.com" />
+            </Field>
+            {message ? (
+              <div className="text-sm text-emerald-700 bg-emerald-50 px-3 py-3 rounded-lg border border-emerald-200">
+                {message}
+              </div>
+            ) : (
+              <Button type="submit" fullWidth size="lg" disabled={busy || googleBusy}>
+                {busy ? "送信中..." : "ログインリンクを送信"}
+              </Button>
+            )}
+            <p className="text-xs text-navy-400 text-center">メールに届くリンクをクリックするだけでログインできます</p>
+          </form>
+        )}
 
         <div className="mt-5 text-sm text-navy-500">
           アカウントをお持ちでない方は <Link href="/signup" className="text-navy-800 font-semibold">新規登録</Link>
