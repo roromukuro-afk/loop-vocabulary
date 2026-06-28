@@ -330,6 +330,18 @@ export default async function DashboardPage() {
         <NativeAdCard />
       </div>
 
+      {/* 学習ロード */}
+      <Link href="/road" className="block mt-5">
+        <div className="relative overflow-hidden bg-gradient-to-r from-green-500 via-teal-500 to-indigo-600 rounded-2xl p-4 text-white hover:opacity-95 transition-opacity">
+          <div className="relative z-10">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-white/70 mb-1">Level Road</div>
+            <div className="font-black text-base leading-tight">入門 → 上級まで体系的に学ぶ</div>
+            <div className="text-xs text-white/80 mt-1">6ステージ · 約10,000語収録 → 学習ロードを開く</div>
+          </div>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-20">🗺️</div>
+        </div>
+      </Link>
+
       {/* 教材・その他 */}
       <section className="mt-5 grid sm:grid-cols-2 gap-3">
         <Link href="/materials" className="block">

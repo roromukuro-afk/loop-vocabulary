@@ -38,12 +38,15 @@ const items = [
     ),
   },
   {
-    href: "/dictionary",
-    label: "辞書",
+    href: "/road",
+    label: "ルート",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-        <circle cx="11" cy="11" r="8" />
-        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        <circle cx="12" cy="5" r="2" />
+        <circle cx="12" cy="12" r="2" />
+        <circle cx="12" cy="19" r="2" />
+        <line x1="12" y1="7" x2="12" y2="10" />
+        <line x1="12" y1="14" x2="12" y2="17" />
       </svg>
     ),
   },
