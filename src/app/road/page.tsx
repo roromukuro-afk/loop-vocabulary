@@ -74,6 +74,15 @@ const LEVELS: Omit<Level, "materials">[] = [
     colorBorder: "border-red-200",
     colorTag: "bg-red-100 text-red-800",
   },
+  {
+    label: "最難関",
+    sublabel: "難関大学・慶應・東大レベル",
+    emoji: "👑",
+    colorHeader: "bg-purple-700",
+    colorBar: "bg-purple-500",
+    colorBorder: "border-purple-200",
+    colorTag: "bg-purple-100 text-purple-800",
+  },
 ];
 
 // materialId → {levelIndex, displayName}
@@ -98,6 +107,9 @@ const MATERIAL_MAP: Record<string, { levelIdx: number; name: string }> = {
   "00000000-0000-0000-0000-000000000023": { levelIdx: 4, name: "英検準1級 重要単語" },
   "00000000-0000-0000-0000-000000000031": { levelIdx: 4, name: "TOEIC 頻出単語 800" },
   "00000000-0000-0000-0000-000000000032": { levelIdx: 4, name: "英検1級 必須単語" },
+  // 最難関 (難関大学・慶應・東大レベル)
+  "00000000-0000-0000-0000-000000000043": { levelIdx: 5, name: "慶應大学 英語頻出単語 (2026年度)" },
+  "00000000-0000-0000-0000-000000000044": { levelIdx: 5, name: "最難関大学への英単語" },
 };
 
 const ALL_MATERIAL_IDS = Object.keys(MATERIAL_MAP);
@@ -179,7 +191,7 @@ export default async function RoadPage() {
             style={{ width: `${totalPct}%` }}
           />
         </div>
-        <div className="mt-1.5 text-[10px] text-navy-400">5レベル · 15教材 · 全 {totalWords.toLocaleString()} 語収録</div>
+        <div className="mt-1.5 text-[10px] text-navy-400">6レベル · 17教材 · 全 {totalWords.toLocaleString()} 語収録</div>
       </div>
 
       {/* レベルリスト */}
