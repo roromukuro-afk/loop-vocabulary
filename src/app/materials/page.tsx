@@ -51,8 +51,8 @@ export default async function MaterialsPage({
   const materialIds = (materials ?? []).map((m) => m.id);
   const [{ data: wordRows }, { data: importedBooks }, { data: userWordRows }] = await Promise.all([
     materialIds.length > 0
-      ? supabase.from("material_words").select("material_id").in("material_id", materialIds)
-      : Promise.resolve({ data: [] as { material_id: string }[] }),
+      ? supabase.rpc("get_material_word_counts", { p_material_ids: materialIds })
+      : Promise.resolve({ data: [] as { material_id: string; word_count: number }[] }),
     supabase
       .from("word_books")
       .select("source_material_id")
@@ -64,11 +64,12 @@ export default async function MaterialsPage({
           .select("material_id, mastery")
           .eq("user_id", user.id)
           .in("material_id", materialIds)
+          .limit(50000)
       : Promise.resolve({ data: [] as { material_id: string; mastery: number }[] }),
   ]);
 
   const wordCounts = (wordRows ?? []).reduce<Record<string, number>>((acc, r) => {
-    acc[r.material_id] = (acc[r.material_id] ?? 0) + 1;
+    acc[r.material_id] = Number(r.word_count);
     return acc;
   }, {});
   const importedSet = new Set(

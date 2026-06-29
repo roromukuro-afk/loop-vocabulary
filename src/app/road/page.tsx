@@ -88,9 +88,9 @@ const LEVELS: Omit<Level, "materials">[] = [
 // materialId → {levelIndex, displayName}
 const MATERIAL_MAP: Record<string, { levelIdx: number; name: string }> = {
   // 入門 (英検5・4級)
-  "00000000-0000-0000-0000-000000000010": { levelIdx: 0, name: "Loop 基本英単語 30" },
   "00000000-0000-0000-0000-000000000035": { levelIdx: 0, name: "英検5・4級 基礎単語" },
   // 初級 (中学レベル)
+  "00000000-0000-0000-0000-000000000010": { levelIdx: 1, name: "Loop 基本英単語 30" },
   "00000000-0000-0000-0000-000000000021": { levelIdx: 1, name: "中学校英単語 基礎・標準" },
   "00000000-0000-0000-0000-000000000036": { levelIdx: 1, name: "日常英会話 基礎フレーズ" },
   "00000000-0000-0000-0000-000000000034": { levelIdx: 1, name: "英検3級 重要単語" },
@@ -119,15 +119,13 @@ export default async function RoadPage() {
 
   const [{ data: wordCountRows }, { data: userWordRows }, { data: importedBooks }] =
     await Promise.all([
-      supabase
-        .from("material_words")
-        .select("material_id")
-        .in("material_id", ALL_MATERIAL_IDS),
+      supabase.rpc("get_material_word_counts", { p_material_ids: ALL_MATERIAL_IDS }),
       supabase
         .from("words")
         .select("material_id, mastery")
         .eq("user_id", user.id)
-        .in("material_id", ALL_MATERIAL_IDS),
+        .in("material_id", ALL_MATERIAL_IDS)
+        .limit(50000),
       supabase
         .from("word_books")
         .select("source_material_id")
@@ -136,7 +134,7 @@ export default async function RoadPage() {
     ]);
 
   const wordCounts = (wordCountRows ?? []).reduce<Record<string, number>>((acc, r) => {
-    acc[r.material_id] = (acc[r.material_id] ?? 0) + 1;
+    acc[r.material_id] = Number(r.word_count);
     return acc;
   }, {});
 

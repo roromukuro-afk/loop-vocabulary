@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 const CHUNK = 100;
+const PAGE_SIZE = 1000;
 
 export async function POST(
   _req: NextRequest,
@@ -48,13 +49,24 @@ export async function POST(
   if (e1 || !book)
     return NextResponse.json({ error: "book_create_failed" }, { status: 500 });
 
-  const { data: mwords, error: e2 } = await supabase
-    .from("material_words")
-    .select("word, meaning, pos, example, example_ja, importance")
-    .eq("material_id", materialId);
-  if (e2 || !mwords) {
-    await supabase.from("word_books").delete().eq("id", book.id);
-    return NextResponse.json({ error: "words_fetch_failed" }, { status: 500 });
+  type MWord = { word: string; meaning: string; pos: string | null; example: string | null; example_ja: string | null; importance: number | null };
+  const mwords: MWord[] = [];
+  let offset = 0;
+  while (true) {
+    const { data: page, error: e2 } = await supabase
+      .from("material_words")
+      .select("word, meaning, pos, example, example_ja, importance")
+      .eq("material_id", materialId)
+      .order("display_order", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (e2) {
+      await supabase.from("word_books").delete().eq("id", book.id);
+      return NextResponse.json({ error: "words_fetch_failed" }, { status: 500 });
+    }
+    if (!page || page.length === 0) break;
+    mwords.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
   }
 
   const now = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
