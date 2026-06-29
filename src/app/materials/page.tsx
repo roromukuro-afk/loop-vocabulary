@@ -15,11 +15,13 @@ const LEVEL_COLOR: Record<string, string> = {
   "英検2級":    "bg-amber-50 text-amber-700",
   "英検準1級":  "bg-orange-50 text-orange-700",
   "英検1級":    "bg-red-50 text-red-700",
+  "共通テスト":  "bg-rose-50 text-rose-700",
 };
 
 const QUICK_LINKS = [
   { href: "/materials?exam=高校入試",     label: "高校入試" },
   { href: "/materials?exam=大学受験",     label: "大学受験" },
+  { href: "/materials?exam=共通テスト",   label: "共通テスト" },
   { href: "/materials?exam=英検",         label: "英検" },
   { href: "/materials?level=中学基礎",    label: "中学基礎" },
   { href: "/materials?level=高校基礎",    label: "高校基礎" },

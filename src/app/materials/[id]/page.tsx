@@ -10,13 +10,18 @@ import { PronounceButton } from "@/components/ui/PronounceButton";
 export const dynamic = "force-dynamic";
 
 const LEVEL_COLOR: Record<string, string> = {
-  "中学基礎":    "bg-green-50 text-green-700",
-  "中学標準":    "bg-green-50 text-green-700",
-  "高校基礎":    "bg-blue-50 text-blue-700",
-  "大学受験標準":"bg-indigo-50 text-indigo-700",
-  "大学受験難関":"bg-purple-50 text-purple-700",
-  "英検2級":    "bg-amber-50 text-amber-700",
-  "英検準1級":  "bg-orange-50 text-orange-700",
+  "中学基礎":      "bg-green-50 text-green-700",
+  "中学標準":      "bg-green-50 text-green-700",
+  "高校基礎":      "bg-blue-50 text-blue-700",
+  "大学受験標準":  "bg-indigo-50 text-indigo-700",
+  "大学受験難関":  "bg-purple-50 text-purple-700",
+  "英検2級":      "bg-amber-50 text-amber-700",
+  "英検準1級":    "bg-orange-50 text-orange-700",
+  "共通テスト":    "bg-rose-50 text-rose-700",
+  "共通テスト基礎":"bg-green-50 text-green-700",
+  "共通テスト標準":"bg-rose-50 text-rose-700",
+  "共通テスト上位":"bg-purple-50 text-purple-700",
+  "難関大":        "bg-red-50 text-red-700",
 };
 
 const IMPORTANCE_COLOR = ["", "text-navy-300", "text-navy-400", "text-navy-500", "text-amber-500", "text-red-500"];
