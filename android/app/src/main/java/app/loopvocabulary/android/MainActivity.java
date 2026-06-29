@@ -1,4 +1,4 @@
-package com.loopvocabulary.app;
+package app.loopvocabulary.android;
 
 import com.getcapacitor.BridgeActivity;
 

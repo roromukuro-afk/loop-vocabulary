@@ -28,7 +28,7 @@ const SITE_URL =
   "https://loop-vocabulary.app";
 
 const config: CapacitorConfig = {
-  appId: "com.loopvocabulary.app",
+  appId: "app.loopvocabulary.android",
   appName: "Loop Vocabulary",
   webDir: "mobile-shell",
   server: {
