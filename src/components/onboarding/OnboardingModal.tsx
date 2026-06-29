@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 const STORAGE_KEY = "loop_onboarding_done";
 
@@ -29,6 +30,22 @@ const MATERIAL_MAP: Record<string, string> = {
   other:      "/materials",
 };
 
+async function saveProfileToSupabase(goal: string, level: string) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("profiles").upsert({
+      id: user.id,
+      exam_goal: goal,
+      level,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "id" });
+  } catch {
+    // non-critical: localStorage already recorded completion
+  }
+}
+
 export function OnboardingModal() {
   const router = useRouter();
   const [show, setShow] = useState(false);
@@ -39,7 +56,6 @@ export function OnboardingModal() {
 
   useEffect(() => {
     if (!localStorage.getItem(STORAGE_KEY)) {
-      // 少し遅延させてページが落ち着いてから表示
       const t = setTimeout(() => setShow(true), 600);
       return () => clearTimeout(t);
     }
@@ -47,6 +63,8 @@ export function OnboardingModal() {
 
   const finish = (goToMaterials: boolean) => {
     localStorage.setItem(STORAGE_KEY, "1");
+    // Save to Supabase (fire-and-forget, non-blocking)
+    if (goal) saveProfileToSupabase(goal, level);
     setClosing(true);
     setTimeout(() => {
       setShow(false);
@@ -73,7 +91,6 @@ export function OnboardingModal() {
             </span>
             <button onClick={() => finish(false)} className="text-navy-400 hover:text-navy-600 text-xl leading-none">×</button>
           </div>
-          {/* ステッププログレス */}
           <div className="flex gap-1 mt-2">
             {[0,1,2].map(i => (
               <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= step ? "bg-sky-500" : "bg-navy-100"}`} />
