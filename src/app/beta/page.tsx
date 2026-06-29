@@ -44,7 +44,7 @@ export default function BetaPage() {
         </p>
         <div className="mt-5">
           <a
-            href="https://docs.google.com/forms/d/e/1FAIpQLSf_PLACEHOLDER/viewform"
+            href="https://docs.google.com/forms/d/e/1laIIMFgCjEaW64UmmONH_KVX5MykDP8Sg4Wv2z4gNDI/viewform"
             target="_blank"
             rel="noreferrer"
           >
@@ -128,7 +128,7 @@ export default function BetaPage() {
         <div className="font-extrabold text-base">一緒にアプリを育てよう</div>
         <p className="text-xs text-navy-300 mt-1 mb-4">正式リリースを一緒に作り上げましょう</p>
         <a
-          href="https://docs.google.com/forms/d/e/1FAIpQLSf_PLACEHOLDER/viewform"
+          href="https://docs.google.com/forms/d/e/1laIIMFgCjEaW64UmmONH_KVX5MykDP8Sg4Wv2z4gNDI/viewform"
           target="_blank"
           rel="noreferrer"
         >
