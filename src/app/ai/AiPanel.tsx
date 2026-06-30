@@ -5,7 +5,7 @@ import { Field, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { AppRewardedAdButton } from "@/components/ads/AppAds";
 import { UpsellModal } from "@/components/premium/UpsellModal";
-import { trackAiLimitHit } from "@/lib/analytics/events";
+import { trackAiLimitHit, trackFeatureUsed } from "@/lib/analytics/events";
 
 type Kind = "example" | "explain" | "etymology" | "mnemonic" | "core";
 
@@ -65,6 +65,7 @@ export function AiPanel({ initialWord, initialMeaning }: { initialWord: string; 
 
   const run = async () => {
     if (!word.trim()) return;
+    trackFeatureUsed("ai_explain");
     setBusy(true); setError(null); setLimitReached(false); setResult("");
     const res = await fetch("/api/ai", {
       method: "POST",

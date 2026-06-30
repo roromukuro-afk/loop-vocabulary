@@ -9,6 +9,7 @@ import { saveStudyResult } from "@/lib/srs/saveResult";
 import { useAppInterstitial, AppRewardedAdButton } from "@/components/ads/AppAds";
 import { speakEn } from "@/lib/tts";
 import { PronounceButton } from "@/components/ui/PronounceButton";
+import { trackFeatureUsed } from "@/lib/analytics/events";
 
 type W = { id: string; word: string; meaning: string; streak: number; is_weak: boolean };
 
@@ -41,6 +42,8 @@ export function ChoiceTestRunner({
 
   const cur = qs[idx];
   const ok = picked != null && picked === cur?.answer;
+
+  useEffect(() => { trackFeatureUsed("choice_test"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // テスト完了時にインタースティシャル広告を表示
   useEffect(() => {

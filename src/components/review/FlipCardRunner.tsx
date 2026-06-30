@@ -6,6 +6,7 @@ import { saveStudyResult } from "@/lib/srs/saveResult";
 import { useAppInterstitial, AppRewardedAdButton } from "@/components/ads/AppAds";
 import { speakEn } from "@/lib/tts";
 import { PronounceButton } from "@/components/ui/PronounceButton";
+import { trackFeatureUsed, trackReviewComplete, trackFirstReviewComplete } from "@/lib/analytics/events";
 
 type W = { id: string; word: string; meaning: string; streak: number; is_weak: boolean; phonetic?: string };
 type Result = { word: string; meaning: string; ok: boolean };
@@ -20,12 +21,21 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
 
   const cur = pool[idx];
 
+  useEffect(() => { trackFeatureUsed("flip_card"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!done && cur) speakEn(cur.word);
   }, [idx, done]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (done) void showInterstitial("flip_review");
+    if (!done) return;
+    void showInterstitial("flip_review");
+    const correct = results.filter((r) => r.ok).length;
+    trackReviewComplete(correct, results.length);
+    if (!localStorage.getItem("lv_first_review")) {
+      localStorage.setItem("lv_first_review", "1");
+      trackFirstReviewComplete();
+    }
   }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFlip = () => {

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { trackFeatureUsed } from "@/lib/analytics/events";
 
 type Pattern = { type: string; description: string; examples: string[] };
 type Analysis = {
@@ -32,6 +33,7 @@ export function WeaknessAnalysis({ isPremium }: { isPremium: boolean }) {
   }
 
   async function analyze() {
+    trackFeatureUsed("weak_words");
     setLoading(true);
     setError("");
     try {

@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { trackVocabCheckComplete } from "@/lib/analytics/events";
+import { trackVocabCheckComplete, trackFeatureUsed } from "@/lib/analytics/events";
 
 type Question = {
   word: string;
@@ -63,6 +63,8 @@ export function VocabCheckRunner() {
   const [picked, setPicked] = useState<string | null>(null);
   const [results, setResults] = useState<boolean[]>([]);
   const [done, setDone] = useState(false);
+
+  useEffect(() => { trackFeatureUsed("vocab_check"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cur = QUESTIONS[idx];
 

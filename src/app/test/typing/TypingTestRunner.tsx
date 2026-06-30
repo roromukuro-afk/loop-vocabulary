@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { sample } from "@/lib/utils/shuffle";
 import { saveStudyResult } from "@/lib/srs/saveResult";
+import { trackFeatureUsed } from "@/lib/analytics/events";
 
 type W = { id: string; word: string; meaning: string; streak: number; is_weak: boolean };
 
@@ -23,6 +24,8 @@ export function TypingTestRunner({ pool, count }: { pool: W[]; count: number }) 
   const target = cur?.word ?? "";
   const targetLower = target.toLowerCase();
   const valLower = val.toLowerCase();
+
+  useEffect(() => { trackFeatureUsed("typing_test"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!startTime) { setElapsed(0); return; }

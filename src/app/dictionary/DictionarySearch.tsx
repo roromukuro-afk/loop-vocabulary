@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { trackFeatureUsed } from "@/lib/analytics/events";
 
 type Hit = {
   source: "material" | "user";
@@ -27,6 +28,7 @@ export function DictionarySearch({ books }: { books: { id: string; title: string
   const search = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!q.trim()) return;
+    trackFeatureUsed("dictionary");
     setBusy(true);
     setError(null);
     setSavedKey(null);
