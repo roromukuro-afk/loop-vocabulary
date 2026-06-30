@@ -76,7 +76,7 @@ export default async function MaterialDetailPage({
     ]);
 
   // Level breakdown for tabs
-  const levelCounts = (allWords ?? []).reduce<Record<string, number>>((acc, w) => {
+  const levelCounts = (allWords ?? []).reduce((acc: Record<string, number>, w) => {
     if (w.level) acc[w.level] = (acc[w.level] ?? 0) + 1;
     return acc;
   }, {});

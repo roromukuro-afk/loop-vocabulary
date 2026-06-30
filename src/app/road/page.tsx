@@ -4,6 +4,9 @@ import { AppShell } from "@/components/layout/AppShell";
 import { BannerAdPlaceholder, NativeAdCard } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 
+type WordCountRow = { material_id: string; word_count: number };
+type UserWordRow  = { material_id: string; mastery: number };
+
 export const metadata: Metadata = {
   title: "学習ロード | Loop Vocabulary",
   description: "入門から上級まで、レベル順に単語を体系的に学ぼう。",
@@ -133,12 +136,12 @@ export default async function RoadPage() {
         .not("source_material_id", "is", null),
     ]);
 
-  const wordCounts = (wordCountRows ?? []).reduce<Record<string, number>>((acc, r) => {
+  const wordCounts = ((wordCountRows ?? []) as WordCountRow[]).reduce((acc: Record<string, number>, r) => {
     acc[r.material_id] = Number(r.word_count);
     return acc;
   }, {});
 
-  const learnedCounts = (userWordRows ?? []).reduce<Record<string, number>>((acc, r) => {
+  const learnedCounts = ((userWordRows ?? []) as UserWordRow[]).reduce((acc: Record<string, number>, r) => {
     if ((r.mastery ?? 0) >= 1) acc[r.material_id] = (acc[r.material_id] ?? 0) + 1;
     return acc;
   }, {});

@@ -24,7 +24,7 @@ export default async function WordBooksPage() {
       .select("word_book_id")
       .eq("user_id", user.id)
       .in("word_book_id", ids);
-    counts = (data ?? []).reduce<Record<string, number>>((acc, w) => {
+    counts = (data ?? []).reduce((acc: Record<string, number>, w) => {
       const k = w.word_book_id as string;
       acc[k] = (acc[k] ?? 0) + 1;
       return acc;
