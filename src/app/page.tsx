@@ -22,7 +22,7 @@ const getPublicStats = unstable_cache(
           .from("materials")
           .select("exam_type")
           .eq("is_public", true)
-          .eq("license_status", "approved"),
+          .in("license_status", ["approved", "original"]),
       ]);
       const rows = statsData ?? [];
       const totalStudied = rows.reduce((s, r) => s + (Number(r.studied_count) || 0), 0);

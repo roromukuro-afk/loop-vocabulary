@@ -64,7 +64,7 @@ export default async function DashboardPage() {
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id).lte("next_review_at", new Date().toISOString()),
     supabase.from("daily_stats").select("*").eq("user_id", user.id).eq("day", today).maybeSingle(),
     supabase.from("daily_stats").select("day, studied_count").eq("user_id", user.id).gte("day", monthAgo).order("day", { ascending: false }),
-    supabase.from("materials").select("*", { count: "exact", head: true }).eq("is_public", true).eq("license_status", "approved"),
+    supabase.from("materials").select("*", { count: "exact", head: true }).eq("is_public", true).in("license_status", ["approved", "original"]),
     supabase.from("material_words").select("*", { count: "exact", head: true }),
     supabase.from("words").select("word, meaning, correct_count, wrong_count").eq("user_id", user.id).order("last_studied_at", { ascending: false }).limit(5),
     supabase.from("profiles").select("is_premium, exam_goal, exam_date").eq("id", user.id).maybeSingle(),

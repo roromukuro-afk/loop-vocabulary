@@ -9,7 +9,7 @@ export default async function PdfPage() {
   const { user, supabase } = await requireUser();
   const [books, materials] = await Promise.all([
     supabase.from("word_books").select("id, title").eq("user_id", user.id).order("updated_at", { ascending: false }),
-    supabase.from("materials").select("id, title").eq("is_public", true).eq("license_status", "approved"),
+    supabase.from("materials").select("id, title").eq("is_public", true).in("license_status", ["approved", "original"]),
   ]);
 
   return (

@@ -42,7 +42,7 @@ export default async function MaterialDetailPage({
     .select("*")
     .eq("id", id)
     .eq("is_public", true)
-    .eq("license_status", "approved")
+    .in("license_status", ["approved", "original"])
     .maybeSingle();
   if (!material) notFound();
 

@@ -20,7 +20,7 @@ export async function POST(
     .select("id, title, level, exam_type")
     .eq("id", materialId)
     .eq("is_public", true)
-    .eq("license_status", "approved")
+    .in("license_status", ["approved", "original"])
     .maybeSingle();
   if (!material) return NextResponse.json({ error: "not_found" }, { status: 404 });
 

@@ -173,7 +173,7 @@ export default async function MaterialsPage({
     .from("materials")
     .select("id, title, publisher, author, description, level, exam_type")
     .eq("is_public", true)
-    .eq("license_status", "approved")
+    .in("license_status", ["approved", "original"])
     .order("level", { ascending: true });
 
   if (sp.q) dbQuery = dbQuery.ilike("title", `%${sp.q}%`);
