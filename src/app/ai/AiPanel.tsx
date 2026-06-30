@@ -7,9 +7,10 @@ import { AppRewardedAdButton } from "@/components/ads/AppAds";
 import { UpsellModal } from "@/components/premium/UpsellModal";
 import { trackAiLimitHit } from "@/lib/analytics/events";
 
-type Kind = "example" | "explain" | "etymology" | "mnemonic";
+type Kind = "example" | "explain" | "etymology" | "mnemonic" | "core";
 
 const KIND_LABEL: Record<Kind, string> = {
+  core:      "コアイメージ",
   example:   "レベル別例文",
   explain:   "ニュアンス解説 / 入試での出方",
   etymology: "語源解説",
@@ -17,6 +18,7 @@ const KIND_LABEL: Record<Kind, string> = {
 };
 
 const KIND_ICON: Record<Kind, string> = {
+  core:      "🎯",
   example:   "📝",
   explain:   "💡",
   etymology: "🌱",
@@ -108,7 +110,7 @@ export function AiPanel({ initialWord, initialMeaning }: { initialWord: string; 
       </div>
 
       {/* 種別選択 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         {(Object.keys(KIND_LABEL) as Kind[]).map((k) => (
           <button
             key={k}

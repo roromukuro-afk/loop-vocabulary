@@ -5,7 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const DAILY_LIMIT = 5;
 
-type Kind = "example" | "explain" | "etymology" | "mnemonic";
+type Kind = "example" | "explain" | "etymology" | "mnemonic" | "core";
 
 // Claude APIキーがなければモックにフォールバック
 const MOCK_TEMPLATES: Record<Kind, (w: string, m: string) => string> = {
@@ -17,6 +17,8 @@ const MOCK_TEMPLATES: Record<Kind, (w: string, m: string) => string> = {
     `「${w}」はラテン語・ギリシャ語由来とされる単語です。接頭辞・語根・接尾辞に分解すると意味の連想がしやすくなります。\n\n例: pro- "前へ" / -duce "導く" → produce "産出する"`,
   mnemonic: (w, m) =>
     `覚え方のコツ:\n1. 「${w}」を声に出して3回繰り返す\n2. 「${m}」を具体的な場面でイメージする\n3. 例文を1つ自作してノートに書く\n\nこの3ステップを使うと記憶への定着率が大きく上がります。`,
+  core: (w, m) =>
+    `【コアイメージ】"${m}"\n\n「${w}」の本質：この単語が持つ根っこのイメージを一言で掴みましょう。\n\n【なぜこのイメージ？】\nコアイメージを起点に派生的な意味・用法が広がっています。\n\n【類義語との違い】\n似た単語と比べて使う場面や強さが異なります。`,
 };
 
 function buildPrompt(kind: Kind, word: string, meaning: string): string {
@@ -64,6 +66,25 @@ function buildPrompt(kind: Kind, word: string, meaning: string): string {
 3. 派生語・フレーズでまとめて覚える方法
 
 実際に使えて記憶に残りやすい具体的な方法を教えてください。`,
+
+    core: `英単語「${word}」（意味: ${meaning}）について、以下の形式で「コアイメージ解説」を作成してください。
+
+【コアイメージ】
+この単語の本質を表す短い日本語フレーズ（10字以内）。単語の核心的なイメージを一言で。
+
+【イメージの説明】
+なぜそのコアイメージなのか、ネイティブが無意識に持っているイメージを100字以内で説明。
+
+【コアから広がる意味】
+コアイメージから派生する主な意味・用法を2〜3つ箇条書き。
+
+【類義語との核心の違い】
+最も混同されやすい類義語1〜2語と、コアイメージレベルでの違いを簡潔に。
+
+【覚え方のヒント】
+コアイメージを使った記憶術を1つ。
+
+必ず日本語で、各セクションのラベルを【】で囲んで出力してください。`,
   };
   return prompts[kind];
 }
