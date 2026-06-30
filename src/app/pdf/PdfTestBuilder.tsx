@@ -6,6 +6,7 @@ import { Select } from "@/components/ui/Select";
 import { sample } from "@/lib/utils/shuffle";
 import { createClient } from "@/lib/supabase/client";
 import { UpsellModal } from "@/components/premium/UpsellModal";
+import { trackFeatureUsed } from "@/lib/analytics/events";
 
 const FREE_PDF_LIMIT = 3;
 
@@ -55,6 +56,7 @@ export function PdfTestBuilder({
   };
 
   const generate = async () => {
+    trackFeatureUsed("pdf_export");
     setBusy(true); setMsg(null);
     try {
       // PDF 利用上限チェック（無料ユーザーは1日3回まで）

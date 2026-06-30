@@ -2,13 +2,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { trackMaterialImported } from "@/lib/analytics/events";
 
 export function ImportMaterialButton({
   materialId,
+  examType,
   alreadyImported,
   importedBookId,
 }: {
   materialId: string;
+  examType: string;
   alreadyImported: boolean;
   importedBookId: string | null;
 }) {
@@ -53,6 +56,7 @@ export function ImportMaterialButton({
       router.push(`/wordbooks/${json.bookId}`);
       return;
     }
+    trackMaterialImported(examType, json.count ?? 0);
     setMsg(`${json.count} 語をインポートしました！`);
     setTimeout(() => {
       router.push(`/wordbooks/${json.bookId}`);

@@ -162,6 +162,7 @@ export default async function MaterialDetailPage({
       <div className="mt-4">
         <ImportMaterialButton
           materialId={material.id}
+          examType={material.exam_type ?? "その他"}
           alreadyImported={!!importedBook}
           importedBookId={importedBook?.id ?? null}
         />
