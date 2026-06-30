@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       .eq("id", user.id);
   }
 
-  const origin = req.headers.get("origin") ?? "https://loop-vocabulary.vercel.app";
+  const origin = req.headers.get("origin") ?? "https://loop-vocabulary.app";
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: "payment",

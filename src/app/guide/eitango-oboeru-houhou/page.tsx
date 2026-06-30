@@ -103,7 +103,7 @@ const JSON_LD = {
   "@type": "Article",
   "headline": "英単語の覚え方・効率的な記憶術【2024年版】",
   "description": "SRS・語源・例文記憶など科学的に証明された英単語の覚え方を解説",
-  "url": "https://loop-vocabulary.vercel.app/guide/eitango-oboeru-houhou",
+  "url": "https://loop-vocabulary.app/guide/eitango-oboeru-houhou",
 };
 
 export default function EitangoOboeruPage() {

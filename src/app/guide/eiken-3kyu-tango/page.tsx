@@ -61,7 +61,7 @@ const JSON_LD = {
   "@type": "Article",
   "headline": "英検3級の単語・語彙対策【頻出800語一覧】",
   "description": "英検3級合格に必要な必須単語800語と効率的な覚え方を解説",
-  "url": "https://loop-vocabulary.vercel.app/guide/eiken-3kyu-tango",
+  "url": "https://loop-vocabulary.app/guide/eiken-3kyu-tango",
 };
 
 export default function Eiken3KyuPage() {

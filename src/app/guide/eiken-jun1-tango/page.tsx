@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "英検準1級 単語対策【合格に必要な語彙数と学習戦略】",
     description: "英検準1級合格に必要な単語数・学習戦略・頻出カテゴリ語彙を徹底解説。",
-    url: "https://loop-vocabulary.vercel.app/guide/eiken-jun1-tango",
+    url: "https://loop-vocabulary.app/guide/eiken-jun1-tango",
     type: "article",
   },
 };
@@ -86,7 +86,7 @@ const JSON_LD = {
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-10-01",
-  "url": "https://loop-vocabulary.vercel.app/guide/eiken-jun1-tango",
+  "url": "https://loop-vocabulary.app/guide/eiken-jun1-tango",
 };
 
 export default function EikenJun1Page() {

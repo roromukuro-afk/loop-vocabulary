@@ -30,14 +30,14 @@ export function premiumWelcomeHtml(displayName: string, plan: "monthly" | "yearl
       </div>
     </div>
     <div style="text-align:center;margin:24px 0 0;">
-      <a href="https://loop-vocabulary.vercel.app/dashboard" style="display:inline-block;background:#1e3a5f;color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:700;font-size:14px;">
+      <a href="https://loop-vocabulary.app/dashboard" style="display:inline-block;background:#1e3a5f;color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:700;font-size:14px;">
         今すぐ学習を始める →
       </a>
     </div>
   </div>
   <div style="border-top:1px solid #e2e8f0;padding:16px 32px;text-align:center;">
     <p style="color:#94a3b8;font-size:11px;margin:0;">
-      サブスクリプション管理は <a href="https://loop-vocabulary.vercel.app/settings" style="color:#64748b;">設定ページ</a> から。<br>
+      サブスクリプション管理は <a href="https://loop-vocabulary.app/settings" style="color:#64748b;">設定ページ</a> から。<br>
       いつでもキャンセル可能です。
     </p>
   </div>
@@ -69,7 +69,7 @@ export function welcomeEmailHtml(displayName: string): string {
       </div>
     </div>
     <div style="text-align:center;margin:28px 0 0;">
-      <a href="https://loop-vocabulary.vercel.app/dashboard" style="display:inline-block;background:#1e3a5f;color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:700;font-size:15px;">
+      <a href="https://loop-vocabulary.app/dashboard" style="display:inline-block;background:#1e3a5f;color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:700;font-size:15px;">
         ダッシュボードへ →
       </a>
     </div>
@@ -77,8 +77,8 @@ export function welcomeEmailHtml(displayName: string): string {
   <div style="border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
     <p style="color:#94a3b8;font-size:12px;margin:0;">
       このメールはLoop Vocabularyに登録したアカウントに送信されています。<br>
-      <a href="https://loop-vocabulary.vercel.app/settings" style="color:#64748b;">通知設定</a> |
-      <a href="https://loop-vocabulary.vercel.app/privacy" style="color:#64748b;">プライバシーポリシー</a>
+      <a href="https://loop-vocabulary.app/settings" style="color:#64748b;">通知設定</a> |
+      <a href="https://loop-vocabulary.app/privacy" style="color:#64748b;">プライバシーポリシー</a>
     </p>
   </div>
 </div>
@@ -131,7 +131,7 @@ export function weeklyDigestHtml(opts: {
       <p style="font-size:14px;color:#15803d;font-weight:700;margin:0;">✅ 復習はすべて完了しています！</p>
     </div>`}
     <div style="text-align:center;margin-bottom:${isPremium ? "0" : "20px"};">
-      <a href="https://loop-vocabulary.vercel.app/dashboard" style="display:inline-block;background:#1e3a5f;color:#fff;text-decoration:none;padding:13px 32px;border-radius:10px;font-weight:700;font-size:14px;">
+      <a href="https://loop-vocabulary.app/dashboard" style="display:inline-block;background:#1e3a5f;color:#fff;text-decoration:none;padding:13px 32px;border-radius:10px;font-weight:700;font-size:14px;">
         今週も学習を続ける →
       </a>
     </div>
@@ -142,15 +142,15 @@ export function weeklyDigestHtml(opts: {
         広告なし・AI解説無制限・弱点分析・CSV一括インポートが<br>
         <strong>月額たった¥480</strong> で使えます。
       </p>
-      <a href="https://loop-vocabulary.vercel.app/premium" style="display:inline-block;background:#92400e;color:#fff;text-decoration:none;padding:11px 28px;border-radius:10px;font-weight:700;font-size:13px;">
+      <a href="https://loop-vocabulary.app/premium" style="display:inline-block;background:#92400e;color:#fff;text-decoration:none;padding:11px 28px;border-radius:10px;font-weight:700;font-size:13px;">
         詳しく見る →
       </a>
     </div>` : ""}
   </div>
   <div style="border-top:1px solid #e2e8f0;padding:16px 32px;text-align:center;">
     <p style="color:#94a3b8;font-size:11px;margin:0;">
-      <a href="https://loop-vocabulary.vercel.app/settings" style="color:#64748b;">通知設定を変更</a> |
-      <a href="https://loop-vocabulary.vercel.app/privacy" style="color:#64748b;">プライバシーポリシー</a>
+      <a href="https://loop-vocabulary.app/settings" style="color:#64748b;">通知設定を変更</a> |
+      <a href="https://loop-vocabulary.app/privacy" style="color:#64748b;">プライバシーポリシー</a>
     </p>
   </div>
 </div>

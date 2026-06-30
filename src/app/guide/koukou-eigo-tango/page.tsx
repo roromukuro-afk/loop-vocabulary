@@ -74,7 +74,7 @@ const JSON_LD = {
   "@type": "Article",
   "headline": "高校英語の単語を完全に覚える方法【大学受験対応・2,000語攻略】",
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
-  "url": "https://loop-vocabulary.vercel.app/guide/koukou-eigo-tango",
+  "url": "https://loop-vocabulary.app/guide/koukou-eigo-tango",
 };
 
 export default function KoukouEigoTangoPage() {

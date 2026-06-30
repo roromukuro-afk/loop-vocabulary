@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
 
 export async function POST() {
   const stripeKey = process.env.STRIPE_SECRET_KEY;

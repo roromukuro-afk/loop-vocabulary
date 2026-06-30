@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "英会話に効く英単語の覚え方【場面別フレーズ・旅行英語】",
     description: "日常英会話・旅行英語で使えるフレーズと語彙の覚え方を場面別に解説。",
-    url: "https://loop-vocabulary.vercel.app/guide/eiken-conversation",
+    url: "https://loop-vocabulary.app/guide/eiken-conversation",
     type: "article",
   },
 };
@@ -118,7 +118,7 @@ const JSON_LD = {
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-12-15",
-  "url": "https://loop-vocabulary.vercel.app/guide/eiken-conversation",
+  "url": "https://loop-vocabulary.app/guide/eiken-conversation",
 };
 
 export default function EikenConversationPage() {

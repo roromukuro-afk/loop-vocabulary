@@ -9,7 +9,7 @@ const PRICES = {
 };
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
 
 export async function POST(req: NextRequest) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;

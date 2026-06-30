@@ -64,7 +64,7 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
 
   const shareResult = async () => {
     const emoji = acc >= 90 ? "🎯" : acc >= 70 ? "📚" : "💪";
-    const text = `${emoji} Loop Vocabulary で ${results.length}枚中${correctCount}枚クリア！記憶率${acc}%\n英単語フラッシュカード → https://loop-vocabulary.vercel.app`;
+    const text = `${emoji} Loop Vocabulary で ${results.length}枚中${correctCount}枚クリア！記憶率${acc}%\n英単語フラッシュカード → https://loop-vocabulary.app`;
     if (navigator.share) {
       await navigator.share({ text }).catch(() => {});
     } else {

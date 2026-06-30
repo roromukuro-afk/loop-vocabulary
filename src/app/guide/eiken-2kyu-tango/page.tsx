@@ -77,7 +77,7 @@ const JSON_LD = {
   "@type": "Article",
   "headline": "英検2級 単語対策【頻出1,500語カテゴリ別解説】",
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
-  "url": "https://loop-vocabulary.vercel.app/guide/eiken-2kyu-tango",
+  "url": "https://loop-vocabulary.app/guide/eiken-2kyu-tango",
 };
 
 export default function Eiken2KyuPage() {

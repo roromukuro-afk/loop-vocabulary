@@ -76,7 +76,7 @@ const JSON_LD = {
   "@type": "Article",
   "headline": "英文法 基礎の覚え方【中学〜高校・大学受験 完全ガイド】",
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
-  "url": "https://loop-vocabulary.vercel.app/guide/eibunpo-kiso",
+  "url": "https://loop-vocabulary.app/guide/eibunpo-kiso",
 };
 
 export default function EibunpoKisoPage() {

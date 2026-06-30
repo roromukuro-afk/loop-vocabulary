@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ビジネス英語 必須単語300選と実践的な覚え方",
     description: "会議・メール・プレゼンで使えるビジネス英語の頻出単語と表現を厳選。",
-    url: "https://loop-vocabulary.vercel.app/guide/business-english-tango",
+    url: "https://loop-vocabulary.app/guide/business-english-tango",
     type: "article",
   },
 };
@@ -103,7 +103,7 @@ const JSON_LD = {
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-11-01",
-  "url": "https://loop-vocabulary.vercel.app/guide/business-english-tango",
+  "url": "https://loop-vocabulary.app/guide/business-english-tango",
 };
 
 export default function BusinessEnglishPage() {

@@ -120,7 +120,7 @@ const JSON_LD = {
   "@type": "Article",
   "headline": "英検準2級 単語対策【頻出1000語カテゴリ別】",
   "description": "英検準2級合格に必要な必須単語1,000語をカテゴリ別に解説",
-  "url": "https://loop-vocabulary.vercel.app/guide/eiken-jun2-tango",
+  "url": "https://loop-vocabulary.app/guide/eiken-jun2-tango",
 };
 
 export default function EikenJun2Page() {

@@ -56,7 +56,7 @@ const JSON_LD = {
   "@type": "Article",
   "headline": "英語の発音練習方法【フォニックス・シャドーイング完全ガイド】",
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
-  "url": "https://loop-vocabulary.vercel.app/guide/eigo-hatsuon-renshu",
+  "url": "https://loop-vocabulary.app/guide/eigo-hatsuon-renshu",
 };
 
 export default function EigoHatsuonRenshuPage() {

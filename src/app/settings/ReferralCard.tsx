@@ -3,7 +3,7 @@ import { useState } from "react";
 
 export function ReferralCard({ userId }: { userId: string }) {
   const code = userId.replace(/-/g, "").slice(0, 10);
-  const link = `${typeof window !== "undefined" ? window.location.origin : "https://loop-vocabulary.vercel.app"}/referral/${code}`;
+  const link = `${typeof window !== "undefined" ? window.location.origin : "https://loop-vocabulary.app"}/referral/${code}`;
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {

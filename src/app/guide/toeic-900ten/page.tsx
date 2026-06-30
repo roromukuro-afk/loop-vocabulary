@@ -71,7 +71,7 @@ const JSON_LD = {
   "@type": "Article",
   "headline": "TOEIC 900点の勉強法【スコアアップ戦略と学習スケジュール】",
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
-  "url": "https://loop-vocabulary.vercel.app/guide/toeic-900ten",
+  "url": "https://loop-vocabulary.app/guide/toeic-900ten",
 };
 
 export default function Toeic900TenPage() {

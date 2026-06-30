@@ -60,7 +60,7 @@ const JSON_LD = {
   "@type": "Article",
   "headline": "TOEIC頻出単語・語彙対策【スコア別必須リスト】",
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
-  "url": "https://loop-vocabulary.vercel.app/guide/toeic-tango",
+  "url": "https://loop-vocabulary.app/guide/toeic-tango",
 };
 
 export default function ToeicTangoPage() {

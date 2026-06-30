@@ -94,7 +94,7 @@ export function ChoiceTestRunner({
 
   const shareResult = async () => {
     const emoji = acc >= 90 ? "🎯" : acc >= 70 ? "📚" : "💪";
-    const text = `${emoji} Loop Vocabulary で ${results.length}問中${correctCount}問正解！正答率${acc}%\n英単語学習アプリ → https://loop-vocabulary.vercel.app`;
+    const text = `${emoji} Loop Vocabulary で ${results.length}問中${correctCount}問正解！正答率${acc}%\n英単語学習アプリ → https://loop-vocabulary.app`;
     if (navigator.share) {
       await navigator.share({ text }).catch(() => {});
     } else {

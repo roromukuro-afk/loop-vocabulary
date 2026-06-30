@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "IELTSの英単語学習法【AWL攻略・スコア帯別戦略】",
     description: "IELTS頻出語彙・AWL570語の覚え方とBand別学習戦略を完全解説。",
-    url: "https://loop-vocabulary.vercel.app/guide/ielts-tango",
+    url: "https://loop-vocabulary.app/guide/ielts-tango",
     type: "article",
   },
 };
@@ -98,7 +98,7 @@ const JSON_LD = {
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2025-01-05",
-  "url": "https://loop-vocabulary.vercel.app/guide/ielts-tango",
+  "url": "https://loop-vocabulary.app/guide/ielts-tango",
 };
 
 export default function IeltsTangoPage() {

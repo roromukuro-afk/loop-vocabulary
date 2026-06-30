@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "大学受験英単語の効率的な覚え方【2025年版】",
     description: "共通テスト〜難関大に必要な英単語数・学習法・おすすめ単語帳を解説。",
-    url: "https://loop-vocabulary.vercel.app/guide/daigaku-juken-tango",
+    url: "https://loop-vocabulary.app/guide/daigaku-juken-tango",
     type: "article",
   },
 };
@@ -71,7 +71,7 @@ const JSON_LD = {
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-09-01",
   "dateModified": "2025-01-15",
-  "url": "https://loop-vocabulary.vercel.app/guide/daigaku-juken-tango",
+  "url": "https://loop-vocabulary.app/guide/daigaku-juken-tango",
 };
 
 export default function DaigakuJukenPage() {

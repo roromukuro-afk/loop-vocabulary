@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
 
-const APP_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
 
 export const metadata: Metadata = {
   title: "Loop Vocabulary | 調べた英語を、覚える英語へ。",

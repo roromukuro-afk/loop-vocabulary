@@ -68,7 +68,7 @@ const JSON_LD = {
   "@type": "Article",
   "headline": "英語リスニング練習方法【初心者〜上級者別 完全ガイド】",
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
-  "url": "https://loop-vocabulary.vercel.app/guide/eigo-listening-renshu",
+  "url": "https://loop-vocabulary.app/guide/eigo-listening-renshu",
 };
 
 export default function EigoListeningRenshuPage() {

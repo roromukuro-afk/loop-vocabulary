@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "中学英語の単語を完璧に覚える方法【高校受験・英検3級対策】",
     description: "中学英単語1,200語の効率的な覚え方とSRS活用法を解説。",
-    url: "https://loop-vocabulary.vercel.app/guide/chugaku-eigo-tango",
+    url: "https://loop-vocabulary.app/guide/chugaku-eigo-tango",
     type: "article",
   },
 };
@@ -75,7 +75,7 @@ const JSON_LD = {
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-12-01",
-  "url": "https://loop-vocabulary.vercel.app/guide/chugaku-eigo-tango",
+  "url": "https://loop-vocabulary.app/guide/chugaku-eigo-tango",
 };
 
 export default function ChugakuEigoPage() {

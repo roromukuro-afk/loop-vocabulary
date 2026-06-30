@@ -23,7 +23,7 @@ const GUIDE_SLUGS = [
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const base =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.vercel.app";
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
   const now = new Date();
   return [
     { url: base,                         lastModified: now, changeFrequency: "weekly",  priority: 1.0 },

@@ -73,7 +73,7 @@ const JSON_LD = {
   "@type": "Article",
   "headline": "英語長文読解の勉強法【大学受験・英検・TOEIC対応】",
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
-  "url": "https://loop-vocabulary.vercel.app/guide/eigo-dokkai-houhou",
+  "url": "https://loop-vocabulary.app/guide/eigo-dokkai-houhou",
 };
 
 export default function EigoDokkaipHouhouPage() {

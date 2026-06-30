@@ -99,7 +99,7 @@ const JSON_LD = {
   "@type": "Article",
   "headline": "英語学習ロードマップ【ゼロから英検1級・TOEIC900点まで】",
   "description": "英語ゼロから英検1級・TOEIC900点まで段階的に上達するためのロードマップ",
-  "url": "https://loop-vocabulary.vercel.app/roadmap",
+  "url": "https://loop-vocabulary.app/roadmap",
 };
 
 export default function RoadmapPage() {

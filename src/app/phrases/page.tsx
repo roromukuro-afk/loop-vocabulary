@@ -49,7 +49,7 @@ const JSON_LD = {
   "@context": "https://schema.org",
   "@type": "ItemList",
   "name": "英語フレーズ集【英検・TOEIC・大学受験】",
-  "url": "https://loop-vocabulary.vercel.app/phrases",
+  "url": "https://loop-vocabulary.app/phrases",
   "numberOfItems": PHRASES.length,
 };
 
