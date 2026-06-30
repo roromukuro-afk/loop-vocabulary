@@ -18,7 +18,7 @@ export default async function ReviewPage({
   const now = new Date().toISOString();
   let dueQuery = supabase
     .from("words")
-    .select("id, word, meaning, phonetic, streak, is_weak, next_review_at")
+    .select("id, word, meaning, phonetic, example, example_ja, streak, is_weak, next_review_at")
     .eq("user_id", user.id)
     .or(`next_review_at.lte.${now},is_weak.eq.true`)
     .order("next_review_at", { ascending: true, nullsFirst: true })

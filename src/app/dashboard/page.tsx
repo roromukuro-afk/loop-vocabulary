@@ -177,7 +177,7 @@ export default async function DashboardPage() {
         </Link>
       </section>
       <section className="mt-3 grid grid-cols-2 gap-3">
-        <Link href="/review">
+        <Link href="/review?start=1&mode=flip">
           <Button fullWidth size="lg" className="relative">
             今日の復習
             {(dueCount ?? 0) > 0 && (

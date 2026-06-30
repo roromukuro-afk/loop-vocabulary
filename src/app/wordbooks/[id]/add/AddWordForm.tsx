@@ -16,9 +16,37 @@ export function AddWordForm({ wordBookId }: { wordBookId: string }) {
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [lookingUp, setLookingUp] = useState(false);
 
   const set = (k: keyof typeof w) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setW({ ...w, [k]: e.target.value });
+    setW((prev) => ({ ...prev, [k]: e.target.value }));
+
+  const aiLookup = async () => {
+    if (!w.word.trim()) return;
+    setLookingUp(true);
+    try {
+      const res = await fetch("/api/ai/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ word: w.word.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setW((prev) => ({
+          ...prev,
+          meaning:     data.meaning     || prev.meaning,
+          pos:         data.pos         || prev.pos,
+          phonetic:    data.phonetic    || prev.phonetic,
+          example:     data.example     || prev.example,
+          example_ja:  data.example_ja  || prev.example_ja,
+        }));
+      }
+    } catch {
+      // ignore — user can fill manually
+    } finally {
+      setLookingUp(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,20 +73,67 @@ export function AddWordForm({ wordBookId }: { wordBookId: string }) {
 
   return (
     <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
-      <Field label="英単語"><Input required value={w.word} onChange={set("word")} /></Field>
-      <Field label="意味"><Input required value={w.meaning} onChange={set("meaning")} /></Field>
-      <Field label="品詞"><Input value={w.pos} onChange={set("pos")} placeholder="名詞 / 動詞 ..." /></Field>
-      <Field label="発音記号"><Input value={w.phonetic} onChange={set("phonetic")} placeholder="/ɪmˈpɔːrtnt/" /></Field>
-      <Field label="例文"><Textarea value={w.example} onChange={set("example")} /></Field>
-      <Field label="例文の和訳"><Textarea value={w.example_ja} onChange={set("example_ja")} /></Field>
-      <Field label="語源メモ"><Textarea value={w.etymology} onChange={set("etymology")} /></Field>
-      <Field label="ニュアンス"><Textarea value={w.nuance} onChange={set("nuance")} /></Field>
-      <Field label="似た単語"><Input value={w.similar_words} onChange={set("similar_words")} /></Field>
-      <Field label="反意語"><Input value={w.antonym} onChange={set("antonym")} /></Field>
-      <Field label="派生語"><Input value={w.derivative} onChange={set("derivative")} /></Field>
-      <Field label="熟語"><Input value={w.idiom} onChange={set("idiom")} /></Field>
+      {/* 英単語 + AI補完ボタン */}
+      <div className="sm:col-span-2">
+        <Field label="英単語">
+          <div className="flex gap-2">
+            <Input
+              required
+              value={w.word}
+              onChange={set("word")}
+              placeholder="例: persevere"
+              className="flex-1"
+            />
+            <button
+              type="button"
+              onClick={aiLookup}
+              disabled={lookingUp || !w.word.trim()}
+              className="shrink-0 px-3 py-2 rounded-xl bg-sky-100 text-sky-700 text-xs font-bold hover:bg-sky-200 disabled:opacity-40 transition-colors whitespace-nowrap"
+            >
+              {lookingUp ? "調査中…" : "✨ AI補完"}
+            </button>
+          </div>
+        </Field>
+        {lookingUp && (
+          <p className="text-xs text-sky-600 mt-1">意味・発音・例文を自動入力しています…</p>
+        )}
+      </div>
+
+      <Field label="意味">
+        <Input required value={w.meaning} onChange={set("meaning")} placeholder="AI補完後に編集できます" />
+      </Field>
+      <Field label="品詞">
+        <Input value={w.pos} onChange={set("pos")} placeholder="名詞 / 動詞 ..." />
+      </Field>
+      <Field label="発音記号">
+        <Input value={w.phonetic} onChange={set("phonetic")} placeholder="/ɪmˈpɔːrtnt/" />
+      </Field>
       <Field label="重要度 (1-5)">
         <Input type="number" min={1} max={5} value={w.importance} onChange={set("importance")} />
+      </Field>
+      <Field label="例文">
+        <Textarea value={w.example} onChange={set("example")} placeholder="英語例文" />
+      </Field>
+      <Field label="例文の和訳">
+        <Textarea value={w.example_ja} onChange={set("example_ja")} />
+      </Field>
+      <Field label="語源メモ">
+        <Textarea value={w.etymology} onChange={set("etymology")} placeholder="自分の言葉でメモ" />
+      </Field>
+      <Field label="ニュアンス">
+        <Textarea value={w.nuance} onChange={set("nuance")} placeholder="使い方のコツなど" />
+      </Field>
+      <Field label="似た単語">
+        <Input value={w.similar_words} onChange={set("similar_words")} />
+      </Field>
+      <Field label="反意語">
+        <Input value={w.antonym} onChange={set("antonym")} />
+      </Field>
+      <Field label="派生語">
+        <Input value={w.derivative} onChange={set("derivative")} />
+      </Field>
+      <Field label="熟語">
+        <Input value={w.idiom} onChange={set("idiom")} />
       </Field>
       {error && <div className="text-sm text-red-600 sm:col-span-2">{error}</div>}
       <div className="sm:col-span-2">

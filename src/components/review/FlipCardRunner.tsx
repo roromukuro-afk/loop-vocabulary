@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { saveStudyResult } from "@/lib/srs/saveResult";
@@ -8,8 +8,13 @@ import { speakEn } from "@/lib/tts";
 import { PronounceButton } from "@/components/ui/PronounceButton";
 import { trackFeatureUsed, trackReviewComplete, trackFirstReviewComplete } from "@/lib/analytics/events";
 
-type W = { id: string; word: string; meaning: string; streak: number; is_weak: boolean; phonetic?: string };
+type W = {
+  id: string; word: string; meaning: string; streak: number; is_weak: boolean;
+  phonetic?: string; example?: string | null; example_ja?: string | null;
+};
 type Result = { word: string; meaning: string; ok: boolean };
+
+const SWIPE_KEY = "lv_swipe_mode";
 
 export function FlipCardRunner({ pool }: { pool: W[] }) {
   const showInterstitial = useAppInterstitial();
@@ -18,6 +23,12 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
   const [results, setResults] = useState<Result[]>([]);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [swipeMode, setSwipeMode] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem(SWIPE_KEY) === "1" : false
+  );
+  // swipe detection
+  const touchStartX = useRef<number | null>(null);
+  const [swipeHint, setSwipeHint] = useState<"left" | "right" | null>(null);
 
   const cur = pool[idx];
 
@@ -38,6 +49,12 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
     }
   }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const toggleSwipe = () => {
+    const next = !swipeMode;
+    setSwipeMode(next);
+    localStorage.setItem(SWIPE_KEY, next ? "1" : "0");
+  };
+
   const handleFlip = () => {
     if (flipped || busy) return;
     setFlipped(true);
@@ -46,27 +63,39 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
   const handleAnswer = async (isCorrect: boolean) => {
     if (busy) return;
     setBusy(true);
+    setSwipeHint(null);
     await saveStudyResult(cur, isCorrect);
     const newResults = [...results, { word: cur.word, meaning: cur.meaning, ok: isCorrect }];
     setResults(newResults);
-
     if (idx + 1 >= pool.length) {
       setDone(true);
     } else {
       setFlipped(false);
-      setTimeout(() => {
-        setIdx((i) => i + 1);
-        setBusy(false);
-      }, 350);
+      setTimeout(() => { setIdx((i) => i + 1); setBusy(false); }, 350);
     }
   };
 
+  // Swipe handlers — only trigger answer when flipped
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || !flipped) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    if (Math.abs(dx) > 30) setSwipeHint(dx > 0 ? "right" : "left");
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    setSwipeHint(null);
+    if (!swipeMode || !flipped || busy) return;
+    if (dx > 60) void handleAnswer(true);   // 右スワイプ = 覚えた
+    else if (dx < -60) void handleAnswer(false); // 左スワイプ = まだ
+  };
+
   const restart = () => {
-    setIdx(0);
-    setFlipped(false);
-    setResults([]);
-    setDone(false);
-    setBusy(false);
+    setIdx(0); setFlipped(false); setResults([]); setDone(false); setBusy(false);
   };
 
   const correctCount = results.filter((r) => r.ok).length;
@@ -78,11 +107,7 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
     if (navigator.share) {
       await navigator.share({ text }).catch(() => {});
     } else {
-      window.open(
-        `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
-        "_blank",
-        "noopener",
-      );
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank", "noopener");
     }
   };
 
@@ -119,11 +144,7 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
 
         {pool.length >= 4 && (
           <div className="mt-4">
-            <AppRewardedAdButton
-              kind="extra_review"
-              label="広告を見てもう一周チャレンジ"
-              onReward={restart}
-            />
+            <AppRewardedAdButton kind="extra_review" label="広告を見てもう一周チャレンジ" onReward={restart} />
           </div>
         )}
 
@@ -135,22 +156,46 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
     );
   }
 
+  const swipeOverlay = swipeHint && (
+    <div className={`absolute inset-0 rounded-3xl flex items-center justify-center text-4xl font-black pointer-events-none transition-opacity z-10 ${
+      swipeHint === "right" ? "bg-emerald-500/20 text-emerald-600" : "bg-red-500/20 text-red-600"
+    }`}>
+      {swipeHint === "right" ? "✓ 覚えた" : "✗ まだ"}
+    </div>
+  );
+
   return (
     <div className="min-h-dvh px-4 py-6 max-w-md mx-auto flex flex-col">
+      {/* ヘッダー */}
       <div className="flex items-center justify-between text-xs text-navy-500">
         <Link href="/review">← 中断</Link>
         <span>{idx + 1} / {pool.length}</span>
+        <button
+          onClick={toggleSwipe}
+          className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+            swipeMode
+              ? "bg-sky-100 border-sky-300 text-sky-700 font-semibold"
+              : "bg-white border-navy-200 text-navy-400"
+          }`}
+        >
+          {swipeMode ? "👆 スワイプON" : "👆 スワイプ"}
+        </button>
       </div>
+
       <div className="mt-2 h-1.5 bg-navy-100 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-sky-500 transition-all duration-300"
-          style={{ width: `${(idx / pool.length) * 100}%` }}
-        />
+        <div className="h-full bg-sky-500 transition-all duration-300" style={{ width: `${(idx / pool.length) * 100}%` }} />
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center mt-4 gap-6">
         {/* フリップカード */}
-        <div className="w-full" style={{ perspective: "1200px" }} onClick={handleFlip}>
+        <div
+          className="w-full relative"
+          style={{ perspective: "1200px" }}
+          onClick={handleFlip}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
           <div
             className="relative w-full transition-transform duration-500"
             style={{
@@ -165,37 +210,40 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
               style={{ backfaceVisibility: "hidden" }}
             >
               <div className="text-[11px] uppercase tracking-widest text-navy-400 mb-3">English</div>
-              <div className="text-4xl font-black text-navy-900 text-center leading-tight">
-                {cur.word}
-              </div>
-              {cur.phonetic && (
-                <div className="mt-2 text-sm text-navy-400 font-mono">{cur.phonetic}</div>
-              )}
-              <div className="mt-5">
-                <PronounceButton word={cur.word} size="lg" />
-              </div>
+              <div className="text-4xl font-black text-navy-900 text-center leading-tight">{cur.word}</div>
+              {cur.phonetic && <div className="mt-2 text-sm text-navy-400 font-mono">{cur.phonetic}</div>}
+              <div className="mt-5"><PronounceButton word={cur.word} size="lg" /></div>
               <div className="mt-5 flex items-center gap-1.5 text-xs text-navy-400">
                 <span>タップして意味を確認</span>
                 <span className="text-base">👆</span>
               </div>
             </div>
 
-            {/* 裏 (日本語) */}
+            {/* 裏 (日本語 + 例文) */}
             <div
-              className="absolute inset-0 bg-navy-800 rounded-3xl shadow-xl flex flex-col items-center justify-center p-8 select-none"
+              className="absolute inset-0 bg-navy-800 rounded-3xl shadow-xl flex flex-col items-center justify-center p-6 select-none overflow-hidden"
               style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
             >
-              <div className="text-[11px] uppercase tracking-widest text-navy-400 mb-3">{cur.word}</div>
-              <div className="text-2xl font-bold text-white text-center leading-snug">
-                {cur.meaning}
-              </div>
+              {swipeOverlay}
+              <div className="text-[11px] uppercase tracking-widest text-navy-400 mb-2">{cur.word}</div>
+              <div className="text-2xl font-bold text-white text-center leading-snug">{cur.meaning}</div>
+              {cur.example && (
+                <div className="mt-4 w-full border-t border-navy-600 pt-4 space-y-1">
+                  <p className="text-xs text-sky-300 italic leading-relaxed text-center">{cur.example}</p>
+                  {cur.example_ja && (
+                    <p className="text-[11px] text-navy-400 text-center">{cur.example_ja}</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* ボタン */}
+        {/* ボタン / スワイプヒント */}
         {!flipped ? (
           <p className="text-sm text-navy-400">カードをタップして意味を確認してください</p>
+        ) : swipeMode ? (
+          <p className="text-sm text-navy-400">← まだ　　覚えた →</p>
         ) : (
           <div className="w-full grid grid-cols-2 gap-4">
             <button
@@ -217,7 +265,7 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
       </div>
 
       <p className="pt-4 text-center text-[10px] text-navy-400">
-        「覚えた」「まだ」で次回の復習タイミングが自動調整されます
+        {swipeMode ? "右スワイプ＝覚えた・左スワイプ＝まだ" : "「覚えた」「まだ」で次回の復習タイミングが自動調整されます"}
       </p>
     </div>
   );
