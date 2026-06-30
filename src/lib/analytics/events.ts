@@ -74,3 +74,37 @@ export function trackWordAdded() {
 export function trackEmailCapture(slug: string) {
   gtag("email_capture", { guide_slug: slug, event_category: "lead_gen" });
 }
+
+// ── アクティベーション（成長の核心） ──────────────────────────────
+// 「初回単語追加」→ Day1/3/7継続 が最重要ファネル
+
+export function trackFirstWordAdded() {
+  gtag("first_word_added", { event_category: "activation" });
+}
+
+export function trackFirstReviewComplete() {
+  gtag("first_review_complete", { event_category: "activation" });
+}
+
+export function trackStreakMilestone(days: 3 | 7 | 14 | 30 | 60 | 100) {
+  gtag("streak_milestone", { days, event_category: "retention" });
+}
+
+export function trackMaterialImported(examType: string, wordCount: number) {
+  gtag("material_imported", { exam_type: examType, word_count: wordCount, event_category: "activation" });
+}
+
+// ── 機能別使用トラッキング ──────────────────────────────────────
+// どの機能が実際に使われているか把握する
+
+export function trackFeatureUsed(feature: "flip_card" | "choice_test" | "typing_test" | "ai_explain" | "pdf_export" | "dictionary" | "vocab_check" | "weak_words") {
+  gtag("feature_used", { feature, event_category: "engagement" });
+}
+
+export function trackLandingSection(section: "hero" | "numbers" | "steps" | "features" | "comparison" | "pricing" | "testimonials" | "cta") {
+  gtag("landing_section_view", { section, event_category: "landing" });
+}
+
+export function trackPricingIntent(plan: "free" | "premium_monthly" | "premium_yearly") {
+  gtag("pricing_intent", { plan, event_category: "monetization" });
+}

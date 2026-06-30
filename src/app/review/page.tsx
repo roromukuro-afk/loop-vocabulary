@@ -41,7 +41,17 @@ export default async function ReviewPage({
   return (
     <AppShell>
       <h1 className="text-xl font-bold text-navy-800">今日の復習</h1>
-      <p className="text-sm text-navy-500 mt-1">忘却曲線に沿って、復習タイミングが来た単語を集めました。</p>
+      <p className="text-sm text-navy-500 mt-1">
+        {pool.length > 0
+          ? `${pool.length}語が復習タイミングに来ています。今が覚えどき。`
+          : "今日の復習は完了しています。"}
+      </p>
+
+      {pool.length > 0 && (
+        <div className="mt-3 bg-sky-50 border border-sky-200 rounded-xl px-4 py-3 text-xs text-sky-700">
+          忘却曲線に基づく最適なタイミングです。今やるのが一番定着します。
+        </div>
+      )}
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <Stat label="復習待ち" value={pool.length} hint="単語" />
@@ -85,8 +95,10 @@ export default async function ReviewPage({
             </li>
           ))}
           {pool.length === 0 && (
-            <li className="py-6 text-sm text-navy-500 text-center">
-              復習待ちの単語はありません。新しい単語を追加するか、テストで負荷をかけましょう。
+            <li className="py-8 text-center">
+              <div className="text-3xl mb-2">✨</div>
+              <div className="font-semibold text-navy-700 text-sm">今日の復習は全部終わりました</div>
+              <div className="text-xs text-navy-400 mt-1">明日また復習すべき単語が並びます。<br/>このまま新しい単語を学ぼう。</div>
             </li>
           )}
         </ul>

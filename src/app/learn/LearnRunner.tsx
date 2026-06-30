@@ -178,7 +178,7 @@ export function LearnRunner({ words, onComplete }: { words: Word[]; onComplete?:
               <div className={`mb-3 rounded-xl p-3 text-sm font-semibold text-center ${isCorrect ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-red-50 border border-red-200 text-red-700"}`}>
                 {isCorrect ? "正解！" : `不正解。正解は「${curQuiz.meaning}」`}
               </div>
-              <button onClick={nextQuiz} className="w-full py-4 rounded-2xl bg-navy-800 text-white font-bold hover:bg-navy-700 transition-colors">
+              <button onClick={nextQuiz} className="w-full py-4 rounded-2xl bg-sky-500 text-white font-bold hover:bg-sky-600 transition-colors">
                 {quizIdx + 1 >= words.length ? "結果を見る" : "次の問題"}
               </button>
             </div>
@@ -228,7 +228,7 @@ export function LearnRunner({ words, onComplete }: { words: Word[]; onComplete?:
               間違えた単語だけもう一度
             </button>
           )}
-          <a href="/review" className="block w-full py-3 rounded-2xl bg-navy-800 text-white font-bold text-sm hover:bg-navy-700 transition-colors text-center">
+          <a href="/review" className="block w-full py-3 rounded-2xl bg-sky-500 text-white font-bold text-sm hover:bg-sky-600 transition-colors text-center">
             忘却曲線で復習する →
           </a>
           <button

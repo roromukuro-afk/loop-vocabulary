@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea } from "@/components/ui/Input";
-import { trackWordAdded } from "@/lib/analytics/events";
+import { trackWordAdded, trackFirstWordAdded } from "@/lib/analytics/events";
 
 export function AddWordForm({ wordBookId }: { wordBookId: string }) {
   const router = useRouter();
@@ -37,6 +37,8 @@ export function AddWordForm({ wordBookId }: { wordBookId: string }) {
     setBusy(false);
     if (error) return setError(error.message);
     trackWordAdded();
+    const { count } = await supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id);
+    if (count === 1) trackFirstWordAdded();
     router.push(`/wordbooks/${wordBookId}`);
     router.refresh();
   };

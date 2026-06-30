@@ -133,7 +133,7 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
       </div>
       <div className="mt-2 h-1.5 bg-navy-100 rounded-full overflow-hidden">
         <div
-          className="h-full bg-navy-700 transition-all duration-300"
+          className="h-full bg-sky-500 transition-all duration-300"
           style={{ width: `${(idx / pool.length) * 100}%` }}
         />
       </div>

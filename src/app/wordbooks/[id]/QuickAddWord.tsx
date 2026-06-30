@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { trackWordAdded } from "@/lib/analytics/events";
+import { trackWordAdded, trackFirstWordAdded } from "@/lib/analytics/events";
 
 export function QuickAddWord({ wordBookId }: { wordBookId: string }) {
   const [open, setOpen] = useState(false);
@@ -28,6 +28,8 @@ export function QuickAddWord({ wordBookId }: { wordBookId: string }) {
     setSaving(false);
     if (!error) {
       trackWordAdded();
+      const { count } = await supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id);
+      if (count === 1) trackFirstWordAdded();
       setWord("");
       setMeaning("");
       setSuccess(true);

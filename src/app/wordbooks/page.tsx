@@ -62,8 +62,10 @@ export default async function WordBooksPage() {
           </li>
         ))}
         {(books ?? []).length === 0 && (
-          <li className="text-sm text-navy-500 bg-white border border-dashed border-navy-200 rounded-2xl p-6 text-center">
-            まだ単語帳がありません。上のフォームから作ってみましょう。
+          <li className="bg-white border border-dashed border-navy-200 rounded-2xl p-8 text-center">
+            <div className="text-3xl mb-2">📖</div>
+            <div className="font-semibold text-navy-700 text-sm mb-1">最初の単語帳を作ろう</div>
+            <div className="text-xs text-navy-400 leading-relaxed">上のフォームで名前をつけるだけ。<br/>単語は後から何度でも追加できます。</div>
           </li>
         )}
       </ul>

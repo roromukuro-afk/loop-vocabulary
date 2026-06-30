@@ -4,6 +4,7 @@ import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { StudyCalendar } from "./StudyCalendar";
 import { StudyWeekGraph } from "./StudyWeekGraph";
+import { StreakTracker } from "./StreakTracker";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,19 @@ export default async function StatsPage() {
 
   return (
     <AppShell>
+      <StreakTracker days={streakDays} />
       <h1 className="text-xl font-bold text-navy-800">学習記録</h1>
+      <p className="text-sm text-navy-500 mt-1">あなたの積み重ねが、ここに刻まれています。</p>
+
+      {streakDays >= 2 && (
+        <div className="mt-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+          <span className="text-2xl">🔥</span>
+          <div>
+            <div className="font-bold text-amber-800 text-sm">{streakDays}日連続学習中！</div>
+            <div className="text-xs text-amber-700 mt-0.5">この調子でいきましょう。継続が最大の武器です。</div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-4 grid grid-cols-3 gap-3">
         <Stat label="今日学習" value={todayStudied} hint="単語" />

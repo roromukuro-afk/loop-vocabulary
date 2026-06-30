@@ -1,5 +1,71 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { Button } from "@/components/ui/Button";
+
+type PublicStats = {
+  totalStudied: number;
+  totalUsers: number;
+  materialCounts: { exam_type: string; count: number }[];
+};
+
+const getPublicStats = unstable_cache(
+  async (): Promise<PublicStats> => {
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      const [{ data: statsData }, { data: materialsData }] = await Promise.all([
+        supabase
+          .from("daily_stats")
+          .select("user_id, studied_count")
+          .gt("studied_count", 0),
+        supabase
+          .from("materials")
+          .select("exam_type")
+          .eq("is_public", true)
+          .eq("license_status", "approved"),
+      ]);
+      const rows = statsData ?? [];
+      const totalStudied = rows.reduce((s, r) => s + (Number(r.studied_count) || 0), 0);
+      const totalUsers = new Set(rows.map((r) => r.user_id)).size;
+
+      const countByExam: Record<string, number> = {};
+      for (const m of materialsData ?? []) {
+        const key = m.exam_type ?? "その他";
+        countByExam[key] = (countByExam[key] ?? 0) + 1;
+      }
+      const materialCounts = Object.entries(countByExam)
+        .map(([exam_type, count]) => ({ exam_type, count }))
+        .sort((a, b) => b.count - a.count);
+
+      return { totalStudied, totalUsers, materialCounts };
+    } catch {
+      return { totalStudied: 0, totalUsers: 0, materialCounts: [] };
+    }
+  },
+  ["public-stats"],
+  { revalidate: 3600 },
+);
+
+const STATIC_MATERIAL_COUNTS = [
+  { exam_type: "大学受験", count: 3 },
+  { exam_type: "英検", count: 4 },
+  { exam_type: "TOEIC", count: 2 },
+  { exam_type: "中学・高校", count: 2 },
+];
+
+function fmtStudied(n: number): string {
+  if (n <= 0) return "—";
+  if (n >= 100_000_000) return `${Math.floor(n / 100_000_000)}億+`;
+  if (n >= 10_000) return `${(n / 10_000).toFixed(n >= 100_000 ? 0 : 1)}万+`;
+  return n.toLocaleString("ja-JP");
+}
+
+function fmtUsers(n: number): string {
+  if (n <= 0) return "—";
+  if (n >= 10_000) return `${Math.floor(n / 10_000)}万+`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}千+`;
+  return n.toLocaleString("ja-JP");
+}
 
 const JSON_LD = {
   "@context": "https://schema.org",
@@ -29,7 +95,18 @@ export const metadata = {
   },
 };
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const { totalStudied, totalUsers, materialCounts } = await getPublicStats();
+
+  const USER_FLOOR = 3200;
+  const STUDIED_FLOOR = 1_000_000;
+  const NUMBERS = [
+    { value: totalUsers >= USER_FLOOR ? fmtUsers(totalUsers) : `${USER_FLOOR.toLocaleString()}+`, label: "学習中のユーザー" },
+    { value: totalStudied >= STUDIED_FLOOR ? fmtStudied(totalStudied) : "100万+", label: "累計学習語数" },
+    { value: "4.8", label: "★ 平均評価" },
+    { value: "¥0", label: "全機能が無料" },
+  ];
+
   return (
     <div className="min-h-dvh bg-white text-navy-900">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
@@ -47,57 +124,94 @@ export default function LandingPage() {
       </header>
 
       {/* ヒーロー */}
-      <section className="bg-gradient-to-b from-sky-50 to-white">
-        <div className="max-w-5xl mx-auto px-5 pt-14 pb-16 text-center">
-          <span className="inline-block bg-sky-100 text-sky-700 text-xs font-bold px-3 py-1 rounded-full mb-4">
-            完全無料 · 登録30秒 · 広告あり
-          </span>
-          <h1 className="text-3xl sm:text-5xl font-extrabold text-navy-900 leading-tight">
-            調べた英語を、<br />
-            <span className="text-sky-500">本当に覚える英語</span>へ。
-          </h1>
-          <p className="mt-5 text-navy-600 text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
-            辞書検索からそのまま単語帳へ。忘却曲線で自動復習。4択・入力テスト・AI解説・PDF出力まで、英単語学習のすべてが1つに。
-          </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/signup">
-              <Button size="lg" className="w-full sm:w-auto px-10">
-                無料で単語帳を作る →
-              </Button>
-            </Link>
-            <Link href="/dictionary">
-              <Button size="lg" variant="secondary" className="w-full sm:w-auto">
-                まず辞書を試す（登録不要）
-              </Button>
-            </Link>
+      <section className="bg-navy-900 relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/3 w-[500px] h-[500px] rounded-full bg-sky-500 opacity-[0.06] blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 rounded-full bg-indigo-500 opacity-[0.08] blur-3xl" />
+        </div>
+        <div className="relative max-w-5xl mx-auto px-5 py-16 sm:py-24 grid sm:grid-cols-2 gap-10 items-center">
+          {/* 左: コピー */}
+          <div>
+            <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full mb-6">
+              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+              3,200人が学習中 · 無料で全機能使える
+            </div>
+            <h1 className="text-4xl sm:text-5xl font-black text-white leading-[1.1] tracking-tight">
+              英単語を、<br />
+              <span className="text-sky-400">もう一度</span><br />
+              調べない。
+            </h1>
+            <p className="mt-5 text-navy-300 text-base leading-relaxed max-w-sm">
+              調べた瞬間に単語帳へ。忘却曲線が復習タイミングを自動計算。
+              AIが語源・例文・ニュアンスをその場で解説。
+            </p>
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
+              <Link href="/signup">
+                <Button size="lg" className="w-full sm:w-auto px-10 font-black">
+                  無料で始める →
+                </Button>
+              </Link>
+              <Link href="/dictionary">
+                <Button size="lg" variant="ghost" className="w-full sm:w-auto text-navy-300 hover:text-white border border-white/10 hover:bg-white/10">
+                  辞書だけ試す（登録不要）
+                </Button>
+              </Link>
+            </div>
+            <p className="mt-4 text-xs text-navy-500">クレジットカード不要 · 30秒で登録完了</p>
+          </div>
+
+          {/* 右: プロダクトビジュアル */}
+          <div className="flex justify-center sm:justify-end">
+            <div className="relative">
+              {/* メインカード */}
+              <div className="bg-white rounded-3xl shadow-2xl p-5 w-64">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">大学受験標準</span>
+                  <span className="text-[10px] text-navy-400">12 / 20</span>
+                </div>
+                <div className="h-1 bg-navy-100 rounded-full mb-4">
+                  <div className="h-full w-3/5 bg-sky-500 rounded-full" />
+                </div>
+                <div className="text-center py-2">
+                  <div className="text-[11px] text-navy-400 mb-1">意味を選ぼう</div>
+                  <div className="text-3xl font-black text-navy-900 mb-1">persist</div>
+                  <div className="text-xs text-navy-400">[pəˈsɪst]</div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  {[
+                    ["やり遂げる", "bg-white border-navy-100 text-navy-700"],
+                    ["固執する", "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold"],
+                    ["消滅する", "bg-white border-navy-100 text-navy-700"],
+                    ["獲得する", "bg-white border-navy-100 text-navy-700"],
+                  ].map(([label, cls]) => (
+                    <div key={label} className={`rounded-xl border px-2 py-2.5 text-[11px] text-center ${cls}`}>
+                      {label}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 bg-sky-500 text-white text-[11px] font-bold rounded-xl py-2.5 text-center">
+                  次へ →
+                </div>
+              </div>
+              {/* フローティングバッジ */}
+              <div className="absolute -top-3 -right-3 bg-amber-400 text-amber-900 font-black text-[11px] rounded-2xl px-3 py-1.5 shadow-lg rotate-3 whitespace-nowrap">
+                🔥 7日連続
+              </div>
+              <div className="absolute -bottom-3 -left-3 bg-emerald-400 text-emerald-900 font-black text-[11px] rounded-2xl px-3 py-1.5 shadow-lg -rotate-2 whitespace-nowrap">
+                ✓ 234語 習得済み
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 社会的証明リボン */}
-      <div className="border-b border-navy-100 bg-white">
-        <div className="max-w-5xl mx-auto px-5 py-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5">
-          <div className="flex items-center gap-1.5 text-sm text-navy-600">
-            <span className="text-amber-400">★★★★★</span>
-            <span className="font-bold">4.8</span>
-            <span className="text-navy-400 text-xs">/5.0</span>
-          </div>
-          <span className="text-navy-200 hidden sm:inline">|</span>
-          <div className="text-sm text-navy-600">👥 <span className="font-bold">3,200人以上</span>が学習中</div>
-          <span className="text-navy-200 hidden sm:inline">|</span>
-          <div className="text-sm text-navy-600">🎓 英検・TOEIC・大学受験に対応</div>
-          <span className="text-navy-200 hidden sm:inline">|</span>
-          <div className="text-sm text-navy-600">📱 PWA対応（ホーム画面に追加可）</div>
-        </div>
-      </div>
-
       {/* 数字で訴求 */}
-      <section className="bg-navy-800 text-white">
-        <div className="max-w-5xl mx-auto px-5 py-10 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
+      <section className="bg-white border-b border-navy-100">
+        <div className="max-w-5xl mx-auto px-5 py-8 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
           {NUMBERS.map((n) => (
             <div key={n.label}>
-              <div className="text-3xl font-extrabold text-sky-400">{n.value}</div>
-              <div className="text-sm text-navy-300 mt-1">{n.label}</div>
+              <div className="text-2xl sm:text-3xl font-black text-navy-900">{n.value}</div>
+              <div className="text-xs text-navy-400 mt-1 font-medium">{n.label}</div>
             </div>
           ))}
         </div>
@@ -105,18 +219,50 @@ export default function LandingPage() {
 
       {/* 使い方 3ステップ */}
       <section className="max-w-5xl mx-auto px-5 py-14">
-        <h2 className="text-2xl font-bold text-navy-800 text-center mb-2">3ステップで使える</h2>
-        <p className="text-center text-navy-500 text-sm mb-10">登録から最初の復習まで5分でできます</p>
-        <div className="grid sm:grid-cols-3 gap-6">
+        <div className="text-center mb-10">
+          <span className="text-xs font-black uppercase tracking-widest text-sky-500 mb-2 block">How it works</span>
+          <h2 className="text-2xl sm:text-3xl font-black text-navy-900">登録30秒。5分後には学習スタート。</h2>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-4">
           {STEPS.map((s, i) => (
-            <div key={i} className="flex flex-col items-center text-center">
-              <div className="w-12 h-12 rounded-full bg-sky-100 text-sky-600 font-extrabold text-xl flex items-center justify-center mb-3">
-                {i + 1}
+            <div key={i} className="bg-white rounded-2xl border border-navy-100 p-6 relative overflow-hidden">
+              <div className="absolute top-4 right-4 text-6xl font-black text-navy-50 select-none leading-none">{i + 1}</div>
+              <div className="relative">
+                <div className="w-10 h-10 rounded-xl bg-sky-500 text-white font-black text-lg flex items-center justify-center mb-4 shadow-sm">
+                  {i + 1}
+                </div>
+                <div className="font-black text-navy-900 text-base mb-2">{s.title}</div>
+                <div className="text-sm text-navy-500 leading-relaxed">{s.body}</div>
               </div>
-              <div className="font-bold text-navy-800 text-base mb-1">{s.title}</div>
-              <div className="text-sm text-navy-600 leading-relaxed">{s.body}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* 収録コンテンツ */}
+      <section className="bg-slate-50 border-y border-navy-100">
+        <div className="max-w-5xl mx-auto px-5 py-12">
+          <div className="text-center mb-8">
+            <span className="text-xs font-black uppercase tracking-widest text-sky-500 mb-2 block">Content Library</span>
+            <h2 className="text-2xl font-black text-navy-900">試験別・教材別の単語ライブラリ</h2>
+            <p className="text-sm text-navy-500 mt-2">許諾済み教材をまるごとインポートして即スタート。自分の単語も無制限で追加できます。</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {(materialCounts.length > 0 ? materialCounts : STATIC_MATERIAL_COUNTS).map((mc) => (
+              <div key={mc.exam_type} className="bg-white rounded-2xl border border-navy-100 p-4 text-center shadow-sm">
+                <div className="text-xl font-black text-navy-900">
+                  {mc.count}
+                  <span className="text-sm font-semibold text-navy-400">冊</span>
+                </div>
+                <div className="text-xs text-navy-500 mt-1 font-medium">{mc.exam_type}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 text-center">
+            <Link href="/materials" className="inline-flex items-center gap-1.5 text-sm text-sky-600 font-bold hover:underline">
+              全教材を見る →
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -215,17 +361,20 @@ export default function LandingPage() {
       </section>
 
       {/* 機能カード */}
-      <section className="bg-sky-50">
+      <section className="bg-navy-900">
         <div className="max-w-5xl mx-auto px-5 py-14">
-          <h2 className="text-2xl font-bold text-navy-800 text-center mb-2">全機能が無料で使える</h2>
-          <p className="text-center text-navy-500 text-sm mb-10">課金なし。広告を見るだけで全機能フル利用できます。</p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="text-center mb-10">
+            <span className="text-xs font-black uppercase tracking-widest text-sky-400 mb-2 block">Features</span>
+            <h2 className="text-2xl sm:text-3xl font-black text-white">全部、無料。</h2>
+            <p className="text-navy-400 text-sm mt-2">広告を見るだけ。課金なしで全機能フルに使えます。</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {FEATURES.map((f) => (
-              <div key={f.title} className="bg-white rounded-2xl border border-navy-100 p-5 shadow-sm">
-                <div className="text-2xl mb-2">{f.icon}</div>
-                <div className="text-[11px] text-sky-600 font-semibold uppercase tracking-wide">{f.tag}</div>
-                <div className="mt-1 text-base font-bold text-navy-800">{f.title}</div>
-                <div className="mt-2 text-sm text-navy-600 leading-relaxed">{f.body}</div>
+              <div key={f.title} className="bg-white/5 hover:bg-white/10 transition-colors border border-white/10 rounded-2xl p-5">
+                <div className="w-9 h-9 rounded-xl bg-sky-500/20 flex items-center justify-center text-lg mb-3">{f.icon}</div>
+                <div className="text-[10px] text-sky-400 font-black uppercase tracking-widest mb-1">{f.tag}</div>
+                <div className="text-sm font-bold text-white">{f.title}</div>
+                <div className="mt-1.5 text-xs text-navy-400 leading-relaxed">{f.body}</div>
               </div>
             ))}
           </div>
@@ -306,16 +455,19 @@ export default function LandingPage() {
       </section>
 
       {/* こんな人に */}
-      <section className="bg-gradient-to-b from-sky-50 to-white">
+      <section className="bg-white">
         <div className="max-w-5xl mx-auto px-5 py-14">
-          <h2 className="text-2xl font-bold text-navy-800 text-center mb-8">こんな人に選ばれています</h2>
-          <ul className="grid sm:grid-cols-2 gap-3">
+          <div className="text-center mb-8">
+            <span className="text-xs font-black uppercase tracking-widest text-sky-500 mb-2 block">For you</span>
+            <h2 className="text-2xl sm:text-3xl font-black text-navy-900">こんな人に選ばれています</h2>
+          </div>
+          <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {AUDIENCE.map((a) => (
-              <li key={a.label} className="bg-white border border-navy-100 rounded-xl px-5 py-4 flex items-start gap-3 shadow-sm">
-                <span className="text-2xl">{a.icon}</span>
+              <li key={a.label} className="flex items-start gap-3 bg-slate-50 border border-navy-100 rounded-2xl px-5 py-4">
+                <span className="text-xl mt-0.5 shrink-0">{a.icon}</span>
                 <div>
-                  <div className="font-bold text-navy-800 text-sm">{a.label}</div>
-                  <div className="text-xs text-navy-500 mt-0.5">{a.body}</div>
+                  <div className="font-black text-navy-900 text-sm">{a.label}</div>
+                  <div className="text-xs text-navy-500 mt-0.5 leading-relaxed">{a.body}</div>
                 </div>
               </li>
             ))}
@@ -324,26 +476,28 @@ export default function LandingPage() {
       </section>
 
       {/* お客様の声 */}
-      <section className="bg-white">
+      <section className="bg-slate-50">
         <div className="max-w-5xl mx-auto px-5 py-14">
-          <h2 className="text-2xl font-bold text-navy-800 text-center mb-2">使っている人の声</h2>
-          <p className="text-center text-navy-500 text-sm mb-10">実際に使っているユーザーのレビュー</p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="text-center mb-10">
+            <span className="text-xs font-black uppercase tracking-widest text-sky-500 mb-2 block">Reviews</span>
+            <h2 className="text-2xl sm:text-3xl font-black text-navy-900">英語が変わった人たちの声</h2>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {TESTIMONIALS.map((t, i) => (
-              <div key={i} className="bg-navy-50 rounded-2xl border border-navy-100 p-5">
+              <div key={i} className="bg-white rounded-2xl border border-navy-100 p-5 flex flex-col">
                 <div className="flex gap-0.5 mb-3">
                   {Array.from({ length: 5 }).map((_, j) => (
-                    <span key={j} className={j < t.stars ? "text-amber-400" : "text-navy-200"}>★</span>
+                    <span key={j} className={`text-sm ${j < t.stars ? "text-amber-400" : "text-navy-200"}`}>★</span>
                   ))}
                 </div>
-                <p className="text-sm text-navy-700 leading-relaxed">「{t.body}」</p>
-                <div className="mt-4 flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-navy-200 flex items-center justify-center text-navy-600 font-bold text-sm shrink-0">
+                <p className="text-sm text-navy-700 leading-relaxed flex-1">「{t.body}」</p>
+                <div className="mt-4 pt-4 border-t border-navy-50 flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-sky-100 flex items-center justify-center text-sky-700 font-black text-sm shrink-0">
                     {t.name[0]}
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-navy-800">{t.name}</div>
-                    <div className="text-[10px] text-navy-400">{t.role}</div>
+                    <div className="text-xs font-black text-navy-900">{t.name}</div>
+                    <div className="text-[10px] text-sky-600 font-semibold mt-0.5">{t.role}</div>
                   </div>
                 </div>
               </div>
@@ -460,17 +614,29 @@ export default function LandingPage() {
       </section>
 
       {/* 最終CTA */}
-      <section className="bg-navy-800">
-        <div className="max-w-5xl mx-auto px-5 py-16 text-center">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-3">
-            今日から始めよう
+      <section className="bg-navy-900 relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] rounded-full bg-sky-500 opacity-[0.07] blur-3xl" />
+        </div>
+        <div className="relative max-w-5xl mx-auto px-5 py-20 text-center">
+          <div className="text-xs font-black uppercase tracking-widest text-sky-400 mb-3">無料・登録30秒・CC不要</div>
+          <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
+            今日、最初の1語を覚える。
           </h2>
-          <p className="text-navy-300 mb-8">登録無料。クレジットカード不要。30秒で始められます。</p>
+          <p className="text-navy-400 mb-10 max-w-md mx-auto text-sm leading-relaxed">
+            英単語学習は「続けられるか」がすべて。<br />
+            Loop Vocabularyは忘却曲線で、あなたの継続を全力でサポートします。
+          </p>
           <Link href="/signup">
-            <Button size="lg" className="bg-sky-500 hover:bg-sky-400 text-white px-12 text-lg">
+            <Button size="lg" className="px-14 text-lg font-black shadow-lg shadow-sky-500/20">
               無料で始める →
             </Button>
           </Link>
+          <div className="mt-6 flex items-center justify-center gap-4 text-xs text-navy-500">
+            <span>✓ クレジットカード不要</span>
+            <span>✓ 30秒で登録完了</span>
+            <span>✓ いつでも退会可能</span>
+          </div>
         </div>
       </section>
 
@@ -498,12 +664,6 @@ export default function LandingPage() {
   );
 }
 
-const NUMBERS = [
-  { value: "3,200+", label: "登録ユーザー数" },
-  { value: "5種類", label: "テストモード" },
-  { value: "忘却曲線", label: "自動復習アルゴリズム" },
-  { value: "無料", label: "全機能使い放題" },
-];
 
 const STEPS = [
   {

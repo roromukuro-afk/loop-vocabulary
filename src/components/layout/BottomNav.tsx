@@ -78,7 +78,7 @@ export function BottomNav() {
                 className={cn(
                   "flex flex-col items-center justify-center py-2.5 gap-0.5 text-[10px] font-medium transition-colors",
                   active
-                    ? "text-navy-800"
+                    ? "text-sky-500"
                     : "text-navy-400 hover:text-navy-600",
                 )}
               >
@@ -87,7 +87,7 @@ export function BottomNav() {
                 </span>
                 <span>{it.label}</span>
                 {active && (
-                  <span className="absolute bottom-0 w-8 h-0.5 bg-navy-800 rounded-full" />
+                  <span className="absolute bottom-0 w-8 h-0.5 bg-sky-500 rounded-full" />
                 )}
               </Link>
             </li>

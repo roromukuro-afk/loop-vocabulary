@@ -76,8 +76,22 @@ export default function SignupPage() {
     <div className="min-h-dvh flex items-center justify-center px-5 py-10">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-card border border-navy-100 p-6">
         <Link href="/" className="text-xs text-navy-500">← トップへ</Link>
-        <h1 className="text-2xl font-bold text-navy-800 mt-3">新規登録</h1>
-        <p className="text-sm text-navy-500 mt-1">無料で英単語帳を作って、忘却曲線復習を始めよう</p>
+        <div className="flex items-center gap-2 mt-4">
+          <div className="w-8 h-8 rounded-xl bg-sky-500 flex items-center justify-center shadow-sm">
+            <svg viewBox="0 0 20 20" className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round">
+              <path d="M10 3a7 7 0 1 0 7 7" />
+              <path d="M17 3v4h-4" />
+            </svg>
+          </div>
+          <span className="font-bold text-navy-800 text-sm tracking-tight">Loop <span className="text-sky-500">Vocabulary</span></span>
+        </div>
+        <h1 className="text-xl font-bold text-navy-800 mt-3">今日から、単語を変えよう。</h1>
+        <p className="text-sm text-navy-500 mt-1">無料・クレカ不要。3分で使い始められます。</p>
+        <div className="flex items-center gap-4 mt-2.5 text-[11px] text-emerald-700 font-medium">
+          <span>✓ 全機能が¥0</span>
+          <span>✓ メール登録のみ</span>
+          <span>✓ いつでも退会可</span>
+        </div>
 
         {/* Google 登録 */}
         <button
