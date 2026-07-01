@@ -133,6 +133,76 @@ const GUIDES = [
     tag: "長文読解",
     readTime: "5分",
   },
+  {
+    slug: "eitango-oboerarenai",
+    title: "英単語が覚えられない原因と解決法【記憶科学で攻略】",
+    description: "「覚えられない」のは才能ではなく方法の問題。忘却曲線・想起練習・分散学習で、覚えられない5つの原因と具体的な解決法を解説。",
+    tag: "学習法",
+    readTime: "6分",
+  },
+  {
+    slug: "eitango-ichinichi-nanko",
+    title: "英単語は1日何個が最適？続く適正量の決め方",
+    description: "多すぎると逆効果になる理由と、目的・期間から逆算する適正量の決め方。挫折しない継続のコツも紹介。",
+    tag: "学習法",
+    readTime: "5分",
+  },
+  {
+    slug: "genzaikanryo-kakokei-chigai",
+    title: "現在完了と過去形の違い【「今との繋がり」で完全理解】",
+    description: "日本語にない『今との繋がり』という1つの軸で、完了・経験・継続・結果の4用法を例文で完全理解。よくある間違いも解説。",
+    tag: "英文法",
+    readTime: "5分",
+  },
+  {
+    slug: "eiken-2kyu-tango-nanko",
+    title: "英検2級は単語何個で受かる？必要語彙数の真実",
+    description: "合格に必要な語彙は約5,000語。級別の必要語彙数一覧と、なぜ語彙が合否を分けるのか、最短で覚える方法を解説。",
+    tag: "英検",
+    readTime: "5分",
+  },
+  {
+    slug: "tangocho-erabikata",
+    title: "英単語帳の選び方と正しい使い方【失敗しない1冊の選定と回し方】",
+    description: "単語帳はレベル・形式・音声・目的で選び、回数より頻度で何周もするのが正解。1冊を完璧にする回し方とSRS活用法を解説。",
+    tag: "単語帳",
+    readTime: "6分",
+  },
+  {
+    slug: "system-eitango",
+    title: "システム英単語の使い方・レベル・特徴を徹底解説",
+    description: "シス単の特徴・対象レベル・効果的な使い方。ミニマルフレーズで覚える仕組みと、ターゲット1900との違いまで。",
+    tag: "単語帳",
+    readTime: "5分",
+  },
+  {
+    slug: "target-1900",
+    title: "英単語ターゲット1900 完全攻略【使い方・レベル・周回法】",
+    description: "1単語1義・でる順の定番単語帳の使い方を解説。100語セクション周回・赤シート活用・シス単との違いまで。",
+    tag: "単語帳",
+    readTime: "5分",
+  },
+  {
+    slug: "systan-vs-target-1900",
+    title: "システム英単語とターゲット1900を実際に比較【どっちを選ぶ】",
+    description: "収録単語を実際に比較。最頻出語はほぼ共通、違いは覚え方と難関帯の単語の性格。タイプ・志望校別にどっちを選ぶべきか解説。",
+    tag: "単語帳",
+    readTime: "6分",
+  },
+  {
+    slug: "leap-eitango",
+    title: "英単語LEAP（リープ）の使い方・レベル・特徴を徹底解説",
+    description: "2,300語をテーマ別＋発信/受信で分ける独自設計、CEFR表示。実際の収録語を踏まえ、ターゲット・シス単との違いまで解説。",
+    tag: "単語帳",
+    readTime: "6分",
+  },
+  {
+    slug: "eitango-cho-hikaku",
+    title: "大学受験の英単語帳おすすめ比較【LEAP・シス単・ターゲット・鉄壁】",
+    description: "定番4冊を配列・語数・レベル・覚え方で徹底比較。志望校とタイプ別に、どれを選ぶべきか一目でわかる早見表つき。",
+    tag: "単語帳",
+    readTime: "6分",
+  },
 ];
 
 const LIST_JSON_LD = {
@@ -160,6 +230,14 @@ export default function GuidePage() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 -mt-4 space-y-4">
+        <Link href="/grammar" className="block">
+          <div className="bg-gradient-to-r from-teal-600 to-teal-800 rounded-2xl p-5 text-white hover:shadow-md transition-shadow">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-teal-200 mb-1">新着・英文法レッスン</div>
+            <div className="font-black text-lg leading-snug">英文法を「理由」で理解する無料レッスン</div>
+            <p className="text-sm text-teal-100 mt-1">冠詞・名詞などを例文＋確認問題で。中学〜大学受験対応 →</p>
+          </div>
+        </Link>
+
         {GUIDES.map((g) => (
           <Link key={g.slug} href={`/guide/${g.slug}`} className="block">
             <div className="bg-white rounded-2xl border border-navy-100 p-5 hover:shadow-md transition-shadow">

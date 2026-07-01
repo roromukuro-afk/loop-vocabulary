@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
+import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
 export const metadata: Metadata = {
   title: "中学英語の単語を完璧に覚える方法【高校受験・英検3級対策】| Loop Vocabulary",
@@ -82,6 +83,7 @@ export default function ChugakuEigoPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="chugaku-eigo-tango" />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"中学英語の単語を完璧に覚える方法【高校受験・英検3級対策】","item":"https://loop-vocabulary.app/guide/chugaku-eigo-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       {/* ヘッダー */}
@@ -216,6 +218,15 @@ export default function ChugakuEigoPage() {
             ))}
           </div>
         </div>
+
+        <GuideMaterialCTA
+          heading="中学英語の単語帳を無料でインポート"
+          materials={[
+            { id: "00000000-0000-0000-0000-000000000021", title: "中学校英単語 基礎・標準" },
+            { id: "00000000-0000-0000-0000-000000000045", title: "loop受験英単語①【中学完成】" },
+            { id: "00000000-0000-0000-0000-000000000046", title: "loop受験英単語②【高校入試】" },
+          ]}
+        />
 
         <div className="text-center">
           <Link href="/" className="text-sm text-navy-500 underline">← トップページ</Link>

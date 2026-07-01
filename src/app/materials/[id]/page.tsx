@@ -1,13 +1,47 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
-import { requireUser } from "@/lib/supabase/requireUser";
+import { createClient } from "@/lib/supabase/server";
 import { ImportMaterialButton } from "./ImportMaterialButton";
 import { PronounceButton } from "@/components/ui/PronounceButton";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("materials")
+      .select("title, level, exam_type, description")
+      .eq("id", id)
+      .eq("is_public", true)
+      .maybeSingle();
+    if (!data) return {};
+    const levelLabel = data.level ? `${data.level}レベル` : "";
+    const examLabel = data.exam_type ? `${data.exam_type}対策` : "";
+    const subtitle = [levelLabel, examLabel].filter(Boolean).join("・");
+    const title = `${data.title} 単語帳【無料】${subtitle ? subtitle + " | " : ""}Loop Vocabulary`;
+    const description =
+      data.description ??
+      `${data.title}の単語をLoop Vocabularyで無料学習。${subtitle}。AIが苦手単語を分析してスキマ時間に効率暗記。スマホ対応・会員登録不要で単語一覧を閲覧可能。`;
+    return {
+      title,
+      description,
+      openGraph: { title, description },
+    };
+  } catch {
+    return {};
+  }
+}
 
 const LEVEL_COLOR: Record<string, string> = {
   "中学基礎":      "bg-green-50 text-green-700",
@@ -33,7 +67,8 @@ export default async function MaterialDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ level?: string }>;
 }) {
-  const { user, supabase } = await requireUser();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   const { id } = await params;
   const sp = await searchParams;
 
@@ -67,12 +102,14 @@ export default async function MaterialDetailPage({
         .select("level")
         .eq("material_id", material.id),
       filteredWordsQuery,
-      supabase
-        .from("word_books")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("source_material_id", material.id)
-        .maybeSingle(),
+      user
+        ? supabase
+            .from("word_books")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("source_material_id", material.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
 
   // Level breakdown for tabs
@@ -83,9 +120,9 @@ export default async function MaterialDetailPage({
   const levels = Object.entries(levelCounts).sort(([, a], [, b]) => b - a);
   const totalWords = (allWords ?? []).length;
 
-  // Study progress if already imported
+  // Study progress if already imported (login required)
   let progress: { avgMastery: number; studied: number; weak: number } | null = null;
-  if (importedBook) {
+  if (user && importedBook) {
     const { data: uw } = await supabase
       .from("words")
       .select("mastery, is_weak")
@@ -101,8 +138,23 @@ export default async function MaterialDetailPage({
 
   const levelCls = LEVEL_COLOR[material.level ?? ""] ?? "bg-sky-50 text-navy-700";
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "ホーム", item: siteUrl },
+      { "@type": "ListItem", position: 2, name: "教材・単語帳", item: `${siteUrl}/materials` },
+      { "@type": "ListItem", position: 3, name: material.title, item: `${siteUrl}/materials/${material.id}` },
+    ],
+  };
+
   return (
     <AppShell>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
       <Link href="/materials" className="text-xs text-navy-500 hover:underline">
         ← 教材一覧
       </Link>
@@ -160,12 +212,21 @@ export default async function MaterialDetailPage({
 
       {/* インポート / 単語帳を開く ボタン */}
       <div className="mt-4">
-        <ImportMaterialButton
-          materialId={material.id}
-          examType={material.exam_type ?? "その他"}
-          alreadyImported={!!importedBook}
-          importedBookId={importedBook?.id ?? null}
-        />
+        {user ? (
+          <ImportMaterialButton
+            materialId={material.id}
+            examType={material.exam_type ?? "その他"}
+            alreadyImported={!!importedBook}
+            importedBookId={importedBook?.id ?? null}
+          />
+        ) : (
+          <Link
+            href={`/signup?next=/materials/${material.id}`}
+            className="block w-full text-center bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-4 rounded-2xl transition-colors text-sm"
+          >
+            無料登録して単語帳にインポート
+          </Link>
+        )}
       </div>
 
       {/* レベル別タブ */}

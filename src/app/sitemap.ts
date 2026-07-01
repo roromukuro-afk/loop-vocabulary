@@ -1,4 +1,6 @@
 import type { MetadataRoute } from "next";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { LESSONS } from "@/lib/grammar/lessons";
 
 const GUIDE_SLUGS = [
   "daigaku-juken-tango",
@@ -19,20 +21,61 @@ const GUIDE_SLUGS = [
   "eigo-listening-renshu",
   "eibunpo-kiso",
   "eigo-dokkai-houhou",
+  "eitango-oboerarenai",
+  "eitango-ichinichi-nanko",
+  "genzaikanryo-kakokei-chigai",
+  "eiken-2kyu-tango-nanko",
+  "tangocho-erabikata",
+  "system-eitango",
+  "target-1900",
+  "systan-vs-target-1900",
+  "leap-eitango",
+  "eitango-cho-hikaku",
 ] as const;
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base =
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
   const now = new Date();
+
+  // Fetch all public material IDs for dynamic sitemap entries
+  let materialIds: string[] = [];
+  try {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("materials")
+      .select("id")
+      .eq("is_public", true)
+      .order("created_at", { ascending: true });
+    if (data) {
+      materialIds = data.map((m: { id: string }) => m.id);
+    }
+  } catch {
+    // If DB fetch fails at build time, sitemap still works without material entries
+  }
+
   return [
     { url: base,                         lastModified: now, changeFrequency: "weekly",  priority: 1.0 },
     { url: `${base}/login`,              lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${base}/signup`,             lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${base}/premium`,            lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/materials`,          lastModified: now, changeFrequency: "weekly",  priority: 0.9 },
+    ...materialIds.map((id) => ({
+      url: `${base}/materials/${id}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    })),
     { url: `${base}/guide`,              lastModified: now, changeFrequency: "weekly",  priority: 0.8 },
     ...GUIDE_SLUGS.map((slug) => ({
       url: `${base}/guide/${slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
+    { url: `${base}/grammar`,            lastModified: now, changeFrequency: "weekly",  priority: 0.8 },
+    ...LESSONS.map((l) => ({
+      url: `${base}/grammar/${l.slug}`,
       lastModified: now,
       changeFrequency: "monthly" as const,
       priority: 0.7,

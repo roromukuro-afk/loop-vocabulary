@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
@@ -16,7 +17,13 @@ type Hit = {
   example_ja: string | null;
 };
 
-export function DictionarySearch({ books }: { books: { id: string; title: string }[] }) {
+export function DictionarySearch({
+  books,
+  loggedIn = true,
+}: {
+  books: { id: string; title: string }[];
+  loggedIn?: boolean;
+}) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
@@ -92,17 +99,19 @@ export function DictionarySearch({ books }: { books: { id: string; title: string
         <Button type="submit" disabled={busy}>{busy ? "検索中..." : "検索"}</Button>
       </form>
 
-      <div className="mt-3 text-sm text-navy-600 flex items-center gap-2">
-        <span>追加先:</span>
-        <Select
-          value={bookId}
-          onChange={(e) => setBookId(e.target.value)}
-          className="max-w-xs"
-        >
-          {books.length === 0 && <option value="">単語帳がありません</option>}
-          {books.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
-        </Select>
-      </div>
+      {loggedIn && (
+        <div className="mt-3 text-sm text-navy-600 flex items-center gap-2">
+          <span>追加先:</span>
+          <Select
+            value={bookId}
+            onChange={(e) => setBookId(e.target.value)}
+            className="max-w-xs"
+          >
+            {books.length === 0 && <option value="">単語帳がありません</option>}
+            {books.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
+          </Select>
+        </div>
+      )}
       {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
 
       <ul className="mt-4 space-y-3">
@@ -126,9 +135,18 @@ export function DictionarySearch({ books }: { books: { id: string; title: string
                 </div>
               )}
               <div className="mt-3">
-                <Button size="sm" onClick={() => addToBook(h)} disabled={saved || !bookId}>
-                  {saved ? "追加済み" : "＋ 単語帳に追加"}
-                </Button>
+                {loggedIn ? (
+                  <Button size="sm" onClick={() => addToBook(h)} disabled={saved || !bookId}>
+                    {saved ? "追加済み" : "＋ 単語帳に追加"}
+                  </Button>
+                ) : (
+                  <Link
+                    href="/signup?next=/dictionary"
+                    className="inline-block text-xs font-bold text-sky-600 hover:text-sky-700 border border-sky-200 rounded-lg px-3 py-1.5 hover:bg-sky-50 transition-colors"
+                  >
+                    ＋ 無料登録で単語帳に追加
+                  </Link>
+                )}
               </div>
             </li>
           );

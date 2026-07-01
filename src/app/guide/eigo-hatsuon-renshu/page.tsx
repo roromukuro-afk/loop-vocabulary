@@ -63,6 +63,7 @@ export default function EigoHatsuonRenshuPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="eigo-hatsuon-renshu" />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"英語の発音練習方法【フォニックス・シャドーイング完全ガイド】","item":"https://loop-vocabulary.app/guide/eigo-hatsuon-renshu"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       {/* ヘッダー */}

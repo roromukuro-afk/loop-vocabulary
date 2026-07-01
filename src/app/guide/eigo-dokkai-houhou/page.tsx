@@ -80,6 +80,7 @@ export default function EigoDokkaipHouhouPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="eigo-dokkai-houhou" />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"英語長文読解の勉強法【大学受験・英検・TOEIC対応】","item":"https://loop-vocabulary.app/guide/eigo-dokkai-houhou"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">

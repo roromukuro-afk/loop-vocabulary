@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
+import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
 export const metadata: Metadata = {
   title: "英検3級の単語・語彙対策【頻出800語一覧】| Loop Vocabulary",
@@ -68,6 +69,7 @@ export default function Eiken3KyuPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="eiken-3kyu-tango" />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"英検3級の単語・語彙対策【頻出800語一覧】","item":"https://loop-vocabulary.app/guide/eiken-3kyu-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <div className="bg-gradient-to-br from-emerald-700 to-emerald-900 px-5 pt-12 pb-12 text-white text-center">
         <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-300 mb-3">英検対策ガイド</div>
@@ -196,6 +198,14 @@ export default function Eiken3KyuPage() {
             <div className="font-bold text-navy-800 text-sm">英検語彙チェック</div>
           </Link>
         </div>
+
+        <GuideMaterialCTA
+          heading="英検3級の単語帳を無料でインポート"
+          materials={[
+            { id: "00000000-0000-0000-0000-000000000034", title: "英検3級 重要単語" },
+            { id: "00000000-0000-0000-0000-000000000021", title: "中学校英単語 基礎・標準" },
+          ]}
+        />
       </div>
     </div>
   );

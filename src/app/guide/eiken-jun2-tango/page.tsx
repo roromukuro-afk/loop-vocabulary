@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
+import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
 export const metadata: Metadata = {
   title: "英検準2級 単語対策【頻出1000語カテゴリ別】| Loop Vocabulary",
@@ -127,6 +128,7 @@ export default function EikenJun2Page() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="eiken-jun2-tango" />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"英検準2級 単語対策【頻出1000語カテゴリ別】","item":"https://loop-vocabulary.app/guide/eiken-jun2-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       {/* ヘッダー */}
@@ -268,6 +270,14 @@ export default function EikenJun2Page() {
             <div className="font-bold text-navy-800 text-sm">語彙力チェック（無料）</div>
           </Link>
         </div>
+
+        <GuideMaterialCTA
+          heading="英検準2級の単語帳を無料でインポート"
+          materials={[
+            { id: "00000000-0000-0000-0000-000000000033", title: "英検準2級 重要単語" },
+            { id: "00000000-0000-0000-0000-000000000034", title: "英検3級 重要単語" },
+          ]}
+        />
       </div>
     </div>
   );

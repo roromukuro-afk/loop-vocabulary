@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
+import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
 export const metadata: Metadata = {
   title: "英検準1級 単語対策【合格に必要な語彙数と学習戦略】| Loop Vocabulary",
@@ -93,6 +94,7 @@ export default function EikenJun1Page() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="eiken-jun1-tango" />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"英検準1級 単語対策【合格に必要な語彙数と学習戦略】","item":"https://loop-vocabulary.app/guide/eiken-jun1-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       {/* ヘッダー */}
@@ -232,6 +234,14 @@ export default function EikenJun1Page() {
             ))}
           </div>
         </div>
+
+        <GuideMaterialCTA
+          heading="英検準1級の単語帳を無料でインポート"
+          materials={[
+            { id: "5eae7c64-fcb5-4164-99fb-cdb5ce10567c", title: "英検準1級 必須単語600" },
+            { id: "00000000-0000-0000-0000-000000000023", title: "英検準1級 重要単語" },
+          ]}
+        />
 
         <div className="text-center">
           <Link href="/" className="text-sm text-navy-500 underline">← トップページ</Link>

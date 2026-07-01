@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
+import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
 export const metadata: Metadata = {
   title: "ビジネス英語 必須単語300選と実践的な覚え方 | Loop Vocabulary",
@@ -110,6 +111,7 @@ export default function BusinessEnglishPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="business-english-tango" />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"ビジネス英語 必須単語300選と実践的な覚え方","item":"https://loop-vocabulary.app/guide/business-english-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       {/* ヘッダー */}
@@ -250,6 +252,14 @@ export default function BusinessEnglishPage() {
             ))}
           </div>
         </div>
+
+        <GuideMaterialCTA
+          heading="ビジネス英語の単語帳を無料でインポート"
+          materials={[
+            { id: "96d6e5a2-c0f5-48b1-8eed-14a91424790f", title: "TOEIC頻出単語600" },
+            { id: "00000000-0000-0000-0000-000000000031", title: "TOEIC 頻出単語 800" },
+          ]}
+        />
 
         <div className="text-center">
           <Link href="/" className="text-sm text-navy-500 underline">← トップページ</Link>

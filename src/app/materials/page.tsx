@@ -1,9 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
-import { requireUser } from "@/lib/supabase/requireUser";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "英語教材・単語帳一覧【無料】英検・TOEIC・大学受験 | Loop Vocabulary",
+  description: "英検2級・準1級・TOEIC・大学受験・中学高校英語の単語帳を無料でインポートして学習。AIが苦手を分析し効率的に暗記。スマホ対応・ログイン不要で閲覧可能。",
+  openGraph: {
+    title: "英語教材・単語帳一覧【無料】英検・TOEIC・大学受験 | Loop Vocabulary",
+    description: "英検・TOEIC・大学受験の単語帳を無料でインポートして学習。AIが苦手を分析し効率的に暗記。",
+  },
+};
 
 const LEVEL_COLOR: Record<string, string> = {
   "中学基礎":    "bg-green-50 text-green-700",
@@ -166,7 +176,8 @@ export default async function MaterialsPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  const { user, supabase } = await requireUser();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   const sp = await searchParams;
 
   let dbQuery = supabase
@@ -186,12 +197,14 @@ export default async function MaterialsPage({
       materialIds.length > 0
         ? supabase.rpc("get_material_word_counts", { p_material_ids: materialIds })
         : Promise.resolve({ data: [] as { material_id: string; word_count: number }[] }),
-      supabase
-        .from("word_books")
-        .select("source_material_id")
-        .eq("user_id", user.id)
-        .not("source_material_id", "is", null),
-      materialIds.length > 0
+      user
+        ? supabase
+            .from("word_books")
+            .select("source_material_id")
+            .eq("user_id", user.id)
+            .not("source_material_id", "is", null)
+        : Promise.resolve({ data: [] as { source_material_id: string }[] }),
+      user && materialIds.length > 0
         ? supabase
             .from("words")
             .select("material_id, mastery")
@@ -255,8 +268,22 @@ export default async function MaterialsPage({
     <AppShell>
       <h1 className="text-xl font-bold text-navy-800">教材・参考書</h1>
       <p className="text-sm text-navy-500 mt-1 mb-4">
-        許諾済み教材の単語をまとめてインポートして学習できます
+        英検・TOEIC・大学受験など許諾済み教材の単語をまとめて学習できます
       </p>
+
+      {!user && (
+        <div className="mb-4 bg-sky-50 border border-sky-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
+          <div className="text-xs text-sky-800">
+            <span className="font-bold">無料登録</span>すると単語帳にインポートして学習を記録できます
+          </div>
+          <Link
+            href="/signup"
+            className="shrink-0 px-3 py-1.5 bg-sky-600 text-white text-xs font-bold rounded-xl hover:bg-sky-700 transition-colors"
+          >
+            無料で始める
+          </Link>
+        </div>
+      )}
 
       <SearchBar />
 

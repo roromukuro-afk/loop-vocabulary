@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
+import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
 export const metadata: Metadata = {
   title: "大学受験英単語の効率的な覚え方【2025年版 共通テスト〜難関大】| Loop Vocabulary",
@@ -78,6 +79,7 @@ export default function DaigakuJukenPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="daigaku-juken-tango" />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"大学受験英単語の効率的な覚え方【2025年版 共通テスト〜難関大】","item":"https://loop-vocabulary.app/guide/daigaku-juken-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       {/* ヘッダー */}
@@ -224,6 +226,15 @@ export default function DaigakuJukenPage() {
             ))}
           </div>
         </div>
+
+        <GuideMaterialCTA
+          heading="大学受験の英単語帳を無料でインポート"
+          materials={[
+            { id: "00000000-0000-0000-0000-000000000020", title: "大学入試頻出英単語 2000+" },
+            { id: "00000000-0000-0000-0000-000000000049", title: "loop受験英単語⑤【難関大】" },
+            { id: "00000000-0000-0000-0000-000000000050", title: "loop受験英単語⑥【超難関大】" },
+          ]}
+        />
 
         <div className="text-center">
           <Link href="/" className="text-sm text-navy-500 underline">← トップページ</Link>

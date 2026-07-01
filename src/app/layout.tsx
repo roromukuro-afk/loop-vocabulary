@@ -64,6 +64,32 @@ const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID;
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
 
+const ORGANIZATION_LD = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Loop Vocabulary",
+  url: APP_URL,
+  logo: `${APP_URL}/icons/icon-512.png`,
+  description: "英単語を辞書検索・単語帳・忘却曲線復習・小テストで効率よく学習できる英単語学習アプリ。",
+  contactPoint: {
+    "@type": "ContactPoint",
+    contactType: "customer support",
+    url: `${APP_URL}/contact`,
+    availableLanguage: ["Japanese"],
+  },
+};
+
+const WEBSITE_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Loop Vocabulary",
+  url: APP_URL,
+  inLanguage: "ja",
+  // NOTE: SearchAction（サイト内検索の構造化データ）は、/dictionary が
+  // 登録不要かつ ?q= 対応になるまで一旦外している。両対応が済んだら復活させる。
+  // 詳細は HANDOFF.md「要修正: WebSite JSON-LD の SearchAction 不整合」を参照。
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
@@ -82,6 +108,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
       </head>
       <body>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_LD) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_LD) }} />
         {children}
         {CLARITY_ID && (
           <Script id="clarity-init" strategy="afterInteractive">

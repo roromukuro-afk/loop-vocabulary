@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
+import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
 export const metadata: Metadata = {
   title: "高校英語の単語を完全に覚える方法【大学受験対応・2,000語攻略】| Loop Vocabulary",
@@ -81,6 +82,7 @@ export default function KoukouEigoTangoPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="koukou-eigo-tango" />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"高校英語の単語を完全に覚える方法【大学受験対応・2,000語攻略】","item":"https://loop-vocabulary.app/guide/koukou-eigo-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       {/* ヘッダー */}
@@ -221,6 +223,15 @@ export default function KoukouEigoTangoPage() {
             <div className="font-bold text-navy-800 text-sm">学習ガイド一覧</div>
           </Link>
         </div>
+
+        <GuideMaterialCTA
+          heading="高校英語の単語帳を無料でインポート"
+          materials={[
+            { id: "00000000-0000-0000-0000-000000000040", title: "高校1年英語 重要単語" },
+            { id: "00000000-0000-0000-0000-000000000041", title: "高校2年英語 重要単語" },
+            { id: "00000000-0000-0000-0000-000000000047", title: "loop受験英単語③【高校基礎】" },
+          ]}
+        />
       </div>
     </div>
   );

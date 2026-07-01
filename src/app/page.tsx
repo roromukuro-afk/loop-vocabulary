@@ -83,6 +83,45 @@ const JSON_LD = {
   "inLanguage": "ja",
 };
 
+const FAQ_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "本当に無料ですか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "基本機能はすべて無料でご利用いただけます（広告あり）。広告非表示・AI例文/解説の上限解放・小テストPDF出力の無制限などはPremium（月額¥480）でご利用いただけます。",
+      },
+    },
+    {
+      "@type": "Question",
+      "name": "スマホアプリはありますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Webアプリとして動作しますが、ホーム画面に追加するとアプリのように使えます（PWA対応）。ネイティブアプリも準備中です。",
+      },
+    },
+    {
+      "@type": "Question",
+      "name": "自分の単語帳を作れますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "もちろんです。単語・意味を自由に登録して自分だけの単語帳を作れます。既存の教材インポートも可能です。",
+      },
+    },
+    {
+      "@type": "Question",
+      "name": "学習の進捗は記録されますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "毎日の学習数・正答率・連続学習日数・学習カレンダーで記録・確認できます。",
+      },
+    },
+  ],
+};
+
 export const metadata = {
   title: "Loop Vocabulary — 忘却曲線で英単語を本当に覚える",
   description: "調べた英語を本当に覚える英単語学習アプリ。SRS・忘却曲線・AI解説搭載。無料登録30秒。",
@@ -104,12 +143,13 @@ export default async function LandingPage() {
     { value: totalUsers >= USER_FLOOR ? fmtUsers(totalUsers) : `${USER_FLOOR.toLocaleString()}+`, label: "学習中のユーザー" },
     { value: totalStudied >= STUDIED_FLOOR ? fmtStudied(totalStudied) : "100万+", label: "累計学習語数" },
     { value: "4.8", label: "★ 平均評価" },
-    { value: "¥0", label: "全機能が無料" },
+    { value: "¥0", label: "基本機能が無料" },
   ];
 
   return (
     <div className="min-h-dvh bg-white text-navy-900">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
       {/* ナビ */}
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-navy-100">
         <div className="max-w-5xl mx-auto px-5 py-3 flex items-center justify-between">
@@ -134,7 +174,7 @@ export default async function LandingPage() {
           <div>
             <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full mb-6">
               <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-              3,200人が学習中 · 無料で全機能使える
+              3,200人が学習中 · 基本機能ぜんぶ無料
             </div>
             <h1 className="text-4xl sm:text-5xl font-black text-white leading-[1.1] tracking-tight">
               英単語を、<br />
@@ -365,8 +405,8 @@ export default async function LandingPage() {
         <div className="max-w-5xl mx-auto px-5 py-14">
           <div className="text-center mb-10">
             <span className="text-xs font-black uppercase tracking-widest text-sky-400 mb-2 block">Features</span>
-            <h2 className="text-2xl sm:text-3xl font-black text-white">全部、無料。</h2>
-            <p className="text-navy-400 text-sm mt-2">広告を見るだけ。課金なしで全機能フルに使えます。</p>
+            <h2 className="text-2xl sm:text-3xl font-black text-white">主要機能は、無料。</h2>
+            <p className="text-navy-400 text-sm mt-2">単語帳・復習・テスト・辞書は無料で使い放題（広告あり）。広告非表示やAI無制限はPremiumで。</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {FEATURES.map((f) => (
@@ -641,22 +681,59 @@ export default async function LandingPage() {
       </section>
 
       {/* フッター */}
-      <footer className="border-t border-navy-100">
-        <div className="max-w-5xl mx-auto px-5 py-6 text-xs text-navy-500 flex flex-wrap gap-4 justify-between">
-          <div>© 2025 Loop Vocabulary</div>
-          <div className="flex gap-4 flex-wrap">
-            <Link href="/privacy" className="hover:text-navy-700">プライバシーポリシー</Link>
-            <Link href="/terms" className="hover:text-navy-700">利用規約</Link>
-            <Link href="/contact" className="hover:text-navy-700">お問い合わせ</Link>
-            <Link href="/premium" className="hover:text-navy-700">広告非表示プラン</Link>
-            <Link href="/vocab-check" className="hover:text-navy-700">語彙力チェック</Link>
-            <Link href="/vocab-check/toeic" className="hover:text-navy-700">TOEIC語彙チェック</Link>
-            <Link href="/vocab-check/eiken" className="hover:text-navy-700">英検語彙チェック</Link>
-            <Link href="/guide" className="hover:text-navy-700">学習ガイド</Link>
-            <Link href="/phrases" className="hover:text-navy-700">英語フレーズ集</Link>
-            <Link href="/shadowing" className="hover:text-navy-700">シャドーイング</Link>
-            <Link href="/faq" className="hover:text-navy-700">FAQ</Link>
-            <Link href="/roadmap" className="hover:text-navy-700">学習ロードマップ</Link>
+      <footer className="border-t border-navy-100 bg-white">
+        <div className="max-w-5xl mx-auto px-5 py-8 text-xs text-navy-500">
+          {/* 運営・公式情報 */}
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              <div className="font-extrabold text-navy-800 text-sm mb-1.5">
+                Loop <span className="text-sky-500">Vocabulary</span>
+              </div>
+              <p className="leading-relaxed">
+                英単語を辞書検索・単語帳・忘却曲線復習・小テストで<br className="hidden sm:block" />
+                効率よく学習できる英単語学習アプリ
+              </p>
+              <p className="mt-2">
+                公式サイト:{" "}
+                <a
+                  href="https://loop-vocabulary.app"
+                  className="text-sky-600 hover:underline font-medium"
+                >
+                  https://loop-vocabulary.app
+                </a>
+              </p>
+              {/* TODO(運営者): 特定商取引法・運営者情報は実際の運営者名／連絡先に置き換えること。
+                  現状は問い合わせ窓口(/contact)のみ掲載。詳細は HANDOFF.md 参照。 */}
+              <p className="mt-1">
+                お問い合わせ:{" "}
+                <Link href="/contact" className="text-sky-600 hover:underline font-medium">
+                  お問い合わせフォーム
+                </Link>
+              </p>
+            </div>
+
+            <div className="flex gap-6 flex-wrap sm:justify-end">
+              <div className="flex flex-col gap-1.5">
+                <span className="font-bold text-navy-700">サービス</span>
+                <Link href="/materials" className="hover:text-navy-700">教材・単語帳</Link>
+                <Link href="/guide" className="hover:text-navy-700">学習ガイド</Link>
+                <Link href="/grammar" className="hover:text-navy-700">英文法レッスン</Link>
+                <Link href="/vocab-check" className="hover:text-navy-700">語彙力チェック</Link>
+                <Link href="/dictionary" className="hover:text-navy-700">辞書検索</Link>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <span className="font-bold text-navy-700">運営情報</span>
+                <Link href="/privacy" className="hover:text-navy-700">プライバシーポリシー</Link>
+                <Link href="/terms" className="hover:text-navy-700">利用規約</Link>
+                <Link href="/contact" className="hover:text-navy-700">お問い合わせ</Link>
+                <Link href="/premium" className="hover:text-navy-700">広告非表示プラン</Link>
+                <Link href="/faq" className="hover:text-navy-700">FAQ</Link>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-navy-100 text-navy-400">
+            © 2025–2026 Loop Vocabulary
           </div>
         </div>
       </footer>
