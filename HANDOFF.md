@@ -58,6 +58,18 @@
 
 ---
 
+## 0.4 自律E2E検証基盤（2026-07-01・本番デプロイ済 `8af9a79`）
+
+今後は `npm run test:e2e`（全体）/ `test:srs` / `test:onboarding` / `test:teacher` / `test:smoke` /
+`verify:prod` でログイン後UIまで含めた検証を自律実行できる。テスト専用アカウント3件・データは
+`scripts/testing/setup-test-users.mjs` / `seed-test-data.mjs` で冪等に用意される（実ユーザー非関与）。
+E2Eは `next build && next start`（本番相当ビルド）に対して実行する設計（理由は下記の既知課題）。
+
+**既知の課題（未修正・spawn_task済み）**:
+- `ReferralCard.tsx` のハイドレーションミスマッチ（`window.location.origin`分岐）。
+- 設定系トグルがPATCH後に`router.refresh()`を呼ばず、同一プロセス内で該当ページを再訪問すると
+  SSR結果が古いまま表示される（DB自体は正しく更新される）。他のsettings系フォームへの波及可能性あり。
+
 ## 0.3 保留分の整理結果（2026-07-01）
 - 目標パーソナライズ（road/dashboard/GoalProgress）→ `94ff6fc` で別コミット・本番化。**保留解除済**。
 - content生成スクリプト（scripts/*.mjs）→ `d5b5ec2` で追跡。**保留解除済**。

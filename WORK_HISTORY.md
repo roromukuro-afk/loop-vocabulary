@@ -5,6 +5,36 @@
 
 ---
 
+## 2026-07-01 自律E2E検証基盤の構築（本番デプロイ済 `8af9a79`）
+
+**目的**: 今後のログイン後UI確認をオーナーに戻さず、テスト専用アカウント/データで自律検証する体制。
+
+- migration 012（本番適用済・非破壊）: `profiles.is_test_account` フラグ。
+- テストアカウント3件（Supabase Admin Auth APIで冪等作成、パスワードは`.env.local`のみ保存・非コミット）:
+  `test+onboarding@loop-vocabulary.app`（0件リセット用）/ `test+srs@loop-vocabulary.app`（SRS検証・先生ロスター用生徒）/
+  `test+teacher@loop-vocabulary.app`（先生ロール）。
+- テストデータ投入（`scripts/testing/seed-test-data.mjs`、冪等・対象は上記3IDのみ）: SRSユーザーに復習期限切れ8語、
+  先生用クラス+同意済みメンバー。
+- data-testid属性を追加（非機能変更）: FlipCardRunner・SrsModeToggle・DictionarySearch・
+  EnsureDefaultWordbook・FirstStepsGuide・review空状態・teacherロスター・MyClasses・join同意・login。
+- Playwright実ブラウザE2E（`scripts/testing/e2e/`）: onboarding/dictionary・srs・teacher の3本。
+  **`next build && next start`（本番ビルド）に対して実行**（`next dev`はSSRデータの
+  再訪問時キャッシュ不具合があり検証に不向きと判明したため）。
+- smoke/verify-prod（HTTPのみ・ブラウザ不要）を追加。
+- npm scripts: `test:setup` `test:e2e` `test:srs` `test:teacher` `test:onboarding` `test:smoke` `verify:prod`。
+
+**検証結果**: tsc✓ build✓ 3本のE2E全PASS（SRS V2はDB直読みで
+ease_factor/interval_days/next_review_at/streak/is_weak/correct_count/wrong_count が
+4評価すべてで期待値と一致、先生ロスターは集計のみ・生データ非開示・同意撤回で即除外を確認）。
+smoke✓ verify:prod（本番）✓。
+
+**発見した既存の課題（今回のスコープ外・spawn_task で別途フラグ済み）**:
+1. `ReferralCard.tsx` の `typeof window !== "undefined"` 分岐によるハイドレーションミスマッチ
+   （`NEXT_PUBLIC_SITE_URL`以外のオリジンで発生。vercel.appエイリアスでも起こりうる）。
+2. `SrsModeToggle`等のトグルがPATCH後に`router.refresh()`を呼んでおらず、同一サーバプロセス内で
+   `/settings`等を再訪問してもSSR結果が更新されない（DBは正しく更新される。UIの見た目のみ古い）。
+   `next dev`/`next start`両方で再現。E2Eはこれを踏まえDB直読みで正解性を判定する設計にした。
+
 ## 2026-07-01 /dictionary 直行時のデフォルト単語帳保証（本番デプロイ済 `e078cd5`）
 
 - `DictionarySearch.tsx`: マウント時、**ログイン済み＆単語帳0件**なら既存 `/api/wordbook/ensure-default`
