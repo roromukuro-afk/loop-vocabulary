@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export function SrsModeToggle({ enabled }: { enabled: boolean }) {
+  const router = useRouter();
   const [on, setOn] = useState(enabled);
   const [saving, setSaving] = useState(false);
 
@@ -15,6 +17,7 @@ export function SrsModeToggle({ enabled }: { enabled: boolean }) {
       body: JSON.stringify({ srs_v2: val }),
     }).catch(() => {});
     setSaving(false);
+    router.refresh();
   }
 
   return (

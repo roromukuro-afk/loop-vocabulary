@@ -102,26 +102,24 @@ async function main() {
     // (settingsPage は /settings から動かさない。同一URL再訪問時のSSRキャッシュ課題を回避するため)
     await gotoReady(reviewPage, `${baseUrl}/review?start=1&mode=flip`);
     const ratings = ["again", "hard", "good", "easy"];
-    let prevWord = null;
+    // pool は8語あるため、4回評価しても常に「次のカード」が存在する。
+    // クリック直後に毎回「次のカードへ切り替わる(=保存完了)」まで待ってから次に進むことで、
+    // 最後の評価（4件目）の保存が完了する前にタブを離れてしまう競合を防ぐ。
     for (const rating of ratings) {
       const card = reviewPage.locator('[data-testid="flip-card"]');
       await card.waitFor({ state: "visible", timeout: 10000 });
-      // 前のカードの評価後、次のカードに切り替わる(setTimeout 350ms+保存の往復)まで
-      // data-word が変わるのをポーリングして待つ（固定待機だと遅い環境で同じ語を二重評価してしまう）
-      if (prevWord !== null) {
-        await reviewPage.waitForFunction(
-          (prev) => document.querySelector('[data-testid="flip-card"]')?.getAttribute("data-word") !== prev,
-          prevWord,
-          { timeout: 8000 },
-        );
-      }
       const word = await card.getAttribute("data-word");
-      prevWord = word;
       await card.click(); // タップして裏面表示
       const btn = reviewPage.locator(`[data-testid="rate-${rating}"]`);
       await btn.waitFor({ state: "visible", timeout: 5000 });
       await btn.click();
       ratedWords.push({ word, rating });
+      // 保存完了(=次のカードに切り替わる)まで待つ(setTimeout 350ms+DB往復の猶予)
+      await reviewPage.waitForFunction(
+        (prev) => document.querySelector('[data-testid="flip-card"]')?.getAttribute("data-word") !== prev,
+        word,
+        { timeout: 8000 },
+      );
     }
     const uniqueWords = new Set(ratedWords.map((r) => r.word)).size;
     if (uniqueWords === 4) ok(`clicked 4 ratings on 4 distinct words: ${ratedWords.map((r) => `${r.word}=${r.rating}`).join(", ")}`);

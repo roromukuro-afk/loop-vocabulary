@@ -1,10 +1,23 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+// NEXT_PUBLIC_* はビルド時に静的インライン化されるため、サーバー・クライアント双方で
+// 同じ値を返す（typeof window 分岐によるハイドレーションミスマッチを避ける）。
+const DEFAULT_ORIGIN = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
 
 export function ReferralCard({ userId }: { userId: string }) {
   const code = userId.replace(/-/g, "").slice(0, 10);
-  const link = `${typeof window !== "undefined" ? window.location.origin : "https://loop-vocabulary.app"}/referral/${code}`;
+  const [origin, setOrigin] = useState(DEFAULT_ORIGIN);
+  const link = `${origin}/referral/${code}`;
   const [copied, setCopied] = useState(false);
+
+  // マウント後、実際の訪問オリジンが既定値と異なる場合（例: vercel.app のプレビュー
+  // エイリアス）に補完する。初回描画はサーバーと一致させたまま、正しいURLに更新する。
+  useEffect(() => {
+    if (window.location.origin !== DEFAULT_ORIGIN) {
+      setOrigin(window.location.origin);
+    }
+  }, []);
 
   const copy = async () => {
     await navigator.clipboard.writeText(link);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface Props {
   weeklyEmail: boolean;
@@ -28,6 +29,7 @@ function Toggle({ value, onChange, label, desc }: { value: boolean; onChange: (v
 }
 
 export function NotificationToggles({ weeklyEmail, pushEnabled }: Props) {
+  const router = useRouter();
   const [weekly, setWeekly] = useState(weeklyEmail);
   const [push, setPush] = useState(pushEnabled);
   const [saving, setSaving] = useState(false);
@@ -38,8 +40,9 @@ export function NotificationToggles({ weeklyEmail, pushEnabled }: Props) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [key]: val }),
-    });
+    }).catch(() => {});
     setSaving(false);
+    router.refresh();
   }
 
   return (
