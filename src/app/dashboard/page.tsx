@@ -10,6 +10,7 @@ import { StudyCalendar } from "@/components/stats/StudyCalendar";
 import { ExamCountdown } from "@/components/dashboard/ExamCountdown";
 import { GoalProgress } from "@/components/dashboard/GoalProgress";
 import { FirstStepsGuide } from "@/components/dashboard/FirstStepsGuide";
+import { EnsureDefaultWordbook } from "@/components/dashboard/EnsureDefaultWordbook";
 import { DailyMissions } from "@/components/dashboard/DailyMissions";
 import { StreakShareCard } from "@/components/dashboard/StreakShareCard";
 
@@ -98,6 +99,13 @@ export default async function DashboardPage() {
   const hasWords = (wordCount ?? 0) > 0;
   const everStudied = studied > 0 || (recentStats ?? []).some((d) => (d.studied_count ?? 0) > 0);
 
+  // 単語帳0件のユーザーにだけデフォルト単語帳を用意する（クライアントで冪等作成）
+  const { count: wordbookCount } = await supabase
+    .from("word_books")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id);
+  const hasWordbook = (wordbookCount ?? 0) > 0;
+
   const badges = getBadges(streak, wordCount ?? 0);
   const nextBadge = getNextBadge(streak, wordCount ?? 0);
   const greeting = getGreeting(hour);
@@ -145,6 +153,9 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* 単語帳0件のユーザーにデフォルト単語帳を自動作成（冪等・案内表示） */}
+      {!hasWordbook && <EnsureDefaultWordbook />}
 
       {/* はじめの3ステップ（初回/未学習ユーザーのみ） */}
       {!everStudied && <FirstStepsGuide hasWords={hasWords} hasStudied={everStudied} />}

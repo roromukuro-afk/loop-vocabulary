@@ -114,6 +114,16 @@ export function DictionarySearch({
       )}
       {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
 
+      {savedKey && loggedIn && (
+        <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs text-emerald-800 font-semibold">✓ 単語帳に追加しました！さっそく覚えましょう</span>
+          <span className="flex gap-2">
+            <Link href="/review?start=1&mode=flip" className="text-xs font-bold rounded-lg px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">▶ 復習で覚える</Link>
+            <Link href="/test" className="text-xs font-bold rounded-lg px-3 py-1.5 border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors">テスト</Link>
+          </span>
+        </div>
+      )}
+
       <ul className="mt-4 space-y-3">
         {hits.map((h, i) => {
           const key = `${h.source}:${h.word}:${i}`;
