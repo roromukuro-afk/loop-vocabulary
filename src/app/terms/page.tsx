@@ -63,13 +63,26 @@ export default function TermsPage() {
         <li>その他、本サービスの運営上不適切と判断される場合</li>
       </ul>
 
-      <h2 className="text-lg font-bold text-navy-800 mt-6">8. 免責</h2>
+      <h2 className="text-lg font-bold text-navy-800 mt-6">8. 先生向け機能・学習状況の共有</h2>
+      <p>
+        本サービスには、塾・家庭教師・学校の先生が生徒の学習状況を確認できる「先生向け機能」があります。
+        生徒は招待コードでクラスに参加し、参加時に<b>学習状況の共有へ明示的に同意</b>した場合に限り、
+        先生は当該生徒の<b>集計値（学習日数・学習語数・正答率・苦手単語数・復習状況など）のみ</b>を閲覧できます。
+        生徒が登録した個々の単語・単語帳の内容など、生の学習データが先生に開示されることはありません。
+      </p>
+      <p className="mt-2">
+        生徒は「設定」からいつでも同意を撤回、またはクラスから退出できます。
+        撤回・退出後は、先生のロスターに当該生徒の情報は表示されません。
+        13 歳未満の方が参加する場合は、保護者の同意のもとでご利用ください。
+      </p>
+
+      <h2 className="text-lg font-bold text-navy-800 mt-6">9. 免責</h2>
       <p>本サービスは現状有姿で提供され、運営者は本サービスの正確性・有用性について保証しません。</p>
 
-      <h2 className="text-lg font-bold text-navy-800 mt-6">9. 規約の変更</h2>
+      <h2 className="text-lg font-bold text-navy-800 mt-6">10. 規約の変更</h2>
       <p>運営者は必要に応じて本規約を変更できるものとします。重要な変更は本サービス内で告知します。</p>
 
-      <h2 className="text-lg font-bold text-navy-800 mt-6">10. お問い合わせ</h2>
+      <h2 className="text-lg font-bold text-navy-800 mt-6">11. お問い合わせ</h2>
       <p>
         本規約に関するお問い合わせは <a className="underline" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> または{" "}
         <Link href="/contact" className="underline">/contact</Link> までご連絡ください。

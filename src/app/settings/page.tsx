@@ -11,6 +11,7 @@ import { ExportButton } from "./ExportButton";
 import { ReferralCard } from "./ReferralCard";
 import { NotificationToggles } from "./NotificationToggles";
 import { SrsModeToggle } from "./SrsModeToggle";
+import { MyClasses } from "./MyClasses";
 import { DisplayNameForm } from "./DisplayNameForm";
 import { ExamCountdown } from "@/components/dashboard/ExamCountdown";
 
@@ -20,9 +21,14 @@ export default async function SettingsPage() {
   const { user, supabase } = await requireUser();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, is_admin, is_premium, plan, daily_ai_used, daily_ai_reset_at, notify_weekly_email, notify_push_enabled, exam_goal, exam_date, srs_v2")
+    .select("display_name, is_admin, is_premium, plan, daily_ai_used, daily_ai_reset_at, notify_weekly_email, notify_push_enabled, exam_goal, exam_date, srs_v2, role")
     .eq("id", user.id)
     .maybeSingle();
+
+  const { data: memberships } = await supabase.rpc("get_my_memberships");
+  const myClasses = (memberships ?? []) as {
+    class_id: string; class_name: string; teacher_name: string; consent: boolean; status: string;
+  }[];
 
   return (
     <AppShell>
@@ -109,6 +115,31 @@ export default async function SettingsPage() {
       <Card className="mt-4">
         <CardTitle>学習設定</CardTitle>
         <SrsModeToggle enabled={profile?.srs_v2 ?? false} />
+      </Card>
+
+      {/* 参加中のクラス（生徒向け・同意管理） */}
+      {myClasses.some((m) => m.status === "active") && (
+        <Card className="mt-4">
+          <CardTitle>参加中のクラス</CardTitle>
+          <p className="text-[11px] text-navy-400 mb-1">
+            共有を停止すると、先生の一覧からあなたの学習状況が表示されなくなります。
+          </p>
+          <MyClasses memberships={myClasses} />
+        </Card>
+      )}
+
+      {/* 先生向け機能 */}
+      <Card className="mt-4">
+        <CardTitle>先生向け機能</CardTitle>
+        <p className="text-sm text-navy-600">
+          塾・家庭教師・学校の先生は、クラスを作って生徒の学習状況（集計）を確認できます。
+        </p>
+        <Link
+          href="/teacher"
+          className="mt-3 inline-block px-4 py-2 rounded-lg bg-navy-800 text-white text-xs font-bold hover:bg-navy-700 transition-colors"
+        >
+          {profile?.role === "teacher" ? "先生ダッシュボードへ" : "先生機能を見る"} →
+        </Link>
       </Card>
 
       {/* 友だち紹介 */}
