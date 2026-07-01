@@ -56,8 +56,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     { url: base,                         lastModified: now, changeFrequency: "weekly",  priority: 1.0 },
-    { url: `${base}/login`,              lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${base}/signup`,             lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${base}/dictionary`,         lastModified: now, changeFrequency: "weekly",  priority: 0.8 },
     { url: `${base}/premium`,            lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/materials`,          lastModified: now, changeFrequency: "weekly",  priority: 0.9 },
     ...materialIds.map((id) => ({
@@ -81,13 +81,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     })),
     { url: `${base}/faq`,                lastModified: now, changeFrequency: "monthly", priority: 0.7 },
-    { url: `${base}/test`,              lastModified: now, changeFrequency: "monthly", priority: 0.6 },
-    { url: `${base}/test/attack`,      lastModified: now, changeFrequency: "monthly", priority: 0.5 },
     { url: `${base}/vocab-check`,       lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${base}/vocab-check/toeic`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${base}/vocab-check/eiken`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${base}/extract`,           lastModified: now, changeFrequency: "monthly", priority: 0.5 },
-    { url: `${base}/plan`,              lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/phrases`,           lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/shadowing`,         lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/roadmap`,           lastModified: now, changeFrequency: "monthly", priority: 0.8 },
