@@ -125,7 +125,8 @@ select count(*) from profiles where is_test_account = true; -- 3件のはず（�
 
 | コマンド | 実行タイミング | 目的 |
 |---|---|---|
-| `npm run test:smoke` | **コード変更のコミット前**（ローカル） | build成功＋主要ページのHTTP健全性を素早く確認 |
+| `npm run test:dates` | 日付/streak/カレンダーに関わるコードを変更した時（`test:smoke`内でも自動実行） | JST日付ユーティリティの単体テスト（サーバ不要・数秒） |
+| `npm run test:smoke` | **コード変更のコミット前**（ローカル） | build成功＋日付ユーティリティ＋主要ページのHTTP健全性を素早く確認 |
 | `npm run test:e2e` | **本番デプロイ前**（大きめの変更時）／**週1定期** | onboarding・SRS V2・teacherの3フローを実ブラウザで通しで検証 |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |

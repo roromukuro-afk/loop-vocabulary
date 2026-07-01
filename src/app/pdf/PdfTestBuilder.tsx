@@ -7,6 +7,7 @@ import { sample } from "@/lib/utils/shuffle";
 import { createClient } from "@/lib/supabase/client";
 import { UpsellModal } from "@/components/premium/UpsellModal";
 import { trackFeatureUsed } from "@/lib/analytics/events";
+import { todayStartJstISO } from "@/lib/utils/date";
 
 const FREE_PDF_LIMIT = 3;
 
@@ -69,12 +70,11 @@ export function PdfTestBuilder({
         const { data: prof } = await supabaseCheck
           .from("profiles").select("is_premium").eq("id", checkUser.id).maybeSingle();
         if (!prof?.is_premium) {
-          const today = new Date().toISOString().slice(0, 10);
           const { count } = await supabaseCheck
             .from("pdf_exports")
             .select("*", { count: "exact", head: true })
             .eq("user_id", checkUser.id)
-            .gte("created_at", `${today}T00:00:00Z`);
+            .gte("created_at", todayStartJstISO());
           if ((count ?? 0) >= FREE_PDF_LIMIT) {
             setShowUpsell(true);
             return;

@@ -9,6 +9,7 @@ import {
   SRS_V2,
   type SrsRating,
 } from "@/lib/srs";
+import { todayJST } from "@/lib/utils/date";
 
 export type SrsWord = { id: string; streak: number; is_weak: boolean };
 
@@ -104,7 +105,7 @@ export async function saveStudyResult(
     is_correct: countedCorrect,
   });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJST();
   const { data: ds } = await supabase
     .from("daily_stats")
     .select("studied_count, correct_count, wrong_count")

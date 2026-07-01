@@ -1,12 +1,12 @@
 "use client";
 import { cn } from "@/lib/utils/cn";
+import { daysAgoJST } from "@/lib/utils/date";
 
 export function StudyCalendar({ days }: { days: { day: string; count: number }[] }) {
   const map = new Map(days.map((d) => [d.day, d.count]));
-  const today = new Date();
   const cells: { day: string; count: number }[] = [];
   for (let i = 29; i >= 0; i--) {
-    const d = new Date(today.getTime() - i * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const d = daysAgoJST(i);
     cells.push({ day: d, count: map.get(d) ?? 0 });
   }
   return (

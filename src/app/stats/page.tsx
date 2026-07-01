@@ -5,16 +5,16 @@ import { requireUser } from "@/lib/supabase/requireUser";
 import { StudyCalendar } from "./StudyCalendar";
 import { StudyWeekGraph } from "./StudyWeekGraph";
 import { StreakTracker } from "./StreakTracker";
+import { todayJST, daysAgoJST } from "@/lib/utils/date";
 
 export const dynamic = "force-dynamic";
 
 export default async function StatsPage() {
   const { user, supabase } = await requireUser();
 
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
-  const weekAgo  = new Date(today.getTime() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-  const monthAgo = new Date(today.getTime() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const todayStr = todayJST();
+  const weekAgo  = daysAgoJST(7);
+  const monthAgo = daysAgoJST(30);
 
   const [{ count: totalWords }, { count: weakWords }, { data: tStats }, { data: weekStats }, { data: monthStats }] = await Promise.all([
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id),
@@ -33,7 +33,7 @@ export default async function StatsPage() {
   const days = (monthStats ?? []).map((d) => d.day).sort();
   let streakDays = 0;
   for (let i = 0; i < 365; i++) {
-    const d = new Date(today.getTime() - i * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const d = daysAgoJST(i);
     if (days.includes(d)) streakDays++;
     else break;
   }

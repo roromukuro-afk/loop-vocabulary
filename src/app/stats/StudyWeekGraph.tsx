@@ -1,19 +1,20 @@
 "use client";
 
+import { daysAgoJST, jstWeekdayIndex } from "@/lib/utils/date";
+
 type DayStat = { day: string; studied_count: number; correct_count: number; wrong_count: number };
 
 export function StudyWeekGraph({ days }: { days: DayStat[] }) {
   const DAYS_JP = ["日", "月", "火", "水", "木", "金", "土"];
 
-  // 直近7日分を生成
-  const today = new Date();
+  // 直近7日分を生成（日本時間基準。日付キーと曜日ラベルを同じ文字列から導出することで、
+  // 「日付キー(UTC)」と「曜日(ローカルTZ)」が別々のタイムゾーンで計算されてズレる問題を防ぐ）
   const cells = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today.getTime() - (6 - i) * 86400000);
-    const key = d.toISOString().slice(0, 10);
+    const key = daysAgoJST(6 - i);
     const stat = days.find(s => s.day === key);
     return {
       key,
-      label: DAYS_JP[d.getDay()],
+      label: DAYS_JP[jstWeekdayIndex(key)],
       isToday: i === 6,
       studied: stat?.studied_count ?? 0,
       correct: stat?.correct_count ?? 0,

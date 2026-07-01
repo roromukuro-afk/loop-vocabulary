@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import Anthropic from "@anthropic-ai/sdk";
+import { todayJST } from "@/lib/utils/date";
 
 const DAILY_LIMIT = 5;
 
@@ -132,8 +133,8 @@ export async function POST(req: NextRequest) {
   const meaning = String(body.meaning ?? "").trim();
   if (!word) return NextResponse.json({ error: "word required" }, { status: 400 });
 
-  // 利用回数チェック（日次リセット）
-  const today = new Date().toISOString().slice(0, 10);
+  // 利用回数チェック（日次リセット、日本時間基準）
+  const today = todayJST();
   const { data: profile } = await supabase
     .from("profiles")
     .select("daily_ai_used, daily_ai_reset_at, is_premium")

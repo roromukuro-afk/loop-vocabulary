@@ -13,6 +13,7 @@ import { FirstStepsGuide } from "@/components/dashboard/FirstStepsGuide";
 import { EnsureDefaultWordbook } from "@/components/dashboard/EnsureDefaultWordbook";
 import { DailyMissions } from "@/components/dashboard/DailyMissions";
 import { StreakShareCard } from "@/components/dashboard/StreakShareCard";
+import { todayJST, daysAgoJST, jstWeekdayIndex, jstHour, jstDayOfMonth } from "@/lib/utils/date";
 
 export const dynamic = "force-dynamic";
 
@@ -48,9 +49,9 @@ function getNextBadge(streak: number, wordCount: number) {
 export default async function DashboardPage() {
   const { user, supabase } = await requireUser();
 
-  const today = new Date().toISOString().slice(0, 10);
-  const monthAgo = new Date(Date.now() - 91 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-  const hour = new Date().getHours();
+  const today = todayJST();
+  const monthAgo = daysAgoJST(91);
+  const hour = jstHour();
 
   const [
     { count: wordCount },
@@ -86,7 +87,7 @@ export default async function DashboardPage() {
   const activeDays = new Set((recentStats ?? []).filter((d) => d.studied_count > 0).map((d) => d.day));
   let streak = 0;
   for (let i = 0; i < 31; i++) {
-    const d = new Date(Date.now() - i * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const d = daysAgoJST(i);
     if (activeDays.has(d)) streak++;
     else if (i === 0) continue;
     else break;
@@ -113,13 +114,13 @@ export default async function DashboardPage() {
 
   // 今日の一語（未学習からランダム1語）
   const unstudied = todaysWord ?? [];
-  const todayIdx = new Date().getDate() % Math.max(unstudied.length, 1);
+  const todayIdx = jstDayOfMonth() % Math.max(unstudied.length, 1);
   const featuredWord = unstudied.length > 0 ? unstudied[todayIdx] : null;
 
-  // 週間チャレンジ計算（今週月曜〜今日）
-  const dayOfWeek = new Date().getDay(); // 0=Sun
+  // 週間チャレンジ計算（今週月曜〜今日、日本時間基準）
+  const dayOfWeek = jstWeekdayIndex(today); // 0=Sun
   const daysFromMon = (dayOfWeek + 6) % 7;
-  const mondayStr = new Date(Date.now() - daysFromMon * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const mondayStr = daysAgoJST(daysFromMon);
   const weeklyStudied = (recentStats ?? [])
     .filter((d) => d.day >= mondayStr)
     .reduce((s, d) => s + (d.studied_count ?? 0), 0);

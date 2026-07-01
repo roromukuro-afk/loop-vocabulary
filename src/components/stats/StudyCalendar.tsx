@@ -1,5 +1,7 @@
 "use client";
 
+import { daysAgoJST } from "@/lib/utils/date";
+
 type DayData = { day: string; studied_count: number };
 
 interface Props {
@@ -19,12 +21,9 @@ function getColor(count: number): string {
 export function StudyCalendar({ stats }: Props) {
   const statsMap = new Map(stats.map((s) => [s.day, s.studied_count]));
 
-  const today = new Date();
   const days: { date: string; count: number }[] = [];
   for (let i = DAYS_TOTAL - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = daysAgoJST(i);
     days.push({ date: dateStr, count: statsMap.get(dateStr) ?? 0 });
   }
 

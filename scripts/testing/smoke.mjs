@@ -2,7 +2,8 @@
  * ローカルスモークテスト: build成功 + 主要ページのHTTP健全性（ブラウザ不要）
  * 使い方: node scripts/testing/smoke.mjs
  */
-import { loadEnv } from "./lib/env.mjs";
+import { execFileSync } from "child_process";
+import { loadEnv, REPO_ROOT } from "./lib/env.mjs";
 import { ensureServer, stopDevServer } from "./lib/devServer.mjs";
 import { checkPublicPages, checkAuthRedirects, checkPostOnlyApis, printResults } from "./lib/httpChecks.mjs";
 
@@ -10,6 +11,13 @@ const PORT = Number(process.env.TEST_PORT || 3799);
 
 async function main() {
   loadEnv();
+
+  // 日付ユーティリティの単体テスト（サーバ不要・高速）を先に実行
+  console.log("=== date utils unit tests ===");
+  execFileSync(process.execPath, ["scripts/testing/test-date-utils.mjs"], {
+    cwd: REPO_ROOT,
+    stdio: "inherit",
+  });
 
   // ensureServer が未起動時に build + start する（build成功=必須チェック済み）
   const dev = await ensureServer(PORT);

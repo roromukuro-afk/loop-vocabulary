@@ -17,6 +17,7 @@
     "test:srs": "node scripts/testing/e2e/srs.mjs",
     "test:teacher": "node scripts/testing/e2e/teacher.mjs",
     "test:onboarding": "node scripts/testing/e2e/onboarding-dictionary.mjs",
+    "test:dates": "node scripts/testing/test-date-utils.mjs",
     "test:smoke": "node scripts/testing/smoke.mjs",
     "verify:prod": "node scripts/testing/verify-prod.mjs",
     "verify:srs-global": "node scripts/testing/check-prod-srs-v2-global.mjs"

@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { requireAdmin } from "@/lib/supabase/requireUser";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { todayJST, daysAgoJST } from "@/lib/utils/date";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +22,12 @@ export default async function AdminStatsPage() {
   await requireAdmin();
   const admin = createAdminClient();
 
-  const today = new Date().toISOString().slice(0, 10);
-  const weekAgo  = new Date(Date.now() -  7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-  const monthAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  // 日本時間基準（daily_stats.day は DATE 型なのでこれで正しく揃う）。
+  // ただし profiles.created_at は TIMESTAMPTZ のため、この日付文字列との比較は
+  // Postgres 側でUTC深夜0時として解釈される点に注意（新規ユーザー集計は今回のバグ修正の対象外）。
+  const today = todayJST();
+  const weekAgo  = daysAgoJST(7);
+  const monthAgo = daysAgoJST(30);
 
   const [
     { count: totalUsers },
@@ -62,7 +66,7 @@ export default async function AdminStatsPage() {
     dailyMap.set(row.day, prev);
   }
   const days30 = Array.from({ length: 30 }, (_, i) => {
-    const d = new Date(Date.now() - (29 - i) * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const d = daysAgoJST(29 - i);
     const entry = dailyMap.get(d) ?? { studied: 0, users: new Set<string>() };
     return { day: d, studied: entry.studied, dau: entry.users.size };
   });
