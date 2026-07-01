@@ -17,6 +17,7 @@
 
 - [ ] `npm run test:e2e`（フルE2E一式）を実行し、3フロー（onboarding/dictionary・SRS V2・teacher）が全PASSか
 - [ ] `npm run verify:srs-global` — SRS V2のグローバル有効化が維持されているか
+- [ ] [`/admin/srs`](https://loop-vocabulary.app/admin/srs) — SRS V2の異常値検知セクションに⚠が出ていないか（詳細は§3）
 - [ ] Supabase → Database → 使用量（行数・DBサイズ・API呼び出し数）が想定内か
 - [ ] Vercel → Usage（Function実行時間・帯域）が想定内か
 - [ ] Google Search Console → インデックス状況・検索パフォーマンスの週次トレンド（詳細は [SEARCH_CONSOLE_SETUP.md](SEARCH_CONSOLE_SETUP.md) §3）
@@ -27,6 +28,11 @@
 ## 3. SRS V2で見るべき異常
 
 SRS V2は全ユーザーに展開済み（`NEXT_PUBLIC_SRS_V2=1`）。以下は「動的復習が正しく機能しているか」の異常検知観点。
+
+**通常はこのSQLを直接叩く必要はない。`/admin`にログイン後 [`/admin/srs`](https://loop-vocabulary.app/admin/srs) で
+同じ観点を読み取り専用ダッシュボードとして確認できる**（総単語数・復習対象/今日/明日/7日以内予定・
+`is_weak`比率・`ease_factor`/`interval_days`の平均/最小/最大・正誤合計と正答率・下記の異常値5種を集計表示）。
+DBを直接見たい場合や、ダッシュボードでは出ない個別行を確認したい場合のみ以下のSQLを使う。
 
 - **`words.ease_factor` が異常値**: 想定レンジは `1.3`〜`2.8`。範囲外の値がある場合はロジックのクランプ処理に不具合がある可能性
   ```sql
@@ -39,6 +45,14 @@ SRS V2は全ユーザーに展開済み（`NEXT_PUBLIC_SRS_V2=1`）。以下は�
 - **`next_review_at` が過去日付のまま大量に滞留**: 復習が全く実行されていない兆候（アプリ側の保存処理が失敗している可能性）
   ```sql
   select count(*) from words where next_review_at < now() - interval '7 days';
+  ```
+- **`next_review_at` が未設定の既学習単語**: `last_studied_at`はあるのに`next_review_at`がnull。保存処理の不具合を疑う
+  ```sql
+  select count(*) from words where last_studied_at is not null and next_review_at is null;
+  ```
+- **`is_weak=true` の比率が高すぎる**: 全単語の50%を超える場合は評価ロジックや復習頻度に問題がある可能性
+  ```sql
+  select count(*) filter (where is_weak) * 100.0 / nullif(count(*), 0) as weak_pct from words;
   ```
 - **`profiles.srs_v2`（個人opt-in）の分布**: グローバルON後は意味を持たなくなるが、将来ロールバック判断の参考に
   ```sql

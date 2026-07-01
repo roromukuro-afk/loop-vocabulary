@@ -5,6 +5,38 @@
 
 ---
 
+## 2026-07-02 SRS V2利用状況モニタリング画面 `/admin/srs` を追加
+
+`NEXT_IMPROVEMENTS.md`の優先度A項目「SRS V2の利用状況可視化」を実施。SRS V2が全ユーザーONに
+なったことを受け、管理者が異常を早期発見できる読み取り専用ダッシュボードを追加。
+
+**実装**: [src/app/admin/srs/page.tsx](src/app/admin/srs/page.tsx)（新規）。既存の`requireAdmin()`
+（`/admin`配下の他ページと同じ認可方式）を使用し、`words`テーブルから集計に必要な列
+（`ease_factor, interval_days, correct_count, wrong_count, is_weak, next_review_at, last_studied_at`）
+のみを取得してJS側で集計。`word`/`meaning`等の学習内容や`user_id`は一切取得しない
+（個別ユーザー・単語は非表示、全体集計のみ）。
+
+**表示指標**: 総単語数／復習対象単語数（現在復習待ち・滞留含む）／今日・明日・7日以内に復習予定
+（JST基準）／`is_weak`件数・比率／`ease_factor`平均・最小・最大／`interval_days`平均・最大／
+正解数・不正解数合計・正答率／異常値5種（`ease_factor`範囲外・`interval_days`上限超過・
+`next_review_at`異常未来・`next_review_at`未設定の既学習単語・7日以上滞留・`is_weak`比率過多）。
+しきい値は`src/lib/srs/index.ts`の`SRS_V2`定数（`EASE_MIN/MAX`, `INTERVAL_MAX`）をそのまま import して
+使用し、SRS V2の計算ロジック自体には一切触れていない。
+
+**負荷確認**: 実装前に本番`words`テーブルの行数を確認（2026-07-02時点で1,069件）。この規模では
+全件取得＋JS集計で十分軽量なため、SQL集計RPCの追加は見送り。念のため取得上限
+（`FETCH_LIMIT=50000`）を設け、上限に達した場合はページ上に警告を表示する。将来的に単語数が
+大きく増えた場合はRPC化を検討（`NEXT_IMPROVEMENTS.md`に残課題として記載）。
+
+**認可・RLS**: 新規テーブル・カラムなし。既存の`words`/`profiles`のRLSは変更していない
+（`createAdminClient()`はservice_roleのため元々RLSをバイパスするが、これは既存の`/admin/stats`等の
+他adminページと同じ方式を踏襲したもの）。`requireAdmin()`により`profiles.is_admin=true`のユーザー
+以外は`/dashboard`にリダイレクトされ、書き込み操作は一切ない。
+
+**検証**: `tsc --noEmit` / `build` / `test:smoke` / `verify:prod` / `verify:srs-global`
+全通過。SRS V2ロジック・onboarding/dictionary・teacherフローには触れていないため`test:e2e`は
+今回スキップ（判断として明記）。
+
 ## 2026-07-02 未使用・壊れたAPI `api/ranking/route.ts` を削除
 
 前回のJST日付修正で「スコープ外」としてフラグした`src/app/api/ranking/route.ts`を精査し削除。
