@@ -1,9 +1,51 @@
 # WORK_HISTORY — Loop Vocabulary
 
 > 作業の時系列ログ。新しいものを上に追記する。
-> 最終更新: 2026-07-01
+> 最終更新: 2026-07-02
 
 ---
+
+## 2026-07-02 残り4ファイルのUTC日付パターンをJST基準に統一（本番デプロイ済 `d816edd`）
+
+前回（2026-07-01）のstreak/カレンダー修正で「未対応」として報告した残り4ファイルを対応。
+すべて `new Date().toISOString().slice(0,10)` 相当のUTC暦日切り出しがJST境界
+（00:00〜09:00 JST）でズレる同一バグパターン。
+
+**修正内容**（すべて `src/lib/utils/date.ts` の既存JSTユーティリティを利用）:
+- [ranking/page.tsx](src/app/ranking/page.tsx): 週間ランキングの週起点(月曜0:00)を
+  `now.getDay()`/`getDate()`/`setHours()`（サーバーのローカルTZ依存）から
+  `todayJST()`+`jstWeekdayIndex()`+`daysAgoJST()`に変更
+- [api/cron/weekly-digest/route.ts](src/app/api/cron/weekly-digest/route.ts):
+  対象週(7日前)の起点を`daysAgoJST(7)`に統一（`next_review_at`比較用の`now`は
+  TIMESTAMPTZ絶対比較のため変更不要と判断し据え置き）
+- [api/export/stats/route.ts](src/app/api/export/stats/route.ts) /
+  [settings/ExportButton.tsx](src/app/settings/ExportButton.tsx):
+  CSV出力ファイル名の日付を`todayJST()`に統一（PDFエクスポートには日付付きファイル名なし、対象外）
+- [plan/StudyPlanClient.tsx](src/app/plan/StudyPlanClient.tsx): AIプランのmin-date(14日後)を
+  `toJstDateString()`でJST暦日として文字列化（+14日の絶対時刻計算自体は変更なし）
+
+**スコープ外として意図的に見送ったもの**: `api/api/ranking/route.ts` は同じUTC日付バグに加え、
+存在しないカラム(`words_studied`/`studied_date`。実際は`studied_count`/`day`)を参照しており、
+grepで呼び出し元ゼロ（未使用コード）と確認済み。日付ズレ修正のスコープからは外れるため触れず、
+別タスクとして`spawn_task`済み（`task_fc910af5`）。
+
+**テスト**: `test-date-utils.mjs`に4区分・11ケース追加（週間ランキング境界／weekly digest対象週／
+エクスポートファイル名／AIプランmin-date）、いずれもJST早朝(00:00-09:00)でUTC基準との乖離が
+起きることを再現しつつ、JST基準実装が正しい値を返すことを検証。ホストのローカルタイムゾーンに
+依存しないよう、テスト内の「旧実装」比較はミリ秒演算またはUTC ISO文字列のみで構成（`setDate`等の
+ローカルTZ依存メソッドは使わず、ホスト環境が変わっても結果が一定になるようにした）。
+合計39ケース全PASS（既存25＋新規11＋todayJST健全性3の内訳）。
+
+**制約**: 既存データの削除・補正なし、DBスキーマ変更なし、RLS変更なし、SRS V2ロジック変更なし、
+先生機能変更なし。日付表示・集計境界・ファイル名のUTC由来ズレ修正のみに限定。
+
+**検証**: `test:dates`(39 passed) / `tsc --noEmit` / `build` / `test:smoke` /
+`test:e2e`(onboarding・SRS V2・teacherの3フロー全PASS) / `verify:prod` / `verify:srs-global`
+すべてデプロイ前後の両方で実施、全通過。
+
+**デプロイ**: commit `d816edd` → push → Vercel `dpl_CpKrBpBLfBES3e6PQ9F5kDJn4NsR` READY
+（`loop-vocabulary.app`エイリアス反映確認済み）→ 本番`verify:prod`/`verify:srs-global`再実行、
+回帰なし。
 
 ## 2026-07-01 streak/カレンダーの日付バグ修正（本番デプロイ済 `bc04e47`）
 
