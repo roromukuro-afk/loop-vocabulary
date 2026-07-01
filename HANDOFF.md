@@ -66,7 +66,8 @@
 | Phase 2-C PDFカスタマイズ | 本番済 `ba81db9` |
 | Phase 2-A 動的SRS基盤(flag OFF) | 本番済 `a8501ed` |
 | Phase 2-A SRS V2 per-user opt-in | 本番済 `c60f4b4`。migration 009/010 適用済。**V2グローバルOFF・opted-in 0**。オーナーが設定トグルで自分だけ検証可 |
-| Phase 2-B 先生管理 DB基盤 | migration 011 **本番適用済**・認可テストPASS。**先生UIは未実装**（inert）。011.sqlはコミットで追跡開始 |
+| Phase 2-B 先生管理 DB基盤 | migration 011 **本番適用済**・認可テストPASS（`329cb50`）|
+| Phase 2-B 先生UI | 本番済 `35d2c17`。/teacher・/teacher/[classId]・/join/[code]・設定の同意管理・API・規約/プライバシー追記。DBライフサイクル検証(join→roster→revoke→leave)PASS。生データ非開示・集計のみ |
 
 **次にやること（Phase 2-B UI）**: `/teacher`（クラス作成・招待コード・teacher昇格）、`/teacher/[classId]`（`get_class_progress`でロスター）、`/join/[code]`（`lookup_class_by_code`＋同意→`class_members`挿入）、設定に参加クラス管理/同意撤回（`get_my_memberships`）、利用規約/プライバシー追記。UIは role or feature flag で露出制御。
 

@@ -5,6 +5,19 @@
 
 ---
 
+## 2026-07-01 Phase 2-B: 先生向け進捗管理 MVP — 先生UI（本番デプロイ済 `35d2c17`）
+
+- ページ: `/teacher`（先生ダッシュボード・role昇格・クラス作成・招待コード）、
+  `/teacher/[classId]`（`get_class_progress`ロスター・所有ガード・集計のみ）、
+  `/join/[code]`（`lookup_class_by_code`＋**明示同意画面**→参加）。
+- 設定: 参加中クラス一覧＋同意撤回/退出（`get_my_memberships`＋`/api/teacher/membership`）、/teacher導線。
+- API: `promote` / `classes`(作成・role検証・招待コードリトライ) / `join`(consent必須) / `membership`。
+- 規約/プライバシー: 先生機能・進捗共有・同意撤回の節を追記。
+- **検証**: tsc/build、本番DBライフサイクル(作成→参加→ロスター1→撤回0→退出0)PASS・残存0、
+  本番回帰(非ログイン307、API GET405、公開200)。生徒の生データは先生に非開示（集計RPCのみ）。
+- 補足: `/teacher` は非先生でも「先生機能の案内＋昇格CTA」を表示（データ非開示）。クラス作成・
+  ロスター閲覧は role/所有/RPC認可で厳格ガード。
+
 ## 2026-07-01 Phase 2-B: 先生向け進捗管理 MVP — DB基盤（migration 011・本番適用済）
 
 **目的**: 塾講師/家庭教師が担当生徒の学習状況を集計で把握。生の単語データは見せない。
