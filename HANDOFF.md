@@ -58,6 +58,14 @@
 
 ---
 
+## 0.5 SRS V2 全ユーザーON（2026-07-01・本番反映済み）
+
+`NEXT_PUBLIC_SRS_V2=1` を Vercel Production 環境変数に設定し再デプロイ。**全ユーザーがV2（動的復習）**。
+本番`/review`で個人フラグ無効のテストアカウントでもV2 UIが出ることを直接確認済み（`npm run verify:srs-global`）。
+
+**ロールバック手順**: `vercel env rm NEXT_PUBLIC_SRS_V2 production` → `vercel --prod --yes`（または
+git push で再デプロイ）→ 全ユーザーV1に復帰。個人opt-in(`profiles.srs_v2`)は影響を受けず独立動作。
+
 ## 0.4 自律E2E検証基盤（2026-07-01・本番デプロイ済 `8af9a79`）
 
 今後は `npm run test:e2e`（全体）/ `test:srs` / `test:onboarding` / `test:teacher` / `test:smoke` /

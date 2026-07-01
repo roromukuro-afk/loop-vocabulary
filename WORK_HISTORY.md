@@ -5,6 +5,20 @@
 
 ---
 
+## 2026-07-01 SRS V2 全ユーザーON（本番反映済）
+
+- Vercel CLI（`vercel env add` / `vercel --prod`）で `NEXT_PUBLIC_SRS_V2=1` を
+  **Production のみ**に追加し、同一コミット(`4a29a8f`)のまま再デプロイして反映。
+  デプロイ `dpl_CybPCKKWxmPjath6PGuQg1e9QA9K` READY・`https://loop-vocabulary.app` エイリアス済み。
+- `npm run verify:prod`: 全チェックPASS（回帰なし）。
+- **本番でのグローバル有効化を実地確認**: test+srsアカウントの個人フラグ(`profiles.srs_v2`)を
+  明示的に`false`に固定した状態で本番`/review`にアクセスし、4段階評価UI(V2)が表示されることを確認
+  （個人フラグに関係なくグローバルenvだけで有効化されている＝正しく本番ビルドに反映）。
+  確認用に `scripts/testing/check-prod-srs-v2-global.mjs`（`npm run verify:srs-global`）を追加。
+- **ロールバック手順（維持・未実施）**: `vercel env rm NEXT_PUBLIC_SRS_V2 production` → 再デプロイ
+  → 全ユーザーV1へ復帰。個人opt-in(`profiles.srs_v2`)は引き続き独立して機能する。
+- 主要ページ回帰: `verify:prod`で確認済み（公開200・認証307・API405）。
+
 ## 2026-07-01 既存バグ2件の修正（本番デプロイ済 `17015d9`）
 
 - `ReferralCard.tsx`: `typeof window!=="undefined"` 分岐を廃止、`NEXT_PUBLIC_SITE_URL`
