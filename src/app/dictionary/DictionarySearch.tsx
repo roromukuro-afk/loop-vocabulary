@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -18,7 +18,7 @@ type Hit = {
 };
 
 export function DictionarySearch({
-  books,
+  books: initialBooks,
   loggedIn = true,
 }: {
   books: { id: string; title: string }[];
@@ -28,9 +28,29 @@ export function DictionarySearch({
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
   const [busy, setBusy] = useState(false);
-  const [bookId, setBookId] = useState<string>(books[0]?.id ?? "");
+  const [books, setBooks] = useState(initialBooks);
+  const [bookId, setBookId] = useState<string>(initialBooks[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
   const [savedKey, setSavedKey] = useState<string | null>(null);
+
+  // ダッシュボードを経由せず /dictionary に直行したログイン済みユーザーでも、
+  // 単語帳が0件なら冪等にデフォルト単語帳を用意し、すぐ追加できるようにする。
+  // 既に1つでもあれば作成しない（重複なし）。未ログインは対象外。
+  const ensured = useRef(false);
+  useEffect(() => {
+    if (ensured.current) return;
+    ensured.current = true;
+    if (!loggedIn || initialBooks.length > 0) return;
+    fetch("/api/wordbook/ensure-default", { method: "POST" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.bookId) {
+          setBooks([{ id: j.bookId, title: j.title ?? "マイ単語帳" }]);
+          setBookId((prev) => prev || j.bookId);
+        }
+      })
+      .catch(() => {});
+  }, [loggedIn, initialBooks]);
 
   const search = async (e: React.FormEvent) => {
     e.preventDefault();
