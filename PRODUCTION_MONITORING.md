@@ -19,7 +19,7 @@
 - [ ] `npm run verify:srs-global` — SRS V2のグローバル有効化が維持されているか
 - [ ] Supabase → Database → 使用量（行数・DBサイズ・API呼び出し数）が想定内か
 - [ ] Vercel → Usage（Function実行時間・帯域）が想定内か
-- [ ] Google Search Console → インデックス状況・検索パフォーマンスの週次トレンド
+- [ ] Google Search Console → インデックス状況・検索パフォーマンスの週次トレンド（詳細は [SEARCH_CONSOLE_SETUP.md](SEARCH_CONSOLE_SETUP.md) §3）
 - [ ] AdSense（承認後）→ 表示回数・クリック率・収益の異常値有無
 - [ ] `git status` / working tree がクリーンか（保留中の変更が放置されていないか）
 - [ ] `PHASE2_DESIGN.md` / `PHASE2B_TEACHER_DESIGN.md` 等、未着手項目の棚卸し
@@ -100,12 +100,15 @@ select count(*) from profiles where is_test_account = true; -- 3件のはず（�
 
 ## 7. Google Search Consoleで見るべき項目
 
+登録手順・初回チェック項目・週次の見方は [SEARCH_CONSOLE_SETUP.md](SEARCH_CONSOLE_SETUP.md) に詳細をまとめた。ここでは巡回時の要点のみ:
+
 - **インデックス状況**: `/sitemap.xml` 経由で送信したページが正しくインデックスされているか（エラー・除外の急増がないか）
 - **検索パフォーマンス**: クリック数・表示回数・平均掲載順位の週次トレンド
 - **カバレッジの警告**: 404・リダイレクトループ・モバイルユーザビリティの問題
 - **手動対策・セキュリティの問題**: 通知が来ていないか
+- **sitemap/robots.txtの整合性**: 認証必須ページが誤って混入していないか（2026-07-01に発見・修正済みの不整合パターン。今後ルート追加時は同様のチェックを行う）
 
-> 補足: GSCへのサイト登録・sitemap送信はオーナー側の作業（本ドキュメント作成時点で未実施の可能性あり。[HANDOFF.md](HANDOFF.md) 参照）。
+> 登録前チェック（sitemap健全性・robots.txt整合性）は2026-07-01に実施・修正済み。GSCへの登録・sitemap送信はオーナー側の作業。詳細は [SEARCH_CONSOLE_SETUP.md](SEARCH_CONSOLE_SETUP.md) 参照。
 
 ## 8. AdSense/広告まわりで見るべき項目
 

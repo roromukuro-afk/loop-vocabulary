@@ -13,6 +13,8 @@
 
 - [RELEASE_NOTES.md](RELEASE_NOTES.md) — 直近リリースのまとめ・本番確認済み項目・ロールバック方法
 - [PRODUCTION_MONITORING.md](PRODUCTION_MONITORING.md) — 日次/週次の監視項目、自動検証コマンド（`npm run test:e2e` 等）の運用タイミング
+- [SEARCH_CONSOLE_SETUP.md](SEARCH_CONSOLE_SETUP.md) — Google Search Console 登録手順・sitemap送信・週次の見方
+- [NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md) — 優先順位付きの次の改善候補
 - [HANDOFF.md](HANDOFF.md) — 次セッションへの申し送り・現在ステータス
 - [WORK_HISTORY.md](WORK_HISTORY.md) — 時系列の作業ログ
 
