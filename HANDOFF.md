@@ -58,6 +58,20 @@
 
 ---
 
+## 0.2 現在ステータス（2026-07-01 時点・本番反映済み）
+
+| 項目 | 状態 |
+|---|---|
+| Phase 1 SEO/信頼性/登録不要辞書 | 本番済 `f692e53` |
+| Phase 2-C PDFカスタマイズ | 本番済 `ba81db9` |
+| Phase 2-A 動的SRS基盤(flag OFF) | 本番済 `a8501ed` |
+| Phase 2-A SRS V2 per-user opt-in | 本番済 `c60f4b4`。migration 009/010 適用済。**V2グローバルOFF・opted-in 0**。オーナーが設定トグルで自分だけ検証可 |
+| Phase 2-B 先生管理 DB基盤 | migration 011 **本番適用済**・認可テストPASS。**先生UIは未実装**（inert）。011.sqlはコミットで追跡開始 |
+
+**次にやること（Phase 2-B UI）**: `/teacher`（クラス作成・招待コード・teacher昇格）、`/teacher/[classId]`（`get_class_progress`でロスター）、`/join/[code]`（`lookup_class_by_code`＋同意→`class_members`挿入）、設定に参加クラス管理/同意撤回（`get_my_memberships`）、利用規約/プライバシー追記。UIは role or feature flag で露出制御。
+
+**SRS V2 全ユーザーON条件（すべて充足済、実UI検証のみ残）**: 非破壊migration✓ / RLS変更なし✓ / V1へ戻すflag✓ / build✓ / 本番回帰✓ / ロールバック明確✓。→ オーナーがトグルで4ボタンUIを一度確認できれば env `NEXT_PUBLIC_SRS_V2=1` で全体ON可能。
+
 ## 2.5. Phase 1 実装状況（2026-07-01 実施・未コミット）
 
 信頼性・表記・SEO・CTA・登録不要の「現段階の改善策」を working tree に実装済み（**未コミット・未デプロイ**）。

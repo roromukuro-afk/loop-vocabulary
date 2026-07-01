@@ -5,6 +5,38 @@
 
 ---
 
+## 2026-07-01 Phase 2-B: 先生向け進捗管理 MVP — DB基盤（migration 011・本番適用済）
+
+**目的**: 塾講師/家庭教師が担当生徒の学習状況を集計で把握。生の単語データは見せない。
+- `supabase/migrations/011_teacher.sql`（**本番適用済・非破壊**）:
+  - `profiles.role`（student/teacher）追加、`classes` / `class_members`（consent付）新規、index。
+  - **新規テーブルにのみ RLS**（既存RLSは不変）: classes=先生本人CRUD / class_members=生徒本人RW＋先生は自クラスのみread。
+  - **SECURITY DEFINER RPC**: `get_class_progress`（先生所有＆consent検証→集計のみ）、`lookup_class_by_code`、`get_my_memberships`。authenticatedのみ実行可（anon revoke）。
+- **認可テスト（本番DBで一時フィクスチャ→検証→削除）全PASS**:
+  - 非先生の `get_class_progress` 呼び出し → `blocked: not authorized`
+  - 先生呼び出し → 同意済み生徒1件
+  - 同意撤回後 → 0件（集計対象外）
+  - テストデータ削除済み・RLS3ポリシー/RPC3種存在確認。
+- **未実装（次段階）**: 先生UI（/teacher, /teacher/[classId]）、参加(/join/[code])＋同意画面、設定の同意撤回、teacherロール昇格、利用規約/プライバシー追記。
+- 生UIが無いため現状は**完全にinert**（本番影響なし）。migration 011 は本番適用済み・ファイルはこのコミットで追跡開始。
+
+## 2026-07-01 Phase 2-A(続): SRS V2 per-user opt-in（本番デプロイ済・V2はグローバルOFF）
+
+- `supabase/migrations/010_srs_v2_optin.sql`（**本番適用済・非破壊**）: `profiles.srs_v2 bool default false`。
+- `srsV2EnabledFor(profileFlag)` = env `NEXT_PUBLIC_SRS_V2` OR ユーザーの `profiles.srs_v2`。
+- `saveStudyResult` が per-user で V2 判定。review ページが `v2Enabled` を FlipCardRunner に渡す。
+- 設定に「学習設定 → 動的復習アルゴリズム(β)」トグル＋ `/api/settings/srs` PATCH。
+- コミット `c60f4b4`・本番デプロイREADY。回帰なし（/settings /review→login, 公開200, /api/settings/srs→405）。
+- opted-in=0（全員V1）。**オーナーは設定トグルONで自分だけV2検証可**。全ユーザーONは検証後に env フリップ。
+
+## 2026-07-01 Phase 2-C: PDFカスタマイズ強化（本番デプロイ済）
+
+- `PdfTestBuilder.tsx`: 段組み(1/2列)・解答用紙分離(改ページ)・印刷レイアウト改善（氏名/日付/得点欄）。commit `ba81db9`。
+
+## 2026-07-01 Phase 2-A: 動的SRS基盤（本番デプロイ済・flag OFF）
+
+- `applySrsV2`(SM-2簡易)・`saveResult` flag分岐・`FlipCardRunner` 4評価UI・migration 009。commit `a8501ed`。サンプル12/12 PASS。
+
 ## 2026-07-01 Phase 1: 信頼性・表記・SEO・登録不要の改善を実装（未コミット）
 
 オーナー指示の「現段階の改善策」を working tree に実装。**commit / デプロイ / 巻き戻しは未実施。**
