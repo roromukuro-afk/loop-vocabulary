@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { saveStudyResult } from "@/lib/srs/saveResult";
+import { isSrsV2Enabled, type SrsRating } from "@/lib/srs";
 import { useAppInterstitial, AppRewardedAdButton } from "@/components/ads/AppAds";
 import { speakEn } from "@/lib/tts";
 import { PronounceButton } from "@/components/ui/PronounceButton";
@@ -31,6 +32,8 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
   const [swipeHint, setSwipeHint] = useState<"left" | "right" | null>(null);
 
   const cur = pool[idx];
+  // feature flag: ON のとき4段階評価UIを表示。OFFなら従来の2値(まだ/覚えた)のまま。
+  const v2 = isSrsV2Enabled();
 
   useEffect(() => { trackFeatureUsed("flip_card"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -60,11 +63,13 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
     setFlipped(true);
   };
 
-  const handleAnswer = async (isCorrect: boolean) => {
+  const handleAnswer = async (isCorrect: boolean, rating?: SrsRating) => {
     if (busy) return;
     setBusy(true);
     setSwipeHint(null);
-    await saveStudyResult(cur, isCorrect);
+    // rating は V2 フラグ ON のときのみ saveStudyResult 内で使用される。
+    // OFF のときは無視され、従来通り isCorrect ベースで動作する。
+    await saveStudyResult(cur, isCorrect, undefined, rating);
     const newResults = [...results, { word: cur.word, meaning: cur.meaning, ok: isCorrect }];
     setResults(newResults);
     if (idx + 1 >= pool.length) {
@@ -73,6 +78,11 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
       setFlipped(false);
       setTimeout(() => { setIdx((i) => i + 1); setBusy(false); }, 350);
     }
+  };
+
+  // 4段階評価（V2）: again 以外は「覚えた」= ok:true として集計
+  const handleRate = (rating: SrsRating) => {
+    void handleAnswer(rating !== "again", rating);
   };
 
   // Swipe handlers — only trigger answer when flipped
@@ -244,6 +254,41 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
           <p className="text-sm text-navy-400">カードをタップして意味を確認してください</p>
         ) : swipeMode ? (
           <p className="text-sm text-navy-400">← まだ　　覚えた →</p>
+        ) : v2 ? (
+          <div className="w-full grid grid-cols-4 gap-2">
+            <button
+              onClick={() => handleRate("again")}
+              disabled={busy}
+              className="py-4 rounded-2xl bg-red-50 border-2 border-red-200 text-red-700 font-bold hover:bg-red-100 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center gap-0.5"
+            >
+              <span className="text-base">もう一度</span>
+              <span className="text-[10px] font-normal text-red-400">明日</span>
+            </button>
+            <button
+              onClick={() => handleRate("hard")}
+              disabled={busy}
+              className="py-4 rounded-2xl bg-amber-50 border-2 border-amber-200 text-amber-700 font-bold hover:bg-amber-100 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center gap-0.5"
+            >
+              <span className="text-base">難しい</span>
+              <span className="text-[10px] font-normal text-amber-400">短め</span>
+            </button>
+            <button
+              onClick={() => handleRate("good")}
+              disabled={busy}
+              className="py-4 rounded-2xl bg-sky-50 border-2 border-sky-200 text-sky-700 font-bold hover:bg-sky-100 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center gap-0.5"
+            >
+              <span className="text-base">普通</span>
+              <span className="text-[10px] font-normal text-sky-400">標準</span>
+            </button>
+            <button
+              onClick={() => handleRate("easy")}
+              disabled={busy}
+              className="py-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 text-emerald-700 font-bold hover:bg-emerald-100 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center gap-0.5"
+            >
+              <span className="text-base">簡単</span>
+              <span className="text-[10px] font-normal text-emerald-400">長め</span>
+            </button>
+          </div>
         ) : (
           <div className="w-full grid grid-cols-2 gap-4">
             <button
