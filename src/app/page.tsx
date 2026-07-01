@@ -8,6 +8,19 @@ type PublicStats = {
   materialCounts: { exam_type: string; count: number }[];
 };
 
+// 教材の exam_type 表記ゆれを表示用に統合（データ自体は変更しない）
+const EXAM_CANON: Record<string, string> = {
+  "大学入試": "大学受験",
+  "大学受験": "大学受験",
+  "高校英語": "高校入試",
+  "高校入試": "高校入試",
+  "高校": "高校入試",
+  "中学": "高校入試",
+  "英検": "英検",
+  "TOEIC": "TOEIC",
+  "一般": "一般",
+};
+
 const getPublicStats = unstable_cache(
   async (): Promise<PublicStats> => {
     try {
@@ -30,7 +43,8 @@ const getPublicStats = unstable_cache(
 
       const countByExam: Record<string, number> = {};
       for (const m of materialsData ?? []) {
-        const key = m.exam_type ?? "その他";
+        const raw = m.exam_type ?? "その他";
+        const key = EXAM_CANON[raw] ?? raw; // 表記ゆれを統合（例: 大学入試→大学受験）
         countByExam[key] = (countByExam[key] ?? 0) + 1;
       }
       const materialCounts = Object.entries(countByExam)
@@ -47,10 +61,10 @@ const getPublicStats = unstable_cache(
 );
 
 const STATIC_MATERIAL_COUNTS = [
-  { exam_type: "大学受験", count: 3 },
-  { exam_type: "英検", count: 4 },
+  { exam_type: "英検", count: 8 },
+  { exam_type: "大学受験", count: 9 },
+  { exam_type: "高校入試", count: 6 },
   { exam_type: "TOEIC", count: 2 },
-  { exam_type: "中学・高校", count: 2 },
 ];
 
 function fmtStudied(n: number): string {
