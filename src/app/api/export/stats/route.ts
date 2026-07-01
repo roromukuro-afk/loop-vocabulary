@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { todayJST } from "@/lib/utils/date";
 
 export const runtime = "nodejs";
 
@@ -61,7 +62,7 @@ export async function GET() {
   return new NextResponse(zip, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="loop-vocabulary-export-${new Date().toISOString().slice(0, 10)}.csv"`,
+      "Content-Disposition": `attachment; filename="loop-vocabulary-export-${todayJST()}.csv"`,
     },
   });
 }

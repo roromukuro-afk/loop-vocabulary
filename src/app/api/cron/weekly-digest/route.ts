@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResend, FROM_EMAIL } from "@/lib/email/resend";
 import { weeklyDigestHtml } from "@/lib/email/templates";
+import { daysAgoJST } from "@/lib/utils/date";
 
 export const runtime = "nodejs";
 
@@ -13,8 +14,8 @@ export async function GET(req: NextRequest) {
   if (!process.env.RESEND_API_KEY) return NextResponse.json({ skipped: "no_resend_key" });
 
   const admin = createAdminClient();
-  const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-  const now = new Date().toISOString();
+  const weekAgo = daysAgoJST(7); // daily_stats.day (DATE型) は日本時間の暦日で入っている
+  const now = new Date().toISOString(); // next_review_at (TIMESTAMPTZ) との絶対時刻比較のためUTCのままでよい
 
   // メール通知ONのユーザーを取得
   const { data: profiles } = await admin

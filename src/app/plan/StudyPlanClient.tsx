@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { toJstDateString } from "@/lib/utils/date";
 
 const EXAMS = [
   "英検2級", "英検準1級", "英検1級",
@@ -37,9 +38,10 @@ export function StudyPlanClient({ isPremium }: { isPremium: boolean }) {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
 
+  // 絶対時刻として14日後を求めてから、日本時間の暦日として文字列化する
   const minDate = new Date();
   minDate.setDate(minDate.getDate() + 14);
-  const minDateStr = minDate.toISOString().slice(0, 10);
+  const minDateStr = toJstDateString(minDate);
 
   async function generate() {
     if (!targetDate) { setError("目標日を選択してください"); return; }

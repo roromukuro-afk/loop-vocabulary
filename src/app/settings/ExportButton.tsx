@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { todayJST } from "@/lib/utils/date";
 
 export function ExportButton() {
   const [busy, setBusy] = useState(false);
@@ -13,7 +14,7 @@ export function ExportButton() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `loop-vocabulary-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `loop-vocabulary-export-${todayJST()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     setBusy(false);

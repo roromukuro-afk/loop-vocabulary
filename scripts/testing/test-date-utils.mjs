@@ -149,5 +149,91 @@ console.log("\n=== カレンダー（日付と曜日の対応）のテスト ===
   assertTrue(days.includes("2026-07-02"), "JST 2:00 に生成したカレンダーにも当日(07-02)が含まれる（UTC基準なら含まれない）");
 }
 
+console.log("\n=== 週間ランキング境界（ranking/page.tsx）のテスト ===\n");
+
+// ranking/page.tsx の getRanking() と同じロジック（today=todayJST()の代わりにtoJstDateString(base)を使う点のみ違う）
+function weekStartJST(base) {
+  const today = toJstDateString(base);
+  const dayOfWeek = jstWeekdayIndex(today);
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  return daysAgoJST(daysFromMonday, base);
+}
+
+{
+  // 1) 週の起点は必ず月曜になる（曜日の異なる複数の基準日で検証。年またぎ含む）
+  const cases = [
+    ["2026-07-02T12:00:00+09:00", "2026-06-29"], // 木 → 直近の月
+    ["2026-06-30T12:00:00+09:00", "2026-06-29"], // 火 → 直近の月
+    ["2027-01-01T12:00:00+09:00", "2026-12-28"], // 金・年またぎ → 直近の月（年をまたぐ）
+  ];
+  for (const [baseStr, expected] of cases) {
+    assertEqual(weekStartJST(new Date(baseStr)), expected, `${baseStr} の週起点(月曜)は ${expected}`);
+  }
+}
+
+{
+  // 2) JST早朝（UTCではまだ前日）でも、週起点がJST基準の正しい曜日で計算される
+  const earlyMorning = new Date("2026-07-01T00:30:00+09:00"); // JST水曜0:30 = UTC火曜15:30
+  const midday       = new Date("2026-07-01T12:00:00+09:00"); // 同じJST日の正午
+  assertEqual(weekStartJST(earlyMorning), weekStartJST(midday), "JST早朝でも同じJST日の正午と同じ週起点になる");
+  assertEqual(weekStartJST(earlyMorning), "2026-06-29", "JST早朝(水曜0:30)の週起点は直近の月曜(06-29)");
+  // 参考: サーバーのローカル時刻(Vercelは既定でUTC)基準の旧ロジックだと、
+  // このタイミングではUTC上はまだ火曜のため、週起点が1日ズレて計算されてしまっていた
+  const buggyDayOfWeek = earlyMorning.getUTCDay(); // 旧実装は now.getDay() でサーバーローカル(UTC)の曜日を使っていた
+  assertTrue(buggyDayOfWeek !== jstWeekdayIndex(toJstDateString(earlyMorning)), "(参考) UTC基準の曜日とJST基準の曜日が異なる＝旧バグの再現");
+}
+
+console.log("\n=== weekly digest 対象週（api/cron/weekly-digest）のテスト ===\n");
+
+{
+  // 1) 対象週の起点(7日前)がJST基準で計算される
+  const base = new Date("2026-07-02T12:00:00+09:00");
+  assertEqual(daysAgoJST(7, base), "2026-06-25", "2026-07-02の7日前(JST)は2026-06-25");
+}
+
+{
+  // 2) JST早朝でも、UTC基準の素朴な引き算と結果が変わる（＝日付ズレが解消されている）
+  const earlyMorning = new Date("2026-07-01T00:30:00+09:00"); // JST水曜0:30 = UTC火曜15:30
+  const jstWeekAgo   = daysAgoJST(7, earlyMorning);
+  const naiveWeekAgo = new Date(earlyMorning.getTime() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  assertEqual(jstWeekAgo, "2026-06-24", "JST早朝を基準にした7日前(JST)は2026-06-24");
+  assertTrue(jstWeekAgo !== naiveWeekAgo, "(参考) UTC基準の素朴な7日前とJST基準の7日前が異なる＝旧バグの再現");
+}
+
+console.log("\n=== CSV/PDFエクスポートのファイル名日付（export/stats, ExportButton）のテスト ===\n");
+
+{
+  // 1) ファイル名に使う日付がYYYY-MM-DD形式でJST基準になる
+  const base = new Date("2026-07-01T00:30:00+09:00"); // JST水曜0:30 = UTC火曜15:30
+  const filenameDate = toJstDateString(base); // todayJST()の内部実装と同じ変換（実時刻に依存しないよう検証のみ base を使う）
+  assertEqual(filenameDate, "2026-07-01", "JST早朝に生成したファイル名の日付はJST基準の当日(07-01)になる");
+  const naiveFilenameDate = base.toISOString().slice(0, 10);
+  assertTrue(filenameDate !== naiveFilenameDate, "(参考) UTC基準の素朴な日付とJST基準のファイル名日付が異なる＝旧バグの再現");
+}
+
+console.log("\n=== AIプランmin-date（plan/StudyPlanClient）のテスト ===\n");
+
+// StudyPlanClient.tsx と同じロジック: 絶対時刻として+14日した後、JST暦日として文字列化する
+// （テストではホストのローカルタイムゾーンに依存しないよう、setDateではなくミリ秒演算で+14日する。
+//   JSTにはDSTがないため、実装側のsetDate方式と結果は一致する）
+function minDateJST(base) {
+  return toJstDateString(new Date(base.getTime() + 14 * 24 * 3600 * 1000));
+}
+
+{
+  // 1) 14日後がJST基準の暦日で計算される（月またぎ）
+  const base = new Date("2026-06-20T12:00:00+09:00");
+  assertEqual(minDateJST(base), "2026-07-04", "2026-06-20の14日後(JST)は2026-07-04");
+}
+
+{
+  // 2) JST早朝でも、UTC基準の素朴な計算と結果が変わる（＝日付ズレが解消されている）
+  const earlyMorning = new Date("2026-07-01T00:30:00+09:00"); // JST水曜0:30 = UTC火曜15:30
+  const jstMinDate = minDateJST(earlyMorning);
+  const naiveMinDate = new Date(earlyMorning.getTime() + 14 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  assertEqual(jstMinDate, "2026-07-15", "JST早朝基準の14日後(JST)は2026-07-15");
+  assertTrue(jstMinDate !== naiveMinDate, "(参考) UTC基準の素朴な14日後とJST基準のmin-dateが異なる＝旧バグの再現");
+}
+
 console.log(`\n=== RESULT: ${pass} passed, ${fail} failed ===`);
 process.exit(fail ? 1 : 0);

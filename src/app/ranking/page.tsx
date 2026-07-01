@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireUser } from "@/lib/supabase/requireUser";
+import { todayJST, daysAgoJST, jstWeekdayIndex } from "@/lib/utils/date";
 
 export const dynamic = "force-dynamic";
 
@@ -14,13 +15,11 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 
 async function getRanking(myId: string) {
   const admin = createAdminClient();
-  const now = new Date();
-  const dayOfWeek = now.getDay();
+  // 週の起点（月曜0:00）を日本時間基準で計算する
+  const today = todayJST();
+  const dayOfWeek = jstWeekdayIndex(today); // 0=Sun
   const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - daysFromMonday);
-  weekStart.setHours(0, 0, 0, 0);
-  const weekStartDate = weekStart.toISOString().slice(0, 10);
+  const weekStartDate = daysAgoJST(daysFromMonday);
 
   const { data: rows } = await admin
     .from("daily_stats")
@@ -59,15 +58,17 @@ async function getRanking(myId: string) {
   const myIdx = allSorted.findIndex(([id]) => id === myId);
   const myRank = myIdx >= 0 ? myIdx + 1 : null;
 
-  return { ranking, myTotal, myRank, weekStart };
+  return { ranking, myTotal, myRank, weekStartDate };
 }
 
 export default async function RankingPage() {
   const { user } = await requireUser();
-  const { ranking, myTotal, myRank, weekStart } = await getRanking(user.id);
+  const { ranking, myTotal, myRank, weekStartDate } = await getRanking(user.id);
 
-  const weekStartStr = new Date(weekStart).toLocaleDateString("ja-JP", {
-    month: "long", day: "numeric", weekday: "short",
+  // weekStartDate("YYYY-MM-DD")をJST正午のDateにしてから、明示的にAsia/Tokyoで表示整形する
+  // （タイムゾーン指定を省略するとサーバーのローカル時刻(Vercelは既定でUTC)で整形されズレるため）
+  const weekStartStr = new Date(`${weekStartDate}T12:00:00+09:00`).toLocaleDateString("ja-JP", {
+    month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo",
   });
 
   return (
