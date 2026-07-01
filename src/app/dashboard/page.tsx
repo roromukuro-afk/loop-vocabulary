@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/supabase/requireUser";
 import { PushPermission } from "@/components/push/PushPermission";
 import { StudyCalendar } from "@/components/stats/StudyCalendar";
 import { ExamCountdown } from "@/components/dashboard/ExamCountdown";
+import { GoalProgress } from "@/components/dashboard/GoalProgress";
 import { DailyMissions } from "@/components/dashboard/DailyMissions";
 import { StreakShareCard } from "@/components/dashboard/StreakShareCard";
 
@@ -146,6 +147,9 @@ export default async function DashboardPage() {
 
       {/* 試験日カウントダウン */}
       <ExamCountdown examGoal={examGoal} examDate={examDate} />
+
+      {/* 目標別進捗 */}
+      <GoalProgress userId={user.id} examGoal={examGoal} />
 
       {/* 今日の目標進捗バー */}
       <div className="mt-4">

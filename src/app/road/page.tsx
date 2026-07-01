@@ -117,10 +117,18 @@ const MATERIAL_MAP: Record<string, { levelIdx: number; name: string }> = {
 
 const ALL_MATERIAL_IDS = Object.keys(MATERIAL_MAP);
 
+const GOAL_LABEL: Record<string, { label: string; emoji: string }> = {
+  university: { label: "大学受験",   emoji: "🎓" },
+  eiken:      { label: "英検",       emoji: "📝" },
+  toeic:      { label: "TOEIC",     emoji: "💼" },
+  daily:      { label: "日常英会話", emoji: "✈️" },
+  review:     { label: "学び直し",   emoji: "📖" },
+};
+
 export default async function RoadPage() {
   const { user, supabase } = await requireUser();
 
-  const [{ data: wordCountRows }, { data: userWordRows }, { data: importedBooks }] =
+  const [{ data: wordCountRows }, { data: userWordRows }, { data: importedBooks }, { data: profile }] =
     await Promise.all([
       supabase.rpc("get_material_word_counts", { p_material_ids: ALL_MATERIAL_IDS }),
       supabase
@@ -134,7 +142,25 @@ export default async function RoadPage() {
         .select("source_material_id")
         .eq("user_id", user.id)
         .not("source_material_id", "is", null),
+      supabase.from("profiles").select("exam_goal").eq("id", user.id).maybeSingle(),
     ]);
+
+  const rawGoal = profile?.exam_goal as string | null;
+  // Onboarding短縮コード("eiken"等)とExamCountdown文字列("英検準2級"等)両対応
+  const examGoal = (() => {
+    const g = rawGoal;
+    if (!g) return null;
+    const known = ["university","eiken","toeic","daily","review","other"];
+    if (known.includes(g)) return g;
+    const lc = g.toLowerCase();
+    if (lc.includes("英検") || lc.startsWith("eiken")) return "eiken";
+    if (lc.includes("toeic")) return "toeic";
+    if (lc.includes("toefl") || lc.includes("ielts")) return "toeic";
+    if (lc.includes("大学") || lc.includes("共通テスト")) return "university";
+    if (lc.includes("日常") || lc.includes("会話")) return "daily";
+    if (lc.includes("学び直し") || lc.includes("学びなおし")) return "review";
+    return null;
+  })();
 
   const wordCounts = ((wordCountRows ?? []) as WordCountRow[]).reduce((acc: Record<string, number>, r) => {
     acc[r.material_id] = Number(r.word_count);
@@ -169,6 +195,21 @@ export default async function RoadPage() {
   const totalLearned = ALL_MATERIAL_IDS.reduce((s, id) => s + (learnedCounts[id] ?? 0), 0);
   const totalPct = totalWords > 0 ? Math.round((totalLearned / totalWords) * 100) : 0;
 
+  // 目標関連教材のID集合（ハイライト用）
+  const goalMaterialSet = new Set<string>(
+    examGoal ? Object.entries(MATERIAL_MAP)
+      .filter(([, v]) => {
+        if (examGoal === "university") return [2, 3, 5].includes(v.levelIdx);
+        if (examGoal === "eiken")      return [0, 1, 2, 3, 4].includes(v.levelIdx);
+        if (examGoal === "toeic")      return v.levelIdx === 4 && v.name.includes("TOEIC");
+        if (examGoal === "daily")      return v.name.includes("日常") || v.name.includes("中学");
+        if (examGoal === "review")     return [0, 1].includes(v.levelIdx);
+        return false;
+      })
+      .map(([id]) => id)
+    : []
+  );
+
   return (
     <AppShell>
       <h1 className="text-xl font-bold text-navy-800">学習ロード</h1>
@@ -194,6 +235,43 @@ export default async function RoadPage() {
         </div>
         <div className="mt-1.5 text-[10px] text-navy-400">6レベル · 17教材 · 全 {totalWords.toLocaleString()} 語収録</div>
       </div>
+
+      {/* 目標ハイライト */}
+      {examGoal && GOAL_LABEL[examGoal] && (() => {
+        const goalMeta = GOAL_LABEL[examGoal];
+        const goalIds = Object.entries(MATERIAL_MAP)
+          .filter(([, v]) => {
+            if (examGoal === "university") return [2, 3, 5].includes(v.levelIdx);
+            if (examGoal === "eiken")      return [0, 1, 2, 3, 4].includes(v.levelIdx);
+            if (examGoal === "toeic")      return v.levelIdx === 4 && v.name.includes("TOEIC");
+            if (examGoal === "daily")      return v.name.includes("日常") || v.name.includes("中学");
+            if (examGoal === "review")     return [0, 1].includes(v.levelIdx);
+            return false;
+          })
+          .map(([id]) => id);
+        if (goalIds.length === 0) return null;
+        const gTotal = goalIds.reduce((s, id) => s + (wordCounts[id] ?? 0), 0);
+        const gLearned = goalIds.reduce((s, id) => s + (learnedCounts[id] ?? 0), 0);
+        const gPct = gTotal > 0 ? Math.round((gLearned / gTotal) * 100) : 0;
+        return (
+          <div className="mt-4 bg-white border border-navy-200 rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{goalMeta.emoji}</span>
+                <div>
+                  <div className="text-[10px] text-navy-400 font-medium uppercase tracking-wider">あなたの目標</div>
+                  <div className="text-sm font-black text-navy-800">{goalMeta.label}関連教材</div>
+                </div>
+              </div>
+              <div className="text-2xl font-black text-navy-800 tabular-nums">{gPct}%</div>
+            </div>
+            <div className="h-2 bg-navy-100 rounded-full overflow-hidden mb-2">
+              <div className="h-full bg-gradient-to-r from-sky-400 to-emerald-400 rounded-full transition-all duration-700" style={{ width: `${gPct}%` }} />
+            </div>
+            <div className="text-[11px] text-navy-400">{gLearned.toLocaleString()} / {gTotal.toLocaleString()} 語 学習済み · 関連教材は下のリストでハイライト表示</div>
+          </div>
+        );
+      })()}
 
       {/* レベルリスト */}
       <div className="mt-5 space-y-5">
@@ -235,11 +313,12 @@ export default async function RoadPage() {
                 {level.materials.map((mat) => {
                   const pct = mat.wordCount > 0 ? Math.round((mat.learned / mat.wordCount) * 100) : 0;
                   const done = pct >= 100;
+                  const isGoalMat = goalMaterialSet.has(mat.id);
                   return (
                     <Link
                       key={mat.id}
                       href={`/materials/${mat.id}`}
-                      className="flex items-center gap-3 px-4 py-3.5 hover:bg-navy-50 transition-colors"
+                      className={`flex items-center gap-3 px-4 py-3.5 hover:bg-navy-50 transition-colors ${isGoalMat ? "bg-sky-50/60" : ""}`}
                     >
                       {/* 状態アイコン */}
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm ${
@@ -256,6 +335,9 @@ export default async function RoadPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-sm font-bold text-navy-800">{mat.name}</span>
+                          {isGoalMat && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold">目標</span>
+                          )}
                           {mat.imported && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">学習中</span>
                           )}
