@@ -5,6 +5,26 @@
 
 ---
 
+## 2026-07-02 未使用・壊れたAPI `api/ranking/route.ts` を削除
+
+前回のJST日付修正で「スコープ外」としてフラグした`src/app/api/ranking/route.ts`を精査し削除。
+
+**確認内容**:
+- 呼び出し元: リポジトリ全体を検索しても`/api/ranking`への参照はゼロ
+  （`ranking/page.tsx`はこのAPIを使わず、Server Componentとして直接DBをクエリしている）
+- 外部公開API意図: READMEに公開APIとしての言及なし。`requireUser()`は同一オリジン内部認証のみで
+  APIキー/CORS設計もなく、外部（モバイルアプリ等）向けの意図は確認できなかった
+  （`mobile-shell/`はCapacitor用の静的PWAシェルのみで、このAPIには依存していない）
+- 実際に呼ばれた場合の挙動: `daily_stats`の実カラムは`day`/`studied_count`
+  （[supabase/schema.sql](supabase/schema.sql)で確認）。ルートが参照していた`words_studied`/
+  `studied_date`は存在しないため、呼び出せば必ず500エラーになる機能不全のコードだった
+
+**判断**: 未使用・呼び出し不可能なコードのため削除（DBスキーマ・RLS・rankingページのUI挙動・
+SRS V2・先生機能には触れていない）。以前spawnしたフォローアップタスク(`task_fc910af5`)は
+このセッションで対応したため取り下げ。
+
+**検証**: `tsc --noEmit` / `build` / `test:smoke` / `verify:prod`（デプロイ前後）全通過。
+
 ## 2026-07-02 残り4ファイルのUTC日付パターンをJST基準に統一（本番デプロイ済 `d816edd`）
 
 前回（2026-07-01）のstreak/カレンダー修正で「未対応」として報告した残り4ファイルを対応。
@@ -24,7 +44,7 @@
 - [plan/StudyPlanClient.tsx](src/app/plan/StudyPlanClient.tsx): AIプランのmin-date(14日後)を
   `toJstDateString()`でJST暦日として文字列化（+14日の絶対時刻計算自体は変更なし）
 
-**スコープ外として意図的に見送ったもの**: `api/api/ranking/route.ts` は同じUTC日付バグに加え、
+**スコープ外として意図的に見送ったもの**: `api/ranking/route.ts` は同じUTC日付バグに加え、
 存在しないカラム(`words_studied`/`studied_date`。実際は`studied_count`/`day`)を参照しており、
 grepで呼び出し元ゼロ（未使用コード）と確認済み。日付ズレ修正のスコープからは外れるため触れず、
 別タスクとして`spawn_task`済み（`task_fc910af5`）。
