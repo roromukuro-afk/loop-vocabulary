@@ -4,7 +4,7 @@ import {
   applySrs,
   applySrsV2,
   clampMastery,
-  isSrsV2Enabled,
+  srsV2EnabledFor,
   ratingFromCorrect,
   SRS_V2,
   type SrsRating,
@@ -31,9 +31,16 @@ export async function saveStudyResult(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
+  // ---- V2 判定: グローバル env フラグ、または当該ユーザーの opt-in（profiles.srs_v2）----
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("srs_v2")
+    .eq("id", user.id)
+    .maybeSingle();
+  const useV2 = srsV2EnabledFor(prof?.srs_v2);
+
   // ---- 統計・study_results 用の正誤（V2 の again のみ「不正解」扱い）----
   const effectiveRating: SrsRating = rating ?? ratingFromCorrect(isCorrect);
-  const useV2 = isSrsV2Enabled();
   const countedCorrect = useV2 ? effectiveRating !== "again" : isCorrect;
 
   if (useV2) {

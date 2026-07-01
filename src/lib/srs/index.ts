@@ -171,7 +171,16 @@ export function applySrsV2({ ease, interval_days, streak, is_weak, rating, now }
   };
 }
 
-/** V2 を有効化するフラグ（未設定 = OFF = 現状の固定間隔と完全同一） */
+/** V2 を有効化するグローバル env フラグ（未設定 = OFF = 現状の固定間隔と完全同一） */
 export function isSrsV2Enabled(): boolean {
   return process.env.NEXT_PUBLIC_SRS_V2 === "1";
+}
+
+/**
+ * ユーザーごとの実効的な V2 判定。
+ * グローバル env フラグ ON、または当該ユーザーの profiles.srs_v2 = true なら V2。
+ * どちらも無ければ従来の V1（固定間隔）で完全同一挙動。
+ */
+export function srsV2EnabledFor(profileSrsV2: boolean | null | undefined): boolean {
+  return isSrsV2Enabled() || profileSrsV2 === true;
 }

@@ -17,7 +17,7 @@ type Result = { word: string; meaning: string; ok: boolean };
 
 const SWIPE_KEY = "lv_swipe_mode";
 
-export function FlipCardRunner({ pool }: { pool: W[] }) {
+export function FlipCardRunner({ pool, v2Enabled }: { pool: W[]; v2Enabled?: boolean }) {
   const showInterstitial = useAppInterstitial();
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -32,8 +32,9 @@ export function FlipCardRunner({ pool }: { pool: W[] }) {
   const [swipeHint, setSwipeHint] = useState<"left" | "right" | null>(null);
 
   const cur = pool[idx];
-  // feature flag: ON のとき4段階評価UIを表示。OFFなら従来の2値(まだ/覚えた)のまま。
-  const v2 = isSrsV2Enabled();
+  // V2判定: サーバから渡された実効フラグ（env or ユーザーopt-in）を優先。
+  // 未指定時は env のみで判定。ON のとき4段階評価UI、OFFなら従来の2値。
+  const v2 = v2Enabled ?? isSrsV2Enabled();
 
   useEffect(() => { trackFeatureUsed("flip_card"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

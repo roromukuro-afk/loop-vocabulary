@@ -4,6 +4,7 @@ import { Card, CardTitle, Stat } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
+import { srsV2EnabledFor } from "@/lib/srs";
 import { ChoiceTestRunner } from "../test/choice/ChoiceTestRunner";
 import { FlipCardRunner } from "@/components/review/FlipCardRunner";
 
@@ -31,7 +32,12 @@ export default async function ReviewPage({
 
   if (sp.start === "1") {
     if (mode === "flip" && pool.length >= 1) {
-      return <FlipCardRunner pool={pool} />;
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("srs_v2")
+        .eq("id", user.id)
+        .maybeSingle();
+      return <FlipCardRunner pool={pool} v2Enabled={srsV2EnabledFor(prof?.srs_v2)} />;
     }
     if (mode === "choice" && pool.length >= 4) {
       return <ChoiceTestRunner pool={pool} mode="en2ja" count={Math.min(10, pool.length)} placement="review" />;
