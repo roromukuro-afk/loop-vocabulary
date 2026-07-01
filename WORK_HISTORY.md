@@ -5,6 +5,14 @@
 
 ---
 
+## 2026-07-01 Google Search Console 登録完了
+
+- オーナーが `https://loop-vocabulary.app`（URLプレフィックス）を登録・所有権確認済み
+  （既存のGoogleアカウント/GA連携により、私の想定していたHTMLタグ追加は不要だった）
+- sitemap送信済み: ステータス **Success**、**Discovered pages: 69**（sitemap全体は78件、クロール遅延の範囲内）
+- [SEARCH_CONSOLE_SETUP.md](SEARCH_CONSOLE_SETUP.md) を実態に合わせて更新（§0にステータス追記）
+- 次回: 1週間後目安に「ページ」タブでインデックス済み/除外の内訳を確認
+
 ## 2026-07-01 SRS V2 全ユーザーON（本番反映済）
 
 - Vercel CLI（`vercel env add` / `vercel --prod`）で `NEXT_PUBLIC_SRS_V2=1` を
