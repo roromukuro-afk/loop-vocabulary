@@ -5,6 +5,25 @@
 
 ---
 
+## 2026-07-01 streak/カレンダーの日付バグ修正（本番デプロイ済 `bc04e47`）
+
+**原因**: `new Date().toISOString().slice(0,10)`（UTC日付）が `daily_stats.day` の書き込み・
+streak計算・カレンダー表示など9ファイルで使われており、JST(UTC+9)の 0:00〜9:00 の間は
+UTC日付が前日のままになるため、①1つのJST日の学習が2つのUTC日にまたがって記録され
+streakが不正に増える／減る、②`StudyWeekGraph`で日付キー(UTC)と曜日ラベル(ローカル時刻)が
+別々のタイムゾーンで計算され曜日と日付が一致しない、という2つのバグが発生していた。
+
+**修正**: `src/lib/utils/date.ts`（新規）に固定UTC+9オフセット計算のJSTユーティリティを実装
+（`todayJST`/`daysAgoJST`/`jstWeekdayIndex`/`lastNDaysJST`/`jstHour`/`jstDayOfMonth`/
+`todayStartJstISO`）。`saveResult.ts`（daily_stats書き込み元）・`dashboard/page.tsx`・
+`stats/page.tsx`・カレンダー2種・`StudyWeekGraph`・`admin/stats`・AI/PDFの日次クォータに適用。
+DBスキーマ・RLS・SRS V2の算出ロジック・先生機能・課金には触れていない。
+**既存データの補正（過去のdaily_stats行の是正）は実施していない**（低価値・高リスクと判断、
+理由は完了報告で説明済み）。
+
+**テスト**: `scripts/testing/test-date-utils.mjs`（`npm run test:dates`、`test:smoke`にも組込）
+25ケース全PASS。`test:e2e`3本も回帰なし。
+
 ## 2026-07-01 Google Search Console 登録完了
 
 - オーナーが `https://loop-vocabulary.app`（URLプレフィックス）を登録・所有権確認済み
