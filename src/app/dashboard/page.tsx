@@ -181,28 +181,51 @@ export default async function DashboardPage() {
         <Stat label="復習待ち" value={dueCount ?? 0} hint="単語" />
       </section>
 
-      {/* アクションボタン */}
-      <section className="mt-5 space-y-3">
-        <Link href="/learn">
-          <Button fullWidth size="lg">📖 レッスンで新単語を学ぶ</Button>
-        </Link>
-      </section>
-      <section className="mt-3 grid grid-cols-2 gap-3">
-        <Link href="/review?start=1&mode=flip">
-          <Button fullWidth size="lg" className="relative">
-            今日の復習
-            {(dueCount ?? 0) > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                {Math.min(dueCount ?? 0, 99)}
-              </span>
+      {/* アクションボタン（新規ユーザーは「単語を追加」を最優先に） */}
+      {!hasWords ? (
+        <section className="mt-5 space-y-3">
+          <Link href="/dictionary">
+            <Button fullWidth size="lg">🔍 辞書で単語を追加</Button>
+          </Link>
+          <div className="grid grid-cols-2 gap-3">
+            <Link href="/materials"><Button fullWidth size="lg" variant="secondary">📚 教材から追加</Button></Link>
+            <Link href="/learn"><Button fullWidth size="lg" variant="secondary">📖 レッスンを見る</Button></Link>
+          </div>
+          <p className="text-[11px] text-navy-400 text-center">
+            まずは1語だけでもOK。追加すると忘却曲線で自動的に復習できます。
+          </p>
+        </section>
+      ) : (
+        <>
+          <section className="mt-5 space-y-3">
+            {(dueCount ?? 0) > 0 ? (
+              <Link href="/review?start=1&mode=flip">
+                <Button fullWidth size="lg" className="relative">
+                  🔁 今日の復習
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                    {Math.min(dueCount ?? 0, 99)}
+                  </span>
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/learn">
+                <Button fullWidth size="lg">📖 レッスンで新単語を学ぶ</Button>
+              </Link>
             )}
-          </Button>
-        </Link>
-        <Link href="/test"><Button fullWidth size="lg" variant="secondary">テストを始める</Button></Link>
-        <Link href="/test/typing"><Button fullWidth size="md" variant="secondary">⌨️ タイピング練習</Button></Link>
-        <Link href="/extract"><Button fullWidth size="md" variant="secondary">✨ 英文から単語抽出</Button></Link>
-        <Link href="/plan" className="col-span-2"><Button fullWidth size="md" variant="secondary">🗓️ AIパーソナル学習プラン</Button></Link>
-      </section>
+          </section>
+          <section className="mt-3 grid grid-cols-2 gap-3">
+            {(dueCount ?? 0) > 0 ? (
+              <Link href="/learn"><Button fullWidth size="lg" variant="secondary">📖 レッスンで学ぶ</Button></Link>
+            ) : (
+              <Link href="/review?start=1&mode=flip"><Button fullWidth size="lg" variant="secondary">今日の復習</Button></Link>
+            )}
+            <Link href="/test"><Button fullWidth size="lg" variant="secondary">テストを始める</Button></Link>
+            <Link href="/test/typing"><Button fullWidth size="md" variant="secondary">⌨️ タイピング練習</Button></Link>
+            <Link href="/extract"><Button fullWidth size="md" variant="secondary">✨ 英文から単語抽出</Button></Link>
+            <Link href="/plan" className="col-span-2"><Button fullWidth size="md" variant="secondary">🗓️ AIパーソナル学習プラン</Button></Link>
+          </section>
+        </>
+      )}
 
       {/* デイリーミッション */}
       <DailyMissions studied={studied} dailyGoal={DAILY_GOAL} streak={streak} wordCount={wordCount ?? 0} />

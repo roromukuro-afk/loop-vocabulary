@@ -285,6 +285,15 @@ export default async function MaterialsPage({
         </div>
       )}
 
+      {user && importedSet.size === 0 && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+          <p className="text-xs text-amber-800 leading-relaxed">
+            <span className="font-bold">はじめての方へ</span> — 気になる教材を1つ選んで
+            <b>「単語帳にインポート」</b>すると、すぐに学習と自動復習を始められます。
+          </p>
+        </div>
+      )}
+
       <SearchBar />
 
       <div className="mt-5 space-y-7">
