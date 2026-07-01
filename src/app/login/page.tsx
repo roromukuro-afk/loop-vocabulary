@@ -153,12 +153,12 @@ export default function LoginPage() {
         {mode === "password" ? (
           <form onSubmit={onSubmitPassword} className="space-y-4">
             <Field label="メールアドレス">
-              <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+              <Input data-testid="login-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
             </Field>
             <Field label="パスワード">
-              <Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+              <Input data-testid="login-password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
             </Field>
-            <Button type="submit" fullWidth size="lg" disabled={busy || googleBusy}>
+            <Button data-testid="login-submit" type="submit" fullWidth size="lg" disabled={busy || googleBusy}>
               {busy ? "ログイン中..." : "ログイン"}
             </Button>
           </form>

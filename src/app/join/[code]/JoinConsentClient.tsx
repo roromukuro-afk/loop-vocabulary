@@ -52,6 +52,7 @@ export function JoinConsentClient({ code, className }: { code: string; className
 
       <label className="flex items-start gap-2 mt-3 text-sm text-navy-700">
         <input
+          data-testid="join-consent-checkbox"
           type="checkbox"
           checked={consent}
           onChange={(e) => setConsent(e.target.checked)}
@@ -61,7 +62,7 @@ export function JoinConsentClient({ code, className }: { code: string; className
       </label>
 
       <div className="mt-4">
-        <Button onClick={join} disabled={!consent || busy} size="lg" fullWidth>
+        <Button data-testid="join-submit" onClick={join} disabled={!consent || busy} size="lg" fullWidth>
           {busy ? "参加中..." : "同意してクラスに参加"}
         </Button>
       </div>

@@ -33,7 +33,7 @@ export function MyClasses({ memberships }: { memberships: Membership[] }) {
   return (
     <ul className="divide-y divide-navy-100">
       {active.map((m) => (
-        <li key={m.class_id} className="py-3">
+        <li key={m.class_id} data-testid="my-class-row" data-class={m.class_name} className="py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="font-semibold text-navy-800 text-sm">{m.class_name}</div>
@@ -50,6 +50,7 @@ export function MyClasses({ memberships }: { memberships: Membership[] }) {
           <div className={`mt-2 flex gap-2 ${busyId === m.class_id ? "opacity-60 pointer-events-none" : ""}`}>
             {m.consent ? (
               <button
+                data-testid="revoke-consent"
                 onClick={() => act(m.class_id, "revoke")}
                 className="text-xs font-bold text-amber-700 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-50"
               >
@@ -57,6 +58,7 @@ export function MyClasses({ memberships }: { memberships: Membership[] }) {
               </button>
             ) : (
               <button
+                data-testid="reconsent"
                 onClick={() => act(m.class_id, "reconsent")}
                 className="text-xs font-bold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5 hover:bg-emerald-50"
               >
@@ -64,6 +66,7 @@ export function MyClasses({ memberships }: { memberships: Membership[] }) {
               </button>
             )}
             <button
+              data-testid="leave-class"
               onClick={() => act(m.class_id, "leave")}
               className="text-xs font-bold text-red-600 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50"
             >

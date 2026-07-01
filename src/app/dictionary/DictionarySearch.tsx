@@ -111,12 +111,13 @@ export function DictionarySearch({
     <div>
       <form onSubmit={search} className="flex gap-2">
         <Input
+          data-testid="dictionary-search-input"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="例: increase / 重要"
           inputMode="search"
         />
-        <Button type="submit" disabled={busy}>{busy ? "検索中..." : "検索"}</Button>
+        <Button data-testid="dictionary-search-submit" type="submit" disabled={busy}>{busy ? "検索中..." : "検索"}</Button>
       </form>
 
       {loggedIn && (
@@ -135,7 +136,7 @@ export function DictionarySearch({
       {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
 
       {savedKey && loggedIn && (
-        <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+        <div data-testid="post-add-cta" className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs text-emerald-800 font-semibold">✓ 単語帳に追加しました！さっそく覚えましょう</span>
           <span className="flex gap-2">
             <Link href="/review?start=1&mode=flip" className="text-xs font-bold rounded-lg px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">▶ 復習で覚える</Link>
@@ -149,7 +150,7 @@ export function DictionarySearch({
           const key = `${h.source}:${h.word}:${i}`;
           const saved = savedKey === `${h.source}:${h.word}`;
           return (
-            <li key={key} className="bg-white border border-navy-100 rounded-xl p-4">
+            <li key={key} data-testid="dictionary-hit" data-word={h.word} className="bg-white border border-navy-100 rounded-xl p-4">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-navy-800 text-lg">{h.word}</span>
                 {h.pos && <span className="text-[11px] text-navy-400">[{h.pos}]</span>}
@@ -166,7 +167,7 @@ export function DictionarySearch({
               )}
               <div className="mt-3">
                 {loggedIn ? (
-                  <Button size="sm" onClick={() => addToBook(h)} disabled={saved || !bookId}>
+                  <Button data-testid="add-to-wordbook" size="sm" onClick={() => addToBook(h)} disabled={saved || !bookId}>
                     {saved ? "追加済み" : "＋ 単語帳に追加"}
                   </Button>
                 ) : (

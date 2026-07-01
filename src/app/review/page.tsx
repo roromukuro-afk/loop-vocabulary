@@ -101,7 +101,7 @@ export default async function ReviewPage({
             </li>
           ))}
           {pool.length === 0 && (
-            <li className="py-8 text-center">
+            <li data-testid="review-empty-state" className="py-8 text-center">
               <div className="text-3xl mb-2">✨</div>
               <div className="font-semibold text-navy-700 text-sm">復習待ちの単語はありません</div>
               <div className="text-xs text-navy-400 mt-1 mb-4">

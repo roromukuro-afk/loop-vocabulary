@@ -65,7 +65,7 @@ export default async function ClassRosterPage({
             を共有し、生徒に参加・共有同意してもらってください。
           </p>
         ) : (
-          <div className="mt-2 overflow-x-auto">
+          <div className="mt-2 overflow-x-auto" data-testid="teacher-roster">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="text-[11px] text-navy-400 border-b border-navy-100">
@@ -80,7 +80,7 @@ export default async function ClassRosterPage({
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.student_id} className="border-b border-navy-50 last:border-0">
+                  <tr key={r.student_id} data-testid="teacher-roster-row" data-student={r.display_name} className="border-b border-navy-50 last:border-0">
                     <td className="py-2.5 pr-2 font-semibold text-navy-800">{r.display_name}</td>
                     <td className="text-right px-2 tabular-nums">{Number(r.total_learned).toLocaleString()}</td>
                     <td className="text-right px-2 tabular-nums">{Number(r.accuracy)}%</td>

@@ -201,6 +201,8 @@ export function FlipCardRunner({ pool, v2Enabled }: { pool: W[]; v2Enabled?: boo
         {/* フリップカード */}
         <div
           className="w-full relative"
+          data-testid="flip-card"
+          data-word={cur.word}
           style={{ perspective: "1200px" }}
           onClick={handleFlip}
           onTouchStart={onTouchStart}
@@ -256,8 +258,9 @@ export function FlipCardRunner({ pool, v2Enabled }: { pool: W[]; v2Enabled?: boo
         ) : swipeMode ? (
           <p className="text-sm text-navy-400">← まだ　　覚えた →</p>
         ) : v2 ? (
-          <div className="w-full grid grid-cols-4 gap-2">
+          <div className="w-full grid grid-cols-4 gap-2" data-testid="srs-v2-rating-buttons">
             <button
+              data-testid="rate-again"
               onClick={() => handleRate("again")}
               disabled={busy}
               className="py-4 rounded-2xl bg-red-50 border-2 border-red-200 text-red-700 font-bold hover:bg-red-100 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center gap-0.5"
@@ -266,6 +269,7 @@ export function FlipCardRunner({ pool, v2Enabled }: { pool: W[]; v2Enabled?: boo
               <span className="text-[10px] font-normal text-red-400">明日</span>
             </button>
             <button
+              data-testid="rate-hard"
               onClick={() => handleRate("hard")}
               disabled={busy}
               className="py-4 rounded-2xl bg-amber-50 border-2 border-amber-200 text-amber-700 font-bold hover:bg-amber-100 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center gap-0.5"
@@ -274,6 +278,7 @@ export function FlipCardRunner({ pool, v2Enabled }: { pool: W[]; v2Enabled?: boo
               <span className="text-[10px] font-normal text-amber-400">短め</span>
             </button>
             <button
+              data-testid="rate-good"
               onClick={() => handleRate("good")}
               disabled={busy}
               className="py-4 rounded-2xl bg-sky-50 border-2 border-sky-200 text-sky-700 font-bold hover:bg-sky-100 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center gap-0.5"
@@ -282,6 +287,7 @@ export function FlipCardRunner({ pool, v2Enabled }: { pool: W[]; v2Enabled?: boo
               <span className="text-[10px] font-normal text-sky-400">標準</span>
             </button>
             <button
+              data-testid="rate-easy"
               onClick={() => handleRate("easy")}
               disabled={busy}
               className="py-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 text-emerald-700 font-bold hover:bg-emerald-100 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center gap-0.5"
@@ -291,8 +297,9 @@ export function FlipCardRunner({ pool, v2Enabled }: { pool: W[]; v2Enabled?: boo
             </button>
           </div>
         ) : (
-          <div className="w-full grid grid-cols-2 gap-4">
+          <div className="w-full grid grid-cols-2 gap-4" data-testid="srs-v1-answer-buttons">
             <button
+              data-testid="answer-wrong"
               onClick={() => handleAnswer(false)}
               disabled={busy}
               className="py-5 rounded-2xl bg-red-50 border-2 border-red-200 text-red-700 font-bold text-xl hover:bg-red-100 active:scale-95 transition-all disabled:opacity-50"
@@ -300,6 +307,7 @@ export function FlipCardRunner({ pool, v2Enabled }: { pool: W[]; v2Enabled?: boo
               ✗ まだ
             </button>
             <button
+              data-testid="answer-correct"
               onClick={() => handleAnswer(true)}
               disabled={busy}
               className="py-5 rounded-2xl bg-emerald-50 border-2 border-emerald-300 text-emerald-700 font-bold text-xl hover:bg-emerald-100 active:scale-95 transition-all disabled:opacity-50"

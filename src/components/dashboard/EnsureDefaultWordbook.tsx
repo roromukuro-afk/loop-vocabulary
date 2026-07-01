@@ -25,7 +25,7 @@ export function EnsureDefaultWordbook() {
   if (!created || dismissed) return null;
 
   return (
-    <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+    <div data-testid="default-wordbook-created" className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-bold text-emerald-800">

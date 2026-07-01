@@ -44,7 +44,7 @@ export function FirstStepsGuide({
   const currentIdx = steps.findIndex((s) => !s.done);
 
   return (
-    <div className="mt-4 rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-white p-4">
+    <div data-testid="first-steps-guide" className="mt-4 rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-white p-4">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-lg">🚀</span>
         <div>
@@ -59,6 +59,8 @@ export function FirstStepsGuide({
           return (
             <li
               key={i}
+              data-testid={`first-step-${i}`}
+              data-done={s.done}
               className={`rounded-xl border px-3 py-2.5 transition-colors ${
                 s.done
                   ? "border-emerald-200 bg-emerald-50/60"

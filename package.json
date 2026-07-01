@@ -11,7 +11,14 @@
     "cap:shell": "node ./scripts/build-mobile-shell.mjs",
     "cap:sync": "npm run cap:shell && npx cap sync",
     "cap:open:android": "npx cap open android",
-    "cap:open:ios": "npx cap open ios"
+    "cap:open:ios": "npx cap open ios",
+    "test:setup": "node scripts/testing/setup-test-users.mjs && node scripts/testing/seed-test-data.mjs",
+    "test:e2e": "node scripts/testing/run-e2e.mjs",
+    "test:srs": "node scripts/testing/e2e/srs.mjs",
+    "test:teacher": "node scripts/testing/e2e/teacher.mjs",
+    "test:onboarding": "node scripts/testing/e2e/onboarding-dictionary.mjs",
+    "test:smoke": "node scripts/testing/smoke.mjs",
+    "verify:prod": "node scripts/testing/verify-prod.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

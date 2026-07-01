@@ -28,6 +28,7 @@ export function SrsModeToggle({ enabled }: { enabled: boolean }) {
           </p>
         </div>
         <button
+          data-testid="srs-v2-toggle"
           onClick={() => update(!on)}
           className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${on ? "bg-emerald-500" : "bg-navy-200"}`}
           aria-pressed={on}
