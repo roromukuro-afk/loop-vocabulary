@@ -14,6 +14,8 @@ type SourceKind = "book" | "material";
 type Direction = "en2ja" | "ja2en";
 type Format = "write" | "choice";
 type Filter = "all" | "weak" | "new";
+type Columns = 1 | 2;
+type AnswerMode = "none" | "inline" | "separate";
 
 type Row = { word: string; meaning: string };
 
@@ -26,7 +28,8 @@ export function PdfTestBuilder({
   const [format, setFormat] = useState<Format>("write");
   const [filter, setFilter] = useState<Filter>("all");
   const [count, setCount] = useState<number>(20);
-  const [withAnswer, setWithAnswer] = useState<boolean>(false);
+  const [columns, setColumns] = useState<Columns>(1);
+  const [answerMode, setAnswerMode] = useState<AnswerMode>("none");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [showUpsell, setShowUpsell] = useState(false);
@@ -86,7 +89,7 @@ export function PdfTestBuilder({
       // 印刷用ウィンドウを開いて jsPDF でなく HTML 印刷を使う (フォント互換のため)
       // 多言語フォント問題を避けるため HTML 経由でブラウザ印刷 → PDF 化
       const html = renderHtml({
-        rows, direction, format, withAnswer,
+        rows, direction, format, columns, answerMode,
         title: src === "book"
           ? books.find((b) => b.id === sourceId)?.title ?? "小テスト"
           : materials.find((m) => m.id === sourceId)?.title ?? "小テスト",
@@ -103,7 +106,7 @@ export function PdfTestBuilder({
           user_id: user.id,
           word_book_id: src === "book"     ? sourceId : null,
           material_id:   src === "material" ? sourceId : null,
-          config: { direction, format, filter, count, withAnswer },
+          config: { direction, format, filter, count, columns, answerMode },
         });
       }
       // ブラウザ印刷ダイアログ
@@ -156,16 +159,26 @@ export function PdfTestBuilder({
       <Field label="出題数">
         <Input type="number" min={5} max={100} value={count} onChange={(e) => setCount(Number(e.target.value))} />
       </Field>
-      <label className="flex items-center gap-2 text-sm text-navy-700 sm:col-span-2">
-        <input type="checkbox" checked={withAnswer} onChange={(e) => setWithAnswer(e.target.checked)} />
-        解答つき (答え合わせ用) を生成
-      </label>
+      <Field label="段組み">
+        <Select value={String(columns)} onChange={(e) => setColumns(Number(e.target.value) as Columns)}>
+          <option value="1">1 段組み</option>
+          <option value="2">2 段組み (省スペース)</option>
+        </Select>
+      </Field>
+      <Field label="解答">
+        <Select value={answerMode} onChange={(e) => setAnswerMode(e.target.value as AnswerMode)}>
+          <option value="none">なし (問題のみ)</option>
+          <option value="inline">同ページ末尾に解答</option>
+          <option value="separate">別紙 (解答用紙を分離)</option>
+        </Select>
+      </Field>
       <div className="sm:col-span-2">
         <Button onClick={generate} disabled={busy || !sourceId} size="lg" fullWidth>
           {busy ? "生成中..." : "印刷用ウィンドウを開く"}
         </Button>
         <p className="text-[11px] text-navy-400 mt-2">
           ※ 別タブで印刷プレビューが開きます。ブラウザの「PDFで保存」で PDF 化できます。
+          「別紙」を選ぶと解答が改ページされ、問題用紙と解答用紙を分けて印刷できます。
           無料プランは1日 {FREE_PDF_LIMIT} 回まで。プレミアムで無制限。
         </p>
       </div>
@@ -175,9 +188,9 @@ export function PdfTestBuilder({
 }
 
 function renderHtml(o: {
-  rows: Row[]; direction: Direction; format: Format; withAnswer: boolean; title: string;
+  rows: Row[]; direction: Direction; format: Format; columns: Columns; answerMode: AnswerMode; title: string;
 }) {
-  const { rows, direction, format, withAnswer, title } = o;
+  const { rows, direction, format, columns, answerMode, title } = o;
   const items = rows.map((r, i) => {
     const prompt = direction === "en2ja" ? r.word : r.meaning;
     const answer = direction === "en2ja" ? r.meaning : r.word;
@@ -191,41 +204,74 @@ function renderHtml(o: {
     return { i, prompt, answer, choices: null as string[] | null };
   });
 
+  const olClass = columns === 2 ? "cols2" : "";
+
   const css = `
-    @page { size: A4; margin: 18mm 16mm; }
-    body { font-family: 'Hiragino Sans','Noto Sans JP', sans-serif; color:#111e38; }
-    h1 { font-size: 16pt; margin: 0 0 6mm; }
-    .meta { font-size: 10pt; color:#476394; margin-bottom: 8mm; display:flex; justify-content:space-between; }
+    @page { size: A4; margin: 16mm 15mm; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Hiragino Sans','Noto Sans JP', sans-serif; color:#111e38; margin:0; }
+    h1 { font-size: 15pt; margin: 0 0 4mm; }
+    .head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 6mm; gap: 6mm; }
+    .head .info { display:flex; gap: 4mm; flex-shrink:0; }
+    .info-box { border:1px solid #243860; border-radius: 2px; padding: 1.5mm 4mm; font-size: 10pt; white-space:nowrap; }
+    .meta { font-size: 9.5pt; color:#476394; margin: 0 0 6mm; }
     ol { margin: 0; padding-left: 8mm; }
-    li { font-size: 11pt; margin-bottom: 5mm; line-height: 1.6; }
-    .ans-line { display:inline-block; min-width: 60mm; border-bottom: 1px solid #243860; margin-left: 4mm; }
-    .choices { display:flex; flex-wrap:wrap; gap: 6mm; font-size:10.5pt; margin-top:1mm; }
-    .answers { margin-top: 12mm; border-top: 1px dashed #6b87b3; padding-top: 6mm; }
-    .answers h2 { font-size: 12pt; margin: 0 0 3mm; }
-    .answers ol li { font-size: 10pt; margin-bottom: 1mm; }
-    .name-box { border:1px solid #243860; padding: 2mm 4mm; font-size: 10pt; }
+    ol.cols2 { column-count: 2; column-gap: 10mm; }
+    li { font-size: 11pt; margin-bottom: 5mm; line-height: 1.6; break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; }
+    .prompt { font-weight: 500; }
+    .ans-line { display:inline-block; min-width: 45mm; border-bottom: 1px solid #243860; margin-left: 3mm; }
+    .choices { display:flex; flex-wrap:wrap; gap: 5mm; font-size:10pt; margin-top:1.5mm; }
+    .sheet { }
+    .answer-sheet { page-break-before: always; }
+    .answers-title { font-size: 13pt; margin: 0 0 4mm; border-bottom: 2px solid #243860; padding-bottom: 2mm; }
+    .answers.inline { margin-top: 10mm; border-top: 1px dashed #6b87b3; padding-top: 5mm; }
+    .answers.inline h2 { font-size: 12pt; margin: 0 0 3mm; }
+    ol.answers-list { padding-left: 8mm; }
+    ol.answers-list.cols2 { column-count: 2; column-gap: 10mm; }
+    ol.answers-list li { font-size: 10pt; margin-bottom: 1.5mm; line-height: 1.5; }
+    @media print { .answer-sheet { page-break-before: always; } }
   `;
 
   const qhtml = items.map((q) => {
     const choicesHtml = q.choices
       ? `<div class="choices">${q.choices.map((c, idx) => `<span>${["ア","イ","ウ","エ"][idx]}. ${escape(c)}</span>`).join("")}</div>`
       : `<span class="ans-line">&nbsp;</span>`;
-    return `<li>${escape(q.prompt)} ${choicesHtml}</li>`;
+    return `<li><span class="prompt">${escape(q.prompt)}</span> ${choicesHtml}</li>`;
   }).join("");
 
-  const answersHtml = withAnswer
-    ? `<div class="answers"><h2>解答</h2><ol>${items.map((q) => `<li>${escape(q.answer)}</li>`).join("")}</ol></div>`
-    : "";
+  const dirLabel = direction === "en2ja" ? "英 → 日" : "日 → 英";
+  const fmtLabel = format === "choice" ? "4 択" : "記述";
+
+  const answersListHtml = `<ol class="answers-list ${olClass}">${items.map((q) => `<li>${escape(q.answer)}</li>`).join("")}</ol>`;
+
+  // 解答の配置: none=なし / inline=同ページ末尾 / separate=別ページ(解答用紙)
+  let answersHtml = "";
+  if (answerMode === "inline") {
+    answersHtml = `<div class="answers inline"><h2>解答</h2>${answersListHtml}</div>`;
+  } else if (answerMode === "separate") {
+    answersHtml = `<section class="answer-sheet">
+      <h1>${escape(title)} 小テスト <span style="font-size:11pt;color:#476394;">— 解答用紙</span></h1>
+      <div class="meta">出題方向: ${dirLabel} / 形式: ${fmtLabel} / 全 ${items.length} 問</div>
+      ${answersListHtml}
+    </section>`;
+  }
 
   return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${escape(title)} 小テスト</title>
 <style>${css}</style></head><body>
-<h1>${escape(title)} 小テスト</h1>
-<div class="meta">
-  <span>出題方向: ${direction === "en2ja" ? "英 → 日" : "日 → 英"} / 形式: ${format === "choice" ? "4 択" : "記述"} / 全 ${items.length} 問</span>
-  <span class="name-box">氏名: ___________________</span>
-</div>
-<ol>${qhtml}</ol>
-${answersHtml}
+<section class="sheet">
+  <div class="head">
+    <h1>${escape(title)} 小テスト</h1>
+    <div class="info">
+      <span class="info-box">氏名: ______________</span>
+      <span class="info-box">日付: ___/___</span>
+      <span class="info-box">得点: ____ / ${items.length}</span>
+    </div>
+  </div>
+  <div class="meta">出題方向: ${dirLabel} / 形式: ${fmtLabel} / 全 ${items.length} 問</div>
+  <ol class="${olClass}">${qhtml}</ol>
+  ${answerMode === "inline" ? answersHtml : ""}
+</section>
+${answerMode === "separate" ? answersHtml : ""}
 </body></html>`;
 }
 
