@@ -103,8 +103,18 @@ export default async function ReviewPage({
           {pool.length === 0 && (
             <li className="py-8 text-center">
               <div className="text-3xl mb-2">✨</div>
-              <div className="font-semibold text-navy-700 text-sm">今日の復習は全部終わりました</div>
-              <div className="text-xs text-navy-400 mt-1">明日また復習すべき単語が並びます。<br/>このまま新しい単語を学ぼう。</div>
+              <div className="font-semibold text-navy-700 text-sm">復習待ちの単語はありません</div>
+              <div className="text-xs text-navy-400 mt-1 mb-4">
+                新しい単語を追加すると、忘却曲線に沿って<br/>ここに復習タイミングが並びます。
+              </div>
+              <div className="flex flex-wrap gap-2 justify-center">
+                <Link href="/dictionary" className="text-xs font-bold rounded-lg px-3 py-2 bg-sky-600 text-white hover:bg-sky-700 transition-colors">
+                  🔍 辞書で単語を探す
+                </Link>
+                <Link href="/materials" className="text-xs font-bold rounded-lg px-3 py-2 border border-sky-200 text-sky-700 hover:bg-sky-50 transition-colors">
+                  📚 教材から追加
+                </Link>
+              </div>
             </li>
           )}
         </ul>

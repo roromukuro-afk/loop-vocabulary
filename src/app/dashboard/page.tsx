@@ -9,6 +9,7 @@ import { PushPermission } from "@/components/push/PushPermission";
 import { StudyCalendar } from "@/components/stats/StudyCalendar";
 import { ExamCountdown } from "@/components/dashboard/ExamCountdown";
 import { GoalProgress } from "@/components/dashboard/GoalProgress";
+import { FirstStepsGuide } from "@/components/dashboard/FirstStepsGuide";
 import { DailyMissions } from "@/components/dashboard/DailyMissions";
 import { StreakShareCard } from "@/components/dashboard/StreakShareCard";
 
@@ -94,6 +95,9 @@ export default async function DashboardPage() {
   const goalPct = Math.min(100, Math.round((studied / DAILY_GOAL) * 100));
   const todayDone = studied >= DAILY_GOAL;
 
+  const hasWords = (wordCount ?? 0) > 0;
+  const everStudied = studied > 0 || (recentStats ?? []).some((d) => (d.studied_count ?? 0) > 0);
+
   const badges = getBadges(streak, wordCount ?? 0);
   const nextBadge = getNextBadge(streak, wordCount ?? 0);
   const greeting = getGreeting(hour);
@@ -141,6 +145,9 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* はじめの3ステップ（初回/未学習ユーザーのみ） */}
+      {!everStudied && <FirstStepsGuide hasWords={hasWords} hasStudied={everStudied} />}
 
       {/* プッシュ通知許可バナー */}
       <PushPermission />
@@ -386,6 +393,14 @@ export default async function DashboardPage() {
           </Card>
         </Link>
       </section>
+
+      {/* 先生向け機能への軽い導線 */}
+      <Link
+        href="/teacher"
+        className="block mt-5 text-center text-xs text-navy-400 hover:text-navy-600 transition-colors"
+      >
+        塾・家庭教師の先生へ — クラスで生徒の学習状況を確認できます →
+      </Link>
 
       <div className="mt-5">
         <BannerAdPlaceholder />
