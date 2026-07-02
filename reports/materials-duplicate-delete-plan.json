@@ -1,0 +1,3031 @@
+{
+  "generatedAt": "2026-07-02T04:54:19.249Z",
+  "mode": "dry-run",
+  "totalGroups": 243,
+  "totalDeleteRows": 245,
+  "materials": [
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "title": "loop受験英単語②【高校入試】",
+      "wordCountBefore": 1600,
+      "deleteCount": 92,
+      "wordCountAfter": 1508
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "title": "loop受験英単語①【中学完成】",
+      "wordCountBefore": 2000,
+      "deleteCount": 59,
+      "wordCountAfter": 1941
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "title": "loop学びなおし英単語②【旅行・海外】",
+      "wordCountBefore": 1500,
+      "deleteCount": 28,
+      "wordCountAfter": 1472
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "title": "高校3年・共通テスト重要語",
+      "wordCountBefore": 1500,
+      "deleteCount": 22,
+      "wordCountAfter": 1478
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "title": "高校2年英語 重要単語",
+      "wordCountBefore": 1202,
+      "deleteCount": 14,
+      "wordCountAfter": 1188
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000047",
+      "title": "loop受験英単語③【高校基礎】",
+      "wordCountBefore": 1500,
+      "deleteCount": 8,
+      "wordCountAfter": 1492
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000032",
+      "title": "英検1級 必須単語",
+      "wordCountBefore": 1500,
+      "deleteCount": 7,
+      "wordCountAfter": 1493
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000054",
+      "title": "loop学びなおし英単語④【基礎からやり直し】",
+      "wordCountBefore": 297,
+      "deleteCount": 4,
+      "wordCountAfter": 293
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000040",
+      "title": "高校1年英語 重要単語",
+      "wordCountBefore": 1000,
+      "deleteCount": 3,
+      "wordCountAfter": 997
+    },
+    {
+      "materialId": "f2661c18-fb99-4ec2-888f-30e1fd012da0",
+      "title": "英検2級 必須単語800",
+      "wordCountBefore": 352,
+      "deleteCount": 3,
+      "wordCountAfter": 349
+    },
+    {
+      "materialId": "5eae7c64-fcb5-4164-99fb-cdb5ce10567c",
+      "title": "英検準1級 必須単語600",
+      "wordCountBefore": 267,
+      "deleteCount": 2,
+      "wordCountAfter": 265
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000033",
+      "title": "英検準2級 重要単語",
+      "wordCountBefore": 1480,
+      "deleteCount": 1,
+      "wordCountAfter": 1479
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000048",
+      "title": "loop受験英単語④【共通テスト】",
+      "wordCountBefore": 300,
+      "deleteCount": 1,
+      "wordCountAfter": 299
+    },
+    {
+      "materialId": "96d6e5a2-c0f5-48b1-8eed-14a91424790f",
+      "title": "TOEIC頻出単語600",
+      "wordCountBefore": 264,
+      "deleteCount": 1,
+      "wordCountAfter": 263
+    }
+  ],
+  "applyResult": null,
+  "deleteIds": [
+    "062e649b-2960-43e0-8f67-dd5be2568af9",
+    "bcf0a958-d738-4c95-88db-e896a77e8f8f",
+    "45c6edd3-a96c-4e97-8b3a-87c178511291",
+    "6c0fe510-7838-40a4-a9cf-5a7285a2d4d6",
+    "717d4ebf-47ac-4f48-895f-84d1875bff84",
+    "ef929c18-0772-49ce-a432-fa966546110f",
+    "ed354730-b181-40f8-83d9-ec08bca78105",
+    "5b48dfda-425a-4ff5-a335-f309d5c15b33",
+    "f325ccfa-f2dd-4c88-b9c7-fa2b555302ea",
+    "d447a654-7e83-4d01-a0af-b314ad37a9ea",
+    "e2b89709-5c79-4a32-89d5-daada08e35ba",
+    "3d5f9d7a-4412-4ad8-b863-1f3c583184ab",
+    "f7b260f0-68c4-4c49-8983-7cffbfb04e93",
+    "d838e152-2b8a-44ec-a3a8-1f99d5d219a9",
+    "92cbb951-1470-42df-9f0d-006b45541a33",
+    "8508e163-f6d7-4aaf-9830-e6de1b0a4dbd",
+    "f9d7cb27-aab0-44d0-982a-ba6d5489b9d1",
+    "8888597e-9383-4cca-8a49-807a067ffd71",
+    "0e76481e-1d1f-4809-94ee-084d67b0854e",
+    "c403e9c7-1a01-4087-90f0-76a25baea042",
+    "e59df3cc-face-4ac4-a029-bffd4bf6631f",
+    "ee912b54-52fb-40b9-9e20-0825b6b5c181",
+    "f648a182-de77-4852-ac55-c6e5f7a151d0",
+    "7e9c522c-634b-4d62-9299-dec199793a7b",
+    "1b7a699d-2143-46c1-b7b4-aafa589550b1",
+    "b5d475e7-4af8-42a0-816a-51d354632b02",
+    "4c59f2bb-063c-4a3d-9b16-738658982c10",
+    "43785da6-a2bd-4d37-ac89-fcefe2c3c1bc",
+    "ff022210-4719-49b9-8f1a-2ba6f3d7b437",
+    "7bb2b8f7-3f4c-49e2-b104-c1e05ef3dae5",
+    "b7ebc7c9-32b1-410b-96a8-37b9c89bcb15",
+    "54e01865-bdef-478a-81ad-875f1f63c0eb",
+    "7591058c-2557-4662-b93d-2fbfa6473522",
+    "3670eda1-8e93-474b-bc5d-63d6c8552f35",
+    "2ae33042-53c1-415c-94c8-a2ef41c95e04",
+    "9373adaf-fa1c-4365-8d3a-5e721fdc39ba",
+    "c78d2f7a-88be-431d-972e-9a29eba0b2d1",
+    "59e3dd8c-f8cf-4e91-8a0f-ec77f3443701",
+    "41bfb23e-a42d-4faa-a12d-bed457ca2744",
+    "6f9aaf91-a6b8-4b4b-935d-425fecc61d45",
+    "c3c6f6b7-84d1-4e45-9d65-1348e753c24a",
+    "4128067e-ea4a-405c-8c39-ad30d45c72d8",
+    "6d9d1e9f-06d2-4d23-b33e-2b3999a3342c",
+    "e35171b1-e9e0-41bc-ab6e-86d25857af7b",
+    "de110536-0687-4167-b2d8-1f377acf3149",
+    "c6256acc-bc7f-44e4-bb76-87c471e21039",
+    "9b05d7ab-b882-43f6-8367-72d0751cf0d0",
+    "4d404a22-3072-44e2-a2b4-5ca5a79050f0",
+    "a7d6997f-c278-492e-872b-1b09b55b8706",
+    "f749e9b8-ac4e-4ca0-b9b3-49cc4077c719",
+    "ce370c66-51ac-4c87-b490-1eea614ce330",
+    "cc57be56-644e-43e8-9278-7bbe86101057",
+    "239e1d88-1e8b-4b02-b5e1-fbeeb0c804b4",
+    "94409f5c-0f73-45c8-b977-5960458f2323",
+    "13187296-6822-44b2-8dae-639d404e4b72",
+    "2f94ee05-23ce-4d77-84e6-aa7e87637ed0",
+    "54036617-14f5-4ce2-93d1-c73acdf8518b",
+    "5fe6112e-f4e2-421a-ab7a-80dd2418ee17",
+    "70b69910-fa96-4f41-95e0-1a149d86bcf6",
+    "2971bd90-9fb8-4f2b-b51b-d26ed9eb6f38",
+    "3b33635f-b4ad-48c3-8b34-0db04de4032d",
+    "889af4cf-6343-47ef-9249-cbecf87016c2",
+    "c1b2cc37-683a-4ab5-91ed-78adff2e7724",
+    "05b5807e-1147-4a69-92d6-e9750210e309",
+    "fce46717-e6b1-4030-80ac-35294ede45db",
+    "e2f687c3-fb21-4547-ae05-9d3ce98659dd",
+    "ca6fcb84-cc82-4e84-a26a-880d2b578395",
+    "6f3ce01c-a5f0-4211-b1df-ef7a915737f4",
+    "7ecc7c32-be50-4c2f-bfe9-3734338c2ad6",
+    "aab110fa-6029-4718-a996-b38fce2b8f9d",
+    "b36a8a6a-cf99-4d8c-91f4-310b4e586ed9",
+    "926a19e7-cd8f-46ae-9803-fbd37121ced8",
+    "aa618d02-e723-40b9-a060-fa5893ae3758",
+    "57311491-6da6-458b-801e-a6cc38635050",
+    "0ae605e0-bb46-4ee6-a047-23d12c0cdfca",
+    "7e1ea207-7c79-4c83-999e-4e4dd073f791",
+    "552b40ef-599f-46a5-841f-4036914bc6a4",
+    "1cf8ce8e-3ec7-49cc-93d3-64feb3c2f419",
+    "e4f7ac65-4486-4749-9f12-fdba6e3375d5",
+    "34a79cb0-917e-4950-b923-6ac0fb2f8734",
+    "b58ccb0c-0bd9-439e-90e5-5bbd43412926",
+    "4ca99ed9-e257-4993-aac1-af69b6d18212",
+    "e7c2c837-d223-4a3b-9cf6-6108cd7dbd51",
+    "f270af93-3eb5-4f85-95e4-d675e33b3177",
+    "c21a097b-e5c4-491d-8687-83f537ca35fc",
+    "a2173f3a-9351-4cec-a085-1c573ef68ca6",
+    "3a1348f9-8561-4afa-9c0c-082a4d14189b",
+    "a63846dd-733a-4f0d-a08d-026ae54f9f47",
+    "06671b18-01f3-4a51-8aaa-2058fba6fae8",
+    "32c437da-6d50-4bcf-8757-2bf2c88dcb63",
+    "99caa0fb-9c78-4eaa-aa8c-956dac7bae6d",
+    "d730c116-f77e-4986-9914-e22f6069fd20",
+    "0cb2a918-a132-4eef-b12d-1bd8f199cd43",
+    "37ac12c1-72c9-4783-abfd-d258e083afd4",
+    "10976ec8-08f4-4290-9d71-3897f85d9bbc",
+    "df36caa4-658e-4c7f-9e72-fb2dda46ce19",
+    "152790d2-9ef8-432f-8a75-2373de0f262f",
+    "d3322cce-1441-4e0f-833e-64c9d9493b91",
+    "40a2515e-5b18-4fe1-a033-afe953fc404a",
+    "0928f414-167e-4d5b-8059-f25798484e0b",
+    "792fc319-15e8-4a69-b0b6-5ec036f4a2b5",
+    "8b30d6b3-3d68-4431-9576-10a9b52af874",
+    "6ef04a12-5607-4608-b297-fde9a69dbd99",
+    "8b404426-9e76-40d6-a55b-0c967194a37b",
+    "cc505b88-b89b-4559-b219-d4ee686902b1",
+    "ea248172-aeb7-4980-b37f-ff12d60b2fd4",
+    "06cd9a55-9ceb-4351-9aac-913706808b7b",
+    "2c550018-0b5f-4d04-8d88-d2bda48c6063",
+    "ba5a5820-577f-42cd-b3db-f0b1e2d93e3d",
+    "448c3fd1-2b5f-4251-ba99-9e38fbf407f6",
+    "91003060-0103-4dde-b494-6ed0cc98fc15",
+    "67e5618d-943a-42bd-908d-949d4b29fcd9",
+    "12a5118b-e9f4-41a0-89cd-42e3f01f7425",
+    "b3206377-4733-4668-8fd7-a976a3e4d214",
+    "fb7f2162-978b-4eb7-8544-eba5cf0aba18",
+    "40f5120b-61d8-4f64-858b-6775ef117237",
+    "2f8613ee-1113-4b9a-93c9-19d75214fffa",
+    "1adc68a6-4247-408a-a904-d1b98fb641d3",
+    "b7b2c486-a144-465a-a2f2-42b0c2bdd835",
+    "5f96bc48-8e86-4fb0-b79e-25269bb3a930",
+    "624048c6-3607-4701-8ee7-58dc81a6e6f7",
+    "ce3c6fcb-d3c3-4c51-a106-3d73d5fa64fd",
+    "0011b4c4-85b5-4953-8be6-b953e23ad9e5",
+    "77b1d09a-70c5-4933-b8d7-3dd46f88462d",
+    "3f5ca40c-e346-4d77-86ac-5985a596bdee",
+    "b5b36a29-27b2-4525-a478-364ce04ab235",
+    "d43d332c-227f-46ac-a23e-c414a7534787",
+    "10467374-705b-42e1-9c89-ac6328e8c127",
+    "95d7a5dc-cbd6-4d94-a25a-a5220247fd83",
+    "cbcc472e-0ebd-4fdd-99de-57e1d6da93d6",
+    "391fb80b-ac56-4d8a-866e-5c76c07e0047",
+    "85052ab3-ea77-47c3-9a4a-b3f617fbc569",
+    "5cf8cfce-d9bc-4c16-8a33-489c266f48cb",
+    "d9f5d375-b0ce-421c-b3d6-41407b91fd95",
+    "7191951e-d4d1-4b20-96a3-cc023903b722",
+    "f34e247f-72ad-427f-8c45-19f4614ae308",
+    "a31c81d2-9a6a-402e-9b60-824abf3c293f",
+    "e3af5a63-952b-4e4f-9f25-4585519519dd",
+    "1ee9cf4d-a4e8-44e9-a867-4ed7eb3cb135",
+    "b7105eab-eef7-4c8a-ad46-ac1868b2eb48",
+    "842ac1b1-3f39-4b93-9188-3da86289fdf9",
+    "f0ee2b9b-f576-4c92-aa2d-04f2122c9f24",
+    "be21eb63-144c-4bef-82b4-99b3137602d6",
+    "5c70348e-fd4e-4acc-b005-17254c32da92",
+    "95b6e5d7-126a-49d3-844a-3f10c588fe51",
+    "97b74405-438e-43ce-8a54-978ca6d344ea",
+    "ee8e78da-8fad-42b6-b66c-5ba17a655d2f",
+    "096362b5-1f1c-4d9d-be0b-37c7e147dbc5",
+    "25f4e32c-ae3b-43b0-ad61-cd31b7c76784",
+    "b5ba110e-b3a9-4e54-b5e5-db5fa0830c47",
+    "b8ea821a-2520-44a9-8985-8d13fa115f05",
+    "dba978f5-3d8c-4929-ba07-6a4e5ba15c1b",
+    "6528a709-d020-4638-9204-2b198db9c642",
+    "83e5084c-e3ca-4a53-8363-920bbda765f5",
+    "29b6fb26-1025-4e32-ab54-7d05f9d33934",
+    "06bf16fa-78f5-4a6a-a80c-f8eb09e0c473",
+    "863f4eaf-7058-4fc6-9e8c-ade87a0b68a0",
+    "d89dcd87-d4f0-49a6-b7e3-f56e2f0b80b7",
+    "d4bb4c97-d235-4ff2-9444-30ff6747dce2",
+    "c407fd71-5c43-4e34-a977-18e98910b549",
+    "6d44d3c2-ff96-4e81-9874-7ba08f884937",
+    "c1d67d2e-035b-4043-b45d-c8de116f021b",
+    "c091297f-385d-409d-bab7-dbfd03f8fa08",
+    "e4ffefd2-5005-4fd4-94b6-0651b74320cb",
+    "6e151aa9-195d-4e24-9ed0-905ea3b66bd3",
+    "e996871b-242a-4fdd-8b95-b0a61b481f81",
+    "40c1ee40-83e2-48e1-931d-e5d5062afc55",
+    "af3bf821-33e1-43fe-a917-b8cc60d0cfff",
+    "aa6f11ea-63ce-4f3e-a552-a9ac541a5dec",
+    "727bec65-fd81-4bf3-bd21-ed5aa9d87d92",
+    "e319431e-e001-4275-9aff-09771d297486",
+    "140076be-2537-4158-9eab-27cf9af934d4",
+    "66b730c6-5548-4e0f-9bbf-911446507c5f",
+    "06f92bf0-0e89-467f-aa99-4daeaae275ee",
+    "ad04d8f3-f476-462c-af7f-9a745c7be3d9",
+    "14109b69-743b-4bc4-820f-ae9ca71aee35",
+    "3208dfb3-66d6-42d2-ab15-4f947dac8f5e",
+    "86c80111-d8fa-46b9-b0bb-9700061cfc56",
+    "2b5fa556-c101-4b3a-898e-7bf24bbec3ea",
+    "ea63ad01-ccf8-4d1b-bb1e-8a63b72d46ee",
+    "2ad7f186-efe5-42f5-9cdf-61eabd023e9d",
+    "146b3410-f321-4803-bb79-4ed8a599c9c3",
+    "e92d36a3-b0b8-478a-b5a5-d93ac0ef7c97",
+    "f1467355-22a4-45e1-a3cd-b1ce69d6e4a0",
+    "56f7ee61-6b8a-414b-8018-d7619a09f24f",
+    "17b38159-3a43-47af-8186-9da848ecd79c",
+    "ba39cf58-a327-436e-b1d2-5b39f3ecc23d",
+    "54690a6a-a36b-4aa6-aa00-74e05168124e",
+    "3abf82d8-55ca-4f7a-b154-bc9b44320f98",
+    "13172b52-e450-492a-8d8f-c0fa6e0ad0f9",
+    "0f2b54ad-79af-4705-848f-4f3f1a1d4d7c",
+    "ffe7ef53-e947-43f4-80dc-e3a342a87b46",
+    "0a0eeb24-72a8-47b2-97b3-b207adb9ea32",
+    "37b247cb-97fa-425d-9a19-02a0a3e0c8d1",
+    "b9747a7b-e19d-405d-9d86-bdfb85cffdbb",
+    "abfbaf94-f44a-4159-949c-b354e36e7162",
+    "6f6bf73d-7dd4-42b8-9896-f6883cab6b1c",
+    "d858b93b-93c8-413c-b203-a013791c7ece",
+    "450c65f3-02b7-4e2e-96ef-eaebe89f7b58",
+    "3e053206-1a47-47f8-b06c-2b4dfd67c344",
+    "1f154d59-3647-406d-a422-2118be6a915b",
+    "b4a05d11-af15-4050-ae3d-59273a84e9a2",
+    "0eeaacbb-1df5-4f94-8f64-e06cd7dbf9f6",
+    "e29905c0-849b-4456-ba62-80cc9cf76bb5",
+    "4421a702-9fad-49f0-9ed9-06b911da96e2",
+    "dcc87072-d2c1-47bc-ad5c-035fa0596675",
+    "f0733625-36df-43c1-a385-878d3ca4dc33",
+    "2e235ef6-877e-47e0-acfa-b376a3a3d7ea",
+    "5ccecd15-54c0-4a1e-bd91-72abb2c09d0e",
+    "ecd895f8-e013-4347-a65c-e2b185ddc8c8",
+    "164268f0-1a7d-4ebc-91a1-fa541b760742",
+    "d03e8c55-f125-41a4-bf6c-30d64b873043",
+    "8673ace8-f1dc-4acc-9879-baae3b223233",
+    "c6290caf-56c1-4776-81eb-2b254f8ad497",
+    "ea49bf41-e7cf-4be0-8d3c-4fcd7ef5d8da",
+    "854ed3ab-4d6a-4b45-9648-014742f296ce",
+    "6f328e62-41ed-44d3-b394-a531534572e4",
+    "8e402452-c907-4e29-a773-8af09cb49718",
+    "250772c4-10eb-4d89-99db-4d4e002f9df1",
+    "e9e0f903-50e8-40fd-b327-240c9e112869",
+    "54d2ad64-35ca-498e-a3b4-3cc058be95d9",
+    "84aa7246-1114-495c-ac15-beec281a2f36",
+    "62e9ef49-bc4e-47b5-977d-5776296ff3bc",
+    "340892e5-d3a3-4d36-90c3-871477339b6b",
+    "afa7239a-4bf7-4a21-9ab5-7ac61bb4d83d",
+    "c63dfeb5-64a0-47ca-8145-66f6b7bac1e2",
+    "10b3bcd2-0637-4bdf-be7a-be65182df5bd",
+    "0348db4f-a6cf-4b8c-a27d-26ff926e4efe",
+    "5f696300-c78d-42ce-b4d8-d97d13f48373",
+    "6a88efbc-32e7-449d-b76c-1a0b30a65753",
+    "47da79ca-3394-4077-86d9-46f653562e2a",
+    "dab812a4-78dc-4039-a3f9-ac0dab5b6369",
+    "243813ae-84ba-4957-bcbb-ab96d83b85f6",
+    "c60cb958-9968-4e05-9162-1ca0ba9ced4d",
+    "e78675a1-7a0f-4fdf-804d-a6dc713ae102",
+    "b9904f64-b94f-4582-b3ac-149d77c095c4",
+    "c33eb1a8-f856-4875-936f-17023caa21d0",
+    "1f4a2eed-4780-4f65-a4c2-cbdb04f471b7",
+    "e1e67a8f-8973-47d6-a811-aba92bb07a24",
+    "e98a67d7-c326-43af-80f3-952618d70a10",
+    "e5d477c2-6fc9-4950-aba1-20067677450d",
+    "a2389d54-7a61-4c48-abde-2f20ba3a3467",
+    "b71c5466-8855-4fed-92c9-56bddde52fcf",
+    "a0d75953-6eb0-43e6-a685-31acf9e7ac85",
+    "94f5f3e8-7f38-42a0-8f4b-bcff78202dc4"
+  ],
+  "groups": [
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "dfa0a019-f5b4-436b-9828-e9764708c35f",
+      "deleteIds": [
+        "062e649b-2960-43e0-8f67-dd5be2568af9"
+      ],
+      "word": "night market",
+      "meaning": "夜市，ナイトマーケット",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000040",
+      "materialTitle": "高校1年英語 重要単語",
+      "keepId": "09b5f18b-8e24-46aa-82c7-b8e2daf650df",
+      "deleteIds": [
+        "bcf0a958-d738-4c95-88db-e896a77e8f8f"
+      ],
+      "word": "demand",
+      "meaning": "需要、要求",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000040",
+      "materialTitle": "高校1年英語 重要単語",
+      "keepId": "9fceda69-5d49-4d50-9504-c15a41bb5ca6",
+      "deleteIds": [
+        "45c6edd3-a96c-4e97-8b3a-87c178511291"
+      ],
+      "word": "diversity",
+      "meaning": "多様性",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000040",
+      "materialTitle": "高校1年英語 重要単語",
+      "keepId": "0d07393f-1d4a-4bd4-8e09-0d656e04631f",
+      "deleteIds": [
+        "6c0fe510-7838-40a4-a9cf-5a7285a2d4d6"
+      ],
+      "word": "evidence",
+      "meaning": "証拠",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "c1467c6e-ce69-49a9-b906-b8cf5e4355ae",
+      "deleteIds": [
+        "717d4ebf-47ac-4f48-895f-84d1875bff84"
+      ],
+      "word": "demonstrate",
+      "meaning": "実証する、示す",
+      "pos": "v"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "b284b419-6ba2-4b09-9045-06324d17de2e",
+      "deleteIds": [
+        "ef929c18-0772-49ce-a432-fa966546110f"
+      ],
+      "word": "prioritize",
+      "meaning": "優先させる",
+      "pos": "v"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "4d790a6a-5e1c-4cd6-a696-50c36e27599f",
+      "deleteIds": [
+        "ed354730-b181-40f8-83d9-ec08bca78105"
+      ],
+      "word": "exclude",
+      "meaning": "除外する",
+      "pos": "v"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "b6ccdbef-a0f2-43cd-847d-d5a50955a6be",
+      "deleteIds": [
+        "5b48dfda-425a-4ff5-a335-f309d5c15b33"
+      ],
+      "word": "strengthen",
+      "meaning": "強化する",
+      "pos": "v"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "1f7d330d-e40e-4537-b6d8-47f0f68e6442",
+      "deleteIds": [
+        "f325ccfa-f2dd-4c88-b9c7-fa2b555302ea"
+      ],
+      "word": "opposition",
+      "meaning": "反対、野党",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "395450a8-6038-45cf-9312-5c4c04f57dc0",
+      "deleteIds": [
+        "d447a654-7e83-4d01-a0af-b314ad37a9ea"
+      ],
+      "word": "phenomenon",
+      "meaning": "現象",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "065a33f5-17bc-4634-85f7-d4e20100b80d",
+      "deleteIds": [
+        "e2b89709-5c79-4a32-89d5-daada08e35ba"
+      ],
+      "word": "uncertainty",
+      "meaning": "不確実性",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "060cfe19-c5b3-4c75-b8f6-71dab50f8c73",
+      "deleteIds": [
+        "3d5f9d7a-4412-4ad8-b863-1f3c583184ab"
+      ],
+      "word": "resilience",
+      "meaning": "回復力、弾力性",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "30805299-3950-428a-8983-7d11ce4937bc",
+      "deleteIds": [
+        "f7b260f0-68c4-4c49-8983-7cffbfb04e93"
+      ],
+      "word": "vulnerability",
+      "meaning": "脆弱性",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "a65b7661-ac6d-453b-865f-ece7ffb9a0c4",
+      "deleteIds": [
+        "d838e152-2b8a-44ec-a3a8-1f99d5d219a9"
+      ],
+      "word": "fluctuation",
+      "meaning": "変動",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "8f7639ee-7fff-451b-9c77-8facdf0a847e",
+      "deleteIds": [
+        "92cbb951-1470-42df-9f0d-006b45541a33"
+      ],
+      "word": "reinforcement",
+      "meaning": "強化、補強",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "0d5f83f6-2308-4956-8e21-50da3eb311af",
+      "deleteIds": [
+        "8508e163-f6d7-4aaf-9830-e6de1b0a4dbd"
+      ],
+      "word": "fluctuate",
+      "meaning": "変動する",
+      "pos": "v"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "9259f7f7-714a-430c-851a-08e01b662b04",
+      "deleteIds": [
+        "f9d7cb27-aab0-44d0-982a-ba6d5489b9d1"
+      ],
+      "word": "inadequate",
+      "meaning": "不十分な",
+      "pos": "adj"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "materialTitle": "高校2年英語 重要単語",
+      "keepId": "68e4b457-1d14-48ec-9eba-0bc3eec9d277",
+      "deleteIds": [
+        "8888597e-9383-4cca-8a49-807a067ffd71"
+      ],
+      "word": "impose",
+      "meaning": "課す",
+      "pos": "v"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "e27666af-1366-445e-8cde-e1d996fda017",
+      "deleteIds": [
+        "0e76481e-1d1f-4809-94ee-084d67b0854e"
+      ],
+      "word": "narrator",
+      "meaning": "語り手，ナレーター",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "574484ef-2955-49ea-a48b-b339a10377fa",
+      "deleteIds": [
+        "c403e9c7-1a01-4087-90f0-76a25baea042"
+      ],
+      "word": "decide",
+      "meaning": "決める，決心する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "672993e3-406c-40f1-b63e-21f5f0e3a22e",
+      "deleteIds": [
+        "e59df3cc-face-4ac4-a029-bffd4bf6631f"
+      ],
+      "word": "imagine",
+      "meaning": "想像する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "65a39cf8-c891-463f-8329-cd6729adc2ed",
+      "deleteIds": [
+        "ee912b54-52fb-40b9-9e20-0825b6b5c181"
+      ],
+      "word": "wildlife",
+      "meaning": "野生動物，野生生物",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "e60d0861-3023-4611-b51c-d20796d2b976",
+      "deleteIds": [
+        "f648a182-de77-4852-ac55-c6e5f7a151d0"
+      ],
+      "word": "climate change",
+      "meaning": "気候変動",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "bf68ef38-921c-42b7-acb3-fc3468f5eb2c",
+      "deleteIds": [
+        "7e9c522c-634b-4d62-9299-dec199793a7b"
+      ],
+      "word": "push",
+      "meaning": "押す",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "1e329755-9a49-40d0-919a-a7bd56174465",
+      "deleteIds": [
+        "1b7a699d-2143-46c1-b7b4-aafa589550b1"
+      ],
+      "word": "throw",
+      "meaning": "投げる",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "1f2a318b-2913-4207-90d1-12fc5cd1921b",
+      "deleteIds": [
+        "b5d475e7-4af8-42a0-816a-51d354632b02"
+      ],
+      "word": "concede",
+      "meaning": "認める、譲歩する",
+      "pos": "v"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "cb338bac-e363-4e05-91fd-d7ba4d86f61c",
+      "deleteIds": [
+        "4c59f2bb-063c-4a3d-9b16-738658982c10"
+      ],
+      "word": "important",
+      "meaning": "重要な，大切な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "9c4eb111-9ab0-493f-9293-6c05ae1eadb9",
+      "deleteIds": [
+        "43785da6-a2bd-4d37-ac89-fcefe2c3c1bc"
+      ],
+      "word": "popular",
+      "meaning": "人気のある",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "082c5b60-2c3a-477f-8a89-b6a2796271e7",
+      "deleteIds": [
+        "ff022210-4719-49b9-8f1a-2ba6f3d7b437"
+      ],
+      "word": "different",
+      "meaning": "異なる，違う",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "0b906fea-cc61-45b3-b180-25c45a44bc3a",
+      "deleteIds": [
+        "7bb2b8f7-3f4c-49e2-b104-c1e05ef3dae5"
+      ],
+      "word": "same",
+      "meaning": "同じ",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "97391739-f5ef-4d22-bad6-bb3b5b9a4c1a",
+      "deleteIds": [
+        "b7ebc7c9-32b1-410b-96a8-37b9c89bcb15"
+      ],
+      "word": "special",
+      "meaning": "特別な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "c25c84db-6bbe-4b22-8108-35755124b9e1",
+      "deleteIds": [
+        "54e01865-bdef-478a-81ad-875f1f63c0eb"
+      ],
+      "word": "presuppose",
+      "meaning": "前提とする",
+      "pos": "v"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "bf58c66e-15b0-479a-b7c1-0ac489942d98",
+      "deleteIds": [
+        "7591058c-2557-4662-b93d-2fbfa6473522"
+      ],
+      "word": "refute",
+      "meaning": "反駁する",
+      "pos": "v"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "143e00f8-676a-49ac-b80b-589716951ef0",
+      "deleteIds": [
+        "3670eda1-8e93-474b-bc5d-63d6c8552f35"
+      ],
+      "word": "accentuate",
+      "meaning": "強調する",
+      "pos": "v"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "35285548-cfb2-4702-84fd-0fc1cfdaf714",
+      "deleteIds": [
+        "2ae33042-53c1-415c-94c8-a2ef41c95e04"
+      ],
+      "word": "accountability",
+      "meaning": "説明責任",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "3a1b6867-64be-45e6-a85c-6d2ba92becd7",
+      "deleteIds": [
+        "9373adaf-fa1c-4365-8d3a-5e721fdc39ba"
+      ],
+      "word": "assertion",
+      "meaning": "主張、断言",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "50a0807a-b9ea-476d-8add-b113b2b2dcfe",
+      "deleteIds": [
+        "c78d2f7a-88be-431d-972e-9a29eba0b2d1"
+      ],
+      "word": "detrimental",
+      "meaning": "有害な",
+      "pos": "adj"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "1b5659ed-78de-4813-907c-85319345e034",
+      "deleteIds": [
+        "59e3dd8c-f8cf-4e91-8a0f-ec77f3443701"
+      ],
+      "word": "empiricism",
+      "meaning": "経験主義",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "4bd9b62a-e6d1-4f81-b100-515b1fdb824c",
+      "deleteIds": [
+        "41bfb23e-a42d-4faa-a12d-bed457ca2744"
+      ],
+      "word": "epistemology",
+      "meaning": "認識論",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "f15d7ee9-2716-4e31-a0cf-87b6781831fe",
+      "deleteIds": [
+        "6f9aaf91-a6b8-4b4b-935d-425fecc61d45"
+      ],
+      "word": "inference",
+      "meaning": "推論",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "09ea1355-f2f2-4254-b6f3-38c3dd7361c1",
+      "deleteIds": [
+        "c3c6f6b7-84d1-4e45-9d65-1348e753c24a"
+      ],
+      "word": "obligation",
+      "meaning": "義務",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "d06fc992-89e9-450b-9f2c-8d33c81c3028",
+      "deleteIds": [
+        "4128067e-ea4a-405c-8c39-ad30d45c72d8"
+      ],
+      "word": "paradox",
+      "meaning": "逆説",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "dd2055fa-fc91-4e4e-8f39-8bb00e2eb111",
+      "deleteIds": [
+        "6d9d1e9f-06d2-4d23-b33e-2b3999a3342c",
+        "e35171b1-e9e0-41bc-ab6e-86d25857af7b"
+      ],
+      "word": "polarization",
+      "meaning": "二極化",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "03cffdf4-c572-4ae7-ae34-b8e7154d294c",
+      "deleteIds": [
+        "de110536-0687-4167-b2d8-1f377acf3149"
+      ],
+      "word": "answer",
+      "meaning": "答え，回答",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "d15394ac-fff9-4162-9b6c-2a28d7bf0a3e",
+      "deleteIds": [
+        "c6256acc-bc7f-44e4-bb76-87c471e21039"
+      ],
+      "word": "relativism",
+      "meaning": "相対主義",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "1f0308c1-1d92-4c58-9724-87d1801937f6",
+      "deleteIds": [
+        "9b05d7ab-b882-43f6-8367-72d0751cf0d0"
+      ],
+      "word": "resilience",
+      "meaning": "回復力",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "ef69e91b-d41b-431a-9016-9c6aee9e14ab",
+      "deleteIds": [
+        "4d404a22-3072-44e2-a2b4-5ca5a79050f0"
+      ],
+      "word": "sovereignty",
+      "meaning": "主権",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "0212ef09-aa14-47d5-8956-348bd3a17f66",
+      "deleteIds": [
+        "a7d6997f-c278-492e-872b-1b09b55b8706"
+      ],
+      "word": "transparency",
+      "meaning": "透明性",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "dac17eed-9a14-4cd6-892e-b4d8fe121afc",
+      "deleteIds": [
+        "f749e9b8-ac4e-4ca0-b9b3-49cc4077c719"
+      ],
+      "word": "vulnerability",
+      "meaning": "脆弱性",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "b3c354cf-54b6-4b9f-a035-c4edcf47bcc2",
+      "deleteIds": [
+        "ce370c66-51ac-4c87-b490-1eea614ce330"
+      ],
+      "word": "problem",
+      "meaning": "問題",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "17a7b16e-ed3d-49f1-9c56-7944aa1516b1",
+      "deleteIds": [
+        "cc57be56-644e-43e8-9278-7bbe86101057"
+      ],
+      "word": "score",
+      "meaning": "点数，スコア",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "187aaa3e-ea28-4886-aa90-a1dd65d2f1d5",
+      "deleteIds": [
+        "239e1d88-1e8b-4b02-b5e1-fbeeb0c804b4"
+      ],
+      "word": "mitigate",
+      "meaning": "軽減する",
+      "pos": "v"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "639f77dc-a0c2-463d-9a2e-f4c4e86c80ed",
+      "deleteIds": [
+        "94409f5c-0f73-45c8-b977-5960458f2323"
+      ],
+      "word": "airport",
+      "meaning": "空港",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "307ad415-2ce9-4c19-8da0-ece5d038a99b",
+      "deleteIds": [
+        "13187296-6822-44b2-8dae-639d404e4b72"
+      ],
+      "word": "nurse",
+      "meaning": "看護師",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "9156c095-7f84-4047-8c28-16ca59da1cfa",
+      "deleteIds": [
+        "2f94ee05-23ce-4d77-84e6-aa7e87637ed0"
+      ],
+      "word": "insect",
+      "meaning": "昆虫，虫",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "4de0d0a9-1bde-4e82-904d-f25d2ef0c972",
+      "deleteIds": [
+        "54036617-14f5-4ce2-93d1-c73acdf8518b"
+      ],
+      "word": "juice",
+      "meaning": "ジュース",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "a3a0cbef-1729-449b-89d6-4d113686cced",
+      "deleteIds": [
+        "5fe6112e-f4e2-421a-ab7a-80dd2418ee17"
+      ],
+      "word": "tea",
+      "meaning": "お茶，紅茶",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "11511205-8495-410c-a87f-763d08305a67",
+      "deleteIds": [
+        "70b69910-fa96-4f41-95e0-1a149d86bcf6"
+      ],
+      "word": "liberation",
+      "meaning": "解放",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "c75703e4-ad81-400d-81ab-8baa04ea2177",
+      "deleteIds": [
+        "2971bd90-9fb8-4f2b-b51b-d26ed9eb6f38"
+      ],
+      "word": "coffee",
+      "meaning": "コーヒー",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "5693d527-aa21-44b9-bb0d-4def00ffc97d",
+      "deleteIds": [
+        "3b33635f-b4ad-48c3-8b34-0db04de4032d"
+      ],
+      "word": "soup",
+      "meaning": "スープ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "9ba6881c-a72f-449a-9052-fdd3f522a8a0",
+      "deleteIds": [
+        "889af4cf-6343-47ef-9249-cbecf87016c2"
+      ],
+      "word": "salad",
+      "meaning": "サラダ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "be3365cd-9a02-42b9-a49f-e562d3eb2dd8",
+      "deleteIds": [
+        "c1b2cc37-683a-4ab5-91ed-78adff2e7724"
+      ],
+      "word": "cake",
+      "meaning": "ケーキ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "a5d4f381-45ee-4b9a-8314-b072654ba37e",
+      "deleteIds": [
+        "05b5807e-1147-4a69-92d6-e9750210e309"
+      ],
+      "word": "chocolate",
+      "meaning": "チョコレート",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000042",
+      "materialTitle": "高校3年・共通テスト重要語",
+      "keepId": "6bc586cd-1b8f-4f4c-aa40-f6cb30f4f7e2",
+      "deleteIds": [
+        "fce46717-e6b1-4030-80ac-35294ede45db"
+      ],
+      "word": "optimization",
+      "meaning": "最適化",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "f1a9cc1f-e69e-493d-8566-ee9c9618abd2",
+      "deleteIds": [
+        "e2f687c3-fb21-4547-ae05-9d3ce98659dd"
+      ],
+      "word": "pizza",
+      "meaning": "ピザ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "f361f866-1ea1-40a4-92af-fcfec00d4d4a",
+      "deleteIds": [
+        "ca6fcb84-cc82-4e84-a26a-880d2b578395"
+      ],
+      "word": "hamburger",
+      "meaning": "ハンバーガー",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "b8d3834a-bff0-4874-8a20-14ad4b63bd08",
+      "deleteIds": [
+        "6f3ce01c-a5f0-4211-b1df-ef7a915737f4"
+      ],
+      "word": "ice cream",
+      "meaning": "アイスクリーム",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "3876cc0e-7934-461e-a64d-6f65d541d646",
+      "deleteIds": [
+        "7ecc7c32-be50-4c2f-bfe9-3734338c2ad6"
+      ],
+      "word": "fog",
+      "meaning": "霧",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "611b3740-a924-48b9-a924-9a3e3652b3cd",
+      "deleteIds": [
+        "aab110fa-6029-4718-a996-b38fce2b8f9d"
+      ],
+      "word": "storm",
+      "meaning": "嵐，暴風雨",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "2c26360f-d16e-4e36-90b8-a3775c57c01e",
+      "deleteIds": [
+        "b36a8a6a-cf99-4d8c-91f4-310b4e586ed9"
+      ],
+      "word": "camera",
+      "meaning": "カメラ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "358051f7-a567-47d0-89e6-64fb45b680dc",
+      "deleteIds": [
+        "926a19e7-cd8f-46ae-9803-fbd37121ced8"
+      ],
+      "word": "chance",
+      "meaning": "チャンス，機会",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "78b54edf-0c70-41f8-ba65-c937f0f74d44",
+      "deleteIds": [
+        "aa618d02-e723-40b9-a060-fa5893ae3758"
+      ],
+      "word": "environment",
+      "meaning": "環境",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "140ab9b3-7542-4f6d-82a2-ccaa1c44dca4",
+      "deleteIds": [
+        "57311491-6da6-458b-801e-a6cc38635050"
+      ],
+      "word": "technology",
+      "meaning": "技術，テクノロジー",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "944fb2a8-bab2-4a7c-867c-81bd9cac2b53",
+      "deleteIds": [
+        "0ae605e0-bb46-4ee6-a047-23d12c0cdfca"
+      ],
+      "word": "war",
+      "meaning": "戦争",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "6a35a0a9-8f55-4e04-8f6b-727ed6fd0e21",
+      "deleteIds": [
+        "7e1ea207-7c79-4c83-999e-4e4dd073f791",
+        "552b40ef-599f-46a5-841f-4036914bc6a4"
+      ],
+      "word": "goal",
+      "meaning": "目標，ゴール",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "54ef073b-8a45-4ff7-a78b-ccffbba894f3",
+      "deleteIds": [
+        "1cf8ce8e-3ec7-49cc-93d3-64feb3c2f419"
+      ],
+      "word": "level",
+      "meaning": "レベル，水準",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000032",
+      "materialTitle": "英検1級 必須単語",
+      "keepId": "d5477ba8-4060-4cf5-a579-5af5ee868c83",
+      "deleteIds": [
+        "e4f7ac65-4486-4749-9f12-fdba6e3375d5"
+      ],
+      "word": "indolent",
+      "meaning": "怠惰な",
+      "pos": "adj"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000032",
+      "materialTitle": "英検1級 必須単語",
+      "keepId": "22c8ff12-0b33-4e77-9788-bff69fa1e54f",
+      "deleteIds": [
+        "34a79cb0-917e-4950-b923-6ac0fb2f8734"
+      ],
+      "word": "irascible",
+      "meaning": "怒りやすい",
+      "pos": "adj"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000032",
+      "materialTitle": "英検1級 必須単語",
+      "keepId": "30429f68-cc43-43af-b008-14023ff551c1",
+      "deleteIds": [
+        "b58ccb0c-0bd9-439e-90e5-5bbd43412926"
+      ],
+      "word": "incoherent",
+      "meaning": "まとまりのない",
+      "pos": "adj"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000032",
+      "materialTitle": "英検1級 必須単語",
+      "keepId": "43768900-f0fc-4654-8c8c-e1c566cb9bb5",
+      "deleteIds": [
+        "4ca99ed9-e257-4993-aac1-af69b6d18212"
+      ],
+      "word": "cabal",
+      "meaning": "陰謀（団）",
+      "pos": "n"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "e5de97f3-ad41-4a0f-9a9e-2c8d3b032e84",
+      "deleteIds": [
+        "e7c2c837-d223-4a3b-9cf6-6108cd7dbd51"
+      ],
+      "word": "leader",
+      "meaning": "リーダー，指導者",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000032",
+      "materialTitle": "英検1級 必須単語",
+      "keepId": "d2b542f9-f1bd-4fb1-a91f-21fcb6a565cc",
+      "deleteIds": [
+        "f270af93-3eb5-4f85-95e4-d675e33b3177"
+      ],
+      "word": "contemptuous",
+      "meaning": "軽蔑的な",
+      "pos": "adj"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000032",
+      "materialTitle": "英検1級 必須単語",
+      "keepId": "505eb3a0-4ec3-4ad7-b87f-396f8a7563b0",
+      "deleteIds": [
+        "c21a097b-e5c4-491d-8687-83f537ca35fc"
+      ],
+      "word": "listless",
+      "meaning": "無気力な",
+      "pos": "adj"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000032",
+      "materialTitle": "英検1級 必須単語",
+      "keepId": "1f8a2ab0-8266-4883-9fe6-14cb86a0a234",
+      "deleteIds": [
+        "a2173f3a-9351-4cec-a085-1c573ef68ca6"
+      ],
+      "word": "defiant",
+      "meaning": "反抗的な",
+      "pos": "adj"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "d04e84fa-fdd6-4bd0-8186-311cbc59cd83",
+      "deleteIds": [
+        "3a1348f9-8561-4afa-9c0c-082a4d14189b"
+      ],
+      "word": "helicopter tour",
+      "meaning": "ヘリコプターツアー",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "bd9a29c9-95a9-43d7-b5bc-5ce82b051ec8",
+      "deleteIds": [
+        "a63846dd-733a-4f0d-a08d-026ae54f9f47"
+      ],
+      "word": "priority boarding",
+      "meaning": "優先搭乗",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "fad08a0d-cca7-4fd8-b90c-0a150cd53932",
+      "deleteIds": [
+        "06671b18-01f3-4a51-8aaa-2058fba6fae8"
+      ],
+      "word": "grammar",
+      "meaning": "文法",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "f64d01ab-f20c-44b2-8c31-9c6e7875c268",
+      "deleteIds": [
+        "32c437da-6d50-4bcf-8757-2bf2c88dcb63"
+      ],
+      "word": "earthquake",
+      "meaning": "地震",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "b8ab9e72-8bca-413c-b385-904d0aca73c3",
+      "deleteIds": [
+        "99caa0fb-9c78-4eaa-aa8c-956dac7bae6d"
+      ],
+      "word": "effect",
+      "meaning": "効果，影響，結果",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "fa6f8337-5943-4f61-808e-b4c99bd56f50",
+      "deleteIds": [
+        "d730c116-f77e-4986-9914-e22f6069fd20"
+      ],
+      "word": "international",
+      "meaning": "国際的な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "f6a80dc4-c464-4c22-a826-05a8e1d3e7bb",
+      "deleteIds": [
+        "0cb2a918-a132-4eef-b12d-1bd8f199cd43"
+      ],
+      "word": "traditional",
+      "meaning": "伝統的な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "1b90697b-d755-465c-a845-70a886d5f7ca",
+      "deleteIds": [
+        "37ac12c1-72c9-4783-abfd-d258e083afd4"
+      ],
+      "word": "medical",
+      "meaning": "医療の，医学の",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "77c6faf0-b25b-4ebc-8635-0fc5b6e3fa04",
+      "deleteIds": [
+        "10976ec8-08f4-4290-9d71-3897f85d9bbc"
+      ],
+      "word": "research",
+      "meaning": "研究する，調査する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "f388009f-65c3-4eff-99de-b34e4e65f59b",
+      "deleteIds": [
+        "df36caa4-658e-4c7f-9e72-fb2dda46ce19"
+      ],
+      "word": "realize",
+      "meaning": "気づく，実現する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "008bafeb-2204-4f3d-9d7f-a191c4753b18",
+      "deleteIds": [
+        "152790d2-9ef8-432f-8a75-2373de0f262f"
+      ],
+      "word": "explain",
+      "meaning": "説明する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "6f3079d2-f501-4a0c-b210-ac86b79cbe62",
+      "deleteIds": [
+        "d3322cce-1441-4e0f-833e-64c9d9493b91"
+      ],
+      "word": "expect",
+      "meaning": "期待する，予想する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "5497b167-608a-4d0f-8270-dd0cfd7ff450",
+      "deleteIds": [
+        "40a2515e-5b18-4fe1-a033-afe953fc404a"
+      ],
+      "word": "require",
+      "meaning": "必要とする，要求する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "d0140c87-8e8f-42b2-9c84-7860bb6117df",
+      "deleteIds": [
+        "0928f414-167e-4d5b-8059-f25798484e0b"
+      ],
+      "word": "spread",
+      "meaning": "広がる，広める",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "d0eae8b5-b2d3-48ef-8b5f-6756b73cafe6",
+      "deleteIds": [
+        "792fc319-15e8-4a69-b0b6-5ec036f4a2b5"
+      ],
+      "word": "discover",
+      "meaning": "発見する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "2798078c-6627-4eb1-ab22-8173bfc9a482",
+      "deleteIds": [
+        "8b30d6b3-3d68-4431-9576-10a9b52af874"
+      ],
+      "word": "reduce",
+      "meaning": "減らす，削減する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "e6a10042-3881-4158-b1bc-462a9696eae3",
+      "deleteIds": [
+        "6ef04a12-5607-4608-b297-fde9a69dbd99"
+      ],
+      "word": "protect",
+      "meaning": "守る，保護する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "03eed903-904b-40d0-bd83-4a045b9d9bc8",
+      "deleteIds": [
+        "8b404426-9e76-40d6-a55b-0c967194a37b"
+      ],
+      "word": "community",
+      "meaning": "地域社会，コミュニティ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "94043052-2cde-4674-94c5-03a3e5e9357e",
+      "deleteIds": [
+        "cc505b88-b89b-4559-b219-d4ee686902b1"
+      ],
+      "word": "opportunity",
+      "meaning": "機会，チャンス",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "c888e4ae-cd72-4f07-b722-78fee6996e84",
+      "deleteIds": [
+        "ea248172-aeb7-4980-b37f-ff12d60b2fd4"
+      ],
+      "word": "activity",
+      "meaning": "活動，アクティビティ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "04b4aefe-894d-4dd5-be6a-543949f9f2d3",
+      "deleteIds": [
+        "06cd9a55-9ceb-4351-9aac-913706808b7b"
+      ],
+      "word": "campaign",
+      "meaning": "キャンペーン，運動",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "e7ad20e0-b011-4e50-b23b-f211e206cf0c",
+      "deleteIds": [
+        "2c550018-0b5f-4d04-8d88-d2bda48c6063"
+      ],
+      "word": "government",
+      "meaning": "政府，行政",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "0b5c7853-be5b-4f3c-8ed4-0af610ddf7d5",
+      "deleteIds": [
+        "ba5a5820-577f-42cd-b3db-f0b1e2d93e3d"
+      ],
+      "word": "environment",
+      "meaning": "環境",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "cbd8f62e-8ba3-41d2-9cd2-23c67e9d7a67",
+      "deleteIds": [
+        "448c3fd1-2b5f-4251-ba99-9e38fbf407f6"
+      ],
+      "word": "pollution",
+      "meaning": "汚染，公害",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "c1358b7b-6b1b-4c43-b768-d6b367e209df",
+      "deleteIds": [
+        "91003060-0103-4dde-b494-6ed0cc98fc15"
+      ],
+      "word": "solution",
+      "meaning": "解決策，解答",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "56155ad1-f281-403d-bc7b-8646ca981c9b",
+      "deleteIds": [
+        "67e5618d-943a-42bd-908d-949d4b29fcd9"
+      ],
+      "word": "cooperation",
+      "meaning": "協力，協調",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "6a5e5e23-0908-4151-a784-eb51fc2321d3",
+      "deleteIds": [
+        "12a5118b-e9f4-41a0-89cd-42e3f01f7425"
+      ],
+      "word": "robot",
+      "meaning": "ロボット",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "31c86f6b-8a1a-4957-b56e-96a7e892acff",
+      "deleteIds": [
+        "b3206377-4733-4668-8fd7-a976a3e4d214"
+      ],
+      "word": "effect",
+      "meaning": "効果，影響",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "29f61ae8-a738-460d-9b81-5478900b128f",
+      "deleteIds": [
+        "fb7f2162-978b-4eb7-8544-eba5cf0aba18"
+      ],
+      "word": "effort",
+      "meaning": "努力",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "52e49910-de3d-4352-b779-57c5b83d9ec5",
+      "deleteIds": [
+        "40f5120b-61d8-4f64-858b-6775ef117237"
+      ],
+      "word": "attitude",
+      "meaning": "態度，姿勢",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "dac00601-1439-4cc4-8f59-3c00abc98a34",
+      "deleteIds": [
+        "2f8613ee-1113-4b9a-93c9-19d75214fffa"
+      ],
+      "word": "society",
+      "meaning": "社会",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "0f9269cf-80a0-4367-9229-78e4f2f7ddbb",
+      "deleteIds": [
+        "1adc68a6-4247-408a-a904-d1b98fb641d3"
+      ],
+      "word": "conclusion",
+      "meaning": "結論",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "85dc2f2a-e6a2-4c33-ae7e-38ba41f1734d",
+      "deleteIds": [
+        "b7b2c486-a144-465a-a2f2-42b0c2bdd835"
+      ],
+      "word": "certain",
+      "meaning": "確かな，ある〜",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "ec929f96-56de-4504-96a1-3c14caa8b76e",
+      "deleteIds": [
+        "5f96bc48-8e86-4fb0-b79e-25269bb3a930"
+      ],
+      "word": "data",
+      "meaning": "データ，資料",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "070635fd-bc6e-403a-847a-63a36a955840",
+      "deleteIds": [
+        "624048c6-3607-4701-8ee7-58dc81a6e6f7"
+      ],
+      "word": "difference",
+      "meaning": "違い，差異",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "1c73a0f6-051f-4e08-8528-f6439192c171",
+      "deleteIds": [
+        "ce3c6fcb-d3c3-4c51-a106-3d73d5fa64fd"
+      ],
+      "word": "tradition",
+      "meaning": "伝統，慣習",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "bf20f33d-f1e5-473a-914e-e4230764abe7",
+      "deleteIds": [
+        "0011b4c4-85b5-4953-8be6-b953e23ad9e5"
+      ],
+      "word": "represent",
+      "meaning": "代表する，表す",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "6aa5b159-09fc-4d6e-acda-75af7a4e256f",
+      "deleteIds": [
+        "77b1d09a-70c5-4933-b8d7-3dd46f88462d"
+      ],
+      "word": "earn",
+      "meaning": "稼ぐ，得る",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "bb2c2718-f63a-4c18-b602-2a571ff986a0",
+      "deleteIds": [
+        "3f5ca40c-e346-4d77-86ac-5985a596bdee"
+      ],
+      "word": "theme",
+      "meaning": "テーマ，主題",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "391f188a-7743-4df2-82a5-c2757677f0eb",
+      "deleteIds": [
+        "b5b36a29-27b2-4525-a478-364ce04ab235"
+      ],
+      "word": "detail",
+      "meaning": "詳細，細部",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "1ff9348e-3eee-4813-8801-fb78cc048490",
+      "deleteIds": [
+        "d43d332c-227f-46ac-a23e-c414a7534787"
+      ],
+      "word": "evidence",
+      "meaning": "証拠，根拠",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "3db0858e-d2e0-422d-9c58-bd22d3c433a8",
+      "deleteIds": [
+        "10467374-705b-42e1-9c89-ac6328e8c127"
+      ],
+      "word": "improvement",
+      "meaning": "改善，向上",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "ef62899b-5568-4e09-a310-59ed5ddfb9d3",
+      "deleteIds": [
+        "95d7a5dc-cbd6-4d94-a25a-a5220247fd83"
+      ],
+      "word": "minority",
+      "meaning": "少数派，マイノリティ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "1cf9de2e-b2a7-4865-9f14-d581e4eb6351",
+      "deleteIds": [
+        "cbcc472e-0ebd-4fdd-99de-57e1d6da93d6"
+      ],
+      "word": "goal",
+      "meaning": "目標，ゴール",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "0b495ec8-a7c5-4151-932e-d9f2b830e24f",
+      "deleteIds": [
+        "391fb80b-ac56-4d8a-866e-5c76c07e0047"
+      ],
+      "word": "decision",
+      "meaning": "決断，決定",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "4eaa32f3-fef5-457d-9a66-d2e1cf823bed",
+      "deleteIds": [
+        "85052ab3-ea77-47c3-9a4a-b3f617fbc569"
+      ],
+      "word": "independent",
+      "meaning": "独立した，自立した",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "056f0af0-08ec-4b0d-a996-83cd118328f1",
+      "deleteIds": [
+        "5cf8cfce-d9bc-4c16-8a33-489c266f48cb"
+      ],
+      "word": "positive",
+      "meaning": "肯定的な，前向きな",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "a736cc4d-df4a-48f5-8676-9699acf1e123",
+      "deleteIds": [
+        "d9f5d375-b0ce-421c-b3d6-41407b91fd95"
+      ],
+      "word": "negative",
+      "meaning": "否定的な，マイナスの",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "ad0ae537-9691-44e3-b3de-82b45d063b3b",
+      "deleteIds": [
+        "7191951e-d4d1-4b20-96a3-cc023903b722"
+      ],
+      "word": "effective",
+      "meaning": "効果的な，有効な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "1f0908e0-6923-46bf-832d-708af19d33ae",
+      "deleteIds": [
+        "f34e247f-72ad-427f-8c45-19f4614ae308"
+      ],
+      "word": "efficient",
+      "meaning": "効率的な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "7eba2f0a-0294-4d61-9e1a-74727f713bdf",
+      "deleteIds": [
+        "a31c81d2-9a6a-402e-9b60-824abf3c293f"
+      ],
+      "word": "political",
+      "meaning": "政治的な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "975a41ce-ee65-4471-bf00-0e32633e1877",
+      "deleteIds": [
+        "e3af5a63-952b-4e4f-9f25-4585519519dd"
+      ],
+      "word": "economic",
+      "meaning": "経済的な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "a9611284-f75d-4936-9be0-a2743dfd3d63",
+      "deleteIds": [
+        "1ee9cf4d-a4e8-44e9-a867-4ed7eb3cb135"
+      ],
+      "word": "scientific",
+      "meaning": "科学的な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "1ed47ba1-d950-4833-a952-65b2bd3ca96d",
+      "deleteIds": [
+        "b7105eab-eef7-4c8a-ad46-ac1868b2eb48"
+      ],
+      "word": "historical",
+      "meaning": "歴史的な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "4a8f3ab4-f564-4204-8442-664a4469176a",
+      "deleteIds": [
+        "842ac1b1-3f39-4b93-9188-3da86289fdf9"
+      ],
+      "word": "complex",
+      "meaning": "複雑な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "190fd114-c2c4-4956-82e8-f70129cde8b4",
+      "deleteIds": [
+        "f0ee2b9b-f576-4c92-aa2d-04f2122c9f24"
+      ],
+      "word": "major",
+      "meaning": "主要な，大きな",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "1c483d6c-a46d-492b-99dd-69bd397f1774",
+      "deleteIds": [
+        "be21eb63-144c-4bef-82b4-99b3137602d6"
+      ],
+      "word": "website",
+      "meaning": "ウェブサイト",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "4820d307-a793-44b7-8f4b-141d47a08f86",
+      "deleteIds": [
+        "5c70348e-fd4e-4acc-b005-17254c32da92"
+      ],
+      "word": "take place",
+      "meaning": "起こる，行われる",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "52554baa-59b5-41aa-baae-4ff0fe6fabc8",
+      "deleteIds": [
+        "95b6e5d7-126a-49d3-844a-3f10c588fe51"
+      ],
+      "word": "ecosystem",
+      "meaning": "生態系",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "c65a4c59-4aeb-46cd-b482-1451996a3763",
+      "deleteIds": [
+        "97b74405-438e-43ce-8a54-978ca6d344ea"
+      ],
+      "word": "extinction",
+      "meaning": "絶滅",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "dac24eb3-e0d2-48ec-8827-0a840038b16f",
+      "deleteIds": [
+        "ee8e78da-8fad-42b6-b66c-5ba17a655d2f"
+      ],
+      "word": "biodiversity",
+      "meaning": "生物多様性",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "3596336c-a999-42f2-8ef0-99c8ec4f97a6",
+      "deleteIds": [
+        "096362b5-1f1c-4d9d-be0b-37c7e147dbc5"
+      ],
+      "word": "carbon dioxide",
+      "meaning": "二酸化炭素",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "840a305a-b4ff-48bc-b2f9-64c0195ad401",
+      "deleteIds": [
+        "25f4e32c-ae3b-43b0-ad61-cd31b7c76784"
+      ],
+      "word": "greenhouse gas",
+      "meaning": "温室効果ガス",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "fe0905e6-3e8d-45dd-bd3c-ad43309af4ba",
+      "deleteIds": [
+        "b5ba110e-b3a9-4e54-b5e5-db5fa0830c47"
+      ],
+      "word": "deforestation",
+      "meaning": "森林破壊，森林伐採",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "a9b99a36-8bbb-425a-8f73-c785e06aa565",
+      "deleteIds": [
+        "b8ea821a-2520-44a9-8985-8d13fa115f05"
+      ],
+      "word": "tsunami",
+      "meaning": "津波",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "256e4e88-d5df-40d6-a1ef-701925e8ec7c",
+      "deleteIds": [
+        "dba978f5-3d8c-4929-ba07-6a4e5ba15c1b"
+      ],
+      "word": "leadership",
+      "meaning": "リーダーシップ，指導力",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "ec07e5b9-252f-406f-9370-b7a7e93abd25",
+      "deleteIds": [
+        "6528a709-d020-4638-9204-2b198db9c642"
+      ],
+      "word": "innovation",
+      "meaning": "革新，イノベーション",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "e782e422-c2c4-4383-a202-6fe114bd14d1",
+      "deleteIds": [
+        "83e5084c-e3ca-4a53-8363-920bbda765f5"
+      ],
+      "word": "impact",
+      "meaning": "影響，衝撃",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "5f735c7a-7bd2-4170-85c8-6b7f21495a46",
+      "deleteIds": [
+        "29b6fb26-1025-4e32-ab54-7d05f9d33934"
+      ],
+      "word": "statistics",
+      "meaning": "統計，統計学",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "85ad7ecc-f18b-4c48-8257-665176d594f4",
+      "deleteIds": [
+        "06bf16fa-78f5-4a6a-a80c-f8eb09e0c473"
+      ],
+      "word": "estimate",
+      "meaning": "推定する，見積もる",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "7e29fd55-c9a6-4eb3-991e-079711a2a204",
+      "deleteIds": [
+        "863f4eaf-7058-4fc6-9e8c-ade87a0b68a0"
+      ],
+      "word": "identify",
+      "meaning": "特定する，識別する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "6e630e30-e1c9-4c64-a95c-a3126f9bb867",
+      "deleteIds": [
+        "d89dcd87-d4f0-49a6-b7e3-f56e2f0b80b7"
+      ],
+      "word": "classify",
+      "meaning": "分類する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "0ad3d28c-8b31-474f-8a6c-91a3009d7a40",
+      "deleteIds": [
+        "d4bb4c97-d235-4ff2-9444-30ff6747dce2"
+      ],
+      "word": "analyze",
+      "meaning": "分析する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "3d5f254b-3327-4e54-af51-9d309a2470b9",
+      "deleteIds": [
+        "c407fd71-5c43-4e34-a977-18e98910b549"
+      ],
+      "word": "indicate",
+      "meaning": "示す，指示する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "1f4da233-6164-4afc-a505-83d60a083f7d",
+      "deleteIds": [
+        "6d44d3c2-ff96-4e81-9874-7ba08f884937"
+      ],
+      "word": "predict",
+      "meaning": "予測する，予言する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "574b098f-8a83-4785-a619-1014b6cea6ee",
+      "deleteIds": [
+        "c1d67d2e-035b-4043-b45d-c8de116f021b"
+      ],
+      "word": "assume",
+      "meaning": "仮定する，思い込む",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "7663e292-4bec-40d4-8429-bbb843bae64a",
+      "deleteIds": [
+        "c091297f-385d-409d-bab7-dbfd03f8fa08"
+      ],
+      "word": "promote",
+      "meaning": "促進する，昇進させる",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "12d7dd5c-e2ea-4641-a859-07491ae23e4e",
+      "deleteIds": [
+        "e4ffefd2-5005-4fd4-94b6-0651b74320cb"
+      ],
+      "word": "implement",
+      "meaning": "実施する，導入する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "9e16b9ed-615c-4a63-81e7-8e73ee69e5ad",
+      "deleteIds": [
+        "6e151aa9-195d-4e24-9ed0-905ea3b66bd3"
+      ],
+      "word": "publish",
+      "meaning": "出版する，公表する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "b1bfa254-77c2-4da4-ba9e-004335b0e045",
+      "deleteIds": [
+        "e996871b-242a-4fdd-8b95-b0a61b481f81"
+      ],
+      "word": "capital city",
+      "meaning": "首都",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "f830fcdd-e277-4d84-853d-725479f4ddd1",
+      "deleteIds": [
+        "40c1ee40-83e2-48e1-931d-e5d5062afc55"
+      ],
+      "word": "oxygen",
+      "meaning": "酸素",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "c03567f7-fe99-4e07-8c48-cf5f508e4853",
+      "deleteIds": [
+        "af3bf821-33e1-43fe-a917-b8cc60d0cfff"
+      ],
+      "word": "fluent",
+      "meaning": "流暢な，ペラペラな",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "030af9b4-952f-4395-b7ce-ebacf8d060e5",
+      "deleteIds": [
+        "aa6f11ea-63ce-4f3e-a552-a9ac541a5dec"
+      ],
+      "word": "agriculture",
+      "meaning": "農業",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "bebf328a-1bbd-4bbf-88d0-f131ee242cc4",
+      "deleteIds": [
+        "727bec65-fd81-4bf3-bd21-ed5aa9d87d92"
+      ],
+      "word": "welfare",
+      "meaning": "福祉，幸福",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "233025f8-1f59-4cf7-8948-17d83409a5e8",
+      "deleteIds": [
+        "e319431e-e001-4275-9aff-09771d297486"
+      ],
+      "word": "policy",
+      "meaning": "政策，方針",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "634c4475-6498-4b37-bb4e-7d8adfee411a",
+      "deleteIds": [
+        "140076be-2537-4158-9eab-27cf9af934d4"
+      ],
+      "word": "consensus",
+      "meaning": "合意，コンセンサス",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "716b747c-7d90-42f9-b3f7-8d6561695cc0",
+      "deleteIds": [
+        "66b730c6-5548-4e0f-9bbf-911446507c5f"
+      ],
+      "word": "reliable",
+      "meaning": "信頼できる，頼りになる",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "29e8fbd2-9e39-4530-821a-d885f01aaa73",
+      "deleteIds": [
+        "06f92bf0-0e89-467f-aa99-4daeaae275ee"
+      ],
+      "word": "substantial",
+      "meaning": "相当な，実質的な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "52d2d46b-cf24-479b-928a-209605b420e9",
+      "deleteIds": [
+        "ad04d8f3-f476-462c-af7f-9a745c7be3d9"
+      ],
+      "word": "subjective",
+      "meaning": "主観的な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "55794578-7ddf-4708-a36f-97e1519a0ea9",
+      "deleteIds": [
+        "14109b69-743b-4bc4-820f-ae9ca71aee35"
+      ],
+      "word": "concept",
+      "meaning": "概念，コンセプト",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "84549fea-afa5-49b4-8ecf-b01e924631fa",
+      "deleteIds": [
+        "3208dfb3-66d6-42d2-ab15-4f947dac8f5e"
+      ],
+      "word": "principle",
+      "meaning": "原則，原理",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "5d99f551-db46-432c-8102-3bc28d34682b",
+      "deleteIds": [
+        "86c80111-d8fa-46b9-b0bb-9700061cfc56"
+      ],
+      "word": "framework",
+      "meaning": "枠組み，フレームワーク",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "3590359d-19c8-4ba9-8b10-0bfccd4c8503",
+      "deleteIds": [
+        "2b5fa556-c101-4b3a-898e-7bf24bbec3ea"
+      ],
+      "word": "argue",
+      "meaning": "主張する，議論する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "ff4d8e5e-e2c6-48a8-b541-a0e5e6a6435b",
+      "deleteIds": [
+        "ea63ad01-ccf8-4d1b-bb1e-8a63b72d46ee"
+      ],
+      "word": "chapter",
+      "meaning": "章，チャプター",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "b2980fe7-99c3-4a27-bb1f-923bf396c34c",
+      "deleteIds": [
+        "2ad7f186-efe5-42f5-9cdf-61eabd023e9d"
+      ],
+      "word": "headline",
+      "meaning": "見出し，ヘッドライン",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "f111e767-b710-4383-b8b6-aa110fcf6050",
+      "deleteIds": [
+        "146b3410-f321-4803-bb79-4ed8a599c9c3"
+      ],
+      "word": "century",
+      "meaning": "世紀，100年",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "44e84c04-98ab-4c08-a905-743a8a0ea2b8",
+      "deleteIds": [
+        "e92d36a3-b0b8-478a-b5a5-d93ac0ef7c97"
+      ],
+      "word": "continent",
+      "meaning": "大陸",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "626a57d3-7129-463c-b2bb-f0cdf8afb349",
+      "deleteIds": [
+        "f1467355-22a4-45e1-a3cd-b1ce69d6e4a0"
+      ],
+      "word": "patent",
+      "meaning": "特許",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "e3c0e995-bd51-4bf1-b7ab-99ce5bb28080",
+      "deleteIds": [
+        "56f7ee61-6b8a-414b-8018-d7619a09f24f"
+      ],
+      "word": "algorithm",
+      "meaning": "アルゴリズム",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "753292ab-35ae-41b7-9b2b-cc82ec64ea21",
+      "deleteIds": [
+        "17b38159-3a43-47af-8186-9da848ecd79c"
+      ],
+      "word": "automation",
+      "meaning": "自動化",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "429ac82e-6865-4cb9-a6c8-10919edbe3dd",
+      "deleteIds": [
+        "ba39cf58-a327-436e-b1d2-5b39f3ecc23d"
+      ],
+      "word": "fossil fuel",
+      "meaning": "化石燃料",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "ae3f2b51-05dd-4f71-8657-a38aca4fdc9f",
+      "deleteIds": [
+        "54690a6a-a36b-4aa6-aa00-74e05168124e"
+      ],
+      "word": "atmosphere",
+      "meaning": "大気，雰囲気",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "d3f262e4-c540-4d01-ad39-4e1a6af800cc",
+      "deleteIds": [
+        "3abf82d8-55ca-4f7a-b154-bc9b44320f98"
+      ],
+      "word": "mortality rate",
+      "meaning": "死亡率",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "86f9c0c1-c097-4c3a-a101-c5e616f78f47",
+      "deleteIds": [
+        "13172b52-e450-492a-8d8f-c0fa6e0ad0f9"
+      ],
+      "word": "birth rate",
+      "meaning": "出生率",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "63923d2a-d72d-4b5d-bdb6-108fd293940f",
+      "deleteIds": [
+        "0f2b54ad-79af-4705-848f-4f3f1a1d4d7c"
+      ],
+      "word": "machine learning",
+      "meaning": "機械学習",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "599aeb4b-73d6-4ab9-b04c-afad95e822f5",
+      "deleteIds": [
+        "ffe7ef53-e947-43f4-80dc-e3a342a87b46"
+      ],
+      "word": "cybersecurity",
+      "meaning": "サイバーセキュリティ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "fe9c2336-bbc2-4bcd-8cdb-3ae22cff8c8c",
+      "deleteIds": [
+        "0a0eeb24-72a8-47b2-97b3-b207adb9ea32"
+      ],
+      "word": "startup",
+      "meaning": "スタートアップ，新興企業",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "191042cd-6d32-4805-9b88-c273be7f0510",
+      "deleteIds": [
+        "37b247cb-97fa-425d-9a19-02a0a3e0c8d1"
+      ],
+      "word": "emphasize",
+      "meaning": "強調する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "ae0a4dd1-32d6-448a-ac83-df9aef06fe9b",
+      "deleteIds": [
+        "b9747a7b-e19d-405d-9d86-bdfb85cffdbb"
+      ],
+      "word": "restrict",
+      "meaning": "制限する，規制する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000046",
+      "materialTitle": "loop受験英単語②【高校入試】",
+      "keepId": "c5955e2e-6e8d-4096-bccc-65fd2faa0ae3",
+      "deleteIds": [
+        "abfbaf94-f44a-4159-949c-b354e36e7162"
+      ],
+      "word": "reject",
+      "meaning": "拒否する，却下する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000047",
+      "materialTitle": "loop受験英単語③【高校基礎】",
+      "keepId": "e5b83712-81eb-4930-a4c6-f98244be4a4f",
+      "deleteIds": [
+        "6f6bf73d-7dd4-42b8-9896-f6883cab6b1c"
+      ],
+      "word": "feedback loop",
+      "meaning": "フィードバックループ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000047",
+      "materialTitle": "loop受験英単語③【高校基礎】",
+      "keepId": "ec53d6a9-c27e-4518-b081-d4cd1d8f5af2",
+      "deleteIds": [
+        "d858b93b-93c8-413c-b203-a013791c7ece"
+      ],
+      "word": "confounding variable",
+      "meaning": "交絡変数，交絡因子",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "2eb79ed3-042c-4635-89e2-14173836d22e",
+      "deleteIds": [
+        "450c65f3-02b7-4e2e-96ef-eaebe89f7b58"
+      ],
+      "word": "crucial",
+      "meaning": "極めて重要な，決定的な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "dcce0c83-a02d-460b-92d6-a5a5bfd65745",
+      "deleteIds": [
+        "3e053206-1a47-47f8-b06c-2b4dfd67c344"
+      ],
+      "word": "logical",
+      "meaning": "論理的な，合理的な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000047",
+      "materialTitle": "loop受験英単語③【高校基礎】",
+      "keepId": "08e55011-fef9-4e85-9860-6e9190defabd",
+      "deleteIds": [
+        "1f154d59-3647-406d-a422-2118be6a915b"
+      ],
+      "word": "perceive",
+      "meaning": "知覚する，〜だと認識する",
+      "pos": "動詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "5e71dc0b-b53e-4261-8d80-de908c0159d1",
+      "deleteIds": [
+        "b4a05d11-af15-4050-ae3d-59273a84e9a2"
+      ],
+      "word": "street food safety",
+      "meaning": "屋台料理の安全",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "163a4d89-0b65-494c-81e9-e58f59f7b388",
+      "deleteIds": [
+        "0eeaacbb-1df5-4f94-8f64-e06cd7dbf9f6"
+      ],
+      "word": "aisle seat",
+      "meaning": "通路側席",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "be0c028e-f3f5-4f9d-8174-4024ab3f6527",
+      "deleteIds": [
+        "e29905c0-849b-4456-ba62-80cc9cf76bb5"
+      ],
+      "word": "window seat",
+      "meaning": "窓側席",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "83818987-0d21-4d49-8cc5-14f09db772a9",
+      "deleteIds": [
+        "4421a702-9fad-49f0-9ed9-06b911da96e2"
+      ],
+      "word": "audio guide",
+      "meaning": "オーディオガイド",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "fbb9553b-72a2-4ccc-8c51-8ef73391bb65",
+      "deleteIds": [
+        "dcc87072-d2c1-47bc-ad5c-035fa0596675"
+      ],
+      "word": "culture shock",
+      "meaning": "カルチャーショック",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "657962de-dfa3-4481-9ea2-c55dcc7d8809",
+      "deleteIds": [
+        "f0733625-36df-43c1-a385-878d3ca4dc33"
+      ],
+      "word": "reverse culture shock",
+      "meaning": "逆カルチャーショック",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "316f89ec-169c-49be-aef6-f15378e9f5c7",
+      "deleteIds": [
+        "2e235ef6-877e-47e0-acfa-b376a3a3d7ea"
+      ],
+      "word": "travel journal",
+      "meaning": "旅行日記",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "e2afb500-1e43-4b9c-9d1c-ab2e9bba5228",
+      "deleteIds": [
+        "5ccecd15-54c0-4a1e-bd91-72abb2c09d0e"
+      ],
+      "word": "entry requirements",
+      "meaning": "入国要件",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "52e6a2d8-6327-4494-9313-98fe05b32756",
+      "deleteIds": [
+        "ecd895f8-e013-4347-a65c-e2b185ddc8c8"
+      ],
+      "word": "capsule hotel",
+      "meaning": "カプセルホテル",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "3be665d6-916c-4f1b-99b3-d0007e9f7afe",
+      "deleteIds": [
+        "164268f0-1a7d-4ebc-91a1-fa541b760742"
+      ],
+      "word": "late check-out",
+      "meaning": "レイトチェックアウト",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "42ba602a-b27e-4415-ae63-468c73560e81",
+      "deleteIds": [
+        "d03e8c55-f125-41a4-bf6c-30d64b873043"
+      ],
+      "word": "free walking tour",
+      "meaning": "無料ウォーキングツアー",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "7c27170f-561d-4e5c-bf01-56e2091968cd",
+      "deleteIds": [
+        "8673ace8-f1dc-4acc-9879-baae3b223233"
+      ],
+      "word": "hot air balloon",
+      "meaning": "熱気球",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "4a1df777-15c3-4e22-8566-9b15d591322f",
+      "deleteIds": [
+        "c6290caf-56c1-4776-81eb-2b254f8ad497"
+      ],
+      "word": "bungee jumping",
+      "meaning": "バンジージャンプ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "517b60df-01bc-4688-a47d-6b85ce6112d5",
+      "deleteIds": [
+        "ea49bf41-e7cf-4be0-8d3c-4fcd7ef5d8da"
+      ],
+      "word": "paragliding",
+      "meaning": "パラグライダー",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "17e1b4a8-76ce-4b8b-9531-95da5616e9d6",
+      "deleteIds": [
+        "854ed3ab-4d6a-4b45-9648-014742f296ce"
+      ],
+      "word": "whale watching",
+      "meaning": "ホエールウォッチング",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "a87a774b-eb78-4311-b3bd-efdcac5cb62e",
+      "deleteIds": [
+        "6f328e62-41ed-44d3-b394-a531534572e4"
+      ],
+      "word": "jet lag",
+      "meaning": "時差ぼけ，ジェットラグ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "cb217940-eef5-420a-b467-c670d704b6a7",
+      "deleteIds": [
+        "8e402452-c907-4e29-a773-8af09cb49718"
+      ],
+      "word": "foreign transaction fee",
+      "meaning": "海外取引手数料",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "72fa7196-9795-49f0-b055-20792b2bbd50",
+      "deleteIds": [
+        "250772c4-10eb-4d89-99db-4d4e002f9df1"
+      ],
+      "word": "offline map",
+      "meaning": "オフラインマップ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "326de380-2a90-4d80-bb66-7eb3df0330ba",
+      "deleteIds": [
+        "e9e0f903-50e8-40fd-b327-240c9e112869"
+      ],
+      "word": "travel app",
+      "meaning": "旅行アプリ",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "32f0815f-d273-4dc6-828c-3bdb028e9d85",
+      "deleteIds": [
+        "54d2ad64-35ca-498e-a3b4-3cc058be95d9"
+      ],
+      "word": "long-term travel",
+      "meaning": "長期旅行",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "098dfcb5-3f20-44ea-964d-967c85fc3f19",
+      "deleteIds": [
+        "84aa7246-1114-495c-ac15-beec281a2f36"
+      ],
+      "word": "parliament",
+      "meaning": "議会，国会",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000047",
+      "materialTitle": "loop受験英単語③【高校基礎】",
+      "keepId": "518c16ca-ccf9-4cf5-92fe-972175e016a2",
+      "deleteIds": [
+        "62e9ef49-bc4e-47b5-977d-5776296ff3bc"
+      ],
+      "word": "income inequality",
+      "meaning": "所得格差",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000047",
+      "materialTitle": "loop受験英単語③【高校基礎】",
+      "keepId": "11d88c17-5998-4e13-97e3-d6ee11bd88fe",
+      "deleteIds": [
+        "340892e5-d3a3-4d36-90c3-871477339b6b"
+      ],
+      "word": "press freedom",
+      "meaning": "報道の自由",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "9b74c1e0-ccae-4af3-8719-053cac7322e9",
+      "deleteIds": [
+        "afa7239a-4bf7-4a21-9ab5-7ac61bb4d83d"
+      ],
+      "word": "double room",
+      "meaning": "ダブルルーム",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "7e84127e-f427-4ec9-8b5b-503c84ae0221",
+      "deleteIds": [
+        "c63dfeb5-64a0-47ca-8145-66f6b7bac1e2"
+      ],
+      "word": "twin room",
+      "meaning": "ツインルーム",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "ad1395db-7080-4400-ac28-ba95e02c8f19",
+      "deleteIds": [
+        "10b3bcd2-0637-4bdf-be7a-be65182df5bd"
+      ],
+      "word": "housekeeping",
+      "meaning": "客室清掃，ハウスキーピング",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "e5c6a484-d2e6-4cf0-ab4b-3d5678adb87e",
+      "deleteIds": [
+        "0348db4f-a6cf-4b8c-a27d-26ff926e4efe"
+      ],
+      "word": "service charge",
+      "meaning": "サービス料",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000052",
+      "materialTitle": "loop学びなおし英単語②【旅行・海外】",
+      "keepId": "d3bb7d48-67fa-425b-a4fc-d9539f65f44a",
+      "deleteIds": [
+        "5f696300-c78d-42ce-b4d8-d97d13f48373"
+      ],
+      "word": "money belt",
+      "meaning": "マネーベルト，貴重品ベルト",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000045",
+      "materialTitle": "loop受験英単語①【中学完成】",
+      "keepId": "f9d50bce-3807-4cd0-a0fa-4228036f7624",
+      "deleteIds": [
+        "6a88efbc-32e7-449d-b76c-1a0b30a65753"
+      ],
+      "word": "treaty",
+      "meaning": "条約，協定",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000047",
+      "materialTitle": "loop受験英単語③【高校基礎】",
+      "keepId": "453aefaf-7d12-4061-94bb-c826297ffcb8",
+      "deleteIds": [
+        "47da79ca-3394-4077-86d9-46f653562e2a"
+      ],
+      "word": "welfare state",
+      "meaning": "福祉国家",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000047",
+      "materialTitle": "loop受験英単語③【高校基礎】",
+      "keepId": "1b14f0d9-2d5e-47b5-b439-01ca8c24a552",
+      "deleteIds": [
+        "dab812a4-78dc-4039-a3f9-ac0dab5b6369"
+      ],
+      "word": "literature review",
+      "meaning": "文献レビュー",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000047",
+      "materialTitle": "loop受験英単語③【高校基礎】",
+      "keepId": "8d70e740-5b6c-4d94-93a0-2dff6e0cd036",
+      "deleteIds": [
+        "243813ae-84ba-4957-bcbb-ab96d83b85f6"
+      ],
+      "word": "irony",
+      "meaning": "アイロニー，皮肉",
+      "pos": "名詞"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000033",
+      "materialTitle": "英検準2級 重要単語",
+      "keepId": "0855fef2-e726-42c3-ae8d-17be053d3391",
+      "deleteIds": [
+        "c60cb958-9968-4e05-9162-1ca0ba9ced4d"
+      ],
+      "word": "direction",
+      "meaning": "方向，方角",
+      "pos": null
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000048",
+      "materialTitle": "loop受験英単語④【共通テスト】",
+      "keepId": "bdadfcd6-c5e6-4c73-a7e4-e8874dae2710",
+      "deleteIds": [
+        "e78675a1-7a0f-4fdf-804d-a6dc713ae102"
+      ],
+      "word": "fundamental",
+      "meaning": "基本的な，根本的な",
+      "pos": "形容詞"
+    },
+    {
+      "materialId": "f2661c18-fb99-4ec2-888f-30e1fd012da0",
+      "materialTitle": "英検2級 必須単語800",
+      "keepId": "b418c48a-4aef-4f92-ad0e-6ae920268272",
+      "deleteIds": [
+        "b9904f64-b94f-4582-b3ac-149d77c095c4"
+      ],
+      "word": "renewable",
+      "meaning": "再生可能な",
+      "pos": null
+    },
+    {
+      "materialId": "f2661c18-fb99-4ec2-888f-30e1fd012da0",
+      "materialTitle": "英検2級 必須単語800",
+      "keepId": "00ddfc0b-6d16-42d8-bb88-554d832b6397",
+      "deleteIds": [
+        "c33eb1a8-f856-4875-936f-17023caa21d0"
+      ],
+      "word": "collaborate",
+      "meaning": "協力する",
+      "pos": null
+    },
+    {
+      "materialId": "f2661c18-fb99-4ec2-888f-30e1fd012da0",
+      "materialTitle": "英検2級 必須単語800",
+      "keepId": "f0a182c2-d3c6-4733-af13-6ab1d3082165",
+      "deleteIds": [
+        "1f4a2eed-4780-4f65-a4c2-cbdb04f471b7"
+      ],
+      "word": "achievement",
+      "meaning": "達成",
+      "pos": null
+    },
+    {
+      "materialId": "5eae7c64-fcb5-4164-99fb-cdb5ce10567c",
+      "materialTitle": "英検準1級 必須単語600",
+      "keepId": "51590457-73dc-4cb6-a712-647c46aef809",
+      "deleteIds": [
+        "e1e67a8f-8973-47d6-a811-aba92bb07a24"
+      ],
+      "word": "conceive",
+      "meaning": "考える",
+      "pos": null
+    },
+    {
+      "materialId": "5eae7c64-fcb5-4164-99fb-cdb5ce10567c",
+      "materialTitle": "英検準1級 必須単語600",
+      "keepId": "7366fa8c-e904-405d-bc83-396b98674da6",
+      "deleteIds": [
+        "e98a67d7-c326-43af-80f3-952618d70a10"
+      ],
+      "word": "rigorous",
+      "meaning": "厳格な",
+      "pos": null
+    },
+    {
+      "materialId": "96d6e5a2-c0f5-48b1-8eed-14a91424790f",
+      "materialTitle": "TOEIC頻出単語600",
+      "keepId": "ff4963c5-3074-4da6-9704-910e5bbb3048",
+      "deleteIds": [
+        "e5d477c2-6fc9-4950-aba1-20067677450d"
+      ],
+      "word": "recruit",
+      "meaning": "採用する",
+      "pos": null
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000054",
+      "materialTitle": "loop学びなおし英単語④【基礎からやり直し】",
+      "keepId": "24817d8a-36cf-4df9-8752-d3cf36f61242",
+      "deleteIds": [
+        "a2389d54-7a61-4c48-abde-2f20ba3a3467"
+      ],
+      "word": "job",
+      "meaning": "仕事（名詞）",
+      "pos": "noun"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000054",
+      "materialTitle": "loop学びなおし英単語④【基礎からやり直し】",
+      "keepId": "3b9ce5a7-810d-4d67-8b6a-65299e35ad1e",
+      "deleteIds": [
+        "b71c5466-8855-4fed-92c9-56bddde52fcf"
+      ],
+      "word": "vegetable",
+      "meaning": "野菜（名詞）",
+      "pos": "noun"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000054",
+      "materialTitle": "loop学びなおし英単語④【基礎からやり直し】",
+      "keepId": "8ec0c60f-ba64-4e75-9b42-623a2e82d7e7",
+      "deleteIds": [
+        "a0d75953-6eb0-43e6-a685-31acf9e7ac85"
+      ],
+      "word": "dirty",
+      "meaning": "汚い（形容詞）",
+      "pos": "adjective"
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000054",
+      "materialTitle": "loop学びなおし英単語④【基礎からやり直し】",
+      "keepId": "62579421-6c83-4470-9061-b79d144694cf",
+      "deleteIds": [
+        "94f5f3e8-7f38-42a0-8f4b-bcff78202dc4"
+      ],
+      "word": "morning",
+      "meaning": "朝（名詞）",
+      "pos": "noun"
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import { writeFileSync } from "fs";
 import { resolve } from "path";
 import { getAdminClient } from "../testing/lib/supabaseAdmin.mjs";
 import { loadEnv, REPO_ROOT } from "../testing/lib/env.mjs";
+import { detectExactDuplicates } from "./lib/duplicateDetection.mjs";
 
 const PAGE_SIZE = 1000;
 
@@ -35,7 +36,7 @@ async function fetchAllMaterialWords(admin) {
   for (;;) {
     const { data, error } = await admin
       .from("material_words")
-      .select("material_id, word, meaning, pos, example, example_ja, importance")
+      .select("id, material_id, word, meaning, pos, example, example_ja, importance, frequency, level, created_at")
       .range(offset, offset + PAGE_SIZE - 1);
     if (error) throw new Error(`material_words fetch failed: ${error.message}`);
     if (!data || data.length === 0) break;
@@ -69,32 +70,16 @@ export async function auditExistingMaterials(admin) {
     const words = wordsByMaterial.get(m.id) ?? [];
     const total = words.length;
 
-    // 教材内重複（大文字小文字を無視）。全項目が完全一致する「完全重複」と、
-    // 同じ単語でも意味/品詞/例文が異なる「意味違いの重複」を区別する。
-    const groups = new Map(); // lowercase word -> rows[]
-    for (const w of words) {
-      const key = (w.word ?? "").trim().toLowerCase();
-      if (!key) continue;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(w);
-    }
-    let exactDuplicateRows = 0;
-    let differentContentDuplicateRows = 0;
-    let duplicateWordGroups = 0;
-    for (const rows of groups.values()) {
-      if (rows.length <= 1) continue;
-      duplicateWordGroups++;
-      const signature = (r) =>
-        [r.meaning, r.pos, r.example, r.example_ja].map((v) => (v ?? "").trim()).join("");
-      const uniqueSignatures = new Set(rows.map(signature));
-      if (uniqueSignatures.size === 1) {
-        // 全行が完全に同じ内容 → 2件目以降が「純粋な余剰コピー」
-        exactDuplicateRows += rows.length - 1;
-      } else {
-        // 意味/品詞/例文のいずれかが違う → 別義の可能性があるため慎重に扱う対象
-        differentContentDuplicateRows += rows.length;
-      }
-    }
+    // 教材内重複。全項目(word/meaning/pos/example/example_ja/importance/frequency/level)が
+    // 完全一致する「完全重複」（削除しても情報損失なし）と、同じ見出し語(大文字小文字を無視)
+    // だが内容が異なる「意味違いの重複」（削除しない）を、detectExactDuplicates（削除計画
+    // スクリプトと共有するロジック）で区別する。
+    const { exactDeleteIds, looseWordGroupCount, looseWordGroupRows } = detectExactDuplicates(words);
+    const exactDuplicateRows = exactDeleteIds.size;
+    // 「意味違いの重複行」= 同一見出し語グループの総行数から、完全重複として削除される
+    // 余剰コピー分を除いた、内容が異なるため残すべき行数
+    const differentContentDuplicateRows = looseWordGroupRows - exactDuplicateRows;
+    const duplicateWordGroups = looseWordGroupCount;
 
     const posEmpty = words.filter((w) => isEmpty(w.pos)).length;
     const meaningEmpty = words.filter((w) => isEmpty(w.meaning)).length;
@@ -181,6 +166,7 @@ function renderMarkdown(audit) {
   lines.push(`> 自動生成: \`node scripts/materials/audit-existing-materials.mjs\` (最終生成: ${generatedAt})`);
   lines.push("> 読み取り専用の監査結果。このレポート自体はDBを一切変更しない。");
   lines.push("> 機械可読版: [reports/materials-audit.json](reports/materials-audit.json)");
+  lines.push("> 完全重複行の削除dry-run計画: [reports/materials-duplicate-delete-plan.md](reports/materials-duplicate-delete-plan.md)");
   lines.push("");
   lines.push("---");
   lines.push("");
@@ -188,8 +174,8 @@ function renderMarkdown(audit) {
   lines.push("");
   lines.push(`- 対象教材数: **${materialCount}件**（既存の大規模教材 + プリセットスターターパック含む）`);
   lines.push(`- 総語数: **${totals.total_words.toLocaleString()}語**`);
-  lines.push(`- 完全重複行（同一教材内で全項目が一致する余剰コピー）: **${totals.exact_duplicate_rows.toLocaleString()}件** (${fmtPct(totals.exact_duplicate_rows, totals.total_words)})`);
-  lines.push(`- 意味違いの重複行（同じ単語だが意味/品詞/例文が異なる。要精査）: **${totals.different_content_duplicate_rows.toLocaleString()}件** (${fmtPct(totals.different_content_duplicate_rows, totals.total_words)})`);
+  lines.push(`- 完全重複行（同一教材内でword/meaning/pos/example/example_ja/importance/frequency/levelが全て一致する余剰コピー）: **${totals.exact_duplicate_rows.toLocaleString()}件** (${fmtPct(totals.exact_duplicate_rows, totals.total_words)})`);
+  lines.push(`- 意味違いの重複行（同じ見出し語だが内容が異なる。要精査・削除しない）: **${totals.different_content_duplicate_rows.toLocaleString()}件** (${fmtPct(totals.different_content_duplicate_rows, totals.total_words)})`);
   lines.push(`- 品詞(pos)未設定: **${totals.pos_empty.toLocaleString()}件** (${fmtPct(totals.pos_empty, totals.total_words)})`);
   lines.push(`- meaning空欄: **${totals.meaning_empty.toLocaleString()}件**`);
   lines.push(`- example空欄: **${totals.example_empty.toLocaleString()}件** (${fmtPct(totals.example_empty, totals.total_words)})`);
@@ -203,21 +189,25 @@ function renderMarkdown(audit) {
   lines.push("");
   lines.push("## 修正方針の分類");
   lines.push("");
-  lines.push("### 自動修正してよい可能性が高いもの（今回は未実行・提案のみ）");
+  lines.push("### 自動修正してよい可能性が高いもの");
   lines.push("");
-  lines.push("- **完全重複行の削除**: 同一教材内で word/meaning/pos/example/example_ja が全て一致する");
-  lines.push("  行が複数ある場合、2件目以降は明確な余剰コピーと判断できる（意味の違いがないため）。");
+  lines.push("- **完全重複行の削除**: 同一教材内で word/meaning/pos/example/example_ja/importance/");
+  lines.push("  frequency/level が全て一致する行が複数ある場合、最古の行を残して2件目以降を削除しても");
+  lines.push("  情報損失がない（意味の違いがないため）。");
   lines.push(`  対象: 上記の完全重複行 ${totals.exact_duplicate_rows.toLocaleString()}件。`);
-  lines.push("- **前後空白の除去・大文字小文字の表記ゆれ整理**: word/meaning等の前後空白、" );
+  lines.push("  dry-run結果・削除計画・ロールバック手順は");
+  lines.push("  [reports/materials-duplicate-delete-plan.md](reports/materials-duplicate-delete-plan.md) 参照");
+  lines.push("  （`npm run materials:dedupe:dry-run` で再生成可能。実削除は事前承認後のみ）。");
+  lines.push("- **前後空白の除去・大文字小文字の表記ゆれ整理**: word/meaning等の前後空白、");
   lines.push("  word列の不要な大文字化（例: \"Achieve\" vs \"achieve\"）は機械的に正規化可能。");
-  lines.push("  ※ 今回のスキャンでは重複検出時に小文字化して比較したのみで、実際の表記ゆれ件数は");
-  lines.push("  別途詳細スキャンが必要（次のステップとして提案）。");
+  lines.push("  ※ 完全重複の削除計画には含めていない（wordのテキスト自体が異なるため）。");
+  lines.push("  実施する場合は別途詳細スキャンとして提案する。");
   lines.push("");
   lines.push("### 慎重に扱うべきもの（自動修正しない）");
   lines.push("");
-  lines.push(`- **意味違いの重複行 ${totals.different_content_duplicate_rows.toLocaleString()}件**: 同じ見出し語でも品詞や意味が異なる` );
+  lines.push(`- **意味違いの重複行 ${totals.different_content_duplicate_rows.toLocaleString()}件**: 同じ見出し語でも品詞や意味が異なる`);
   lines.push("  （例: \"book\"が名詞「本」と動詞「予約する」の両方で登録されている等）ケースを含む可能性が高い。");
-  lines.push("  自動削除すると正しい情報を失うリスクがあるため、教材ごとに手動確認が必要。");
+  lines.push("  自動削除すると正しい情報を失うリスクがあるため、教材ごとに手動確認が必要。削除計画には含めない。");
   lines.push(`- **品詞(pos)未設定 ${totals.pos_empty.toLocaleString()}件**: 自動推定（辞書API等）による一括補完は`);
   lines.push("  誤判定のリスクがあるため、今回は実施しない。優先度の高い教材から手動 or AI支援での");
   lines.push("  個別確認を推奨。");
@@ -239,10 +229,10 @@ function renderMarkdown(audit) {
   lines.push("");
   lines.push("---");
   lines.push("");
-  lines.push("## 次のアクション（提案・未実行）");
+  lines.push("## 次のアクション");
   lines.push("");
-  lines.push("1. 完全重複行の削除スクリプトを別途作成し、削除前に対象行のバックアップ（CSV等）を取った上で");
-  lines.push("   影響の小さい教材（総語数に対する重複割合が低いもの）から段階的に適用する");
+  lines.push("1. 完全重複行の削除計画（dry-run済み）を確認し、実削除の承認可否を判断する");
+  lines.push("   （[reports/materials-duplicate-delete-plan.md](reports/materials-duplicate-delete-plan.md)）");
   lines.push("2. pos未設定が多い教材のうち、インポート数が多い（=利用者への影響が大きい）教材を優先して");
   lines.push("   個別に品詞を確認・補完する運用を検討する");
   lines.push("3. カテゴリ不整合（level/exam_typeが未知の値）のある教材は表示上のバッジ色分けに");

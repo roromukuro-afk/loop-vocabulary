@@ -5,6 +5,53 @@
 
 ---
 
+## 2026-07-02 完全重複行の削除計画（dry-run）+ 重複検出ロジックの精緻化
+
+前回の監査で見つかった「完全重複行237件」について、削除の**dry-run（計画作成のみ・実削除なし）**
+を実施した。ユーザーからの明示的な承認が出るまで、実データの削除は一切行っていない。
+
+**重複検出ロジックの精緻化（237件→245件に修正）**:
+dry-run計画を厳密に作るにあたり、既存の`audit-existing-materials.mjs`の重複判定ロジックに
+分類バグを発見して修正した。旧ロジックは「同じ見出し語(大文字小文字無視)のグループ全体が
+一様に完全一致する場合のみ」完全重複と判定しており、例えば5行中4行が完全一致・1行だけ
+内容が異なる、というケースは全て「意味違いの重複」側に誤分類していた（本来は4行のうち
+3行を安全に削除できるはずだった）。新ロジック（[scripts/materials/lib/duplicateDetection.mjs](scripts/materials/lib/duplicateDetection.mjs)、
+監査・削除計画の両スクリプトで共有）は教材内の各行を
+word(前後空白除去・大文字小文字区別)/meaning/pos/example/example_ja/importance/frequency/level
+の厳密なタプルでグルーピングし直し、正確な完全重複238→245件・意味違いの重複2,181件を算出した
+（Supabase上のSQLクエリで独立に再計算し一致することを確認済み）。
+
+**dry-run結果**:
+- 完全重複グループ: 243件 / 削除対象行: **245件** / 影響教材: **14件**
+  （loop受験英単語②【高校入試】92件、loop受験英単語①【中学完成】59件 が上位2件、他12教材は
+  1〜28件。詳細は[reports/materials-duplicate-delete-plan.md](reports/materials-duplicate-delete-plan.md)）
+- 残す行の基準: グループ内で`created_at`が最古の行（同点は`id`昇順）
+- 影響確認: `material_words.id`を参照する外部キーはDB上に存在しないため、削除しても
+  `words`（ユーザーの単語帳・SRS履歴）・インポート済みデータには一切影響しない
+  （import APIは`material_words`の内容を`words`にコピーするだけで以後は独立するため）
+- バックアップ: 削除対象グループの全488行（残す行含む）を[reports/materials-duplicate-backup.json](reports/materials-duplicate-backup.json)に保存
+- ロールバック: [reports/materials-duplicate-rollback.sql](reports/materials-duplicate-rollback.sql)（`INSERT ... ON CONFLICT (id) DO NOTHING`で冪等）
+
+**新規スクリプト・npm script**:
+- `scripts/materials/lib/duplicateDetection.mjs`（新規）: 完全重複検出の共有ロジック
+- `scripts/materials/deduplicate-material-words.mjs`（新規）: dry-run（既定）/ apply（`--apply`）の
+  両方を持つ。実削除は環境変数`CONFIRM_MATERIALS_DEDUPE=yes`の明示指定がなければ即エラー終了する
+  二重ガード付き。dry-run/apply いずれのモードでも同じ4ファイル
+  （delete-plan.json/md、backup.json、rollback.sql）を生成する
+- `npm run materials:dedupe:dry-run` / `npm run materials:dedupe:apply`（新規）
+
+**今回実施していないこと**: `materials:dedupe:apply`の実行（実データ削除）。ユーザーの承認を
+得てから別途実施する。意味違いの重複2,181件・品詞未設定10,004件にも触れていない。
+
+**制約**: DBスキーマ変更なし、RLS変更なし、SRS V2ロジック変更なし、teacher機能変更なし、
+実データの削除・上書きなし（dry-runのみ）。
+
+**検証**: `tsc --noEmit` / `build` / `audit:materials`（245件と再確認） / `validate:materials`
+（4パックerrors=0） / `test:materials`（18項目PASS） / `test:materials:e2e`（18項目PASS） /
+`test:smoke` / `verify:prod` / `verify:srs-global` 全通過。
+
+---
+
 ## 2026-07-02 既存教材の品質監査基盤 + 教材インポートE2E追加
 
 前回のプリセット教材パック基盤構築で見つかった「既存31教材・約32,000語の技術的負債」に対応する

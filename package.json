@@ -25,7 +25,9 @@
     "verify:srs-global": "node scripts/testing/check-prod-srs-v2-global.mjs",
     "validate:materials": "node scripts/materials/validate-materials.mjs",
     "test:materials": "node scripts/materials/test-materials.mjs",
-    "audit:materials": "node scripts/materials/audit-existing-materials.mjs"
+    "audit:materials": "node scripts/materials/audit-existing-materials.mjs",
+    "materials:dedupe:dry-run": "node scripts/materials/deduplicate-material-words.mjs",
+    "materials:dedupe:apply": "node scripts/materials/deduplicate-material-words.mjs --apply"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

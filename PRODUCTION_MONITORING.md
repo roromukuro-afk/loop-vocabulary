@@ -124,10 +124,12 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 [reports/materials-audit.json](reports/materials-audit.json)を生成）で監査できる。
 `npm run validate:materials`実行時にも非ブロッキングで自動再生成される。
 
-- **完全重複行**（同一教材内でword/meaning/pos/example/example_jaが全て一致する余剰コピー。
-  2026-07-02時点で237件検出・**削除案あり・未実施**。詳細はMATERIALS_AUDIT.md参照）
-- **意味違いの重複行**（同じ見出し語だが意味/品詞/例文が異なる。別義の可能性があるため
-  自動修正しない方針。2026-07-02時点で1,954件）
+- **完全重複行**（同一教材内でword/meaning/pos/example/example_ja/importance/frequency/levelが
+  全て一致する余剰コピー。2026-07-02時点で245件検出・**dry-run完了、実削除は承認待ち**。
+  削除計画・教材別内訳・バックアップ・ロールバックSQLは
+  [reports/materials-duplicate-delete-plan.md](reports/materials-duplicate-delete-plan.md)参照）
+- **意味違いの重複行**（同じ見出し語だが内容が異なる。別義の可能性があるため
+  自動修正しない方針。2026-07-02時点で2,181件・削除対象外）
 - **品詞(pos)が未設定**（2026-07-02時点で10,004件・全体の約31%・未修正）
 - **word/meaningが空**（2026-07-02時点で0件）
 - **タグ/カテゴリ不整合**（level/exam_typeが空、または表示色分け対象外の未知のlevel値。
@@ -136,6 +138,9 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 異常値の急増（特に完全重複・word/meaning空欄）を見つけたら、原因（新規教材投入スクリプトの
 不具合等）を確認してから対応する。**既存教材データの削除・上書きは、対象・件数・リスク・
 ロールバック方法を事前報告してから実施する**（`NEXT_IMPROVEMENTS.md`優先度B-2a参照）。
+完全重複行の削除は `npm run materials:dedupe:dry-run`（既定・DB変更なし）で計画を再生成でき、
+実削除の `npm run materials:dedupe:apply` は環境変数`CONFIRM_MATERIALS_DEDUPE=yes`の明示指定と
+ユーザーの事前承認がなければ実行してはいけない。
 
 ## 7. Vercelで見るべき項目
 
@@ -186,6 +191,8 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 | `npm run test:materials` | プリセット教材パックをDBに反映する前 | 静的検証→DB投入(冪等)→語数一致確認→インポート後SRS/PDF互換性確認→既存教材の非破壊確認までを一括実行 |
 | `npm run test:materials:e2e` | 教材インポート導線（`/materials/[id]`・`ImportMaterialButton`・`/pdf`）を変更した時 | 未ログイン時CTA・インポート→単語帳作成→SRS既定値→PDF選択肢反映→再インポート時の重複防止を実ブラウザで検証 |
 | `npm run audit:materials` | 既存教材データの品質状況を確認したい時（いつでも・読み取り専用） | DB上の全教材（既存31+新規パック）を監査し`MATERIALS_AUDIT.md`を再生成 |
+| `npm run materials:dedupe:dry-run` | 完全重複行の削除計画を確認・更新したい時（いつでも・読み取り専用、DB変更なし） | 削除対象行・教材別内訳・バックアップ・ロールバックSQLを`reports/materials-duplicate-*`に生成 |
+| `npm run materials:dedupe:apply` | **完全重複行を実際に削除する時（要ユーザーの事前承認 + `CONFIRM_MATERIALS_DEDUPE=yes`）** | dry-runと同じ計画に基づき`material_words`から完全重複行のみ削除。承認なしに実行しないこと |
 | `npm run verify:prod` | **本番デプロイ直後 毎回**／毎日の軽い巡回 | 本番URLに対するHTTPのみの回帰確認（ブラウザ不要・数秒で完了） |
 | `npm run verify:srs-global` | SRS V2のenvフラグを変更した時／週1定期 | グローバルフラグが実際に本番で効いているかを実ログインで確認 |
 
