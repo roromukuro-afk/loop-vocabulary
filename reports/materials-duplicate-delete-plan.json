@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-02T04:54:19.249Z",
-  "mode": "dry-run",
+  "generatedAt": "2026-07-02T11:36:36.540Z",
+  "mode": "apply",
   "totalGroups": 243,
   "totalDeleteRows": 245,
   "materials": [
@@ -103,7 +103,10 @@
       "wordCountAfter": 263
     }
   ],
-  "applyResult": null,
+  "applyResult": {
+    "deleted": 245,
+    "failed": 0
+  },
   "deleteIds": [
     "062e649b-2960-43e0-8f67-dd5be2568af9",
     "bcf0a958-d738-4c95-88db-e896a77e8f8f",

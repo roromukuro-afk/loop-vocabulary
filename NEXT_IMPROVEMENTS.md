@@ -91,19 +91,16 @@
 
 ## 🟡 優先度B: 次に着手（中工数・利用状況を見てから）
 
-2a. **既存31教材の重複行削除（dry-run完了・実削除は承認待ち）**
-   [MATERIALS_AUDIT.md](MATERIALS_AUDIT.md)で監査済み。**完全重複行（同一教材内でword/meaning/pos/
-   example/example_ja/importance/frequency/levelが全て一致する余剰コピー）245件**
-   （2026-07-02の重複検出ロジック精緻化により237件→245件に修正。理由は
-   [WORK_HISTORY.md](WORK_HISTORY.md)の該当エントリ参照）は削除しても情報損失がなく安全性が高い。
-   **削除計画のdry-runは完了済み**。教材14件・削除対象245行・残す行の基準（最古のcreated_at）・
-   バックアップ（`reports/materials-duplicate-backup.json`）・ロールバックSQL
-   （`reports/materials-duplicate-rollback.sql`）まで生成済み。詳細は
-   [reports/materials-duplicate-delete-plan.md](reports/materials-duplicate-delete-plan.md)参照。
-   **`npm run materials:dedupe:apply`（要`CONFIRM_MATERIALS_DEDUPE=yes`）による実削除は
-   ユーザーの明示的な承認を得るまで実行しない。**
-   **意味違いの重複行2,181件**（同じ見出し語でも品詞・意味・例文等が異なる＝別義の可能性）は
-   自動削除すると正しい情報を失うリスクがあるため、教材ごとの手動確認が必要（対象外のまま）。
+2a. ✅ **完了（2026-07-02）: 既存31教材の完全重複行245件を削除**
+   ユーザー承認の上、`npm run materials:dedupe:apply`を実行し完全重複行245件
+   （14教材、`material_words`32,587件→32,342件）を削除した。実行前に事前チェック8項目
+   （総件数・削除対象件数・対象教材数・意味違い重複が対象外であること・バックアップ/
+   ロールバックSQL存在・245件分の復元対応・`words`への無影響）を全て確認してから実施。
+   バックアップ（`reports/materials-duplicate-backup.json`）とロールバックSQL
+   （`reports/materials-duplicate-rollback.sql`、`INSERT ... ON CONFLICT (id) DO NOTHING`で冪等）は
+   削除後も保持している。詳細は[WORK_HISTORY.md](WORK_HISTORY.md)の該当エントリ参照。
+   **意味違いの重複行1,952件**（同じ見出し語でも内容が異なる＝別義の可能性）は削除対象外のまま
+   保持。`pos`未設定9,997件も今回は触れていない。
 
 2b. **既存31教材の品詞(pos)補完（監査済み・未実施）**
    `pos`未設定10,004件（全体の約31%）。辞書API等による自動一括補完は誤判定リスクがあるため
@@ -191,10 +188,10 @@
 2. **週次運用チェックリスト（[PRODUCTION_MONITORING.md](PRODUCTION_MONITORING.md) §2）を
    定常運用として回す**。新機能より先に、今回整備した検証基盤（`test:e2e`8フロー・`verify:prod`・
    `verify:srs-global`・`/admin/srs`の目視確認）が実際に週次で回ることを確認する。
-3. **既存教材の完全重複行245件の実削除可否を判断する**（優先度B-2a）。dry-run・削除計画・
-   バックアップ・ロールバックSQLまで準備完了（[reports/materials-duplicate-delete-plan.md](reports/materials-duplicate-delete-plan.md)）。
-   実データの削除は別途明示的な承認を得てから着手する方針のため、ここでは提案のみに留める。
-4. **上記3つ以外は現時点で「今すぐ」着手する理由が乏しい**。優先度B以降は利用データ
+3. **既存教材の完全重複行245件の削除は2026-07-02に完了済み**（優先度B-2a）。
+   `material_words`32,587件→32,342件、完全重複0件を確認済み。バックアップ・ロールバックSQLは
+   `reports/materials-duplicate-*`に保持している。
+4. **上記以外は現時点で「今すぐ」着手する理由が乏しい**。優先度B以降は利用データ
    （Search Consoleの実データ、teacherの実利用状況）が蓄積してから判断する方が手戻りが少ない。
 
 ## 判断基準

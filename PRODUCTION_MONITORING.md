@@ -125,19 +125,19 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 `npm run validate:materials`実行時にも非ブロッキングで自動再生成される。
 
 - **完全重複行**（同一教材内でword/meaning/pos/example/example_ja/importance/frequency/levelが
-  全て一致する余剰コピー。2026-07-02時点で245件検出・**dry-run完了、実削除は承認待ち**。
-  削除計画・教材別内訳・バックアップ・ロールバックSQLは
-  [reports/materials-duplicate-delete-plan.md](reports/materials-duplicate-delete-plan.md)参照）
+  全て一致する余剰コピー。**2026-07-02にユーザー承認の上、245件を削除済み**（14教材、
+  `material_words`32,587件→32,342件）。2026-07-02時点で0件。削除時の記録・バックアップ・
+  ロールバックSQLは[reports/materials-duplicate-delete-plan.md](reports/materials-duplicate-delete-plan.md)参照）
 - **意味違いの重複行**（同じ見出し語だが内容が異なる。別義の可能性があるため
-  自動修正しない方針。2026-07-02時点で2,181件・削除対象外）
-- **品詞(pos)が未設定**（2026-07-02時点で10,004件・全体の約31%・未修正）
+  自動修正しない方針。2026-07-02時点（削除後）で1,952件・削除対象外のまま保持）
+- **品詞(pos)が未設定**（2026-07-02時点（削除後）で9,997件・全体の約31%・未修正）
 - **word/meaningが空**（2026-07-02時点で0件）
 - **タグ/カテゴリ不整合**（level/exam_typeが空、または表示色分け対象外の未知のlevel値。
   2026-07-02時点で1件・影響は表示上の色分けのみ）
 
 異常値の急増（特に完全重複・word/meaning空欄）を見つけたら、原因（新規教材投入スクリプトの
 不具合等）を確認してから対応する。**既存教材データの削除・上書きは、対象・件数・リスク・
-ロールバック方法を事前報告してから実施する**（`NEXT_IMPROVEMENTS.md`優先度B-2a参照）。
+ロールバック方法を事前報告してから実施する**（今後同様の作業を行う場合も同じ方針を継続する）。
 完全重複行の削除は `npm run materials:dedupe:dry-run`（既定・DB変更なし）で計画を再生成でき、
 実削除の `npm run materials:dedupe:apply` は環境変数`CONFIRM_MATERIALS_DEDUPE=yes`の明示指定と
 ユーザーの事前承認がなければ実行してはいけない。

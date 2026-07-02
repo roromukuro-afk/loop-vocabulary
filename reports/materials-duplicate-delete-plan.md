@@ -1,7 +1,7 @@
 # 教材データ 完全重複行 削除計画
 
-> 自動生成: `node scripts/materials/deduplicate-material-words.mjs` (最終生成: 2026-07-02T04:54:19.249Z)
-> モード: **dry-run（DB変更なし）**
+> 自動生成: `node scripts/materials/deduplicate-material-words.mjs` (最終生成: 2026-07-02T11:36:36.540Z)
+> モード: **実削除 (apply)**
 > 機械可読版: [reports/materials-duplicate-delete-plan.json](reports/materials-duplicate-delete-plan.json)
 > バックアップ: [reports/materials-duplicate-backup.json](reports/materials-duplicate-backup.json)
 > ロールバックSQL: [reports/materials-duplicate-rollback.sql](reports/materials-duplicate-rollback.sql)
@@ -29,6 +29,7 @@
 - 完全重複グループ数: **243件**
 - 削除対象行数: **245件**
 - 影響を受ける教材数: **14件**
+- 実削除結果: **245件削除**（失敗: 0件）
 
 ## 影響範囲の確認
 

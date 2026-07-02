@@ -5,6 +5,53 @@
 
 ---
 
+## 2026-07-02 完全重複行245件の実削除（ユーザー承認済み）
+
+前回のdry-run計画（完全重複行245件、14教材）についてユーザーの承認を得て、実データ削除を実施した。
+
+**実行前の最終確認（8項目、全て一致を確認してから実行）**:
+1. `material_words`総件数が32,587件 — SQL照会で確認
+2. 完全重複削除対象が245件 — `reports/materials-duplicate-delete-plan.json`と独立SQLクエリが一致
+3. 対象教材が14件 — 一致
+4. 意味違い重複は削除対象に含まれていない — 削除候補245件全てが「残す行」とバイト単位で
+   完全一致することをNodeスクリプトで個別検証（不一致0件）
+5. `reports/materials-duplicate-backup.json`が存在 — 確認
+6. `reports/materials-duplicate-rollback.sql`が存在 — 確認
+7. rollback SQLが245件分の復元に対応 — `INSERT INTO`行数245件を確認
+8. `words`側（ユーザー単語帳・SRS履歴）には影響しない — `material_words.id`を参照する外部キーが
+   DB上に存在しないことを事前確認済み（前回のdry-run時に検証済み）
+
+**実削除**: `CONFIRM_MATERIALS_DEDUPE=yes npm run materials:dedupe:apply` を実行。
+245件削除成功・失敗0件。
+
+**実行後の確認**:
+- `material_words`総件数: 32,587件 → **32,342件**（245件減、想定通り）
+- 完全重複行: 245件 → **0件**
+- 意味違いの重複行: 2,181件 → 1,952件（削除された完全重複ペアの一部が同じ見出し語グループ内に
+  混在していたため、グループ構造の変化に伴い減少。削除計画は完全重複のみを対象にしており
+  意味違いの行そのものは削除していない。減少分は「完全重複2件のみで構成されていたグループが
+  1件を残して重複グループでなくなった」ケースであり、内容の欠落ではない）
+- 品詞(pos)未設定: 10,004件 → 9,997件（削除された重複行のうち7件がpos未設定だったため連動して減少）
+- 既存35教材（既存31 + 新規プリセット4）は全て残存、総語数0の教材なし
+- `words`（ユーザーの単語帳・SRS履歴）: 削除前後で無関係に推移（外部キー無し、想定通り無影響）
+
+**バックアップ・ロールバック**: `reports/materials-duplicate-backup.json`（削除前の全488行）・
+`reports/materials-duplicate-rollback.sql`（245件のINSERT、`ON CONFLICT (id) DO NOTHING`で冪等）は
+削除実行後も変更せず保持している。復元が必要な場合はSupabase SQL Editor等で
+rollback.sqlを実行すればよい。
+
+**検証**: `npm run audit:materials`（完全重複0件・意味違い1,952件・35教材・32,342語）/
+`npm run validate:materials`（4パックerrors=0） / `npm run test:materials`（18項目PASS、
+新規4パック無傷・既存教材数維持を再確認） / `npm run test:materials:e2e`（18項目PASS、
+削除後もインポート・SRS初期値・PDF選択肢反映・再インポート防止が正常動作） /
+`npm run test:e2e`（8フロー全PASS） / `npm run test:smoke` / `npm run verify:prod` /
+`npm run verify:srs-global` 全通過。
+
+**制約**: DBスキーマ変更なし、RLS変更なし、SRS V2ロジック変更なし、teacher機能変更なし。
+意味違いの重複1,952件・品詞未設定9,997件には触れていない（優先度Bとして継続検討）。
+
+---
+
 ## 2026-07-02 完全重複行の削除計画（dry-run）+ 重複検出ロジックの精緻化
 
 前回の監査で見つかった「完全重複行237件」について、削除の**dry-run（計画作成のみ・実削除なし）**
