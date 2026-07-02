@@ -5,6 +5,45 @@
 
 ---
 
+## 2026-07-02 運用状態の整理・本番ヘルスチェック（優先度A完了の棚卸し）
+
+新機能追加はせず、優先度Aの完了状況をドキュメント上で棚卸しし、本番ヘルスチェックを実施、
+次の優先度を再整理した。
+
+**優先度A完了状況の確認**（`NEXT_IMPROVEMENTS.md`とのズレを修正）:
+1. ✅ Google Search Console対応（2026-07-01完了）— `NEXT_IMPROVEMENTS.md`の未完了表記を修正
+2. ✅ SRS V2の利用状況可視化（`/admin/srs`、2026-07-02完了）
+3. ✅ teacher招待コード失効・再発行（migration 013、2026-07-02完了）
+4. ✅ admin向けE2E検証基盤（`test+admin`、2026-07-02完了）— 元々`NEXT_IMPROVEMENTS.md`の
+   独立項目ではなかったため、今回完了済み項目として新規追記
+5. ✅ JST日付統一（streak/カレンダー本体+関連4ファイル、2026-07-01〜07-02完了）— 同上、新規追記
+6. ✅ 未使用・壊れたAPI(`api/ranking/route.ts`)削除（2026-07-02完了）— 同上、新規追記
+
+いずれも実装・検証・本番デプロイまで完了済みであることをコード（該当ファイルの存在・内容）と
+過去のWORK_HISTORYエントリで再確認した。`NEXT_IMPROVEMENTS.md`を全面的に整理し、
+「✅完了済み」セクションに6項目すべてを明記、以降の優先度A/B/Cを再分類した（詳細は
+[NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md)参照）。
+
+**本番ヘルスチェック結果（2026-07-02実施、すべてPASS）**:
+- `npm run test:dates`: 39 passed, 0 failed
+- `npm run test:smoke`: build成功＋日付ユーティリティ39ケース＋公開/認証/API healthチェック 全PASS
+- `npm run test:e2e`: 4フロー（onboarding/dictionary・SRS V2・teacher（招待コードライフサイクル含む）・admin）全PASS
+- `npm run verify:prod`: 本番の公開ページ200／認証ページ307／POST専用API 405（`/api/teacher/invite-code`含む）全PASS
+- `npm run verify:srs-global`: SRS V2グローバルフラグが個人フラグに関係なく本番で有効に効いていることを確認
+
+E2E実行で招待コードが再発行/無効化された状態になったため、`seed-test-data.mjs`で
+本番テストクラスの招待コードを既知の状態（`TESTCLS1`・無期限・有効）にリセット済み。
+
+**現在の本番状態: 安定運用中**。優先度Aの主要6項目はすべて実装・デプロイ・検証済みで、
+既知の未解決バグ・回帰は無い。DBスキーマ・RLS・SRS V2ロジックは今回変更していない
+（本エントリはドキュメント整理と検証のみで、コード変更は無し）。
+
+**次に推奨する作業**（詳細は`NEXT_IMPROVEMENTS.md`）: 新機能追加は見送り、
+(1) Search Console初回結果確認（2026-07-08頃目安）、(2) 週次運用チェックリスト
+（PRODUCTION_MONITORING.md §2）を定常運用として回す、の2点を推奨。優先度B以降
+（教材ワンタップ導入短縮・通知強化・SEO記事追加・teacher生徒詳細画面等）は
+利用データが蓄積してから着手判断する方針とした。
+
 ## 2026-07-02 teacher招待コードの失効・再発行・期限管理
 
 `NEXT_IMPROVEMENTS.md`の優先度A項目3「招待コード失効・再発行」を実施。長期間使い回せていた
