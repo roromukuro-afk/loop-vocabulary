@@ -5,6 +5,40 @@
 
 ---
 
+## 2026-07-02 admin向けE2E検証基盤の整備（`test+admin`アカウント + `/admin/srs`自律検証）
+
+前回の`/admin/srs`実装で残課題としていた「admin権限を持つE2Eテストアカウントが未整備」を解消。
+管理画面も手動確認に頼らず自律的に検証できる状態にした。
+
+**テストアカウント**: `test+admin@loop-vocabulary.app`を新規作成（既存の`setup-test-users.mjs`/
+`TEST_ACCOUNTS`の仕組みをそのまま踏襲）。`profiles.is_test_account=true`に加え、このアカウントのみ
+`profiles.is_admin=true`を付与（[scripts/testing/lib/testAccounts.mjs](scripts/testing/lib/testAccounts.mjs)に
+`isAdmin: true`フラグを追加し、[setup-test-users.mjs](scripts/testing/setup-test-users.mjs)が
+`cfg.isAdmin === true`の場合のみ`is_admin`をtrueにするよう変更。他の既存テストアカウント・実ユーザーの
+`is_admin`/`role`には一切影響しない）。パスワードは`.env.local`の`TEST_ADMIN_PASSWORD`にのみ保存。
+
+**E2E追加**: [scripts/testing/e2e/admin.mjs](scripts/testing/e2e/admin.mjs)（新規、`npm run test:admin`・
+`npm run test:e2e`の両方から実行可能）。検証内容:
+- `test+admin`で`/admin/srs`にアクセスでき、主要指標・異常値検知の各セクションが表示される
+- ページ本文に個別の単語・意味データ（テスト単語帳の実単語）や`user_id`ラベルが含まれていない
+- ページ表示前後で`words`テーブルの総行数が変化しない（書き込みが発生しないことの実測確認）
+- 非admin(`test+srs`)で`/admin/srs`にアクセスすると`/dashboard`にリダイレクトされる
+- 未ログインで`/admin/srs`にアクセスすると`/login`にリダイレクトされる
+
+[src/app/admin/srs/page.tsx](src/app/admin/srs/page.tsx)には上記アサーション用に
+`data-testid="admin-srs-page"` / `admin-srs-metrics-section` / `admin-srs-anomalies-section` を
+追加（表示ロジック・集計ロジックは変更なし）。
+
+**認可への影響**: なし。既存の`requireAdmin()`をそのまま使用しており、実装や判定ロジックは変更していない。
+テスト用admin以外のユーザーのroleや権限も変更していない。DBスキーマ・RLSも変更なし
+（`is_admin`は既存カラムへのデータ更新のみで、対象は`test+admin`という管理下のメールアドレス1件のみ）。
+
+**検証**: `tsc --noEmit` / `build` / `test:admin`（新規、全項目PASS） / `test:e2e`（4フロー全PASS、
+admin含む） / `test:smoke` / `verify:prod` / `verify:srs-global` 全通過。
+
+ドキュメント: `PRODUCTION_MONITORING.md`（自動検証コマンド表に`test:admin`追加、weekly checklistの
+`test:e2e`を4フロー表記に更新、`/admin/srs`項目を「値の異常確認のみでよい」と明確化）を更新。
+
 ## 2026-07-02 SRS V2利用状況モニタリング画面 `/admin/srs` を追加
 
 `NEXT_IMPROVEMENTS.md`の優先度A項目「SRS V2の利用状況可視化」を実施。SRS V2が全ユーザーONに

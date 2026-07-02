@@ -15,9 +15,9 @@
 
 ## 2. 週1で確認する項目（15〜20分）
 
-- [ ] `npm run test:e2e`（フルE2E一式）を実行し、3フロー（onboarding/dictionary・SRS V2・teacher）が全PASSか
+- [ ] `npm run test:e2e`（フルE2E一式）を実行し、4フロー（onboarding/dictionary・SRS V2・teacher・admin）が全PASSか
 - [ ] `npm run verify:srs-global` — SRS V2のグローバル有効化が維持されているか
-- [ ] [`/admin/srs`](https://loop-vocabulary.app/admin/srs) — SRS V2の異常値検知セクションに⚠が出ていないか（詳細は§3）
+- [ ] [`/admin/srs`](https://loop-vocabulary.app/admin/srs) — 異常値検知セクションに⚠が出ていないか目視確認（詳細は§3。ページ自体が正しく表示されること・認可が効いていることは`test:e2e`/`test:admin`で自動検証済みなので、ここでは「値」の異常有無だけ見ればよい）
 - [ ] Supabase → Database → 使用量（行数・DBサイズ・API呼び出し数）が想定内か
 - [ ] Vercel → Usage（Function実行時間・帯域）が想定内か
 - [ ] Google Search Console → インデックス状況・検索パフォーマンスの週次トレンド（詳細は [SEARCH_CONSOLE_SETUP.md](SEARCH_CONSOLE_SETUP.md) §3）
@@ -141,10 +141,11 @@ select count(*) from profiles where is_test_account = true; -- 3件のはず（�
 |---|---|---|
 | `npm run test:dates` | 日付/streak/カレンダーに関わるコードを変更した時（`test:smoke`内でも自動実行） | JST日付ユーティリティの単体テスト（サーバ不要・数秒） |
 | `npm run test:smoke` | **コード変更のコミット前**（ローカル） | build成功＋日付ユーティリティ＋主要ページのHTTP健全性を素早く確認 |
-| `npm run test:e2e` | **本番デプロイ前**（大きめの変更時）／**週1定期** | onboarding・SRS V2・teacherの3フローを実ブラウザで通しで検証 |
+| `npm run test:e2e` | **本番デプロイ前**（大きめの変更時）／**週1定期** | onboarding・SRS V2・teacher・adminの4フローを実ブラウザで通しで検証 |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |
 | `npm run test:teacher` | 先生機能・RLS・RPCを変更した時 | ロスター集計のみ表示・同意撤回/再同意を検証 |
+| `npm run test:admin` | `/admin`配下のページを変更した時 | admin権限での表示・非admin/未ログイン時のリダイレクト・個別データ非開示・書き込み無しを検証（`test+admin@loop-vocabulary.app`使用） |
 | `npm run verify:prod` | **本番デプロイ直後 毎回**／毎日の軽い巡回 | 本番URLに対するHTTPのみの回帰確認（ブラウザ不要・数秒で完了） |
 | `npm run verify:srs-global` | SRS V2のenvフラグを変更した時／週1定期 | グローバルフラグが実際に本番で効いているかを実ログインで確認 |
 

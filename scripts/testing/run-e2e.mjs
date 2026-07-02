@@ -58,6 +58,9 @@ async function main() {
 
     console.log("\n=== 6. teacher E2E ===");
     results.teacher = runNode("scripts/testing/e2e/teacher.mjs");
+
+    console.log("\n=== 7. admin E2E ===");
+    results.admin = runNode("scripts/testing/e2e/admin.mjs");
   } finally {
     stopDevServer(dev);
   }

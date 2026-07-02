@@ -24,6 +24,14 @@ export const TEST_ACCOUNTS = {
     role: "teacher",
     purpose: "先生向け進捗管理（ロスター集計のみ表示）の検証用",
   },
+  admin: {
+    email: "test+admin@loop-vocabulary.app",
+    passwordEnvKey: "TEST_ADMIN_PASSWORD",
+    displayName: "TEST_admin",
+    role: "student",
+    isAdmin: true, // profiles.is_admin = true。/admin配下（読み取り専用）の検証専用。実ユーザーのroleは変更しない
+    purpose: "管理画面（/admin/srs 等、読み取り専用モニタリング）の検証用",
+  },
 };
 
 export const TEST_CLASS_NAME = "TEST_検証クラス";

@@ -177,7 +177,7 @@ export default async function AdminSrsPage() {
       <Link href="/admin" className="text-xs text-navy-500">
         ← 管理画面
       </Link>
-      <div className="flex items-center justify-between mt-2 mb-1">
+      <div className="flex items-center justify-between mt-2 mb-1" data-testid="admin-srs-page">
         <h1 className="text-xl font-bold text-navy-800">SRS V2 モニタリング</h1>
         <span className="text-[10px] text-navy-400">更新: {new Date().toLocaleString("ja-JP")}</span>
       </div>
@@ -196,7 +196,7 @@ export default async function AdminSrsPage() {
       )}
 
       {/* ── 単語数・復習予定 ── */}
-      <section>
+      <section data-testid="admin-srs-metrics-section">
         <h2 className="text-xs font-black uppercase tracking-widest text-navy-400 mt-5 mb-2">単語数・復習予定</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <StatBox label="総単語数" value={totalWords} sub="語" />
@@ -238,7 +238,7 @@ export default async function AdminSrsPage() {
       </section>
 
       {/* ── 異常値検知 ── */}
-      <section>
+      <section data-testid="admin-srs-anomalies-section">
         <h2 className="text-xs font-black uppercase tracking-widest text-navy-400 mt-5 mb-2">異常値検知</h2>
         <Card>
           <ul className="space-y-3">

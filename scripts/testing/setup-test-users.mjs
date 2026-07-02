@@ -70,6 +70,8 @@ async function ensureUser(admin, key, cfg) {
   }
 
   // handle_new_user トリガーで作られた profiles 行を、テスト用属性で更新（存在しなければ作成）
+  // is_admin は cfg.isAdmin が明示的に true の場合のみ true にする（対象は test+admin のみ、
+  // それ以外のテストアカウントは常に false に揃えて誤って管理者権限を持たせない）
   const { error: upErr } = await admin.from("profiles").upsert(
     {
       id: user.id,
@@ -77,6 +79,7 @@ async function ensureUser(admin, key, cfg) {
       is_test_account: true,
       display_name: cfg.displayName,
       role: cfg.role,
+      is_admin: cfg.isAdmin === true,
     },
     { onConflict: "id" },
   );
