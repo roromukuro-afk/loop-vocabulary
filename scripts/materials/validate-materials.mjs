@@ -20,6 +20,9 @@ import {
   DIFFICULTY_MIN,
   DIFFICULTY_MAX,
 } from "../../src/lib/materials/types.ts";
+import { auditExistingMaterials, writeAuditReports } from "./audit-existing-materials.mjs";
+import { getAdminClient } from "../testing/lib/supabaseAdmin.mjs";
+import { loadEnv } from "../testing/lib/env.mjs";
 
 const PRESET_PACKS = [juniorBasic100, highschoolBasic100, eikenPre2Basic100, universityBasicVerbs100];
 
@@ -128,4 +131,23 @@ for (const pack of PRESET_PACKS) {
 }
 
 console.log(`\n=== VALIDATE: ${PRESET_PACKS.length}パック / errors=${errors} / warnings=${warnings} ===`);
+
+// ---- 既存教材（DB上の全materials、31教材+新規パック含む）の非ブロッキング監査 ----
+// プリセットパック自体のerrors判定には影響しない（本コマンドはCIゲートとして使うため）。
+// MATERIALS_AUDIT.md / reports/materials-audit.json を最新化するだけの情報提供ステップ。
+try {
+  loadEnv();
+  const admin = getAdminClient();
+  console.log("\n--- 既存教材（DB全体）の監査レポートを更新中（読み取り専用・非ブロッキング） ---");
+  const audit = await auditExistingMaterials(admin);
+  writeAuditReports(audit);
+  console.log(
+    `対象教材数: ${audit.materialCount}件 / 総語数: ${audit.totals.total_words.toLocaleString()}語 / ` +
+      `完全重複: ${audit.totals.exact_duplicate_rows}件 / pos未設定: ${audit.totals.pos_empty}件`,
+  );
+  console.log("MATERIALS_AUDIT.md / reports/materials-audit.json を更新しました。");
+} catch (e) {
+  console.warn(`⚠️  既存教材監査をスキップしました（DB接続不可などの理由。プリセットパック検証には影響なし）: ${e.message}`);
+}
+
 process.exit(errors > 0 ? 1 : 0);

@@ -160,7 +160,7 @@ export default async function MaterialDetailPage({
       <Link href="/materials" className="text-xs text-navy-500 hover:underline">
         ← 教材一覧
       </Link>
-      <h1 className="text-xl font-bold text-navy-800 mt-2">{material.title}</h1>
+      <h1 className="text-xl font-bold text-navy-800 mt-2" data-testid="material-title">{material.title}</h1>
       {(material.publisher || material.author) && (
         <div className="text-xs text-navy-500 mt-0.5">
           {[material.publisher, material.author].filter(Boolean).join(" / ")}
@@ -254,6 +254,7 @@ export default async function MaterialDetailPage({
         ) : (
           <Link
             href={`/signup?next=/materials/${material.id}`}
+            data-testid="material-signup-cta"
             className="block w-full text-center bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-4 rounded-2xl transition-colors text-sm"
           >
             無料登録して単語帳にインポート

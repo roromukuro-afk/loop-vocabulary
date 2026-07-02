@@ -126,13 +126,17 @@ export function PdfTestBuilder({
         </div>
       )}
       <Field label="ソース">
-        <Select value={src} onChange={(e) => { setSrc(e.target.value as SourceKind); setSourceId(""); }}>
+        <Select
+          data-testid="pdf-source-kind"
+          value={src}
+          onChange={(e) => { setSrc(e.target.value as SourceKind); setSourceId(""); }}
+        >
           <option value="book">自分の単語帳</option>
           <option value="material">教材</option>
         </Select>
       </Field>
       <Field label={src === "book" ? "単語帳" : "教材"}>
-        <Select value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
+        <Select data-testid="pdf-source-id" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
           {options.length === 0 && <option value="">選択肢がありません</option>}
           {options.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
         </Select>
@@ -173,7 +177,7 @@ export function PdfTestBuilder({
         </Select>
       </Field>
       <div className="sm:col-span-2">
-        <Button onClick={generate} disabled={busy || !sourceId} size="lg" fullWidth>
+        <Button onClick={generate} disabled={busy || !sourceId} size="lg" fullWidth data-testid="pdf-generate-button">
           {busy ? "生成中..." : "印刷用ウィンドウを開く"}
         </Button>
         <p className="text-[11px] text-navy-400 mt-2">

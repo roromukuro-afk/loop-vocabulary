@@ -21,10 +21,11 @@ export function ImportMaterialButton({
 
   if (alreadyImported && importedBookId) {
     return (
-      <div className="flex gap-2">
+      <div className="flex gap-2" data-testid="material-already-imported">
         <Button
           variant="secondary"
           fullWidth
+          data-testid="material-open-wordbook"
           onClick={() => router.push(`/wordbooks/${importedBookId}`)}
         >
           単語帳を開く
@@ -32,6 +33,7 @@ export function ImportMaterialButton({
         <Button
           size="sm"
           variant="secondary"
+          data-testid="material-start-test"
           onClick={() => router.push(`/test/choice?book=${importedBookId}`)}
         >
           テスト開始
@@ -66,11 +68,11 @@ export function ImportMaterialButton({
 
   return (
     <div>
-      <Button onClick={run} disabled={busy} size="lg" fullWidth>
+      <Button onClick={run} disabled={busy} size="lg" fullWidth data-testid="material-import-button">
         {busy ? "インポート中..." : "自分の単語帳にインポート"}
       </Button>
       {msg && (
-        <div className="mt-2 text-sm text-emerald-600 font-medium text-center">
+        <div className="mt-2 text-sm text-emerald-600 font-medium text-center" data-testid="material-import-message">
           {msg}
         </div>
       )}

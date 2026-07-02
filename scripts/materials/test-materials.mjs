@@ -17,12 +17,14 @@ import { loadEnv, requireEnv, REPO_ROOT } from "../testing/lib/env.mjs";
 import { TEST_ACCOUNTS } from "../testing/lib/testAccounts.mjs";
 import { resolveUserId } from "../testing/seed-test-data.mjs";
 import { seedPresetMaterials } from "./seed-preset-materials.mjs";
+import { auditExistingMaterials, writeAuditReports } from "./audit-existing-materials.mjs";
 import { juniorBasic100 } from "../../src/data/presets/junior-basic-100.ts";
 import { highschoolBasic100 } from "../../src/data/presets/highschool-basic-100.ts";
 import { eikenPre2Basic100 } from "../../src/data/presets/eiken-pre2-basic-100.ts";
 import { universityBasicVerbs100 } from "../../src/data/presets/university-basic-verbs-100.ts";
 
 const PRESET_PACKS = [juniorBasic100, highschoolBasic100, eikenPre2Basic100, universityBasicVerbs100];
+const PRESET_PACK_IDS = new Set(PRESET_PACKS.map((p) => p.id));
 
 let pass = 0;
 let fail = 0;
@@ -160,6 +162,23 @@ async function main() {
     await admin.from("word_books").delete().eq("id", book.id);
     ok("テスト用の単語帳・単語を削除してクリーンな状態に戻した（冪等性確保）");
   }
+
+  console.log("\n=== 5. 既存教材への非破壊確認（監査レポート更新 + 回帰ガード） ===");
+  const audit = await auditExistingMaterials(admin);
+  writeAuditReports(audit);
+  const existingMaterials = audit.materials.filter((m) => !PRESET_PACK_IDS.has(m.id));
+  if (existingMaterials.length >= 31) {
+    ok(`既存（プリセットパック以外）の教材数: ${existingMaterials.length}件（31件以上を維持）`);
+  } else {
+    bad(`既存教材数が想定を下回っています: ${existingMaterials.length}件（31件以上を期待）。誤って削除されていないか確認してください。`);
+  }
+  const emptiedMaterials = existingMaterials.filter((m) => m.total_words === 0);
+  if (emptiedMaterials.length === 0) {
+    ok("既存教材はすべて1語以上の単語を保持している（総語数0の教材なし）");
+  } else {
+    bad(`単語数が0件になっている既存教材があります: ${emptiedMaterials.map((m) => m.title).join(", ")}`);
+  }
+  ok(`MATERIALS_AUDIT.md / reports/materials-audit.json を更新（対象${audit.materialCount}件・総語数${audit.totals.total_words.toLocaleString()}語）`);
 
   printSummary();
   process.exit(fail > 0 ? 1 : 0);

@@ -18,12 +18,14 @@
     "test:teacher": "node scripts/testing/e2e/teacher.mjs",
     "test:onboarding": "node scripts/testing/e2e/onboarding-dictionary.mjs",
     "test:admin": "node scripts/testing/e2e/admin.mjs",
+    "test:materials:e2e": "node scripts/testing/e2e/materials.mjs",
     "test:dates": "node scripts/testing/test-date-utils.mjs",
     "test:smoke": "node scripts/testing/smoke.mjs",
     "verify:prod": "node scripts/testing/verify-prod.mjs",
     "verify:srs-global": "node scripts/testing/check-prod-srs-v2-global.mjs",
     "validate:materials": "node scripts/materials/validate-materials.mjs",
-    "test:materials": "node scripts/materials/test-materials.mjs"
+    "test:materials": "node scripts/materials/test-materials.mjs",
+    "audit:materials": "node scripts/materials/audit-existing-materials.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

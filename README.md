@@ -239,10 +239,16 @@ develop,発達する,動詞,...,...,5,4,高校基礎,Ch1,U1,13,2
 2. `src/data/presets/index.ts` の `PRESET_PACKS` 配列に追加
 3. `npm run validate:materials` で静的品質チェック（重複・空欄・pos/難易度の範囲・タグを検証）
 4. `npm run test:materials` でDB投入（冪等）＋インポート後のSRS/PDF互換性を確認
-5. 対象学年・目的・タグ等の表示メタデータは `src/lib/materials/presetMeta.ts` に自動反映される
+5. `npm run test:materials:e2e` で実ブラウザ（Playwright）によるインポート導線の検証
+   （未ログイン時CTA・インポート→単語帳作成→SRS既定値→PDF選択肢反映→再インポート時の重複防止）
+6. 対象学年・目的・タグ等の表示メタデータは `src/lib/materials/presetMeta.ts` に自動反映される
    （DBスキーマ変更不要）
 
-詳細な設計判断は [WORK_HISTORY.md](WORK_HISTORY.md) の「2026-07-02 プリセット教材パック基盤の構築」参照。
+既存教材（新規パック含むDB上の全教材）の品質状況は `npm run audit:materials`（読み取り専用）で
+[MATERIALS_AUDIT.md](MATERIALS_AUDIT.md) を再生成できる。
+
+詳細な設計判断は [WORK_HISTORY.md](WORK_HISTORY.md) の「2026-07-02 プリセット教材パック基盤の構築」
+「2026-07-02 既存教材の品質監査基盤 + 教材インポートE2E追加」参照。
 
 ---
 
