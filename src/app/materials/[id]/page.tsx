@@ -7,6 +7,7 @@ import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { createClient } from "@/lib/supabase/server";
 import { ImportMaterialButton } from "./ImportMaterialButton";
 import { PronounceButton } from "@/components/ui/PronounceButton";
+import { getPresetMeta } from "@/lib/materials/presetMeta";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +138,7 @@ export default async function MaterialDetailPage({
   }
 
   const levelCls = LEVEL_COLOR[material.level ?? ""] ?? "bg-sky-50 text-navy-700";
+  const preset = getPresetMeta(material.id);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
   const breadcrumbLd = {
@@ -182,6 +184,36 @@ export default async function MaterialDetailPage({
           全 {totalWords.toLocaleString()} 語
         </span>
       </div>
+
+      {preset && (
+        <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {preset.tags.map((t) => (
+              <span key={t} className="px-2 py-0.5 rounded-full bg-white border border-emerald-200 text-emerald-700 text-[10px] font-medium">
+                {t}
+              </span>
+            ))}
+          </div>
+          <p className="text-xs text-emerald-800 mb-2">{preset.purpose}</p>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div className="text-sm font-bold text-emerald-700">{preset.grade}</div>
+              <div className="text-[10px] text-emerald-600">対象学年</div>
+            </div>
+            <div>
+              <div className="text-sm font-bold text-emerald-700">{preset.recommendedWeeks}週間</div>
+              <div className="text-[10px] text-emerald-600">目安期間</div>
+            </div>
+            <div>
+              <div className="text-sm font-bold text-emerald-700">1日{preset.dailyWordTarget}語</div>
+              <div className="text-[10px] text-emerald-600">目安ペース</div>
+            </div>
+          </div>
+          <p className="text-[10px] text-emerald-700 mt-2">
+            単語帳に追加すると、そのまま復習（SRS）・PDFテストに進めます。
+          </p>
+        </div>
+      )}
 
       {/* 学習進捗 (インポート済みの場合のみ) */}
       {progress && (

@@ -111,7 +111,32 @@ DBを直接見たい場合や、ダッシュボードでは出ない個別行を
 select count(*) from profiles where is_test_account = true; -- 3件のはず（増減があれば要確認）
 ```
 
-## 6. Vercelで見るべき項目
+## 6. 教材データの品質で見るべき異常
+
+新規プリセット教材パック（`src/data/presets/*`）は、DB投入前に `npm run validate:materials`
+（wordが空でない/重複がない/posが不正でない/難易度が範囲外でない等の静的チェック）、
+DB投入後に `npm run test:materials`（インポート後にSRS/PDFテストで使える状態かの検証）
+を通す運用にしている。新しい教材パックを追加・変更したときは必ずこの2つを実行する。
+
+既存の大規模教材（seed-vocabで投入した31件・約32,000語）は上記の仕組みの対象外のまま
+（2026-07-02時点で技術的負債として`NEXT_IMPROVEMENTS.md`優先度Bに記録済み）。状況を確認したい
+場合は以下のSQLで同様のチェックができる。
+
+- **教材内での単語重複**（2026-07-02時点で1,137件検出・未修正）
+  ```sql
+  select material_id, lower(word) w, count(*) c
+  from material_words group by material_id, lower(word) having count(*) > 1;
+  ```
+- **品詞(pos)が未設定**（2026-07-02時点で10,004件・全体の約31%）
+  ```sql
+  select count(*) from material_words where pos is null;
+  ```
+- **word/meaningが空**（2026-07-02時点で0件）
+  ```sql
+  select count(*) from material_words where trim(word) = '' or trim(meaning) = '' or meaning is null;
+  ```
+
+## 7. Vercelで見るべき項目
 
 - **Deployments**: 直近デプロイの状態（READY/ERROR）、ビルド時間の異常な増加
 - **Functions**: 実行時間・エラー率・タイムアウトの有無（特に `/api/wordbook/ensure-default`、`/api/teacher/*`、`/api/settings/srs`）
@@ -122,7 +147,7 @@ select count(*) from profiles where is_test_account = true; -- 3件のはず（�
 - **Usage/Billing**: Function実行時間・帯域が想定プラン内か
 - **Domains**: `loop-vocabulary.app` のエイリアスが正しく最新デプロイを指しているか
 
-## 7. Google Search Consoleで見るべき項目
+## 8. Google Search Consoleで見るべき項目
 
 登録手順・初回チェック項目・週次の見方は [SEARCH_CONSOLE_SETUP.md](SEARCH_CONSOLE_SETUP.md) に詳細をまとめた。ここでは巡回時の要点のみ:
 
@@ -134,7 +159,7 @@ select count(*) from profiles where is_test_account = true; -- 3件のはず（�
 
 > 登録前チェック（sitemap健全性・robots.txt整合性）は2026-07-01に実施・修正済み。GSCへの登録・sitemap送信はオーナー側の作業。詳細は [SEARCH_CONSOLE_SETUP.md](SEARCH_CONSOLE_SETUP.md) 参照。
 
-## 8. AdSense/広告まわりで見るべき項目
+## 9. AdSense/広告まわりで見るべき項目
 
 - **審査状況**: AdSense承認前か後かで対応が変わる。承認後は広告表示の有無・収益発生を確認
 - **広告表示エラー**: ブラウザコンソールでAdSense関連エラーが出ていないか
@@ -156,6 +181,8 @@ select count(*) from profiles where is_test_account = true; -- 3件のはず（�
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |
 | `npm run test:teacher` | 先生機能・RLS・RPCを変更した時 | ロスター集計のみ表示・同意撤回/再同意・招待コードの再発行/無効化/期限管理を検証 |
 | `npm run test:admin` | `/admin`配下のページを変更した時 | admin権限での表示・非admin/未ログイン時のリダイレクト・個別データ非開示・書き込み無しを検証（`test+admin@loop-vocabulary.app`使用） |
+| `npm run validate:materials` | プリセット教材パック（`src/data/presets/*`）を追加・変更した時 | word/meaning空でない・教材内重複なし・pos/難易度が範囲内・タグが想定内かをDB不要で高速チェック |
+| `npm run test:materials` | プリセット教材パックをDBに反映する前 | 静的検証→DB投入(冪等)→語数一致確認→インポート後SRS/PDF互換性確認までを一括実行 |
 | `npm run verify:prod` | **本番デプロイ直後 毎回**／毎日の軽い巡回 | 本番URLに対するHTTPのみの回帰確認（ブラウザ不要・数秒で完了） |
 | `npm run verify:srs-global` | SRS V2のenvフラグを変更した時／週1定期 | グローバルフラグが実際に本番で効いているかを実ログインで確認 |
 

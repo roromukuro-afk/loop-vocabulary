@@ -5,6 +5,85 @@
 
 ---
 
+## 2026-07-02 プリセット教材パック基盤の構築 + スターターパック4種を追加
+
+「登録直後から学習を始められる英単語教材アプリ」への強化フェーズ第一弾。教材データの
+標準フォーマット・品質チェック・投入導線を整備した上で、小規模・高品質な教材パック4種を追加した。
+
+**現状調査で判明したこと**（想定より大規模な既存システムがあった）:
+- `materials`/`material_units`/`material_words`（教材本体）と`word_books`/`words`（ユーザー単語帳）
+  は分離されており、`/api/material/[id]/import`がmaterial_wordsをコピーしてユーザー自身の
+  `words`行を作る設計（教材側は読み取り専用の"マスタ"、インポート後は完全に独立したコピー）
+- 本番には**既に31教材・約32,187語**が稼働中（`scripts/seed-words.mjs`・`admin/seed-vocab`経由で
+  AI生成データを投入済み。中学〜大学受験・英検5級〜1級・TOEIC・日常会話まで広くカバー）
+- `/materials`は既にカテゴリ別表示（大学受験/英検/TOEIC/中学高校基礎）・検索・インポート状況・
+  学習進捗表示・「はじめての方へ」導線を備えた成熟したページだった
+- インポートされた単語は`words.material_id`で教材と紐付いたまま、SRS(ease_factor/interval_days
+  はDBデフォルトの2.5/0で開始・next_review_atは24時間後に設定)・PDFテスト生成（`word_book_id`
+  または`material_id`のどちらでも生成可能）の両方でそのまま利用できる設計だった
+- **既存データの品質チェックで技術的負債を発見**: 同一教材内での単語重複1,137件、
+  品詞(pos)未設定10,004件（全体の約31%）。今回は修正せず`NEXT_IMPROVEMENTS.md`優先度Bに記録
+  （実害が出てから対応を判断する方針）
+
+**教材データの標準フォーマット**（DBスキーマは変更せず、TS型として設計）:
+[src/lib/materials/types.ts](src/lib/materials/types.ts)に`PresetMaterialPack`/`PresetWordEntry`
+型を定義。教材ID・タイトル・対象レベル(level)・対象学年(grade)・目的(purpose)・推奨学習期間
+(recommendedWeeks)・1日あたりの目安語数(dailyWordTarget)・カテゴリ(category)・タグ(tags)・
+確認テスト対象か(testTarget)・SRS対象か(srsTarget)をパック単位、単語(word)・意味(meaning)・
+品詞(pos)・例文(example)・例文訳(example_ja)・難易度(difficulty)を単語単位で持つ。
+`grade`/`purpose`/`recommendedWeeks`/`dailyWordTarget`/`tags`はDBカラムを追加せず、
+[presetMeta.ts](src/lib/materials/presetMeta.ts)が教材IDをキーにしたレジストリとして
+表示時のみ参照する設計にした（DBスキーマ変更ゼロ）。
+
+**品質チェックの仕組み**:
+- `npm run validate:materials`（[scripts/materials/validate-materials.mjs](scripts/materials/validate-materials.mjs)）:
+  DB不要の静的チェック。word/meaning/example/example_jaが空でない、教材内で単語が重複していない、
+  posが許容値（noun/verb/adjective/adverb/preposition/conjunction/pronoun/interjection/phrase）
+  の範囲内、difficultyが1〜5の整数、タグが許容セットの範囲内、例文に見出し語の語幹が含まれているか
+  （簡易ヒューリスティック、外れても警告のみ）を検証
+- `npm run test:materials`（[scripts/materials/test-materials.mjs](scripts/materials/test-materials.mjs)）:
+  上記の静的検証→materials/material_wordsへの冪等投入→DB上の語数がパック定義と一致するか→
+  実際のインポートAPIと同一ロジックでtest+onboardingアカウントにインポートし、結果の`words`行が
+  SRS既定値(ease_factor=2.5, interval_days=0, next_review_at設定済み)・PDFテスト対象
+  (word_book_id設定済み)になっているかを確認→テストデータを削除して冪等性を確保、の一連を実行。
+  2回連続実行して冪等性を確認済み
+
+**追加した教材パック**（すべてオリジナル作成・市販教材からの転載なし、計400語）:
+1. [中学英単語 基礎100](src/data/presets/junior-basic-100.ts) — 中学1〜2年、高校入試対策
+2. [高校英単語 基礎100](src/data/presets/highschool-basic-100.ts) — 高校1〜2年、大学受験基礎
+3. [英検準2級 基礎100](src/data/presets/eiken-pre2-basic-100.ts) — 高校1〜2年、英検対策（動詞中心）
+4. [大学受験 基礎動詞100](src/data/presets/university-basic-verbs-100.ts) — 高校2〜3年、長文読解基礎動詞
+
+各パックとも推奨学習期間2週間・1日7語ペース。`materials.license_status='original'`
+（自社オリジナル）・`is_public=true`で本番に投入済み（`test:materials`実行時に投入、
+固定UUID `10000000-0000-0000-0000-000000000101`〜`104`を使用し、既存31教材とは完全に独立）。
+
+**アプリ内導線**:
+- [materials/page.tsx](src/app/materials/page.tsx): 新規カテゴリ「🔰 はじめての人におすすめ」を
+  最上部に追加（`presetMeta`の`はじめての人におすすめ`タグでフィルタ）。既存の4カテゴリ
+  （大学受験・英検・TOEIC・中学高校基礎）にも各パックのlevel/exam_typeに応じて重複表示される
+  （既存の大規模教材と同じ表示ロジックを踏襲）。`MaterialCard`に推奨期間・1日目安語数・タグの
+  バッジを追加（`presetMeta`が無い既存31教材は従来通りlevel/exam_typeのみ表示、影響なし）
+- [materials/[id]/page.tsx](src/app/materials/[id]/page.tsx): プリセットパックの詳細ページに、
+  タグ・目的・対象学年・目安期間・目安ペースを表示する情報パネルと「単語帳に追加すると、そのまま
+  復習（SRS）・PDFテストに進めます」という案内文を追加
+
+**検証**: `tsc --noEmit` / `build` / `validate:materials`(400語・エラー0件、警告1件は
+"catch/caught"の語幹ヒューリスティックの想定内の誤検知) / `test:materials`(15項目全PASS、
+2回連続実行で冪等性確認) / `test:smoke` / `test:e2e`(4フロー全PASS) / `verify:prod` /
+`verify:srs-global` すべて通過。プレビューで`/materials`一覧・`/materials/[id]`詳細の両方を
+実際に表示確認（スターターパックの表示・バッジ・情報パネルが意図通り機能することを確認）。
+
+**制約**: DBスキーマは変更なし（`materials`/`material_words`の既存カラムのみ使用）、RLS変更なし、
+SRS V2ロジック変更なし、teacher機能は無関係のため触れていない、既存31教材・既存ユーザーの
+word_books/wordsには一切影響なし（新規4材料IDのみ操作）。
+
+**残課題**: 既存31教材の重複/pos補完（技術的負債）、`presetMeta`の既存教材への拡張、
+教材インポートの実ブラウザPlaywright E2E追加（今回はDBレベルのシミュレーションで代替）、
+`/road`ページのMATERIAL_MAP統合。いずれも`NEXT_IMPROVEMENTS.md`優先度Bに記録。
+
+---
+
 ## 2026-07-02 運用状態の整理・本番ヘルスチェック（優先度A完了の棚卸し）
 
 新機能追加はせず、優先度Aの完了状況をドキュメント上で棚卸しし、本番ヘルスチェックを実施、

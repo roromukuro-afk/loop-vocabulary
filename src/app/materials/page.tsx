@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { createClient } from "@/lib/supabase/server";
+import { getPresetMeta } from "@/lib/materials/presetMeta";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,14 @@ type CategoryGroup = {
 };
 
 const CATEGORY_GROUPS: CategoryGroup[] = [
+  {
+    id: "starter",
+    label: "はじめての人におすすめ",
+    icon: "🔰",
+    description: "1日7語×2週間で終わる、厳選100語のスターターパック",
+    iconBg: "bg-emerald-50",
+    match: (m) => getPresetMeta(m.id)?.tags.includes("はじめての人におすすめ") ?? false,
+  },
   {
     id: "university",
     label: "大学受験・共通テスト",
@@ -113,6 +122,7 @@ function MaterialCard({
   const levelCls = LEVEL_COLOR[m.level ?? ""] ?? "bg-sky-50 text-navy-700";
   const progressPct =
     wordCount > 0 ? Math.round((learned / wordCount) * 100) : 0;
+  const preset = getPresetMeta(m.id);
 
   return (
     <Link href={`/materials/${m.id}`} className="block">
@@ -150,6 +160,17 @@ function MaterialCard({
             </span>
           )}
         </div>
+        {preset && (
+          <div className="mt-1.5 flex items-center gap-2 text-[10px] flex-wrap text-navy-400">
+            <span>目安 {preset.recommendedWeeks}週間</span>
+            <span>・1日{preset.dailyWordTarget}語</span>
+            {preset.tags.slice(0, 2).map((t) => (
+              <span key={t} className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
         {imported && wordCount > 0 && (
           <div className="mt-2.5">
             <div className="flex justify-between text-[10px] text-navy-400 mb-1">

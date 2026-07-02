@@ -229,6 +229,21 @@ develop,発達する,動詞,...,...,5,4,高校基礎,Ch1,U1,13,2
 
 **重要**: 著作権上問題のあるデータを取り込まないこと。許諾済みデータのみ `license_status='approved'` & `is_public=true` で公開すること。
 
+### プリセット教材パック（自社オリジナル・小規模・高品質）の追加手順
+
+上記のCSV/JSON手動インポートとは別に、`license_status='original'`（自社オリジナル作成）の
+小規模パックを型安全・品質チェック付きで管理する仕組みがある（2026-07-02追加）。
+
+1. `src/lib/materials/types.ts` の `PresetMaterialPack` 型に沿って `src/data/presets/*.ts` に
+   新しいパック（教材ID・タイトル・レベル・学年・目的・推奨期間・1日目安語数・タグ・単語配列）を追加
+2. `src/data/presets/index.ts` の `PRESET_PACKS` 配列に追加
+3. `npm run validate:materials` で静的品質チェック（重複・空欄・pos/難易度の範囲・タグを検証）
+4. `npm run test:materials` でDB投入（冪等）＋インポート後のSRS/PDF互換性を確認
+5. 対象学年・目的・タグ等の表示メタデータは `src/lib/materials/presetMeta.ts` に自動反映される
+   （DBスキーマ変更不要）
+
+詳細な設計判断は [WORK_HISTORY.md](WORK_HISTORY.md) の「2026-07-02 プリセット教材パック基盤の構築」参照。
+
 ---
 
 ## 7. 広告の差し替え位置 (AdMob 導入)

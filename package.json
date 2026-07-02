@@ -21,7 +21,9 @@
     "test:dates": "node scripts/testing/test-date-utils.mjs",
     "test:smoke": "node scripts/testing/smoke.mjs",
     "verify:prod": "node scripts/testing/verify-prod.mjs",
-    "verify:srs-global": "node scripts/testing/check-prod-srs-v2-global.mjs"
+    "verify:srs-global": "node scripts/testing/check-prod-srs-v2-global.mjs",
+    "validate:materials": "node scripts/materials/validate-materials.mjs",
+    "test:materials": "node scripts/materials/test-materials.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
