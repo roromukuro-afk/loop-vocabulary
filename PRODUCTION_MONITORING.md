@@ -80,6 +80,16 @@ DBを直接見たい場合や、ダッシュボードでは出ない個別行を
   ```sql
   select id, email, role, created_at from profiles where role = 'teacher' order by created_at desc;
   ```
+- **招待コードの期限切れが放置されていないか**（2026-07-02以降: 新規クラス・再発行は既定90日で失効。
+  期限切れのまま先生が気づいていないと、生徒が参加できず問い合わせにつながる可能性がある）
+  ```sql
+  select id, name, teacher_id, invite_code_expires_at
+  from classes
+  where invite_code_revoked_at is null
+    and invite_code_expires_at is not null
+    and invite_code_expires_at <= now() + interval '7 days';
+  -- ↑ 7日以内に期限切れ/既に期限切れのクラス一覧（先生に再発行を促す運用の参考）
+  ```
 
 ## 5. Supabaseで見るべきテーブル
 
@@ -144,7 +154,7 @@ select count(*) from profiles where is_test_account = true; -- 3件のはず（�
 | `npm run test:e2e` | **本番デプロイ前**（大きめの変更時）／**週1定期** | onboarding・SRS V2・teacher・adminの4フローを実ブラウザで通しで検証 |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |
-| `npm run test:teacher` | 先生機能・RLS・RPCを変更した時 | ロスター集計のみ表示・同意撤回/再同意を検証 |
+| `npm run test:teacher` | 先生機能・RLS・RPCを変更した時 | ロスター集計のみ表示・同意撤回/再同意・招待コードの再発行/無効化/期限管理を検証 |
 | `npm run test:admin` | `/admin`配下のページを変更した時 | admin権限での表示・非admin/未ログイン時のリダイレクト・個別データ非開示・書き込み無しを検証（`test+admin@loop-vocabulary.app`使用） |
 | `npm run verify:prod` | **本番デプロイ直後 毎回**／毎日の軽い巡回 | 本番URLに対するHTTPのみの回帰確認（ブラウザ不要・数秒で完了） |
 | `npm run verify:srs-global` | SRS V2のenvフラグを変更した時／週1定期 | グローバルフラグが実際に本番で効いているかを実ログインで確認 |

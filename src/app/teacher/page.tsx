@@ -13,14 +13,27 @@ export default async function TeacherPage() {
     .from("profiles").select("role").eq("id", user.id).maybeSingle();
   const isTeacher = profile?.role === "teacher";
 
-  let classes: { id: string; name: string; invite_code: string; archived: boolean }[] = [];
+  let classes: {
+    id: string;
+    name: string;
+    invite_code: string;
+    archived: boolean;
+    invite_code_expires_at: string | null;
+    invite_code_revoked_at: string | null;
+  }[] = [];
   if (isTeacher) {
     const { data } = await supabase
       .from("classes")
-      .select("id, name, invite_code, archived")
+      .select("id, name, invite_code, archived, invite_code_expires_at, invite_code_revoked_at")
       .eq("teacher_id", user.id)
       .order("created_at", { ascending: true });
     classes = data ?? [];
+  }
+  const now = Date.now();
+  function inviteStatusLabel(c: { invite_code_expires_at: string | null; invite_code_revoked_at: string | null }) {
+    if (c.invite_code_revoked_at) return { label: "無効化済み", color: "text-red-500" };
+    if (c.invite_code_expires_at && new Date(c.invite_code_expires_at).getTime() <= now) return { label: "期限切れ", color: "text-amber-500" };
+    return { label: "有効", color: "text-emerald-500" };
   }
 
   return (
@@ -65,6 +78,7 @@ export default async function TeacherPage() {
                       </Link>
                       <div className="text-[11px] text-navy-400 mt-0.5">
                         招待コード: <span className="font-mono font-bold text-navy-700 tracking-wider">{c.invite_code}</span>
+                        <span className={`ml-2 font-bold ${inviteStatusLabel(c).color}`}>{inviteStatusLabel(c).label}</span>
                         <span className="ml-2">参加リンク: <span className="font-mono">/join/{c.invite_code}</span></span>
                       </div>
                     </div>

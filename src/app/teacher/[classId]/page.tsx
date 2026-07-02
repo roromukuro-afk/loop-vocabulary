@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { requireUser } from "@/lib/supabase/requireUser";
+import { InviteCodeManager } from "./InviteCodeManager";
 
 export const dynamic = "force-dynamic";
 
@@ -34,11 +35,18 @@ export default async function ClassRosterPage({
   // 所有確認（classes RLS: teacher_id = auth.uid()）。他人のクラスなら null → 404
   const { data: cls } = await supabase
     .from("classes")
-    .select("id, name, invite_code")
+    .select("id, name, invite_code, invite_code_expires_at, invite_code_revoked_at")
     .eq("id", classId)
     .eq("teacher_id", user.id)
     .maybeSingle();
   if (!cls) notFound();
+
+  const now = new Date();
+  const inviteStatus: "ok" | "expired" | "revoked" = cls.invite_code_revoked_at
+    ? "revoked"
+    : cls.invite_code_expires_at && new Date(cls.invite_code_expires_at) <= now
+      ? "expired"
+      : "ok";
 
   // 集計のみを返す RPC（関数内で teacher 所有 & consent を再検証）
   const { data: roster, error } = await supabase.rpc("get_class_progress", { p_class_id: classId });
@@ -48,9 +56,13 @@ export default async function ClassRosterPage({
     <AppShell>
       <Link href="/teacher" className="text-xs text-navy-500 hover:underline">← クラス一覧</Link>
       <h1 className="text-xl font-bold text-navy-800 mt-2">{cls.name}</h1>
-      <div className="text-[11px] text-navy-400 mt-0.5">
-        招待コード: <span className="font-mono font-bold text-navy-700 tracking-wider">{cls.invite_code}</span>
-      </div>
+      <InviteCodeManager
+        classId={cls.id}
+        inviteCode={cls.invite_code}
+        expiresAt={cls.invite_code_expires_at}
+        revokedAt={cls.invite_code_revoked_at}
+        status={inviteStatus}
+      />
 
       {error && (
         <div className="mt-4 text-sm text-red-600">ロスターの取得に失敗しました。</div>

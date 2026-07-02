@@ -21,9 +21,15 @@
    十分高速）。将来、総単語数が数万〜十万件規模まで増えた場合はSQL側の集計RPC（`avg()`/`count()`を
    Postgres側で計算し行を転送しない方式）への切り替えを検討する。
 
-3. **招待コード失効・再発行**
-   先生機能のセキュリティ向上。`classes.invite_code`に有効期限 or 手動失効ボタンを追加。
-   小さな変更（既存テーブルにカラム追加＋UI1つ）で先生機能の安心感を高められる。
+3. ✅ **完了（2026-07-02）: 招待コード失効・再発行**
+   `classes`に`invite_code_expires_at`/`invite_code_revoked_at`/`invite_code_updated_at`を追加
+   （migration 013、nullable・既存クラスは無期限のまま無影響）。`/teacher/[classId]`から
+   再発行・無効化が可能（[InviteCodeManager](src/app/teacher/[classId]/InviteCodeManager.tsx)）。
+   新規クラス・再発行は既定90日で自動失効（`INVITE_CODE_DEFAULT_TTL_DAYS`）。
+   `/join/[code]`は失効/無効化/存在しないコードをそれぞれ判別してメッセージ表示。詳細は
+   [WORK_HISTORY.md](WORK_HISTORY.md)参照。
+   **残課題**: 再発行前の旧コードは即座に「存在しない」扱いになるだけで、履歴（誰がいつ再発行したか）
+   は保持していない。運用上必要になれば`class_invite_history`等の追加テーブルを検討する。
 
 ## 🟡 優先度B: 次に着手（中工数・利用状況を見てから）
 

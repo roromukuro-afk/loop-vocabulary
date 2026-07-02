@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { generateInviteCode } from "@/lib/teacher/code";
+import { generateInviteCode, inviteCodeExpiresAtFromNow } from "@/lib/teacher/code";
 
 export const runtime = "nodejs";
 
@@ -24,7 +24,14 @@ export async function POST(req: NextRequest) {
     const invite_code = generateInviteCode(8);
     const { data, error } = await supabase
       .from("classes")
-      .insert({ teacher_id: user.id, name, invite_code })
+      .insert({
+        teacher_id: user.id,
+        name,
+        invite_code,
+        // 新規作成時から既定の有効期限を設定する（安全側のデフォルト）。
+        // マイグレーション前からの既存クラスはこのカラムがnullのままなので影響しない。
+        invite_code_expires_at: inviteCodeExpiresAtFromNow(),
+      })
       .select("id, name, invite_code")
       .single();
     if (!error && data) return NextResponse.json({ ok: true, class: data });

@@ -22,6 +22,12 @@ export async function POST(req: NextRequest) {
   if (!cls?.class_id) {
     return NextResponse.json({ error: "有効な招待コードが見つかりません" }, { status: 404 });
   }
+  if (cls.status === "revoked") {
+    return NextResponse.json({ error: "この招待コードは無効化されています。先生に新しいコードを確認してください" }, { status: 410 });
+  }
+  if (cls.status === "expired") {
+    return NextResponse.json({ error: "この招待コードは有効期限が切れています。先生に新しいコードを確認してください" }, { status: 410 });
+  }
 
   // 既存/新規いずれも active + consent=true にする
   const { error } = await supabase

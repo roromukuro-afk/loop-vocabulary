@@ -104,6 +104,17 @@ export async function seedTeacherClass(admin, teacherId, studentId) {
       .single();
     if (error) throw error;
     classId = created.id;
+  } else {
+    // 招待コードの状態を既知の値にリセットする（前回実行で再発行/無効化されていても復元）
+    const { error: resetErr } = await admin
+      .from("classes")
+      .update({
+        invite_code: TEST_CLASS_INVITE_CODE,
+        invite_code_expires_at: null,
+        invite_code_revoked_at: null,
+      })
+      .eq("id", classId);
+    if (resetErr) throw resetErr;
   }
 
   const { error: memErr } = await admin

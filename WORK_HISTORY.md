@@ -5,6 +5,66 @@
 
 ---
 
+## 2026-07-02 teacher招待コードの失効・再発行・期限管理
+
+`NEXT_IMPROVEMENTS.md`の優先度A項目3「招待コード失効・再発行」を実施。長期間使い回せていた
+招待コードに、失効・再発行・使用停止・期限管理を追加した。
+
+**現状調査で確認した内容**:
+- `classes.invite_code`（`unique not null`）は生成時(`generateInviteCode`)以降ずっと不変で、
+  失効・期限の概念がなかった
+- 参加処理は `lookup_class_by_code(p_code)` RPC（SECURITY DEFINER）でコード→クラスを解決し、
+  `/join/[code]`（表示）と`/api/teacher/join`（実際の参加）の両方がこのRPCを共有していた
+- teacher画面（`/teacher`一覧・`/teacher/[classId]`ロスター）で招待コードを表示していた
+
+**DB変更**: `supabase/migrations/013_invite_code_lifecycle.sql`（本番Supabaseに適用済み）。
+- `classes`に`invite_code_expires_at` / `invite_code_revoked_at` / `invite_code_updated_at`
+  （すべてnullable。`invite_code_updated_at`のみ`default now()`）を追加。既存データは変更なし
+- `lookup_class_by_code`をDROP+CREATEで再作成し、`status`列（'ok'|'revoked'|'expired'）を追加
+  （PostgreSQLは`CREATE OR REPLACE`で`RETURNS TABLE`の列構成を変更できないためDROP必須）。
+  `archived=false`の絞り込みは既存のまま変更なし
+- RLS変更なし。招待コードの更新は既存の"classes teacher all"ポリシー(`teacher_id = auth.uid()`)が
+  そのまま保護する
+
+**既存データへの影響**: 適用後に確認（本番のクラスは1件、`TEST_検証クラス`）。
+`invite_code_expires_at`/`invite_code_revoked_at`とも`null`のまま＝無期限・有効を維持し、
+`lookup_class_by_code`は`status='ok'`を返すことを確認。既存の参加導線は無変更で動作する。
+
+**アプリ変更**:
+- [src/lib/teacher/code.ts](src/lib/teacher/code.ts): `INVITE_CODE_DEFAULT_TTL_DAYS=90`と
+  `inviteCodeExpiresAtFromNow()`を追加
+- [api/teacher/classes](src/app/api/teacher/classes/route.ts)（クラス新規作成）: 新規クラスは
+  作成時から90日後の期限を設定（安全側のデフォルト。既存クラスはこのカラムがnullのまま不変）
+- [api/teacher/invite-code](src/app/api/teacher/invite-code/route.ts)（新規）: `POST {classId,
+  action:"reissue"|"revoke"}`。reissueは新コード発行＋期限90日でリセット＋無効化解除、revokeは
+  即座に無効化。所有確認（`teacher_id = auth.uid()`一致）に失敗すると404、未ログインは401
+- [api/teacher/join](src/app/api/teacher/join/route.ts): `status`が'revoked'/'expired'の場合は
+  410でエラーメッセージを返すよう変更（従来の「見つからない」404とは別メッセージ）
+- [join/[code]/page.tsx](src/app/join/[code]/page.tsx): 「見つからない」「無効化されています」
+  「期限切れです」を区別して表示
+- [teacher/[classId]/InviteCodeManager.tsx](src/app/teacher/[classId]/InviteCodeManager.tsx)（新規）:
+  現在のコード・状態（有効/無効化済み/期限切れ）・有効期限を表示し、再発行/無効化ボタンを提供
+- [teacher/page.tsx](src/app/teacher/page.tsx)（クラス一覧）にも状態バッジを追加
+
+**E2E**: [scripts/testing/e2e/teacher.mjs](scripts/testing/e2e/teacher.mjs)を拡張（新規ファイルは
+作らず既存を拡張、npm run test:teacher / test:e2e の両方に含まれる）。追加した検証:
+teacher視点で招待コード管理セクション表示・再発行（コードが変わる）・無効化（状態表示・ボタンdisabled化）、
+生徒視点で旧コード失効・新コード参加可・無効化後は理由付きで参加不可、非teacher(test+srs)は
+他人のクラスを再発行/無効化できない(404)、未ログインはAPI操作不可(401)・`/join/[code]`は`/login`へ誘導。
+[scripts/testing/seed-test-data.mjs](scripts/testing/seed-test-data.mjs)の`seedTeacherClass`を、
+毎回招待コードを既知の値(`TESTCLS1`・無期限・有効)にリセットするよう変更（前回実行で再発行/無効化
+されていても次回実行で復元される冪等性を確保。2回連続実行して確認済み）。
+[smoke.mjs](scripts/testing/smoke.mjs)/[verify-prod.mjs](scripts/testing/verify-prod.mjs)の
+POST専用APIチェックにも`/api/teacher/invite-code`を追加。
+
+**検証**: `tsc --noEmit` / `build` / `test:teacher`（新規22項目含め全PASS、2回連続実行で冪等性確認）/
+`test:e2e`（4フロー全PASS）/ `test:smoke`（新チェック含め全PASS）/ `verify:srs-global` 全通過。
+`verify:prod`はデプロイ前時点では新ルート未反映のため`/api/teacher/invite-code`が404で一時的に
+FAILしたが、これは想定通り（デプロイ後に再実行して確認）。
+
+**制約**: DBスキーマは追加のみ（破壊的変更なし）、RLSは変更なし、SRS V2には触れていない、
+実ユーザーのクラス・参加データは削除していない、既存招待コードをいきなり無効化していない。
+
 ## 2026-07-02 admin向けE2E検証基盤の整備（`test+admin`アカウント + `/admin/srs`自律検証）
 
 前回の`/admin/srs`実装で残課題としていた「admin権限を持つE2Eテストアカウントが未整備」を解消。
