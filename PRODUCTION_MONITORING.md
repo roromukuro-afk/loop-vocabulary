@@ -130,7 +130,9 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
   ロールバックSQLは[reports/materials-duplicate-delete-plan.md](reports/materials-duplicate-delete-plan.md)参照）
 - **意味違いの重複行**（同じ見出し語だが内容が異なる。別義の可能性があるため
   自動修正しない方針。2026-07-02時点（削除後）で1,952件・削除対象外のまま保持）
-- **品詞(pos)が未設定**（2026-07-02時点（削除後）で9,997件・全体の約31%・未修正）
+- **品詞(pos)が未設定**（2026-07-02時点で9,997件・全体の約31%・未修正。**dry-run完了、実補完は
+  承認待ち**。自動補完候補3,267件、慎重に扱う6,730件の分類は
+  [MATERIALS_POS_AUDIT.md](MATERIALS_POS_AUDIT.md) / [reports/materials-pos-fill-plan.md](reports/materials-pos-fill-plan.md)参照）
 - **word/meaningが空**（2026-07-02時点で0件）
 - **タグ/カテゴリ不整合**（level/exam_typeが空、または表示色分け対象外の未知のlevel値。
   2026-07-02時点で1件・影響は表示上の色分けのみ）
@@ -140,7 +142,9 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 ロールバック方法を事前報告してから実施する**（今後同様の作業を行う場合も同じ方針を継続する）。
 完全重複行の削除は `npm run materials:dedupe:dry-run`（既定・DB変更なし）で計画を再生成でき、
 実削除の `npm run materials:dedupe:apply` は環境変数`CONFIRM_MATERIALS_DEDUPE=yes`の明示指定と
-ユーザーの事前承認がなければ実行してはいけない。
+ユーザーの事前承認がなければ実行してはいけない。品詞補完も同様に、`npm run materials:pos:dry-run`
+（既定・DB変更なし）で計画を確認でき、`npm run materials:pos:apply`（要`CONFIRM_MATERIALS_POS_FILL=yes`）
+はユーザーの事前承認がなければ実行してはいけない。
 
 ## 7. Vercelで見るべき項目
 
@@ -193,6 +197,9 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 | `npm run audit:materials` | 既存教材データの品質状況を確認したい時（いつでも・読み取り専用） | DB上の全教材（既存31+新規パック）を監査し`MATERIALS_AUDIT.md`を再生成 |
 | `npm run materials:dedupe:dry-run` | 完全重複行の削除計画を確認・更新したい時（いつでも・読み取り専用、DB変更なし） | 削除対象行・教材別内訳・バックアップ・ロールバックSQLを`reports/materials-duplicate-*`に生成 |
 | `npm run materials:dedupe:apply` | **完全重複行を実際に削除する時（要ユーザーの事前承認 + `CONFIRM_MATERIALS_DEDUPE=yes`）** | dry-runと同じ計画に基づき`material_words`から完全重複行のみ削除。承認なしに実行しないこと |
+| `npm run audit:materials-pos` | 品詞(pos)未設定の状況を確認したい時（いつでも・読み取り専用） | 未設定件数・教材別内訳・自動補完可否の分類を`MATERIALS_POS_AUDIT.md`に生成 |
+| `npm run materials:pos:dry-run` | 品詞補完計画を確認・更新したい時（いつでも・読み取り専用、DB変更なし） | 補完候補・教材別内訳・ロールバックSQLを`reports/materials-pos-fill-*`に生成 |
+| `npm run materials:pos:apply` | **品詞を実際に補完する時（要ユーザーの事前承認 + `CONFIRM_MATERIALS_POS_FILL=yes`）** | dry-runと同じ計画に基づき高信頼度ルール該当行のみposを補完。承認なしに実行しないこと |
 | `npm run verify:prod` | **本番デプロイ直後 毎回**／毎日の軽い巡回 | 本番URLに対するHTTPのみの回帰確認（ブラウザ不要・数秒で完了） |
 | `npm run verify:srs-global` | SRS V2のenvフラグを変更した時／週1定期 | グローバルフラグが実際に本番で効いているかを実ログインで確認 |
 

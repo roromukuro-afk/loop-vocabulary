@@ -1,6 +1,6 @@
 # MATERIALS_AUDIT — 教材データ品質監査レポート
 
-> 自動生成: `node scripts/materials/audit-existing-materials.mjs` (最終生成: 2026-07-02T11:38:02.700Z)
+> 自動生成: `node scripts/materials/audit-existing-materials.mjs` (最終生成: 2026-07-02T23:16:16.718Z)
 > 読み取り専用の監査結果。このレポート自体はDBを一切変更しない。
 > 機械可読版: [reports/materials-audit.json](reports/materials-audit.json)
 > 完全重複行の削除dry-run計画: [reports/materials-duplicate-delete-plan.md](reports/materials-duplicate-delete-plan.md)

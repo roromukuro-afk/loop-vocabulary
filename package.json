@@ -27,7 +27,10 @@
     "test:materials": "node scripts/materials/test-materials.mjs",
     "audit:materials": "node scripts/materials/audit-existing-materials.mjs",
     "materials:dedupe:dry-run": "node scripts/materials/deduplicate-material-words.mjs",
-    "materials:dedupe:apply": "node scripts/materials/deduplicate-material-words.mjs --apply"
+    "materials:dedupe:apply": "node scripts/materials/deduplicate-material-words.mjs --apply",
+    "audit:materials-pos": "node scripts/materials/audit-materials-pos.mjs",
+    "materials:pos:dry-run": "node scripts/materials/fill-material-pos.mjs",
+    "materials:pos:apply": "node scripts/materials/fill-material-pos.mjs --apply"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

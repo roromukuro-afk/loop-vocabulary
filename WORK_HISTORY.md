@@ -1,7 +1,72 @@
 # WORK_HISTORY — Loop Vocabulary
 
 > 作業の時系列ログ。新しいものを上に追記する。
-> 最終更新: 2026-07-02
+> 最終更新: 2026-07-03
+
+---
+
+## 2026-07-03 品詞(pos)未設定9,997件の補完方針設計 + dry-run
+
+完全重複行削除に続き、既存教材の技術的負債の2つ目「品詞(pos)未設定9,997件」の補完方針を
+設計し、dry-run計画を作成した。**実データへの補完は一切実行していない。**
+
+**現状調査**: 既存pos表記は教材ごとに大きくばらつきがあることが判明（"名詞"/"noun"/"n"、
+"動詞"/"verb"/"v" 等、日本語フルネーム・英語省略形・英語フルネームの3系統が教材単位で
+概ね統一されているが、教材間では全く異なる）。品詞未設定が0%の教材から100%の教材まで存在し、
+6教材（大学受験英単語1500・英検準2級 重要単語・英検2級 必須単語800・英検準1級 必須単語600・
+TOEIC頻出単語600・中学校英単語 基礎・標準、計4,026件）はpos設定済み行が教材内に1件もなく、
+教材内の表記方式を参照できない。
+
+**分類ロジック（[scripts/materials/lib/posDetection.mjs](scripts/materials/lib/posDetection.mjs)、監査/補完計画で共有）**:
+教材ごとに既存pos表記から支配的な表記方式（日本語フルネーム/英語省略形/英語フルネーム）を検出し、
+補完時はその教材の既存表記に合わせる（全教材に手がかりがない場合は、コーパス全体で最多派の
+英語省略形をデフォルトとする）。分類ルールは優先順で適用:
+
+1. 熟語・句動詞（複数語）→ 常に慎重に扱う（他の判定より優先）
+2. meaningが1文字以下 → 慎重に扱う
+3. 同じword+同じmeaningが他教材にpos設定済み → 自動補完（最高信頼度）
+4. 代名詞・前置詞・接続詞・冠詞の固定辞書 → 自動補完（前置詞/接続詞/基本副詞は
+   前置詞・接続詞・副詞のいずれにもなりうる多義語(since/until/before/after/while/though/
+   still/even/only/just/yet/today/tomorrow等)を意図的に除外し、単一機能の語のみ収録）
+5. 数詞・曜日・月・基本副詞の固定辞書 → 自動補完
+6. meaningが「〜する」で終わる → 動詞と推定・自動補完
+7. meaningが「〜な/〜の」で終わる → 形容詞と推定・自動補完
+8.（追加提案・今回の既定対象外）同じwordが他教材に存在し意味は問わず品詞が一貫 → 提案のみ
+9. 同じwordで複数品詞が他教材で見つかる（例: claim/concern/debate/benefit等の名詞/動詞
+   兼用語）→ 慎重に扱う
+10. 上記いずれにも該当しない → 慎重に扱う
+
+**安全確認**: 補完によって同一教材内に新たな完全重複（word/meaning/pos/example/example_ja/
+importance/frequency/levelが全て一致する行）が生じないかを事前検証し、**0件**であることを
+確認済み（該当があれば自動的に補完対象から除外する仕組みも実装済み）。
+
+**dry-run結果**:
+- 品詞未設定: 9,997件
+- 自動補完候補（ルール3〜7、高信頼度、既定のdry-run/apply対象）: **3,267件**
+- 追加提案（ルール8、同一word一貫性、既定では対象外）: 2,797件
+- 慎重に扱う（自動補完しない）: 6,730件
+  （熟語・句動詞1,888件、判断材料なし1,600件、複数品詞345件、meaning短すぎ100件、
+  上記の重複を除いた実数。詳細は[MATERIALS_POS_AUDIT.md](MATERIALS_POS_AUDIT.md)参照）
+
+**新規スクリプト・npm script**:
+- `scripts/materials/lib/posDetection.mjs`（新規）: 分類ロジック・固定辞書・教材別表記方式検出
+- `scripts/materials/audit-materials-pos.mjs`（新規、`npm run audit:materials-pos`）: 品詞未設定の
+  内訳監査（[MATERIALS_POS_AUDIT.md](MATERIALS_POS_AUDIT.md) / `reports/materials-pos-audit.json`を生成）
+- `scripts/materials/fill-material-pos.mjs`（新規）: dry-run（既定）/ apply（`--apply`）の両方を持つ。
+  実補完は環境変数`CONFIRM_MATERIALS_POS_FILL=yes`の明示指定がなければ即エラー終了する二重ガード付き。
+  word/meaning/exampleは一切変更しない。
+- `npm run materials:pos:dry-run` / `npm run materials:pos:apply`（新規）
+
+**今回実施していないこと**: `materials:pos:apply`の実行（実データ補完）。ユーザーの承認を
+得てから別途実施する。追加提案ルール8（2,797件）・慎重に扱う6,730件のいずれにも触れていない。
+
+**制約**: DBスキーマ変更なし、RLS変更なし、SRS V2ロジック変更なし、teacher機能変更なし、
+word/meaning/exampleは変更対象外、市販教材や外部辞書のコピーなし、実データの補完・上書きなし
+（dry-runのみ）。
+
+**検証**: `tsc --noEmit` / `build` / `audit:materials`（完全重複0件・pos未設定9,997件のまま
+変化なしを確認） / `validate:materials`（4パックerrors=0） / `test:materials`（18項目PASS） /
+`test:materials:e2e`（18項目PASS） / `test:smoke` / `verify:prod` / `verify:srs-global` 全通過。
 
 ---
 
