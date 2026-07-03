@@ -15,10 +15,10 @@ export async function POST(
   // プレミアムチェック
   const { data: profile } = await supabase
     .from("profiles")
-    .select("plan")
+    .select("is_premium")
     .eq("id", user.id)
-    .single();
-  if (!profile || profile.plan !== "premium") {
+    .maybeSingle();
+  if (!profile?.is_premium) {
     return NextResponse.json({ error: "プレミアムプランが必要です" }, { status: 403 });
   }
 

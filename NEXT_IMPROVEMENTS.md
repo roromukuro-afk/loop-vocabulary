@@ -115,6 +115,17 @@
     同時に用意し、book指定時はデコイが混入しないこと／指定なしでは両方が母集団になること
     を検証、25項目、全PASS）。詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
 
+12. ✅ **完了（2026-07-03）: `profiles.plan`参照バグをプロジェクト全体で修正**
+    項目11の調査中に発見した`wordbooks/[id]/page.tsx`の`profiles.plan`参照バグ（存在しない
+    カラムのため`isPremium`が常に`false`扱い）を修正し、同じパターンの箇所を全体検索した
+    ところ、他に6箇所（`/plan`, `/extract`, `/weak`の3ページと`/api/ai/weakness-analysis`,
+    `/api/ai/extract-words`, `/api/wordbook/[id]/ai-suggest{,/add}`の4API）で同じバグが
+    見つかり、全て`profiles.is_premium`を参照する形に統一した。実際のPremiumユーザーが
+    AIパーソナル学習プラン・英文抽出・弱点分析・AI単語提案のいずれも使えない状態だった。
+    `npm run test:premium-gating`（新規、21項目、`test:e2e`にも8フロー目として統合）で
+    非Premium/Premium双方の表示分岐・API 403/非403分岐・5学習モードへの回帰なしを検証、
+    全PASS。詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
+
 ---
 
 ## 🟢 優先度A: 今すぐ着手できる（低工数・高効果・外部依存少）
@@ -174,12 +185,9 @@
    単語帳詳細ページの「⚡ タイムアタック」ボタン（優先度A完了項目11で追加済み）に
    誘導するか、`ImportMaterialButton`側にモード選択を追加するかを検討する。
 
-2g. **wordbooks/[id]/page.tsxの`profiles.plan`参照バグ（要修正、未着手）**
-   今回の調査中に発見。`isPremium`判定が存在しないカラム`profiles.plan`を参照しており
-   （`profile?.plan === "premium"`）、クエリは常にnullを返すため単語帳詳細ページの
-   `AiSuggestButton`への`isPremium`は常に`false`扱いになっている（実際にPremium契約中の
-   ユーザーでもAI提案が使えない可能性がある）。`is_premium`列を参照する形に修正する必要が
-   あるが、今回のattackスコープ対応とはスコープが異なるため未修正のまま残している。
+2g. ✅ **完了（2026-07-03）: `profiles.plan`参照バグの修正**
+   優先度A完了項目12で対応済み。`wordbooks/[id]/page.tsx`含む7箇所を`profiles.is_premium`
+   参照に統一した。詳細は完了項目12参照。
 
 3. **teacher招待コードの再発行履歴**
    優先度A完了項目3の残課題。現状は再発行すると旧コードの記録が残らない。

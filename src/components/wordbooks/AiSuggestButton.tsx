@@ -71,7 +71,7 @@ export function AiSuggestButton({
 
   if (!isPremium) {
     return (
-      <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 flex items-center gap-2">
+      <div data-testid="ai-suggest-locked" className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 flex items-center gap-2">
         <span>✨</span>
         <span>
           <strong>AI単語提案</strong>はプレミアム機能です。
@@ -84,6 +84,7 @@ export function AiSuggestButton({
   return (
     <>
       <button
+        data-testid="ai-suggest-button"
         onClick={() => { setOpen(true); fetchSuggestions(); }}
         className="w-full mt-2 py-2.5 rounded-xl border-2 border-dashed border-sky-300 text-sky-600 text-sm font-semibold hover:bg-sky-50 transition-colors flex items-center justify-center gap-2"
       >

@@ -5,6 +5,68 @@
 
 ---
 
+## 2026-07-03 profiles.planバグを全体修正（wordbooks/[id]・plan・extract・weak・AI系API）
+
+前回のattackモード単語帳スコープ対応の調査中に発見した`wordbooks/[id]/page.tsx`の
+`profiles.plan`参照バグ（存在しないカラムのため`isPremium`が常に`false`扱い）を修正し、
+同じバグパターンが他に残っていないか全体検索した。
+
+**原因**: `profiles`テーブルには`plan`カラムが存在しない（実際の列は`is_premium`
+boolean）。`.select("plan")...single()`は該当行なしでエラーになりprofileがnullになる
+ため、`profile?.plan === "premium"`は常に`false`と評価される。前回`/test/listening`で
+発見・修正したのと全く同じバグパターンが、独立に複数箇所へ横展開されていた。
+
+**全体検索結果**: `wordbooks/[id]/page.tsx`（ユーザーが別セッションで先に修正済み）に加え、
+以下6箇所で同じパターンを発見:
+- `src/app/plan/page.tsx`（AIパーソナル学習プラン）
+- `src/app/extract/page.tsx`（英文からの単語自動抽出）
+- `src/app/weak/page.tsx`（苦手単語のAI弱点分析）
+- `src/app/api/ai/weakness-analysis/route.ts`
+- `src/app/api/ai/extract-words/route.ts`
+- `src/app/api/wordbook/[id]/ai-suggest/route.ts`
+- `src/app/api/wordbook/[id]/ai-suggest/add/route.ts`
+
+いずれも`.select("plan")...single()` → `.select("is_premium")...maybeSingle()`、
+`profile?.plan === "premium"` → `profile?.is_premium ?? false`（APIは
+`!(profile?.is_premium ?? false)`で403判定）に統一。`src/app/api/stripe/checkout/route.ts`
+の`plan`（monthly/yearly課金プラン種別）と`src/app/api/stripe/webhook/route.ts`の
+`session.metadata?.plan`は同名だが無関係の概念（Stripe決済プラン種別）であり修正対象外。
+
+**修正内容**: 上記7箇所すべてを`profiles.is_premium`参照に統一。`AiSuggestButton.tsx`に
+`data-testid="ai-suggest-locked"`/`"ai-suggest-button"`を追加（E2E用、ロジック無変更）。
+
+**Premium/非Premiumの確認結果**: 非Premium状態では全ページがプレミアム誘導表示・全APIが
+403、Premium状態では全ページが機能フォーム表示・全APIがpremium判定を通過（実際に
+Anthropic APIまで到達しstatus 200を確認）することを実ブラウザ+実APIコールで検証。
+
+**追加したテスト**: `scripts/testing/verify-premium-gating.mjs`（新規、
+`npm run test:premium-gating`、21項目）。test+onboardingアカウントのis_premiumを
+true/false切り替えながら、7箇所の表示・ステータスコード分岐と、choice/input/typing/
+listening/attackへの回帰なしを検証。`run-e2e.mjs`に8フロー目として統合。
+
+**検証結果**: `tsc --noEmit` / `build` / `test:smoke` / `test:e2e`（8フロー全PASS） /
+`verify:prod` / `verify:srs-global`、全通過。検証中、たまたま同時間帯に別セッションが
+同じリポジトリ・同じテストポート(3799)・同じテストアカウントで並行してビルド/テストを
+実行しており、一時的に`.next`ビルド競合とテストデータ競合によるテスト失敗が発生したが、
+競合が解消してから再実行したところ全て解消し、コード自体の問題ではないことを確認した
+（`.next`キャッシュを1回削除して再ビルド）。
+
+**変更ファイル**: `src/app/wordbooks/[id]/page.tsx`（別セッションで先に修正済み）、
+`src/app/plan/page.tsx`、`src/app/extract/page.tsx`、`src/app/weak/page.tsx`、
+`src/app/api/ai/weakness-analysis/route.ts`、`src/app/api/ai/extract-words/route.ts`、
+`src/app/api/wordbook/[id]/ai-suggest/route.ts`、
+`src/app/api/wordbook/[id]/ai-suggest/add/route.ts`、
+`src/components/wordbooks/AiSuggestButton.tsx`、
+`scripts/testing/verify-premium-gating.mjs`（新規）、`package.json`、
+`scripts/testing/run-e2e.mjs`。
+
+**残課題**: なし（`profiles.plan`参照は全体検索で0件を確認済み）。
+
+DBスキーマ変更なし、RLS変更なし、SRS V2ロジック変更なし、teacher機能変更なし、
+教材データ変更なし、課金本番導入・プラン設計変更なし。
+
+---
+
 ## 2026-07-03 attackモードに単語帳スコープ対応（?book=）を追加
 
 前回のSRS考慮型出題ロジック横展開の際に残課題として記録した「attackモードが

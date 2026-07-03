@@ -30,8 +30,8 @@ export default async function WordBookDetailPage({ params }: { params: Promise<{
     .eq("word_book_id", id)
     .order("created_at", { ascending: false });
 
-  const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-  const isPremium = profile?.plan === "premium";
+  const { data: profile } = await supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle();
+  const isPremium = profile?.is_premium ?? false;
 
   const masteredCount = (words ?? []).filter(w => (w.mastery ?? 0) >= 80).length;
   const totalCount = words?.length ?? 0;

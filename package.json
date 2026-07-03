@@ -21,6 +21,7 @@
     "test:materials:e2e": "node scripts/testing/e2e/materials.mjs",
     "test:quiz:e2e": "node scripts/testing/e2e/quiz.mjs",
     "test:learning-modes:e2e": "node scripts/testing/e2e/learning-modes.mjs",
+    "test:premium-gating": "node scripts/testing/verify-premium-gating.mjs",
     "test:dates": "node scripts/testing/test-date-utils.mjs",
     "test:quiz": "node scripts/testing/test-learning-selection.mjs",
     "test:learning-selection": "node scripts/testing/test-learning-selection.mjs",

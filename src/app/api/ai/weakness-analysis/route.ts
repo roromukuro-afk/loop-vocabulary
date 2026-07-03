@@ -9,8 +9,8 @@ export async function POST(_req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-  if (profile?.plan !== "premium") {
+  const { data: profile } = await supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle();
+  if (!(profile?.is_premium ?? false)) {
     return NextResponse.json({ error: "Premium required" }, { status: 403 });
   }
 

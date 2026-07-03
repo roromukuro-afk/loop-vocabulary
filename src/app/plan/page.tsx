@@ -12,8 +12,8 @@ export const dynamic = "force-dynamic";
 
 export default async function StudyPlanPage() {
   const { user, supabase } = await requireUser();
-  const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-  const isPremium = profile?.plan === "premium";
+  const { data: profile } = await supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle();
+  const isPremium = profile?.is_premium ?? false;
 
   return (
     <AppShell>

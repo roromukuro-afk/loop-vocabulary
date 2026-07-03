@@ -70,6 +70,9 @@ async function main() {
 
     console.log("\n=== 10. learning modes (input/typing/listening/attack) E2E ===");
     results.learningModes = runNode("scripts/testing/e2e/learning-modes.mjs");
+
+    console.log("\n=== 11. premium gating regression (profiles.plan → is_premium) ===");
+    results.premiumGating = runNode("scripts/testing/verify-premium-gating.mjs");
   } finally {
     stopDevServer(dev);
   }

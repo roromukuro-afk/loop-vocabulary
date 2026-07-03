@@ -19,8 +19,8 @@ type OrderKey = keyof typeof ORDERS;
 export default async function WeakPage({ searchParams }: { searchParams: Promise<{ order?: string }> }) {
   const { user, supabase } = await requireUser();
   const sp = await searchParams;
-  const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-  const isPremium = profile?.plan === "premium";
+  const { data: profile } = await supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle();
+  const isPremium = profile?.is_premium ?? false;
   const key = (sp.order as OrderKey) in ORDERS ? (sp.order as OrderKey) : "wrong";
   const ord = ORDERS[key];
 
