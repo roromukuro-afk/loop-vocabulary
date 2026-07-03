@@ -5,6 +5,79 @@
 
 ---
 
+## 2026-07-03 SRS考慮型の出題ロジックを他4学習モードへ横展開（input/typing/listening/attack）
+
+前回4択テスト（/test/choice）に導入したSRS考慮型出題ロジックを、他の学習モードにも
+横展開した。共有ライブラリを`src/lib/quiz/wordSelection.ts`から、より汎用的な
+`src/lib/learning/wordSelection.ts`へ移動（内容は同一、importパスのみ変更）。
+
+**現状調査結果（各モード）**:
+- **input（穴埋め）・typing（タイピング）**: 4択テストの旧実装と全く同じパターン
+  （`sample(pool, count)`の完全ランダム、SRSフィールド未取得・未参照）。修正方針は
+  choiceと同一で適用可能と判断
+- **listening（リスニング）**: `order("last_studied_at", ascending: nullsFirst)`で
+  「未学習寄り」の粗い近似はしていたが、`correct_count`/`wrong_count`/`next_review_at`等は
+  未考慮。さらに2件の独立したバグを発見:
+  1. **`ListeningTestRunner.submit()`が`saveStudyResult()`を一切呼んでいなかった**
+     （回答してもSRSフィールドが更新されない、正誤記録が学習に反映されない不具合）
+  2. **`page.tsx`が存在しないカラム`profiles.plan`を参照していた**（実際のカラムは
+     `is_premium`）。PostgRESTのクエリが失敗し`profile`が常にnullになるため、
+     **全ユーザーが恒久的にPremiumペイウォール表示のまま利用不能**になっていた
+     （typing/page.tsxは同じチェックを`is_premium`で正しく実装しており、参照実装として
+     揃えた）
+- **attack（タイムアタック）**: `order("last_studied_at", ascending: nullsFirst)`で
+  取得後、クライアント側で`shuffle(pool)`→順番に消化→尽きたら再シャッフル、という方式。
+  SRSフィールド未考慮。ダミー選択肢も`shuffle(pool).slice(0,3)`のみで品詞・重複配慮なし。
+  **既存の設計上の特徴として、`page.tsx`が`word_book_id`でスコープしておらず
+  ログインユーザーの単語帳全体から出題する**（他4モードは`?book=`パラメータに対応）。
+  今回はこの挙動自体は変更していない（テスト側で考慮済み、詳細は後述）
+
+**適用内容**:
+- input/typing: `sample(pool, count)` → `selectQuizWords(pool, count)`に置き換え
+  （4択と同じ関数、選定ロジックの重複実装なし）
+- listening: `pool.slice(0, count)` → `selectQuizWords(pool, count)`に置き換え。
+  上記の2バグ（`saveStudyResult()`呼び出し漏れ、`profiles.plan`→`profiles.is_premium`）
+  も併せて修正
+- attack: `shuffle(pool)`による全体シャッフル→順番消化方式を、`selectQuizWords(pool,
+  pool.length, {excludeIds})`による優先順位付き出題キューに置き換え。ダミー選択肢も
+  `pickDistractors()`に統一。直近出題した単語IDを`useRef`で保持し、出題キューを
+  使い切って再構築する際に除外することで、末尾と先頭が隣接して同じ単語が連続
+  出題されるのを防ぐ
+- 各モードのServer Component（page.tsx）で、SRSフィールド（correct_count/wrong_count/
+  next_review_at/interval_days/ease_factor/last_studied_at/pos/importance）を
+  select()に追加。listening/attackで使っていた`order("last_studied_at",...)`による
+  粗い近似ソートは、より正確な`selectQuizWords`側の優先度ロジックに置き換えたため削除
+
+**変更しなかったもの**: SRS V2のコア計算ロジック（`applySrsV2`/`saveStudyResult`の
+更新式）、DBスキーマ、RLS、teacher機能、attackのword_book非スコープという既存設計
+（意図的な仕様と判断し変更していない）。
+
+**追加・更新したテスト**:
+- `scripts/testing/test-learning-selection.mjs`（旧`test-quiz-selection.mjs`から改名。
+  `npm run test:quiz` / `npm run test:learning-selection`のどちらからも実行可能）:
+  n=pool.length（attackモードの「プール全体を優先順に並べた出題キュー」用途）でも
+  unseenが先頭にまとまることを確認するテストを追加。既存のclassifyWordState/
+  selectQuizWords/pickDistractorsのテストと合わせて計27項目、全PASS
+- `scripts/testing/e2e/learning-modes.mjs`（新規、`npm run test:learning-modes:e2e`、
+  `test:e2e`にも7フロー目として統合）: input/typing/listening/attackの4モードそれぞれで
+  「未学習単語が1問目に出る」「正解後にSRSフィールド(correct_count/last_studied_at)が
+  更新される」「console error/5xxがない」ことを検証。listeningでは従来SRS未更新
+  だった不具合の回帰確認、typing/listeningはPremium限定機能のためテスト実行中のみ
+  test+onboardingの`is_premium`を一時的にtrueにし終了後に元へ戻す。最後に
+  /test/choice・/review・/pdf・/materialsへの回帰がないことも確認。計20項目、全PASS
+  （teacher/adminへの回帰は既存の`test:teacher`/`test:admin`フローでカバー済みのため
+  重複させていない）
+
+**検証**: `npx tsc --noEmit` / `npm run build` / `npm run test:quiz`（27項目PASS） /
+`npm run test:learning-modes:e2e`（20項目PASS） / `npm run test:smoke` /
+`npm run test:e2e`（7フロー全PASS） / `npm run verify:prod` / `npm run verify:srs-global`
+全通過。
+
+**制約**: DBスキーマ変更なし、RLS変更なし、SRS V2コアロジック不変、teacher機能・
+教材データには触れていない。`suspended`ラベルは今回も未実装（前回と同様）。
+
+---
+
 ## 2026-07-03 4択テストの出題ロジックをSRS状態考慮型に修正（未学習優先・重複抑制）
 
 **報告された問題**: 4択クイズ（/test/choice）で、まだ一度も出ていない単語より既出単語ばかり

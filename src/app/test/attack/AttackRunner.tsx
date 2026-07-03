@@ -2,14 +2,18 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { saveStudyResult } from "@/lib/srs/saveResult";
 import { shuffle } from "@/lib/utils/shuffle";
+import { selectQuizWords, pickDistractors, type SrsQuizWord } from "@/lib/learning/wordSelection";
 
-type Word = { id: string; word: string; meaning: string; streak: number; is_weak: boolean };
+type Word = SrsQuizWord & { streak: number; is_weak: boolean };
 
 const TIME_LIMIT = 60;
 const BEST_KEY = "attack_best_score";
+// 直近出題した単語数の上限（出題キューを使い切って再構築する際、末尾と先頭が
+// 隣接して同じ単語が連続出題されるのを防ぐため、直近分をキューから除外する）
+const RECENT_HISTORY_LIMIT = 10;
 
 function makeQuestion(word: Word, pool: Word[]) {
-  const distractors = shuffle(pool.filter((p) => p.id !== word.id)).slice(0, 3).map((p) => p.meaning);
+  const distractors = pickDistractors(word, pool, 3, "en2ja");
   const choices = shuffle([word.meaning, ...distractors]);
   return { word, choices };
 }
@@ -31,23 +35,36 @@ export function AttackRunner({ pool }: { pool: Word[] }) {
   });
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scoreRef = useRef(0);
-  const poolRef = useRef(shuffle(pool));
-  const poolIdxRef = useRef(0);
+  // 出題キュー: 未学習優先→due/weak優先の重み付き抽選でプール全体を並べ替えたもの
+  // （4択テストと共通ロジック、詳細はwordSelection.ts参照）。使い切ったら再構築する。
+  const queueRef = useRef<Word[]>([]);
+  const queueIdxRef = useRef(0);
+  const recentIdsRef = useRef<string[]>([]);
+
+  const buildQueue = useCallback(() => {
+    const excludeIds = recentIdsRef.current;
+    // 全件除外指定だと必要数を満たせず内部フォールバックで除外が無効化されてしまうため、
+    // 「除外後に残る件数」を明示的にnとして渡す（詳細はwordSelection.ts参照）。
+    const availableCount = Math.max(1, pool.length - new Set(excludeIds).size);
+    queueRef.current = selectQuizWords(pool, availableCount, { excludeIds }) as Word[];
+    queueIdxRef.current = 0;
+  }, [pool]);
 
   const nextWord = useCallback(() => {
-    if (poolIdxRef.current >= poolRef.current.length) {
-      poolRef.current = shuffle(pool);
-      poolIdxRef.current = 0;
+    if (queueIdxRef.current >= queueRef.current.length) {
+      buildQueue();
     }
-    const w = poolRef.current[poolIdxRef.current++];
+    const w = queueRef.current[queueIdxRef.current++];
+    recentIdsRef.current = [...recentIdsRef.current, w.id].slice(-RECENT_HISTORY_LIMIT);
     const q = makeQuestion(w, pool);
     setCurWord(q.word);
     setChoices(q.choices);
-  }, [pool]);
+  }, [pool, buildQueue]);
 
   const start = () => {
-    poolRef.current = shuffle(pool);
-    poolIdxRef.current = 0;
+    recentIdsRef.current = [];
+    queueRef.current = [];
+    queueIdxRef.current = 0;
     scoreRef.current = 0;
     setScore(0);
     setCombo(0);
@@ -140,7 +157,7 @@ export function AttackRunner({ pool }: { pool: Word[] }) {
             🏅 自己ベスト: <span className="font-black text-navy-800">{bestScore}問</span>
           </div>
         )}
-        <button onClick={start} className="w-full py-4 rounded-2xl bg-amber-500 text-white font-black text-lg hover:bg-amber-600 transition-colors">
+        <button onClick={start} data-testid="quiz-start" className="w-full py-4 rounded-2xl bg-amber-500 text-white font-black text-lg hover:bg-amber-600 transition-colors">
           スタート！
         </button>
       </div>
@@ -152,7 +169,7 @@ export function AttackRunner({ pool }: { pool: Word[] }) {
     const isNewBest = score > 0 && score >= bestScore;
     const shareText = `60秒タイムアタック結果: ${score}問正解（正答率${acc}%・最大コンボ${maxCombo}）⚡ #Loop_Vocabulary`;
     return (
-      <div className="space-y-5">
+      <div className="space-y-5" data-testid="quiz-done">
         <div className="text-center">
           <div className="text-5xl mb-3">{isNewBest ? "🎉" : score >= 20 ? "🏆" : score >= 10 ? "⚡" : "💪"}</div>
           <h2 className="text-2xl font-black text-navy-800">{isNewBest ? "新記録！" : "タイム終了！"}</h2>
@@ -223,14 +240,14 @@ export function AttackRunner({ pool }: { pool: Word[] }) {
       {/* 問題 */}
       <div className="text-center mb-6 bg-white rounded-2xl border border-navy-100 p-5">
         <div className="text-xs text-navy-400 mb-1">英単語の意味は？</div>
-        <div className="text-3xl font-black text-navy-900">{curWord?.word}</div>
+        <div className="text-3xl font-black text-navy-900" data-testid="quiz-prompt" data-word-id={curWord?.id}>{curWord?.word}</div>
       </div>
 
       {/* 選択肢 */}
       <ul className="grid grid-cols-2 gap-2">
         {choices.map((c) => (
           <li key={c}>
-            <button onClick={() => pick(c)}
+            <button onClick={() => pick(c)} data-testid="quiz-choice" data-answer={curWord && c === curWord.meaning ? "true" : "false"}
               className="w-full h-full px-3 py-3.5 rounded-xl border-2 border-navy-200 bg-white text-navy-800 font-semibold text-sm hover:border-amber-400 hover:bg-amber-50 active:scale-95 transition-all text-left">
               {c}
             </button>

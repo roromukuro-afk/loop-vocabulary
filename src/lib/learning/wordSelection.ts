@@ -1,9 +1,12 @@
 /**
- * 4択テスト（および今後同種のテストモード）向けの出題単語選定ロジック。
+ * 学習系テストモード（4択・入力・タイピング・リスニング・タイムアタック）共通の
+ * 出題単語選定ロジック。
  *
  * DBスキーマは変更しない。既存のSRSカラム（correct_count/wrong_count/is_weak/
  * next_review_at/interval_days/streak/last_studied_at）から学習状態ラベルを
- * 都度算出し、出題優先度に反映する。
+ * 都度算出し、出題優先度に反映する。全モードがこのモジュールを共通利用することで、
+ * 出題ロジックがモードごとにバラバラにならないようにしている
+ * （src/app/test/{choice,input,typing,listening,attack}/ の各Runnerから利用）。
  *
  * 学習状態ラベル（既存カラムから算出。DBに保存はしない）:
  *   unseen    : 一度も出題・学習していない
@@ -97,6 +100,9 @@ export type SelectQuizWordsOptions = {
  *    重み付きランダム抽選で埋める（同じ状態の単語ばかり連続しないよう毎回ランダム）
  * 3. excludeIds（直近出題分）はプールから除外するが、除外すると必要件数を満たせない
  *    場合は自動的に除外を解除する（単語数が少ない単語帳での例外対応）
+ *
+ * n を pool.length 以上に指定すると、プール全体を優先順位に沿って並べ替えた
+ * 「出題キュー」として使える（attackモードの連続出題で利用）。
  */
 export function selectQuizWords(
   pool: readonly SrsQuizWord[],

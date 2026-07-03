@@ -67,6 +67,9 @@ async function main() {
 
     console.log("\n=== 9. quiz selection E2E ===");
     results.quiz = runNode("scripts/testing/e2e/quiz.mjs");
+
+    console.log("\n=== 10. learning modes (input/typing/listening/attack) E2E ===");
+    results.learningModes = runNode("scripts/testing/e2e/learning-modes.mjs");
   } finally {
     stopDevServer(dev);
   }

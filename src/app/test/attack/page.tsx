@@ -16,9 +16,10 @@ export default async function AttackPage() {
 
   const { data: words } = await supabase
     .from("words")
-    .select("id, word, meaning, streak, is_weak")
+    .select(
+      "id, word, meaning, pos, importance, streak, is_weak, correct_count, wrong_count, next_review_at, interval_days, ease_factor, last_studied_at",
+    )
     .eq("user_id", user.id)
-    .order("last_studied_at", { ascending: true, nullsFirst: true })
     .limit(200);
 
   const pool = words ?? [];

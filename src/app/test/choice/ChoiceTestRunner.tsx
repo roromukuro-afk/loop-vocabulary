@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
 import { shuffle } from "@/lib/utils/shuffle";
 import { saveStudyResult } from "@/lib/srs/saveResult";
-import { selectQuizWords, pickDistractors, type SrsQuizWord } from "@/lib/quiz/wordSelection";
+import { selectQuizWords, pickDistractors, type SrsQuizWord } from "@/lib/learning/wordSelection";
 import { useAppInterstitial, AppRewardedAdButton } from "@/components/ads/AppAds";
 import { speakEn } from "@/lib/tts";
 import { PronounceButton } from "@/components/ui/PronounceButton";

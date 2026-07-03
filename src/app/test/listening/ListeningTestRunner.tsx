@@ -1,7 +1,9 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { saveStudyResult } from "@/lib/srs/saveResult";
+import { selectQuizWords, type SrsQuizWord } from "@/lib/learning/wordSelection";
 
-type Word = { id: string; word: string; meaning: string };
+type Word = SrsQuizWord & { streak: number; is_weak: boolean };
 
 function speakWord(word: string) {
   if (typeof window === "undefined") return;
@@ -13,7 +15,8 @@ function speakWord(word: string) {
 }
 
 export function ListeningTestRunner({ pool, count = 10 }: { pool: Word[]; count?: number }) {
-  const questions = pool.slice(0, Math.min(count, pool.length));
+  // 未学習優先→due/weak優先の重み付き抽選（4択テストと共通ロジック、詳細はwordSelection.ts参照）
+  const questions = useMemo(() => selectQuizWords(pool, Math.min(count, pool.length)) as Word[], [pool, count]);
   const [idx, setIdx]         = useState(0);
   const [val, setVal]         = useState("");
   const [submitted, setSubmit] = useState(false);
@@ -42,6 +45,9 @@ export function ListeningTestRunner({ pool, count = 10 }: { pool: Word[]; count?
     const correct = val.trim().toLowerCase() === cur.word.toLowerCase();
     setResults((r) => [...r, { word: cur.word, meaning: cur.meaning, input: val.trim(), correct }]);
     setSubmit(true);
+    // 従来SRS更新が呼ばれておらず、リスニングでの学習がcorrect_count/wrong_count/
+    // next_review_at等に一切反映されない不具合があったため追加（他モードと同様に接続）
+    void saveStudyResult(cur, correct);
   }
 
   function next() {
@@ -68,7 +74,7 @@ export function ListeningTestRunner({ pool, count = 10 }: { pool: Word[]; count?
     const correctCount = results.filter((r) => r.correct).length;
     const pct = Math.round((correctCount / results.length) * 100);
     return (
-      <div className="min-h-dvh bg-gradient-to-b from-indigo-50 to-white px-4 py-10">
+      <div className="min-h-dvh bg-gradient-to-b from-indigo-50 to-white px-4 py-10" data-testid="quiz-done">
         <div className="max-w-md mx-auto">
           <div className="text-center">
             <div className="text-5xl mb-3">🎧</div>
@@ -107,7 +113,7 @@ export function ListeningTestRunner({ pool, count = 10 }: { pool: Word[]; count?
   const isCorrect = submitted && val.trim().toLowerCase() === cur.word.toLowerCase();
 
   return (
-    <div className="min-h-dvh bg-gradient-to-b from-indigo-50 to-white px-4 py-6">
+    <div className="min-h-dvh bg-gradient-to-b from-indigo-50 to-white px-4 py-6" data-testid="quiz-prompt" data-word-id={cur.id}>
       <div className="max-w-md mx-auto">
         <div className="flex items-center justify-between text-xs text-navy-500 mb-4">
           <a href="/test" className="hover:underline">← テスト一覧</a>
@@ -119,7 +125,7 @@ export function ListeningTestRunner({ pool, count = 10 }: { pool: Word[]; count?
 
         <div className="text-center mb-8">
           <p className="text-xs text-navy-400 mb-4">音声を聞いて、英単語を入力してください</p>
-          <button onClick={play}
+          <button onClick={play} data-testid="quiz-play"
             className="w-24 h-24 rounded-full bg-indigo-500 text-white flex items-center justify-center mx-auto shadow-lg hover:bg-indigo-600 active:scale-95 transition-all">
             <svg viewBox="0 0 24 24" className="w-12 h-12 fill-current">
               <path d="M11 3L6 8H2v8h4l5 5V3zm6.07 1.93c2.29 2.29 2.29 6.06 0 8.35l-1.41-1.41c1.52-1.52 1.52-3.99 0-5.52l1.41-1.42zm2.83-2.83c3.91 3.91 3.91 10.24 0 14.14l-1.41-1.41c3.13-3.13 3.13-8.19 0-11.31l1.41-1.42z"/>
@@ -137,6 +143,7 @@ export function ListeningTestRunner({ pool, count = 10 }: { pool: Word[]; count?
 
         <input
           ref={inputRef}
+          data-testid="quiz-input"
           type="text"
           value={val}
           onChange={(e) => setVal(e.target.value)}
@@ -163,12 +170,12 @@ export function ListeningTestRunner({ pool, count = 10 }: { pool: Word[]; count?
 
         <div className="mt-5">
           {!submitted ? (
-            <button onClick={submit} disabled={!val.trim() || !played}
+            <button onClick={submit} disabled={!val.trim() || !played} data-testid="quiz-submit"
               className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-colors disabled:opacity-40">
               答える
             </button>
           ) : (
-            <button onClick={next} className="w-full py-4 rounded-2xl bg-navy-800 text-white font-bold hover:bg-navy-700 transition-colors">
+            <button onClick={next} data-testid="quiz-next" className="w-full py-4 rounded-2xl bg-navy-800 text-white font-bold hover:bg-navy-700 transition-colors">
               {idx + 1 >= questions.length ? "結果を見る" : "次の問題"}
             </button>
           )}

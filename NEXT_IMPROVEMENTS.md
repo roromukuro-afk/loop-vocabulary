@@ -4,7 +4,7 @@
 > 大きめの機能追加は実際の利用状況を見てから判断する。
 > 各項目は着手前に個別のご確認をいただく（本ドキュメントは提案のみ・実装はまだしない）。
 >
-> **2026-07-03時点: 優先度A（下記9項目）はすべて完了。現在は次の優先度整理フェーズ。**
+> **2026-07-03時点: 優先度A（下記10項目）はすべて完了。現在は次の優先度整理フェーズ。**
 > 本番ヘルスチェック結果・現在の運用状態は [WORK_HISTORY.md](WORK_HISTORY.md) の
 > 「2026-07-02 運用状態の整理・本番ヘルスチェック」を参照。
 > 既存教材の品質状況は [MATERIALS_AUDIT.md](MATERIALS_AUDIT.md) を参照
@@ -82,15 +82,26 @@
 
 9. ✅ **完了（2026-07-03）: 4択テストの出題ロジックをSRS状態考慮型に修正**
    `/test/choice`が完全ランダム出題（SRSフィールド未参照）だった問題を修正。
-   [src/lib/quiz/wordSelection.ts](src/lib/quiz/wordSelection.ts)（新規）に、既存カラムから
+   `src/lib/learning/wordSelection.ts`（新規、後日`src/lib/quiz/`から移動）に、既存カラムから
    都度算出する学習状態ラベル（unseen/due/weak/mastered/learning/reviewing。DBスキーマ変更なし）
    と、未学習優先→due/weak優先の重み付き抽選→直近出題除外、を行う`selectQuizWords`、正解と
    同義・空欄・重複を避けつつ品詞を優先する`pickDistractors`を実装し`/test/choice`に適用。
    `npm run test:quiz`（単体24項目）・`npm run test:quiz:e2e`（実ブラウザ25項目、`test:e2e`にも
    6フロー目として統合）を新設、全PASS。修正過程で判明した既存E2E基盤の不備
    （`resetOnboardingUser`がstudy_results/daily_statsを未リセット）も合わせて修正。
-   `input`/`typing`/`listening`/`attack`は今回の変更範囲外（下記優先度Bに残課題として記録）。
    詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
+
+10. ✅ **完了（2026-07-03）: SRS考慮型の出題ロジックをinput/typing/listening/attackへ横展開**
+    項目9の`src/lib/learning/wordSelection.ts`（この際に`src/lib/quiz/`から現在地へ移動）を、
+    残る4つの学習モードにも共通適用。調査の過程で2つの独立したバグを発見・修正:
+    ①`ListeningTestRunner`が`saveStudyResult()`を一切呼んでおらずリスニングでの学習が
+    SRSに反映されていなかった、②`/test/listening`のpage.tsxが存在しないカラム
+    `profiles.plan`を参照しておりクエリが常に失敗、**全ユーザーが恒久的にPremiumペイウォール
+    表示のまま利用不能**になっていた（`is_premium`参照に修正）。attackモードは
+    `word_book_id`でスコープしない設計（他4モードと異なり口座全体から出題）という
+    既存の仕様自体は変更せず、出題キューの優先順位付けとダミー選択肢生成のみ統一した。
+    `npm run test:quiz`を27項目に拡張、`npm run test:learning-modes:e2e`（新規、20項目、
+    `test:e2e`にも7フロー目として統合）を追加、全PASS。詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
 
 ---
 
@@ -134,18 +145,18 @@
    は新規4パックのみに付与されている。既存31教材にも同様のメタデータを付けたい場合は、
    レジストリにエントリを追加するだけで対応可能（DBスキーマ変更不要）。
 
-2d. **他の学習モードへのSRS考慮型出題ロジックの適用（優先度A完了項目9の延長）**
-   `/test/choice`に実装した`selectQuizWords`/`pickDistractors`（[src/lib/quiz/wordSelection.ts](src/lib/quiz/wordSelection.ts)）は
-   `input`（穴埋め）・`typing`（タイピング）・`listening`（リスニング）・`attack`（連続出題）
-   にも同じ関数をそのまま適用できる設計にしてある。`listening`のみ`last_studied_at`昇順
-   ソートで簡易的に未学習寄りの出題をしているが、他の状態（due/weak/mastered）は未考慮。
-   利用状況を見てから、影響範囲の大きいモードから順に適用するのが効率的。
-
-2e. **出題の「suspended」ラベル・直近出題履歴の永続化（優先度A完了項目9の延長）**
+2d. **出題の「suspended」ラベル・直近出題履歴の永続化（優先度A完了項目9・10の延長）**
    `suspended`（特定単語の出題を一時停止）は対応するDBカラムが存在せず未実装。必要になった
    場合は`words`に`boolean`列を1つ追加するmigrationから設計する。また、直近出題履歴は
    現状ページ表示中のみ保持（タブを閉じる・再訪問でリセット）。セッションをまたいだ抑制が
    必要になった場合は`localStorage`または新規テーブルでの永続化を検討する。
+
+2e. **attackモードの単語帳スコープ対応（優先度A完了項目10で発見・未対応）**
+   `/test/attack`は`page.tsx`が`word_book_id`でスコープしておらず、ログインユーザーの
+   単語帳全体から出題する設計になっている（他の4モードは`?book=`パラメータに対応済み）。
+   意図的な仕様（タイムアタックは全単語帳横断で腕試しする用途）である可能性があるため
+   今回は変更していないが、もし特定の単語帳だけで遊びたいという要望が出た場合は、
+   他モードと同様に`sp.book`でのフィルタ追加を検討する。
 
 3. **teacher招待コードの再発行履歴**
    優先度A完了項目3の残課題。現状は再発行すると旧コードの記録が残らない。

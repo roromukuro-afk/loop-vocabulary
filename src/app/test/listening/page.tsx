@@ -17,8 +17,11 @@ export default async function ListeningTestPage({
   const { user, supabase } = await requireUser();
   const sp = await searchParams;
 
-  const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-  const isPremium = profile?.plan === "premium";
+  // 修正前は存在しないカラム"plan"を参照しており、PostgRESTのクエリが常に失敗して
+  // profileがnullになるため全ユーザーが恒久的にペイウォール表示になっていた
+  // （is_premium列を使う他モードtyping/page.tsxと同じ形に統一）
+  const { data: profile } = await supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle();
+  const isPremium = profile?.is_premium ?? false;
 
   if (!isPremium) {
     return (
@@ -46,12 +49,13 @@ export default async function ListeningTestPage({
 
   let wordsQuery = supabase
     .from("words")
-    .select("id, word, meaning")
+    .select(
+      "id, word, meaning, pos, importance, streak, is_weak, correct_count, wrong_count, next_review_at, interval_days, ease_factor, last_studied_at",
+    )
     .eq("user_id", user.id)
     .not("word", "is", null)
     .not("meaning", "is", null)
-    .order("last_studied_at", { ascending: true, nullsFirst: true })
-    .limit(50);
+    .limit(200);
   if (sp.book) wordsQuery = (wordsQuery as typeof wordsQuery).eq("word_book_id", sp.book);
   const { data: words } = await wordsQuery;
 

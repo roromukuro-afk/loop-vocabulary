@@ -13,7 +13,9 @@ export default async function InputTestPage({
   const n = Math.max(4, Math.min(30, Number(sp.n) || 10));
   let q = supabase
     .from("words")
-    .select("id, word, meaning, streak, is_weak")
+    .select(
+      "id, word, meaning, pos, importance, streak, is_weak, correct_count, wrong_count, next_review_at, interval_days, ease_factor, last_studied_at",
+    )
     .eq("user_id", user.id);
   if (sp.book) q = q.eq("word_book_id", sp.book);
   const { data } = await q.limit(200);

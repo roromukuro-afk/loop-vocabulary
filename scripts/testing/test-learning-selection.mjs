@@ -1,21 +1,25 @@
 /**
- * 4択テストの出題単語選定ロジック（src/lib/quiz/wordSelection.ts）の単体テスト。
+ * 学習系テストモード共通の出題単語選定ロジック（src/lib/learning/wordSelection.ts）の単体テスト。
  *
- * 「未学習単語より既出単語ばかり出る」バグ修正で追加。実装本体を直接importして
- * 検証する（Node 24 の .ts 型ストリップを利用、追加設定不要）。
+ * 「未学習単語より既出単語ばかり出る」バグ修正（4択テスト）で追加し、その後
+ * input/typing/listening/attackの全モードへ同じロジックを横展開した際に対象を拡張。
+ * 実装本体を直接importして検証する（Node 24 の .ts 型ストリップを利用、追加設定不要）。
+ * 全モードが同一のsrc/lib/learning/wordSelection.tsを利用するため、ここでのテストが
+ * 全モード共通の正しさを保証する（モードごとの重複テストは不要）。
  *
  * SRS本体（applySrsV2によるease_factor/interval_days/correct_count/wrong_count/
  * is_weakの更新）は saveStudyResult 経由で /review 画面と共有しており、
  * 既に npm run test:srs（実ブラウザE2E、DB検証込み）でカバー済みのためここでは
- * 重複させない。ここでは今回新設した「出題選定・選択肢生成」ロジックのみを対象にする。
+ * 重複させない。ここでは「出題選定・選択肢生成」ロジックのみを対象にする。
  *
- * 使い方: node scripts/testing/test-quiz-selection.mjs
+ * 使い方: node scripts/testing/test-learning-selection.mjs
+ * （npm run test:quiz / npm run test:learning-selection のいずれからも実行可能）
  */
 import {
   classifyWordState,
   selectQuizWords,
   pickDistractors,
-} from "../../src/lib/quiz/wordSelection.ts";
+} from "../../src/lib/learning/wordSelection.ts";
 
 let pass = 0;
 let fail = 0;
@@ -235,6 +239,27 @@ console.log("\n--- selectQuizWords ---");
   assertEqual(selected.length, 4, "除外すると出題不能になる小規模単語帳では除外を解除し出題を継続する");
 }
 
+{
+  // n >= pool.length（attackモードの「プール全体を優先順に並べた出題キュー」用途）
+  // でも、unseenが必ず先頭にまとまって並ぶことを確認する
+  const pool = [
+    makeWord({ id: "u1" }),
+    makeWord({ id: "u2" }),
+    makeWord({ id: "u3" }),
+    makeWord({ id: "d1", correct_count: 2, next_review_at: iso(-HOUR) }),
+    makeWord({ id: "mst1", correct_count: 8, interval_days: 30, next_review_at: iso(30 * DAY) }),
+  ];
+  const queue = selectQuizWords(pool, pool.length, { now: NOW });
+  assertEqual(queue.length, pool.length, "n=pool.lengthで指定すると全件が返る（出題キューとして使える）");
+  assertEqual(new Set(queue.map((w) => w.id)).size, pool.length, "出題キューに重複がない（全件が1回ずつ）");
+  const firstThreeIds = queue.slice(0, 3).map((w) => w.id).sort();
+  assertEqual(
+    JSON.stringify(firstThreeIds),
+    JSON.stringify(["u1", "u2", "u3"]),
+    "出題キューの先頭は必ずunseen単語で占められる",
+  );
+}
+
 // ============================================================
 // pickDistractors: 四択選択肢テスト
 // ============================================================
@@ -324,5 +349,5 @@ console.log("\n--- pickDistractors ---");
   assertTrue(new Set(distractors).size === distractors.length, "フォールバック時も重複は発生しない");
 }
 
-console.log(`\n=== test:quiz RESULT: ${pass} passed, ${fail} failed ===`);
+console.log(`\n=== test:learning-selection RESULT: ${pass} passed, ${fail} failed ===`);
 process.exit(fail > 0 ? 1 : 0);

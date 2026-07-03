@@ -3,15 +3,17 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { sample, levenshtein, normalizeAnswer } from "@/lib/utils/shuffle";
+import { levenshtein, normalizeAnswer } from "@/lib/utils/shuffle";
 import { saveStudyResult } from "@/lib/srs/saveResult";
+import { selectQuizWords, type SrsQuizWord } from "@/lib/learning/wordSelection";
 
-type W = { id: string; word: string; meaning: string; streak: number; is_weak: boolean };
+type W = SrsQuizWord & { streak: number; is_weak: boolean };
 type State = "input" | "judged";
 type Verdict = "correct" | "close" | "wrong";
 
 export function InputTestRunner({ pool, count }: { pool: W[]; count: number }) {
-  const qs = useMemo(() => sample(pool, count), [pool, count]);
+  // 未学習優先→due/weak優先の重み付き抽選（4択テストと共通ロジック、詳細はwordSelection.ts参照）
+  const qs = useMemo(() => selectQuizWords(pool, count) as W[], [pool, count]);
   const [idx, setIdx] = useState(0);
   const [val, setVal] = useState("");
   const [state, setState] = useState<State>("input");
@@ -51,7 +53,7 @@ export function InputTestRunner({ pool, count }: { pool: W[]; count: number }) {
 
   if (done) {
     return (
-      <div className="min-h-dvh px-4 py-6 max-w-md mx-auto">
+      <div className="min-h-dvh px-4 py-6 max-w-md mx-auto" data-testid="quiz-done">
         <h1 className="text-2xl font-bold text-navy-800 text-center">結果</h1>
         <div className="mt-6 bg-white rounded-2xl border border-navy-100 shadow-card p-6 text-center">
           <div className="text-sm text-navy-500">正答率</div>
@@ -90,12 +92,13 @@ export function InputTestRunner({ pool, count }: { pool: W[]; count: number }) {
 
       <div className="mt-10 text-center">
         <div className="text-xs text-navy-400">この意味の英単語を入力</div>
-        <div className="mt-2 text-3xl font-bold text-navy-900">{cur.meaning}</div>
+        <div className="mt-2 text-3xl font-bold text-navy-900" data-testid="quiz-prompt" data-word-id={cur.id}>{cur.meaning}</div>
       </div>
 
       <form onSubmit={judge} className="mt-8 space-y-3">
         <Input
           ref={inputRef}
+          data-testid="quiz-input"
           autoFocus
           value={val}
           onChange={(e) => setVal(e.target.value)}
@@ -107,7 +110,7 @@ export function InputTestRunner({ pool, count }: { pool: W[]; count: number }) {
           className="text-center text-xl"
         />
         {state === "input" ? (
-          <Button type="submit" fullWidth size="lg">判定</Button>
+          <Button type="submit" fullWidth size="lg" data-testid="quiz-submit">判定</Button>
         ) : (
           <div>
             {verdict === "correct" && (
@@ -123,7 +126,7 @@ export function InputTestRunner({ pool, count }: { pool: W[]; count: number }) {
                 正解: <b>{cur.word}</b>
               </div>
             )}
-            <Button fullWidth size="lg" className="mt-3" onClick={next}>
+            <Button fullWidth size="lg" className="mt-3" onClick={next} data-testid="quiz-next">
               {idx + 1 >= qs.length ? "結果を見る" : "次へ"}
             </Button>
           </div>

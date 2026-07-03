@@ -2,14 +2,15 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { sample } from "@/lib/utils/shuffle";
 import { saveStudyResult } from "@/lib/srs/saveResult";
+import { selectQuizWords, type SrsQuizWord } from "@/lib/learning/wordSelection";
 import { trackFeatureUsed } from "@/lib/analytics/events";
 
-type W = { id: string; word: string; meaning: string; streak: number; is_weak: boolean };
+type W = SrsQuizWord & { streak: number; is_weak: boolean };
 
 export function TypingTestRunner({ pool, count }: { pool: W[]; count: number }) {
-  const qs = useMemo(() => sample(pool, count), [pool, count]);
+  // 未学習優先→due/weak優先の重み付き抽選（4択テストと共通ロジック、詳細はwordSelection.ts参照）
+  const qs = useMemo(() => selectQuizWords(pool, count) as W[], [pool, count]);
   const [idx, setIdx] = useState(0);
   const [val, setVal] = useState("");
   const [flash, setFlash] = useState(false);
@@ -75,7 +76,7 @@ export function TypingTestRunner({ pool, count }: { pool: W[]; count: number }) 
     const totalTime = results.filter((r) => r.correct).reduce((s, r) => s + r.time, 0);
     const avgTime = correctCount > 0 ? (totalTime / correctCount).toFixed(1) : "—";
     return (
-      <div className="min-h-dvh px-4 py-6 max-w-md mx-auto">
+      <div className="min-h-dvh px-4 py-6 max-w-md mx-auto" data-testid="quiz-done">
         <h1 className="text-2xl font-bold text-navy-800 text-center">タイピング結果</h1>
         <div className="mt-6 bg-white rounded-2xl border border-navy-100 shadow-sm p-6 text-center">
           <div className="text-5xl font-bold text-navy-800">{correctCount}<span className="text-2xl text-navy-400">/{results.length}</span></div>
@@ -112,7 +113,7 @@ export function TypingTestRunner({ pool, count }: { pool: W[]; count: number }) 
 
       <div className="mt-10 text-center">
         <div className="text-xs text-navy-400 mb-2">この意味の英単語は？</div>
-        <div className="text-3xl font-bold text-navy-900 leading-snug">{cur.meaning}</div>
+        <div className="text-3xl font-bold text-navy-900 leading-snug" data-testid="quiz-prompt" data-word-id={cur.id}>{cur.meaning}</div>
       </div>
 
       {/* リアルタイム文字表示 */}
@@ -137,6 +138,7 @@ export function TypingTestRunner({ pool, count }: { pool: W[]; count: number }) 
       <div className="mt-6">
         <input
           ref={inputRef}
+          data-testid="quiz-input"
           autoFocus
           value={val}
           onChange={handleChange}

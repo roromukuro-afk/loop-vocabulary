@@ -53,7 +53,9 @@ export default async function TypingTestPage({
 
   let query = supabase
     .from("words")
-    .select("id, word, meaning, streak, is_weak")
+    .select(
+      "id, word, meaning, pos, importance, streak, is_weak, correct_count, wrong_count, next_review_at, interval_days, ease_factor, last_studied_at",
+    )
     .eq("user_id", user.id);
   if (sp.book) query = (query as typeof query).eq("word_book_id", sp.book);
 
