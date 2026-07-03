@@ -5,6 +5,64 @@
 
 ---
 
+## 2026-07-04 教材インポート後導線の整理（ImportMaterialButton）
+
+前回の学習モード入口整理で残課題としていた「`ImportMaterialButton.tsx`の
+「テスト開始」ボタンが`/test/choice?book=`固定」に対応した。
+
+**現状調査結果**:
+- インポートAPI(`/api/material/[id]/import`)は新規インポート・既にインポート済み
+  いずれの場合も`{ bookId, ... }`を返しており、`word_book_id`は使っていない
+  （フィールド名`bookId`で一貫）。
+- 新規インポート時: 従来は成功メッセージ表示後、800msの`setTimeout`で自動的に
+  `/wordbooks/<bookId>`へ遷移するのみで、ユーザーが選択できるボタンは一切
+  表示されていなかった。
+- 既にインポート済み時: 「単語帳を開く」（`/wordbooks/<bookId>`）と「テスト開始」
+  （`/test/choice?book=<bookId>`固定）の2ボタンのみで、「すでにインポート済みです」
+  という案内文もなく、いきなりボタンが並ぶだけの状態だった。
+- 教材詳細ページ(`/materials/[id]`)からインポートすると、いずれのケースでも最終的に
+  前回整理した`/wordbooks/[id]`（学習モード選択ハブ）へ到達できる導線は既にあった。
+
+**修正後のインポート後導線**: 新規インポート・既インポート済みの両方で同じ3ボタン
+パネルに統一した。
+- メインCTA: 「📖 単語帳で学習モードを選ぶ」→ `/wordbooks/<bookId>`
+- サブCTA: 「🎯 4択で始める」→ `/test/choice?book=<bookId>`
+- サブCTA: 「📄 PDFテストを作る」→ `/pdf?book=<bookId>`
+
+**新規インポート時の挙動**: インポート完了後、自動遷移は行わず「N 語を
+インポートしました！」というメッセージと上記3ボタンパネルを表示し、ユーザーが
+次の行動を選べるようにした。
+
+**既にインポート済み時の挙動**: 「この教材はすでに単語帳にインポート済みです」
+という案内文を追加した上で、同じ3ボタンパネルを表示する（単に無反応で終わらせない）。
+
+**変更ファイル**: `src/app/materials/[id]/ImportMaterialButton.tsx`、
+`scripts/testing/e2e/materials.mjs`。教材データ・DBスキーマ・SRS V2ロジック・
+teacher機能・Premium制限の仕様は変更していない。
+
+**追加・更新したテスト**: `scripts/testing/e2e/materials.mjs`を更新（23項目）。
+従来「インポートボタンをクリックすると自動的に/wordbooksへ遷移する」という
+アサーションが今回の変更で成立しなくなるため、「CTAパネル表示→メインCTAを
+クリックして遷移」という形に更新。新規追加: インポート完了メッセージの内容確認、
+サブCTA「4択で始める」→`/test/choice?book=<id>`遷移確認、サブCTA「PDFテストを
+作る」→`/pdf?book=<id>`遷移確認、再訪問時の「すでにインポート済み」案内文確認。
+既存の単語帳作成・SRS既定値・重複防止・PDF導線・review導線の検証は変更なし。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` /
+`npm run test:materials:e2e`（23/23） / `npm run test:entry-points:e2e`（33/33、
+回帰なし） / `npm run test:e2e`（9フロー全PASS） / `npm run test:smoke` /
+`npm run verify:prod` / `npm run verify:srs-global`。
+
+**残課題**:
+- attackモード・入力テスト・リスニングへの直接サブCTAは追加していない（UIが
+  ごちゃつくことを避けるため、メインCTAの単語帳詳細ページ経由で到達可能とした）。
+  必要になれば`ImportMaterialButton`にモード選択UIを追加することも検討できる。
+
+DBスキーマ変更なし、RLS変更なし、SRS V2ロジック変更なし、teacher機能変更なし、
+教材データ変更なし、Premium制限の仕様変更なし。
+
+---
+
 ## 2026-07-04 学習モード入口の整理・対象範囲ラベルの全モード統一
 
 出題ロジックの改善(SRS考慮・attack単語帳スコープ)に続き、「どの単語帳で、どの

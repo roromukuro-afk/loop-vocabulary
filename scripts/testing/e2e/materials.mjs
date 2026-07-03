@@ -9,6 +9,10 @@
  *     （next_review_atは仕様通り+24hのため、当日の/reviewには出てこない＝空状態が正しい）
  *  5. /pdf の「自分の単語帳」選択肢にインポート後の単語帳が出現し、生成ボタンが有効になる
  *  6. 同じ教材への再インポート（APIを直接2回叩く）が重複を作らない
+ *  7. インポート直後・再訪問時（既にインポート済み）のいずれも「単語帳で学習モードを選ぶ」
+ *     （メインCTA、/wordbooks/[id]）「4択で始める」「PDFテストを作る」（サブCTA）の
+ *     3ボタンパネルが表示され、従来固定だった/test/choice?book=一本槍の導線ではなく
+ *     単語帳詳細ページの学習モード選択に自然につながることを検証する
  *
  * 使い方: node scripts/testing/e2e/materials.mjs
  */
@@ -95,11 +99,20 @@ async function main() {
     await importBtn.waitFor({ state: "visible", timeout: 8000 });
     ok("ログイン済み: インポートボタンが表示される");
 
+    await importBtn.click();
+    const importSuccess = page.locator('[data-testid="material-import-success"]');
+    await importSuccess.waitFor({ state: "visible", timeout: 10000 });
+    ok("インポート後、単語帳で学習モードを選ぶ/4択で始める/PDFテストを作るのCTAパネルが表示される");
+
+    const importMsg = await page.locator('[data-testid="material-import-message"]').innerText().catch(() => "");
+    if (/\d+ 語をインポートしました/.test(importMsg)) ok(`インポート完了メッセージが表示される (${importMsg})`);
+    else bad(`インポート完了メッセージが想定外: ${importMsg}`);
+
     await Promise.all([
       page.waitForURL(/\/wordbooks\//, { timeout: 10000 }),
-      importBtn.click(),
+      page.locator('[data-testid="material-open-wordbook"]').click(),
     ]);
-    ok("インポート後、単語帳ページへリダイレクトされた");
+    ok("「単語帳で学習モードを選ぶ」をクリックすると単語帳ページへ遷移する（メインCTA）");
     const bookUrl = page.url();
     const bookIdFromUrl = bookUrl.split("/wordbooks/")[1]?.split(/[/?#]/)[0];
 
@@ -205,14 +218,33 @@ async function main() {
       );
     }
 
-    // 教材詳細ページを開き直すと「単語帳を開く/テスト開始」ボタンに切り替わることも確認
+    // 教材詳細ページを開き直すと「単語帳で学習モードを選ぶ/4択で始める/PDFテストを作る」の
+    // CTAパネルに切り替わることも確認（インポートボタンは消える）
     await gotoReady(page, `${baseUrl}/materials/${pack.id}`);
     const alreadyImportedBlock = page.locator('[data-testid="material-already-imported"]');
     if (await alreadyImportedBlock.isVisible().catch(() => false)) {
-      ok("再訪問時は「単語帳を開く/テスト開始」ボタンに切り替わる（インポートボタンは消える）");
+      ok("再訪問時はインポート済みCTAパネルに切り替わる（インポートボタンは消える）");
     } else {
       bad("再訪問時にインポート済み状態のUIに切り替わっていません");
     }
+    const alreadyNoteText = await page.locator('[data-testid="material-already-imported-note"]').innerText().catch(() => "");
+    if (alreadyNoteText.includes("インポート済み")) ok("再訪問時に「すでにインポート済み」の案内文が表示される（単に無反応で終わらない）");
+    else bad(`再訪問時の案内文が想定外: ${alreadyNoteText}`);
+
+    // サブCTA「🎯 4択で始める」→ /test/choice?book=<bookId> に遷移すること
+    await Promise.all([
+      page.waitForURL(new RegExp(`/test/choice\\?book=${bookId}`), { timeout: 10000 }),
+      page.locator('[data-testid="material-start-choice"]').click(),
+    ]);
+    ok("「4択で始める」をクリックすると/test/choice?book=<単語帳ID>へ遷移する（サブCTA）");
+
+    // サブCTA「📄 PDFテストを作る」→ /pdf?book=<bookId> に遷移すること
+    await gotoReady(page, `${baseUrl}/materials/${pack.id}`);
+    await Promise.all([
+      page.waitForURL(new RegExp(`/pdf\\?book=${bookId}`), { timeout: 10000 }),
+      page.locator('[data-testid="material-start-pdf"]').click(),
+    ]);
+    ok("「PDFテストを作る」をクリックすると/pdf?book=<単語帳ID>へ遷移する（サブCTA）");
 
     await page.close();
   } finally {

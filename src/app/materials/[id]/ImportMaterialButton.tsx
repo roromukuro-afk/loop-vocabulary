@@ -17,63 +17,86 @@ export function ImportMaterialButton({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  if (alreadyImported && importedBookId) {
-    return (
-      <div className="flex gap-2" data-testid="material-already-imported">
-        <Button
-          variant="secondary"
-          fullWidth
-          data-testid="material-open-wordbook"
-          onClick={() => router.push(`/wordbooks/${importedBookId}`)}
-        >
-          単語帳を開く
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          data-testid="material-start-test"
-          onClick={() => router.push(`/test/choice?book=${importedBookId}`)}
-        >
-          テスト開始
-        </Button>
-      </div>
-    );
-  }
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [bookId, setBookId] = useState<string | null>(importedBookId);
+  const [wasAlready, setWasAlready] = useState(alreadyImported);
+  const [justImportedCount, setJustImportedCount] = useState<number | null>(null);
 
   const run = async () => {
     setBusy(true);
-    setMsg(null);
+    setErrorMsg(null);
     const res = await fetch(`/api/material/${materialId}/import`, {
       method: "POST",
     });
     const json = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) {
-      setMsg("インポートに失敗しました: " + (json.error ?? res.status));
+      setErrorMsg("インポートに失敗しました: " + (json.error ?? res.status));
       return;
     }
+    setBookId(json.bookId);
     if (json.alreadyImported) {
-      router.push(`/wordbooks/${json.bookId}`);
-      return;
+      setWasAlready(true);
+    } else {
+      trackMaterialImported(examType, json.count ?? 0);
+      setJustImportedCount(json.count ?? 0);
     }
-    trackMaterialImported(examType, json.count ?? 0);
-    setMsg(`${json.count} 語をインポートしました！`);
-    setTimeout(() => {
-      router.push(`/wordbooks/${json.bookId}`);
-      router.refresh();
-    }, 800);
+    router.refresh();
   };
+
+  // インポート済み（今回インポートした場合・以前から済んでいた場合の両方）:
+  // 単語帳詳細（学習モード選択）をメインCTAに、4択・PDFをサブCTAとして次の行動へ進める
+  if (bookId) {
+    return (
+      <div data-testid={wasAlready ? "material-already-imported" : "material-import-success"}>
+        {justImportedCount !== null && (
+          <div className="mb-2 text-sm text-emerald-600 font-medium text-center" data-testid="material-import-message">
+            {justImportedCount} 語をインポートしました！
+          </div>
+        )}
+        {wasAlready && justImportedCount === null && (
+          <div className="mb-2 text-xs text-navy-500 text-center" data-testid="material-already-imported-note">
+            この教材はすでに単語帳にインポート済みです
+          </div>
+        )}
+        <Button
+          fullWidth
+          size="lg"
+          data-testid="material-open-wordbook"
+          onClick={() => router.push(`/wordbooks/${bookId}`)}
+        >
+          📖 単語帳で学習モードを選ぶ
+        </Button>
+        <div className="mt-2 flex gap-2">
+          <Button
+            variant="secondary"
+            fullWidth
+            data-testid="material-start-choice"
+            onClick={() => router.push(`/test/choice?book=${bookId}`)}
+          >
+            🎯 4択で始める
+          </Button>
+          <Button
+            variant="secondary"
+            fullWidth
+            data-testid="material-start-pdf"
+            onClick={() => router.push(`/pdf?book=${bookId}`)}
+          >
+            📄 PDFテストを作る
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
       <Button onClick={run} disabled={busy} size="lg" fullWidth data-testid="material-import-button">
         {busy ? "インポート中..." : "自分の単語帳にインポート"}
       </Button>
-      {msg && (
-        <div className="mt-2 text-sm text-emerald-600 font-medium text-center" data-testid="material-import-message">
-          {msg}
+      {errorMsg && (
+        <div className="mt-2 text-sm text-red-600 font-medium text-center" data-testid="material-import-error">
+          {errorMsg}
         </div>
       )}
     </div>
