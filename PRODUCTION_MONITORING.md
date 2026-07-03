@@ -130,8 +130,9 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
   ロールバックSQLは[reports/materials-duplicate-delete-plan.md](reports/materials-duplicate-delete-plan.md)参照）
 - **意味違いの重複行**（同じ見出し語だが内容が異なる。別義の可能性があるため
   自動修正しない方針。2026-07-02時点（削除後）で1,952件・削除対象外のまま保持）
-- **品詞(pos)が未設定**（2026-07-02時点で9,997件・全体の約31%・未修正。**dry-run完了、実補完は
-  承認待ち**。自動補完候補3,267件、慎重に扱う6,730件の分類は
+- **品詞(pos)が未設定**（**2026-07-03にユーザー承認の上、自動補完候補3,267件を補完済み**
+  （9,997件→6,730件）。慎重に扱う6,730件（追加提案ルール・複数品詞の可能性・熟語句動詞・
+  meaning短すぎ・判断材料なし）は今回対象外のまま保持。分類の詳細は
   [MATERIALS_POS_AUDIT.md](MATERIALS_POS_AUDIT.md) / [reports/materials-pos-fill-plan.md](reports/materials-pos-fill-plan.md)参照）
 - **word/meaningが空**（2026-07-02時点で0件）
 - **タグ/カテゴリ不整合**（level/exam_typeが空、または表示色分け対象外の未知のlevel値。

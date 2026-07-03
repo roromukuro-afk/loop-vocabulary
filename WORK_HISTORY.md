@@ -5,6 +5,57 @@
 
 ---
 
+## 2026-07-03 品詞(pos)自動補完候補3,267件の実補完（ユーザー承認済み）
+
+前回のdry-run計画（自動補完候補3,267件、高信頼度ルール1〜5のみ）についてユーザーの承認を
+得て、実データ補完を実施した。承認範囲は3,267件のみで、慎重に扱うべき6,730件（追加提案
+ルール・複数品詞の可能性・熟語句動詞・meaning短すぎ・判断材料なし）・意味違い重複1,952件・
+pos以外の列（word/meaning/example/example_ja等）は一切対象外。
+
+**backup JSONの追加**: dry-run時に生成していなかった`reports/materials-pos-fill-backup.json`
+（補完対象行の更新前スナップショット）を、[scripts/materials/fill-material-pos.mjs](scripts/materials/fill-material-pos.mjs)に
+生成ロジックを追加した上で実行前に再生成した（完全重複削除時のバックアップ運用と揃えるため）。
+
+**実行前の最終確認（8項目、全て一致を確認してから実行）**:
+1. `material_words`のpos未設定件数が9,997件 — SQL照会で確認
+2. 自動補完候補が3,267件 — `reports/materials-pos-fill-plan.json`の`primaryCount`と一致
+3. 慎重扱いが6,730件 — `reports/materials-pos-audit.json`の`auto_secondary(2,797)+caution(3,933)`と一致
+4. 補完対象がpos列のみ — スクリプトのUPDATE文が`{ pos: candidatePos }`のみを設定することを確認
+5. backup JSONが存在する — 再生成して確認（3,267行、全てpos=null）
+6. rollback SQLが存在する — 確認
+7. rollback SQLが3,267件分のpos復元に対応 — `UPDATE ... SET pos = NULL`行数3,267件を確認
+8. 既存ユーザーの`words`・SRS履歴・teacher機能には影響しない — スクリプトが`material_words`
+   （更新）と`materials`（タイトル参照のみ）以外のテーブルに一切触れないことをコード上で確認
+
+**実補完**: `CONFIRM_MATERIALS_POS_FILL=yes npm run materials:pos:apply` を実行。
+3,267件更新成功・失敗0件。
+
+**実行後の確認**:
+- `material_words`のpos未設定件数: 9,997件 → **6,730件**（3,267件減、想定通り）
+- 総語数32,342件・教材数35件は変化なし
+- 完全重複0件・意味違い重複1,952件は変化なし（`npm run audit:materials`で確認）
+- word/meaning/example/example_ja/importance/frequency/levelが変更されていないことを、
+  補完対象からランダム抽出した100件でDBの現在値とbackup JSONを突合して確認（不一致0件）
+- 補完後のposはすべて対象教材の既存表記（"n"/"v"/"adj"等の英語省略形、"名詞"/"動詞"等の
+  日本語フルネーム等）に沿った値が書き込まれていることを確認
+
+**バックアップ・ロールバック**: `reports/materials-pos-fill-backup.json`（補完前の3,267行の
+全カラムスナップショット）・`reports/materials-pos-fill-rollback.sql`（3,267件のUPDATE、
+posをNULLに戻す、冪等）は補完実行後も変更せず保持している。
+
+**検証**: `npm run audit:materials`（完全重複0件・pos未設定6,730件を確認） /
+`npm run audit:materials-pos`（自動補完候補0件・分類の再集計を確認） /
+`npm run validate:materials`（4パックerrors=0） / `npm run test:materials`（18項目PASS、
+新規4パック無傷） / `npm run test:materials:e2e`（18項目PASS、補完後もインポート/SRS初期値/
+PDF選択肢反映/再インポート防止が正常動作） / `npm run test:e2e`（8フロー全PASS） /
+`npm run test:smoke` / `npm run verify:prod` / `npm run verify:srs-global` 全通過。
+
+**制約**: DBスキーマ変更なし、RLS変更なし、SRS V2ロジック変更なし、teacher機能変更なし、
+word/meaning/example/example_jaは変更していない、慎重に扱う6,730件・意味違い重複1,952件には
+一切触れていない。
+
+---
+
 ## 2026-07-03 品詞(pos)未設定9,997件の補完方針設計 + dry-run
 
 完全重複行削除に続き、既存教材の技術的負債の2つ目「品詞(pos)未設定9,997件」の補完方針を

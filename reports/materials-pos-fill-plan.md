@@ -1,7 +1,7 @@
 # 教材データ 品詞(pos)補完 dry-run計画
 
-> 自動生成: `node scripts/materials/fill-material-pos.mjs` (最終生成: 2026-07-02T23:15:39.050Z)
-> モード: **dry-run（DB変更なし）**・ルール1〜5のみ
+> 自動生成: `node scripts/materials/fill-material-pos.mjs` (最終生成: 2026-07-03T00:32:12.956Z)
+> モード: **実補完 (apply)**・ルール1〜5のみ
 > 機械可読版: [reports/materials-pos-fill-plan.json](reports/materials-pos-fill-plan.json)
 > ロールバックSQL: [reports/materials-pos-fill-rollback.sql](reports/materials-pos-fill-rollback.sql)
 > 監査の詳細: [MATERIALS_POS_AUDIT.md](MATERIALS_POS_AUDIT.md)
@@ -31,6 +31,7 @@ word・meaning・exampleなど他のフィールドは一切変更しない。po
 - 補完候補件数（合計）: **3,267件**
 - ルール1〜5（高信頼度）: **3,267件**
 - ルール6（追加提案・今回対象外）: **0件**
+- 実補完結果: **3267件成功**（失敗: 0件）
 
 ### 補完しない理由別件数（全9,997件中、今回のcaution分）
 

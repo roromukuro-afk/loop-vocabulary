@@ -1,324 +1,256 @@
 {
-  "generatedAt": "2026-07-02T23:14:17.619Z",
-  "totalNullPos": 9997,
+  "generatedAt": "2026-07-03T00:32:53.607Z",
+  "totalNullPos": 6730,
   "totalRows": 32342,
   "ruleCounts": {
-    "consistent_word_pos_match": 2797,
-    "exact_word_meaning_match": 1252,
-    "closed_class_fixed_pos": 18,
-    "meaning_pattern_adjective": 1100,
-    "no_signal_needs_review": 1600,
-    "meaning_pattern_verb": 853,
-    "ambiguous_multi_pos": 345,
-    "closed_class_function_word": 44,
+    "consistent_word_pos_match": 2845,
+    "no_signal_needs_review": 1524,
+    "ambiguous_multi_pos": 373,
     "meaning_too_short": 100,
     "multi_word_phrase": 1888
   },
   "confidenceCounts": {
-    "auto": 3267,
-    "auto_secondary": 2797,
-    "caution": 3933
+    "auto": 0,
+    "auto_secondary": 2845,
+    "caution": 3885
   },
   "materials": [
     {
-      "materialId": "00000000-0000-0000-0000-000000000024",
-      "title": "大学受験英単語1500",
-      "nullCount": 1553,
-      "totalCount": 1553,
-      "nullRate": 100,
+      "materialId": "00000000-0000-0000-0000-000000000033",
+      "title": "英検準2級 重要単語",
+      "nullCount": 1052,
+      "totalCount": 1479,
+      "nullRate": 71.1,
       "ruleCounts": {
-        "no_signal_needs_review": 342,
-        "exact_word_meaning_match": 252,
-        "consistent_word_pos_match": 541,
-        "meaning_pattern_adjective": 177,
-        "ambiguous_multi_pos": 68,
-        "closed_class_function_word": 14,
-        "meaning_pattern_verb": 129,
-        "meaning_too_short": 25,
-        "closed_class_fixed_pos": 4,
-        "multi_word_phrase": 1
+        "no_signal_needs_review": 245,
+        "ambiguous_multi_pos": 78,
+        "consistent_word_pos_match": 551,
+        "multi_word_phrase": 175,
+        "meaning_too_short": 3
       }
     },
     {
-      "materialId": "00000000-0000-0000-0000-000000000033",
-      "title": "英検準2級 重要単語",
-      "nullCount": 1479,
-      "totalCount": 1479,
-      "nullRate": 100,
+      "materialId": "00000000-0000-0000-0000-000000000024",
+      "title": "大学受験英単語1500",
+      "nullCount": 977,
+      "totalCount": 1553,
+      "nullRate": 62.9,
       "ruleCounts": {
-        "meaning_pattern_adjective": 160,
-        "no_signal_needs_review": 259,
-        "ambiguous_multi_pos": 72,
-        "consistent_word_pos_match": 543,
-        "meaning_pattern_verb": 171,
-        "exact_word_meaning_match": 76,
-        "closed_class_function_word": 14,
-        "multi_word_phrase": 175,
-        "closed_class_fixed_pos": 6,
-        "meaning_too_short": 3
+        "no_signal_needs_review": 309,
+        "consistent_word_pos_match": 569,
+        "ambiguous_multi_pos": 73,
+        "meaning_too_short": 25,
+        "multi_word_phrase": 1
       }
     },
     {
       "materialId": "00000000-0000-0000-0000-000000000043",
       "title": "慶應大学 英語頻出単語 (2026年度実績)",
-      "nullCount": 708,
+      "nullCount": 582,
       "totalCount": 1200,
-      "nullRate": 59,
+      "nullRate": 48.5,
       "ruleCounts": {
-        "meaning_pattern_adjective": 59,
-        "consistent_word_pos_match": 130,
-        "no_signal_needs_review": 207,
-        "meaning_pattern_verb": 25,
-        "exact_word_meaning_match": 42,
+        "consistent_word_pos_match": 132,
+        "no_signal_needs_review": 205,
         "ambiguous_multi_pos": 1,
         "multi_word_phrase": 244
       }
     },
     {
-      "materialId": "00000000-0000-0000-0000-000000000044",
-      "title": "最難関大学への英単語",
-      "nullCount": 701,
-      "totalCount": 1201,
-      "nullRate": 58.4,
-      "ruleCounts": {
-        "meaning_pattern_verb": 51,
-        "exact_word_meaning_match": 35,
-        "no_signal_needs_review": 248,
-        "consistent_word_pos_match": 155,
-        "meaning_pattern_adjective": 204,
-        "multi_word_phrase": 7,
-        "ambiguous_multi_pos": 1
-      }
-    },
-    {
       "materialId": "00000000-0000-0000-0000-000000000042",
       "title": "高校3年・共通テスト重要語",
-      "nullCount": 700,
+      "nullCount": 536,
       "totalCount": 1478,
-      "nullRate": 47.4,
+      "nullRate": 36.3,
       "ruleCounts": {
         "multi_word_phrase": 418,
-        "consistent_word_pos_match": 71,
-        "exact_word_meaning_match": 52,
-        "meaning_pattern_verb": 41,
-        "meaning_pattern_adjective": 71,
+        "consistent_word_pos_match": 70,
         "no_signal_needs_review": 40,
-        "ambiguous_multi_pos": 7
-      }
-    },
-    {
-      "materialId": "00000000-0000-0000-0000-000000000030",
-      "title": "高校英語基礎 重要単語",
-      "nullCount": 699,
-      "totalCount": 1542,
-      "nullRate": 45.3,
-      "ruleCounts": {
-        "consistent_word_pos_match": 201,
-        "multi_word_phrase": 263,
-        "meaning_pattern_verb": 49,
-        "exact_word_meaning_match": 67,
-        "meaning_pattern_adjective": 37,
-        "ambiguous_multi_pos": 31,
-        "meaning_too_short": 13,
-        "no_signal_needs_review": 18,
-        "closed_class_function_word": 13,
-        "closed_class_fixed_pos": 7
-      }
-    },
-    {
-      "materialId": "00000000-0000-0000-0000-000000000020",
-      "title": "大学入試頻出英単語 2000+",
-      "nullCount": 647,
-      "totalCount": 2000,
-      "nullRate": 32.4,
-      "ruleCounts": {
-        "consistent_word_pos_match": 198,
-        "exact_word_meaning_match": 98,
-        "closed_class_fixed_pos": 1,
-        "meaning_pattern_adjective": 78,
-        "no_signal_needs_review": 114,
-        "meaning_pattern_verb": 78,
-        "ambiguous_multi_pos": 16,
-        "closed_class_function_word": 1,
-        "multi_word_phrase": 62,
-        "meaning_too_short": 1
+        "ambiguous_multi_pos": 8
       }
     },
     {
       "materialId": "00000000-0000-0000-0000-000000000031",
       "title": "TOEIC 頻出単語 800",
-      "nullCount": 611,
+      "nullCount": 527,
       "totalCount": 2500,
-      "nullRate": 24.4,
+      "nullRate": 21.1,
       "ruleCounts": {
         "consistent_word_pos_match": 67,
-        "meaning_pattern_adjective": 40,
-        "meaning_pattern_verb": 27,
         "no_signal_needs_review": 99,
-        "exact_word_meaning_match": 17,
         "multi_word_phrase": 358,
         "ambiguous_multi_pos": 3
       }
     },
     {
-      "materialId": "00000000-0000-0000-0000-000000000041",
-      "title": "高校2年英語 重要単語",
-      "nullCount": 502,
-      "totalCount": 1188,
-      "nullRate": 42.3,
+      "materialId": "00000000-0000-0000-0000-000000000030",
+      "title": "高校英語基礎 重要単語",
+      "nullCount": 526,
+      "totalCount": 1542,
+      "nullRate": 34.1,
       "ruleCounts": {
-        "consistent_word_pos_match": 98,
-        "exact_word_meaning_match": 44,
-        "meaning_pattern_verb": 57,
-        "meaning_pattern_adjective": 50,
-        "no_signal_needs_review": 18,
-        "multi_word_phrase": 205,
-        "ambiguous_multi_pos": 30
+        "consistent_word_pos_match": 199,
+        "multi_word_phrase": 263,
+        "ambiguous_multi_pos": 33,
+        "meaning_too_short": 13,
+        "no_signal_needs_review": 18
+      }
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000044",
+      "title": "最難関大学への英単語",
+      "nullCount": 411,
+      "totalCount": 1201,
+      "nullRate": 34.2,
+      "ruleCounts": {
+        "no_signal_needs_review": 236,
+        "consistent_word_pos_match": 167,
+        "multi_word_phrase": 7,
+        "ambiguous_multi_pos": 1
+      }
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000020",
+      "title": "大学入試頻出英単語 2000+",
+      "nullCount": 391,
+      "totalCount": 2000,
+      "nullRate": 19.6,
+      "ruleCounts": {
+        "consistent_word_pos_match": 200,
+        "no_signal_needs_review": 112,
+        "ambiguous_multi_pos": 16,
+        "multi_word_phrase": 62,
+        "meaning_too_short": 1
       }
     },
     {
       "materialId": "00000000-0000-0000-0000-000000000040",
       "title": "高校1年英語 重要単語",
-      "nullCount": 500,
+      "nullCount": 371,
       "totalCount": 997,
-      "nullRate": 50.2,
+      "nullRate": 37.2,
       "ruleCounts": {
         "multi_word_phrase": 78,
-        "meaning_pattern_adjective": 7,
-        "consistent_word_pos_match": 183,
-        "exact_word_meaning_match": 117,
-        "meaning_pattern_verb": 5,
+        "consistent_word_pos_match": 182,
         "meaning_too_short": 41,
-        "ambiguous_multi_pos": 13,
-        "no_signal_needs_review": 56
+        "ambiguous_multi_pos": 15,
+        "no_signal_needs_review": 55
+      }
+    },
+    {
+      "materialId": "00000000-0000-0000-0000-000000000041",
+      "title": "高校2年英語 重要単語",
+      "nullCount": 351,
+      "totalCount": 1188,
+      "nullRate": 29.5,
+      "ruleCounts": {
+        "consistent_word_pos_match": 96,
+        "no_signal_needs_review": 15,
+        "ambiguous_multi_pos": 35,
+        "multi_word_phrase": 205
       }
     },
     {
       "materialId": "00000000-0000-0000-0000-000000000022",
       "title": "英検2級 重要単語",
-      "nullCount": 349,
+      "nullCount": 229,
       "totalCount": 799,
-      "nullRate": 43.7,
+      "nullRate": 28.7,
       "ruleCounts": {
-        "no_signal_needs_review": 26,
+        "no_signal_needs_review": 24,
         "consistent_word_pos_match": 152,
-        "ambiguous_multi_pos": 41,
-        "exact_word_meaning_match": 44,
-        "meaning_pattern_verb": 58,
+        "ambiguous_multi_pos": 43,
         "meaning_too_short": 9,
-        "meaning_pattern_adjective": 16,
-        "closed_class_function_word": 2,
-        "multi_word_phrase": 1
-      }
-    },
-    {
-      "materialId": "f2661c18-fb99-4ec2-888f-30e1fd012da0",
-      "title": "英検2級 必須単語800",
-      "nullCount": 349,
-      "totalCount": 349,
-      "nullRate": 100,
-      "ruleCounts": {
-        "consistent_word_pos_match": 122,
-        "meaning_pattern_adjective": 49,
-        "exact_word_meaning_match": 119,
-        "ambiguous_multi_pos": 18,
-        "meaning_pattern_verb": 28,
-        "no_signal_needs_review": 10,
-        "meaning_too_short": 2,
         "multi_word_phrase": 1
       }
     },
     {
       "materialId": "00000000-0000-0000-0000-000000000032",
       "title": "英検1級 必須単語",
-      "nullCount": 301,
+      "nullCount": 183,
       "totalCount": 1493,
-      "nullRate": 20.2,
+      "nullRate": 12.3,
       "ruleCounts": {
-        "meaning_pattern_verb": 22,
-        "exact_word_meaning_match": 29,
-        "no_signal_needs_review": 125,
-        "meaning_pattern_adjective": 67,
-        "consistent_word_pos_match": 54,
+        "no_signal_needs_review": 119,
+        "consistent_word_pos_match": 60,
         "ambiguous_multi_pos": 1,
         "multi_word_phrase": 3
       }
     },
     {
-      "materialId": "5eae7c64-fcb5-4164-99fb-cdb5ce10567c",
-      "title": "英検準1級 必須単語600",
-      "nullCount": 265,
-      "totalCount": 265,
-      "nullRate": 100,
+      "materialId": "f2661c18-fb99-4ec2-888f-30e1fd012da0",
+      "title": "英検2級 必須単語800",
+      "nullCount": 153,
+      "totalCount": 349,
+      "nullRate": 43.8,
       "ruleCounts": {
-        "exact_word_meaning_match": 135,
-        "meaning_pattern_adjective": 33,
-        "consistent_word_pos_match": 44,
-        "no_signal_needs_review": 12,
-        "meaning_pattern_verb": 34,
-        "ambiguous_multi_pos": 7
+        "consistent_word_pos_match": 121,
+        "ambiguous_multi_pos": 19,
+        "no_signal_needs_review": 10,
+        "meaning_too_short": 2,
+        "multi_word_phrase": 1
       }
     },
     {
       "materialId": "96d6e5a2-c0f5-48b1-8eed-14a91424790f",
       "title": "TOEIC頻出単語600",
-      "nullCount": 263,
+      "nullCount": 109,
       "totalCount": 263,
-      "nullRate": 100,
+      "nullRate": 41.4,
       "ruleCounts": {
-        "meaning_pattern_verb": 44,
-        "exact_word_meaning_match": 81,
-        "consistent_word_pos_match": 79,
-        "ambiguous_multi_pos": 10,
+        "consistent_word_pos_match": 78,
+        "ambiguous_multi_pos": 11,
         "no_signal_needs_review": 4,
-        "meaning_pattern_adjective": 29,
         "multi_word_phrase": 16
       }
     },
     {
       "materialId": "00000000-0000-0000-0000-000000000034",
       "title": "英検3級 重要単語",
-      "nullCount": 123,
+      "nullCount": 85,
       "totalCount": 1500,
-      "nullRate": 8.2,
+      "nullRate": 5.7,
       "ruleCounts": {
         "multi_word_phrase": 23,
-        "meaning_pattern_adjective": 2,
         "consistent_word_pos_match": 40,
-        "exact_word_meaning_match": 21,
         "no_signal_needs_review": 17,
-        "meaning_pattern_verb": 15,
         "ambiguous_multi_pos": 5
       }
     },
     {
       "materialId": "00000000-0000-0000-0000-000000000021",
       "title": "中学校英単語 基礎・標準",
-      "nullCount": 117,
+      "nullCount": 80,
       "totalCount": 117,
-      "nullRate": 100,
+      "nullRate": 68.4,
       "ruleCounts": {
         "consistent_word_pos_match": 67,
-        "meaning_pattern_verb": 8,
-        "exact_word_meaning_match": 20,
         "ambiguous_multi_pos": 7,
-        "meaning_too_short": 6,
-        "meaning_pattern_adjective": 9
+        "meaning_too_short": 6
       }
     },
     {
       "materialId": "00000000-0000-0000-0000-000000000023",
       "title": "英検準1級 重要単語",
-      "nullCount": 97,
+      "nullCount": 71,
       "totalCount": 638,
-      "nullRate": 15.2,
+      "nullRate": 11.1,
       "ruleCounts": {
-        "ambiguous_multi_pos": 14,
-        "meaning_pattern_verb": 11,
-        "consistent_word_pos_match": 52,
-        "no_signal_needs_review": 5,
-        "exact_word_meaning_match": 3,
-        "meaning_pattern_adjective": 12
+        "ambiguous_multi_pos": 16,
+        "consistent_word_pos_match": 51,
+        "no_signal_needs_review": 4
+      }
+    },
+    {
+      "materialId": "5eae7c64-fcb5-4164-99fb-cdb5ce10567c",
+      "title": "英検準1級 必須単語600",
+      "nullCount": 63,
+      "totalCount": 265,
+      "nullRate": 23.8,
+      "ruleCounts": {
+        "ambiguous_multi_pos": 8,
+        "no_signal_needs_review": 12,
+        "consistent_word_pos_match": 43
       }
     },
     {
@@ -334,14 +266,6 @@
   ],
   "topFrequentNullWords": [
     {
-      "word": "consequence",
-      "count": 8
-    },
-    {
-      "word": "fundamental",
-      "count": 8
-    },
-    {
       "word": "economy",
       "count": 7
     },
@@ -350,108 +274,116 @@
       "count": 7
     },
     {
-      "word": "factor",
-      "count": 7
-    },
-    {
-      "word": "implement",
-      "count": 7
-    },
-    {
-      "word": "significant",
-      "count": 7
-    },
-    {
-      "word": "accept",
-      "count": 6
-    },
-    {
-      "word": "analyze",
-      "count": 6
-    },
-    {
-      "word": "appropriate",
-      "count": 6
-    },
-    {
       "word": "benefit",
       "count": 6
     },
     {
-      "word": "complex",
+      "word": "consequence",
       "count": 6
     },
     {
-      "word": "conflict",
-      "count": 6
-    },
-    {
-      "word": "demonstrate",
-      "count": 6
-    },
-    {
-      "word": "effect",
-      "count": 6
-    },
-    {
-      "word": "efficient",
-      "count": 6
-    },
-    {
-      "word": "establish",
-      "count": 6
-    },
-    {
-      "word": "evaluate",
-      "count": 6
-    },
-    {
-      "word": "influence",
-      "count": 6
-    },
-    {
-      "word": "mutual",
-      "count": 6
-    },
-    {
-      "word": "obtain",
-      "count": 6
-    },
-    {
-      "word": "perceive",
-      "count": 6
-    },
-    {
-      "word": "promote",
-      "count": 6
-    },
-    {
-      "word": "sophisticated",
-      "count": 6
-    },
-    {
-      "word": "necessary",
-      "count": 6
-    },
-    {
-      "word": "regulation",
-      "count": 6
-    },
-    {
-      "word": "transfer",
-      "count": 6
-    },
-    {
-      "word": "effective",
-      "count": 6
-    },
-    {
-      "word": "approach",
+      "word": "factor",
       "count": 6
     },
     {
       "word": "subject",
       "count": 6
+    },
+    {
+      "word": "enforcement",
+      "count": 6
+    },
+    {
+      "word": "bill",
+      "count": 6
+    },
+    {
+      "word": "evidence",
+      "count": 6
+    },
+    {
+      "word": "accept",
+      "count": 5
+    },
+    {
+      "word": "concept",
+      "count": 5
+    },
+    {
+      "word": "curiosity",
+      "count": 5
+    },
+    {
+      "word": "democracy",
+      "count": 5
+    },
+    {
+      "word": "depression",
+      "count": 5
+    },
+    {
+      "word": "device",
+      "count": 5
+    },
+    {
+      "word": "disorder",
+      "count": 5
+    },
+    {
+      "word": "influence",
+      "count": 5
+    },
+    {
+      "word": "spend",
+      "count": 5
+    },
+    {
+      "word": "revenue",
+      "count": 5
+    },
+    {
+      "word": "refugee",
+      "count": 5
+    },
+    {
+      "word": "foundation",
+      "count": 5
+    },
+    {
+      "word": "resident",
+      "count": 5
+    },
+    {
+      "word": "approach",
+      "count": 5
+    },
+    {
+      "word": "impression",
+      "count": 5
+    },
+    {
+      "word": "scheme",
+      "count": 5
+    },
+    {
+      "word": "source",
+      "count": 5
+    },
+    {
+      "word": "patient",
+      "count": 5
+    },
+    {
+      "word": "symptom",
+      "count": 5
+    },
+    {
+      "word": "treatment",
+      "count": 5
+    },
+    {
+      "word": "therapy",
+      "count": 5
     }
   ]
 }

@@ -17,10 +17,11 @@
  *   npm run materials:pos:dry-run   -> 上記dry-run
  *   npm run materials:pos:apply     -> --apply付き（CONFIRM_MATERIALS_POS_FILL=yesと併用が必須）
  *
- * 出力（dry-run時に毎回生成）:
- *   - reports/materials-pos-fill-plan.json  機械可読な補完計画
- *   - reports/materials-pos-fill-plan.md    人間向けの補完計画・サンプル
- *   - reports/materials-pos-fill-rollback.sql  補完後にNULLへ戻すためのSQL（apply時のみ実質的な内容を持つ）
+ * 出力（dry-run時に毎回生成。実補完の有無にかかわらず同じファイルに書き出す）:
+ *   - reports/materials-pos-fill-plan.json     機械可読な補完計画
+ *   - reports/materials-pos-fill-plan.md       人間向けの補完計画・サンプル
+ *   - reports/materials-pos-fill-backup.json   補完対象行の更新前スナップショット（全カラム、復元確認用）
+ *   - reports/materials-pos-fill-rollback.sql  補完後にposをNULLへ戻すためのSQL
  */
 import { writeFileSync } from "fs";
 import { resolve } from "path";
@@ -316,16 +317,25 @@ async function run() {
 
   const mdPath = resolve(REPO_ROOT, "reports/materials-pos-fill-plan.md");
   const jsonPath = resolve(REPO_ROOT, "reports/materials-pos-fill-plan.json");
+  const backupPath = resolve(REPO_ROOT, "reports/materials-pos-fill-backup.json");
   const rollbackPath = resolve(REPO_ROOT, "reports/materials-pos-fill-rollback.sql");
 
   writeFileSync(jsonPath, JSON.stringify(planJson, null, 2), "utf-8");
   writeFileSync(mdPath, buildMarkdownPlan(planSummary), "utf-8");
+  // 補完対象行の更新前(pos=null)の全カラムスナップショット。rollback.sqlはposのみNULLに戻すが、
+  // 万一の照合用にword/meaning等も含めた完全な状態をここに残す。
+  writeFileSync(
+    backupPath,
+    JSON.stringify({ generatedAt, rows: safeTargets.map(({ row }) => row) }, null, 2),
+    "utf-8",
+  );
   writeFileSync(rollbackPath, buildRollbackSql(safeTargets.map(({ row }) => row)), "utf-8");
 
   console.log(`\n補完候補: ${safeTargets.length.toLocaleString()}件（ルール1-5: ${primaryCount.toLocaleString()}件 / ルール6: ${secondaryCount.toLocaleString()}件）`);
   console.log(`\n✅ 出力しました:`);
   console.log(`  - ${jsonPath}`);
   console.log(`  - ${mdPath}`);
+  console.log(`  - ${backupPath}`);
   console.log(`  - ${rollbackPath}`);
   if (!APPLY) {
     console.log("\n実補完する場合: npm run materials:pos:apply （CONFIRM_MATERIALS_POS_FILL=yes と併用が必要）");

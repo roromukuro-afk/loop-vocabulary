@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-02T23:15:39.050Z",
-  "mode": "dry-run",
+  "generatedAt": "2026-07-03T00:32:12.956Z",
+  "mode": "apply",
   "includeSecondary": false,
   "totalCandidates": 3267,
   "primaryCount": 3267,
@@ -243,7 +243,10 @@
       "candidatePos": "adv"
     }
   ],
-  "applyResult": null,
+  "applyResult": {
+    "updated": 3267,
+    "failed": 0
+  },
   "targetIds": [
     "5b8bd470-fc7e-4c71-bd43-bf85627a33a1",
     "4e177aab-a82e-471e-8125-86541471cbc9",
