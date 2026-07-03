@@ -144,7 +144,7 @@ export function AttackRunner({ pool }: { pool: Word[] }) {
             <div className="text-[10px] text-navy-500 mt-1">60秒</div>
           </div>
           <div className="bg-navy-50 rounded-xl p-3 text-center">
-            <div className="text-xl font-black text-navy-800">{pool.length}</div>
+            <div className="text-xl font-black text-navy-800" data-testid="quiz-pool-size">{pool.length}</div>
             <div className="text-[10px] text-navy-500 mt-1">出題語数</div>
           </div>
           <div className="bg-navy-50 rounded-xl p-3 text-center">

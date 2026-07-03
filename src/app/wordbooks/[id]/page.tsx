@@ -78,6 +78,7 @@ export default async function WordBookDetailPage({ params }: { params: Promise<{
         <Link href={`/test/choice?book=${book.id}`}><Button fullWidth variant="secondary">4択テスト</Button></Link>
         <Link href={`/review?book=${book.id}`}><Button fullWidth variant="secondary">この帳を復習</Button></Link>
         <Link href={`/wordbooks/${book.id}/csv-import`}><Button fullWidth variant="secondary">📁 CSV インポート</Button></Link>
+        <Link href={`/test/attack?book=${book.id}`}><Button fullWidth variant="secondary">⚡ タイムアタック</Button></Link>
         <Link href={`/test/typing?book=${book.id}`} className="col-span-2">
           <Button fullWidth variant="secondary">⌨️ タイピング練習（Premium）</Button>
         </Link>

@@ -17,6 +17,11 @@
  *  - listening: 存在しないprofiles.planカラムを参照しており全ユーザーが恒久的に
  *    ペイウォール表示になっていた不具合（is_premiumを参照するよう修正）
  *
+ * attackモードについては追加で、単語帳スコープ対応（?book=<word_book_id>）を検証する:
+ *  - book指定あり: 指定した単語帳の単語のみが出題される（他単語帳の単語が混入しない）
+ *  - book指定なし: 従来通り全単語帳横断で出題される（既存挙動は維持）
+ *  - いずれの場合も画面上に対象範囲ラベル（「◯◯」から出題中 / 全単語帳から出題中）が表示される
+ *
  * 使い方: node scripts/testing/e2e/learning-modes.mjs
  */
 import { chromium } from "playwright";
@@ -213,35 +218,74 @@ async function main() {
     }
 
     // ================= /test/attack =================
-    // 注意: attackモードはページ側の実装が元々word_book_idでスコープしておらず、
-    // ログインユーザーの単語帳全体から出題する設計（他4モードとは異なる。今回はこの
-    // 既存挙動自体は変更していない）。そのため直前に他モードのテスト用単語帳を
-    // 必ず削除してから実行し、意図しない単語が混入しないようにしている。
+    // book指定時はその単語帳のみから出題、未指定時は従来通り全単語帳横断で出題する
+    // （今回追加した仕様）。両方のケースを、対象単語帳＋デコイ単語帳を同時に用意した
+    // 状態で検証する（デコイが混入しないことをbook指定ありで確認し、book指定なしでは
+    // 逆にデコイも母集団に含まれる=全単語帳横断であることを確認する）。
     console.log("\n--- /test/attack ---");
     {
-      const { bookId, unseenIds } = await seedModeWordBook(admin, onboardingId, "at");
-      const errors = collectErrors(page);
-      await gotoReady(page, `${baseUrl}/test/attack`);
+      const { bookId: targetBookId, words: targetWords, unseenIds } = await seedModeWordBook(admin, onboardingId, "at");
+      const { bookId: decoyBookId, words: decoyWords } = await seedModeWordBook(admin, onboardingId, "atx");
+      const targetIds = new Set(targetWords.map((w) => w.id));
+
+      // ---- book指定あり: 対象単語帳のみから出題されること ----
+      const errorsScoped = collectErrors(page);
+      await gotoReady(page, `${baseUrl}/test/attack?book=${targetBookId}`);
+
+      const expectedLabel = "「TEST_学習モード横展開_at」から出題中";
+      const scopeLabelScoped = await page.locator('[data-testid="quiz-scope-label"]').textContent();
+      if (scopeLabelScoped === expectedLabel) ok("attack(book指定): 対象単語帳のタイトルを含むスコープラベルが表示される");
+      else bad(`attack(book指定): スコープラベルが想定外 (${scopeLabelScoped}, 期待値=${expectedLabel})`);
+
+      const poolSizeScoped = await page.locator('[data-testid="quiz-pool-size"]').textContent();
+      if (poolSizeScoped === String(targetWords.length)) ok(`attack(book指定): 出題語数が対象単語帳の${targetWords.length}語のみになっている（デコイ単語帳を含まない）`);
+      else bad(`attack(book指定): 出題語数が想定外 (${poolSizeScoped}, 期待値${targetWords.length})`);
 
       await page.locator('[data-testid="quiz-start"]').click();
-      const prompt = page.locator('[data-testid="quiz-prompt"]');
-      await prompt.waitFor({ state: "visible", timeout: 8000 });
-      const firstId = await prompt.getAttribute("data-word-id");
-      if (unseenIds.has(firstId)) ok("attack: 1問目は未学習単語である");
-      else bad(`attack: 1問目が未学習単語ではない (id=${firstId})`);
+      const promptScoped = page.locator('[data-testid="quiz-prompt"]');
+      await promptScoped.waitFor({ state: "visible", timeout: 8000 });
+      const firstIdScoped = await promptScoped.getAttribute("data-word-id");
+      if (unseenIds.has(firstIdScoped)) ok("attack(book指定): 1問目は未学習単語である");
+      else bad(`attack(book指定): 1問目が未学習単語ではない (id=${firstIdScoped})`);
 
-      const answerCount = await page.locator('[data-testid="quiz-choice"][data-answer="true"]').count();
-      if (answerCount === 1) ok("attack: 正解が選択肢内に1つだけ存在する");
-      else bad(`attack: 正解の数が想定外 (${answerCount})`);
+      // 出題キューを2周分消化し、対象単語帳以外のid（デコイ単語帳の単語）が
+      // 一度も出ないことを確認する
+      let sawOutsideTarget = false;
+      for (let i = 0; i < targetWords.length * 2; i++) {
+        const curId = await promptScoped.getAttribute("data-word-id");
+        if (curId && !targetIds.has(curId)) sawOutsideTarget = true;
+        const answerCount = await page.locator('[data-testid="quiz-choice"][data-answer="true"]').count();
+        if (answerCount !== 1) { bad(`attack(book指定): 正解の数が想定外 (${answerCount})`); break; }
+        await page.locator('[data-testid="quiz-choice"][data-answer="true"]').click();
+        await page.waitForTimeout(50);
+      }
+      if (!sawOutsideTarget) ok("attack(book指定): 出題が常に対象単語帳内に収まっている（デコイ単語帳の単語が混入しない）");
+      else bad("attack(book指定): デコイ単語帳の単語が出題された（スコープ漏れ）");
 
-      await page.locator('[data-testid="quiz-choice"][data-answer="true"]').click();
       await page.waitForTimeout(800); // saveStudyResult()完了待ち
-      await checkSrsUpdated(admin, firstId, "attack");
+      await checkSrsUpdated(admin, firstIdScoped, "attack(book指定)");
 
-      if (errors.length) bad(`attack操作中にエラー:\n  ${errors.join("\n  ")}`);
-      else ok("attack操作中に console error / 5xx なし");
+      if (errorsScoped.length) bad(`attack(book指定)操作中にエラー:\n  ${errorsScoped.join("\n  ")}`);
+      else ok("attack(book指定)操作中に console error / 5xx なし");
 
-      await cleanupWordBook(admin, bookId);
+      // ---- book指定なし: 従来通り全単語帳横断で出題されること ----
+      const errorsUnscoped = collectErrors(page);
+      await gotoReady(page, `${baseUrl}/test/attack`);
+
+      const scopeLabelUnscoped = await page.locator('[data-testid="quiz-scope-label"]').textContent();
+      if (scopeLabelUnscoped === "全単語帳から出題中") ok("attack(book指定なし): 「全単語帳から出題中」ラベルが表示される");
+      else bad(`attack(book指定なし): 想定外のラベル表示 (${scopeLabelUnscoped})`);
+
+      const poolSizeUnscoped = await page.locator('[data-testid="quiz-pool-size"]').textContent();
+      const expectedTotal = targetWords.length + decoyWords.length;
+      if (poolSizeUnscoped === String(expectedTotal)) ok(`attack(book指定なし): 出題語数が対象＋デコイ両単語帳の合計${expectedTotal}語になっている（全単語帳横断）`);
+      else bad(`attack(book指定なし): 出題語数が全単語帳横断になっていない (${poolSizeUnscoped}, 期待値${expectedTotal})`);
+
+      if (errorsUnscoped.length) bad(`attack(book指定なし)操作中にエラー:\n  ${errorsUnscoped.join("\n  ")}`);
+      else ok("attack(book指定なし)操作中に console error / 5xx なし");
+
+      await cleanupWordBook(admin, targetBookId);
+      await cleanupWordBook(admin, decoyBookId);
     }
 
     // ================= 回帰確認: 4択テスト・復習・PDF・教材・admin =================

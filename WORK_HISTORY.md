@@ -5,6 +5,74 @@
 
 ---
 
+## 2026-07-03 attackモードに単語帳スコープ対応（?book=）を追加
+
+前回のSRS考慮型出題ロジック横展開の際に残課題として記録した「attackモードが
+`word_book_id`でスコープされておらず口座全体から出題される」問題に対応した。
+
+**現状調査結果**:
+- パラメータ名は`book`で全モード共通（`?book=<word_book_id>`）。choice/input/typing/
+  listeningの4モードは`page.tsx`で`if (sp.book) query = query.eq("word_book_id", sp.book)`
+  という共通の慣用パターンを既に実装済みだった。attackだけが`searchParams`自体を
+  受け取っておらず、`word_book_id`フィルタも一切なかった。
+- ナビゲーション面の調査では、単語帳詳細ページ(`wordbooks/[id]/page.tsx`)と教材
+  インポート完了ボタン(`ImportMaterialButton.tsx`)が実際に`?book=`付きリンクを構築して
+  いるのはchoice/typingのみで、attackへのリンク自体がどこにも存在しなかった
+  （input/listeningもリンクは無いが受け口は既にあった）。
+- 5モードいずれも、画面上に「どの単語帳から出題中か」を示すラベルは存在しなかった。
+
+**修正内容**:
+- `src/app/test/attack/page.tsx`: `searchParams: Promise<{ book?: string }>`を追加し、
+  他4モードと同じ慣用パターンで`sp.book`があれば`.eq("word_book_id", sp.book)`を適用。
+  `sp.book`があれば単語帳タイトルを取得し、「「◯◯」から出題中」／未指定時は
+  「全単語帳から出題中」という対象範囲ラベル（`data-testid="quiz-scope-label"`）を新設。
+  `src/lib/learning/wordSelection.ts`本体・SRS V2ロジック・DBスキーマは無変更。
+- `src/app/test/attack/AttackRunner.tsx`: 出題語数表示に`data-testid="quiz-pool-size"`を
+  追加（E2E検証用、表示ロジック自体は無変更）。
+- `src/app/wordbooks/[id]/page.tsx`: 単語帳詳細ページのアクショングリッドに
+  「⚡ タイムアタック」ボタン（`/test/attack?book=${book.id}`）を新規追加。従来attackへの
+  導線が単語帳詳細ページに存在しなかったため、これで4択テストと同様に単語帳文脈から
+  スコープ付きでattackへ遷移できるようになった。
+- `ImportMaterialButton.tsx`（教材インポート後の「テスト開始」）は今回意図的に変更せず、
+  従来通り`/test/choice?book=`のまま（推奨初回モードとして4択を維持する判断、
+  NEXT_IMPROVEMENTS.md 2fに残課題として記録）。
+
+**単語帳指定あり/なしの挙動**:
+- `?book=<id>`指定時: その単語帳の単語のみが出題プールになる（他単語帳の単語は
+  一切混入しない）。未学習優先・SRS考慮の出題ロジック自体は従来通り機能する。
+- 指定なし時: 従来通りログインユーザーの全単語帳から出題される（既存挙動を維持、
+  デフォルトの全単語帳横断attackは完全に残っている）。
+
+**追加したテスト**:
+`scripts/testing/e2e/learning-modes.mjs`のattackセクションを拡張。対象単語帳＋デコイ
+単語帳（別タグの単語群）を同時に用意し、①`?book=`指定時はスコープラベルに単語帳
+タイトルが表示される、②出題語数が対象単語帳の語数のみになっている（デコイを含まない）、
+③出題キューを2周分消化してもデコイ単語帳の単語が一度も出題されない、④1問目は未学習
+単語、⑤正解時にSRSフィールドが更新される、⑥指定なし時はラベルが「全単語帳から出題中」
+になる、⑦出題語数が対象＋デコイの合計になる（全単語帳横断の確認）、を検証。
+`npm run test:learning-modes:e2e`が20項目→25項目に拡張、全PASS。
+
+**検証結果（全通過）**:
+`npx tsc --noEmit` / `npm run build` / `npm run test:learning-selection`（27/27、
+`wordSelection.ts`本体は無変更のため既存件数のまま）/ `npm run test:learning-modes:e2e`
+（25/25）/ `npm run test:smoke` / `npm run test:e2e`（7フロー全PASS、choice/input/typing/
+listening/review/pdf/materials/teacher/adminに回帰なし）/ `npm run verify:prod` /
+`npm run verify:srs-global`。
+
+**残課題**:
+- `ImportMaterialButton.tsx`からattackへの直接導線は追加していない
+  （NEXT_IMPROVEMENTS.md 2f）。
+- 調査中に`wordbooks/[id]/page.tsx`で存在しないカラム`profiles.plan`を参照する
+  未修正バグを発見した（`isPremium`が常に`false`扱いになる、`AiSuggestButton`にのみ影響）。
+  今回のスコープ外のため修正せず、NEXT_IMPROVEMENTS.md 2gに記録。
+- `suspended`ラベル・直近出題履歴のセッション横断永続化は引き続き未実装
+  （NEXT_IMPROVEMENTS.md 2d）。
+
+DBスキーマ変更なし、RLS変更なし、SRS V2ロジック変更なし、teacher機能変更なし、
+教材データ変更なし。
+
+---
+
 ## 2026-07-03 SRS考慮型の出題ロジックを他4学習モードへ横展開（input/typing/listening/attack）
 
 前回4択テスト（/test/choice）に導入したSRS考慮型出題ロジックを、他の学習モードにも
