@@ -75,7 +75,12 @@ export async function seedSrsUser(admin, userId) {
   return { bookId: book.id, wordCount: words.length };
 }
 
-// オンボーディングテストユーザー: 単語帳0件・単語0件の状態にリセット（毎回の空状態検証用）
+// オンボーディングテストユーザー: 単語帳0件・単語0件・学習履歴0件の状態にリセット（毎回の空状態検証用）
+//
+// study_results/daily_stats も削除する。理由: dashboard の「はじめの3ステップ」ガイドは
+// everStudied（studied_count等の学習履歴の有無）で表示・非表示が決まるため、words/word_books
+// だけを消しても学習履歴が残っていると「未学習ユーザー」の状態を再現できない
+// （quiz.mjs 等、実際に4択に解答してSRSを更新するE2Eを追加した際にこの抜けが判明した）。
 export async function resetOnboardingUser(admin, userId) {
   const { data: books } = await admin.from("word_books").select("id").eq("user_id", userId);
   for (const b of books ?? []) {
@@ -83,6 +88,8 @@ export async function resetOnboardingUser(admin, userId) {
     await admin.from("word_books").delete().eq("id", b.id);
   }
   await admin.from("words").delete().eq("user_id", userId);
+  await admin.from("study_results").delete().eq("user_id", userId);
+  await admin.from("daily_stats").delete().eq("user_id", userId);
   return { reset: true };
 }
 

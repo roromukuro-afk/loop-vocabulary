@@ -4,7 +4,7 @@
 > 大きめの機能追加は実際の利用状況を見てから判断する。
 > 各項目は着手前に個別のご確認をいただく（本ドキュメントは提案のみ・実装はまだしない）。
 >
-> **2026-07-02時点: 優先度A（下記8項目）はすべて完了。現在は次の優先度整理フェーズ。**
+> **2026-07-03時点: 優先度A（下記9項目）はすべて完了。現在は次の優先度整理フェーズ。**
 > 本番ヘルスチェック結果・現在の運用状態は [WORK_HISTORY.md](WORK_HISTORY.md) の
 > 「2026-07-02 運用状態の整理・本番ヘルスチェック」を参照。
 > 既存教材の品質状況は [MATERIALS_AUDIT.md](MATERIALS_AUDIT.md) を参照
@@ -80,6 +80,18 @@
    重複防止までを検証。**DBの書き込み・削除は一切行っていない**（監査は読み取り専用）。
    詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
 
+9. ✅ **完了（2026-07-03）: 4択テストの出題ロジックをSRS状態考慮型に修正**
+   `/test/choice`が完全ランダム出題（SRSフィールド未参照）だった問題を修正。
+   [src/lib/quiz/wordSelection.ts](src/lib/quiz/wordSelection.ts)（新規）に、既存カラムから
+   都度算出する学習状態ラベル（unseen/due/weak/mastered/learning/reviewing。DBスキーマ変更なし）
+   と、未学習優先→due/weak優先の重み付き抽選→直近出題除外、を行う`selectQuizWords`、正解と
+   同義・空欄・重複を避けつつ品詞を優先する`pickDistractors`を実装し`/test/choice`に適用。
+   `npm run test:quiz`（単体24項目）・`npm run test:quiz:e2e`（実ブラウザ25項目、`test:e2e`にも
+   6フロー目として統合）を新設、全PASS。修正過程で判明した既存E2E基盤の不備
+   （`resetOnboardingUser`がstudy_results/daily_statsを未リセット）も合わせて修正。
+   `input`/`typing`/`listening`/`attack`は今回の変更範囲外（下記優先度Bに残課題として記録）。
+   詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
+
 ---
 
 ## 🟢 優先度A: 今すぐ着手できる（低工数・高効果・外部依存少）
@@ -121,6 +133,19 @@
    現在、対象学年・目的・推奨期間・1日目安語数・タグの表示（[presetMeta.ts](src/lib/materials/presetMeta.ts)）
    は新規4パックのみに付与されている。既存31教材にも同様のメタデータを付けたい場合は、
    レジストリにエントリを追加するだけで対応可能（DBスキーマ変更不要）。
+
+2d. **他の学習モードへのSRS考慮型出題ロジックの適用（優先度A完了項目9の延長）**
+   `/test/choice`に実装した`selectQuizWords`/`pickDistractors`（[src/lib/quiz/wordSelection.ts](src/lib/quiz/wordSelection.ts)）は
+   `input`（穴埋め）・`typing`（タイピング）・`listening`（リスニング）・`attack`（連続出題）
+   にも同じ関数をそのまま適用できる設計にしてある。`listening`のみ`last_studied_at`昇順
+   ソートで簡易的に未学習寄りの出題をしているが、他の状態（due/weak/mastered）は未考慮。
+   利用状況を見てから、影響範囲の大きいモードから順に適用するのが効率的。
+
+2e. **出題の「suspended」ラベル・直近出題履歴の永続化（優先度A完了項目9の延長）**
+   `suspended`（特定単語の出題を一時停止）は対応するDBカラムが存在せず未実装。必要になった
+   場合は`words`に`boolean`列を1つ追加するmigrationから設計する。また、直近出題履歴は
+   現状ページ表示中のみ保持（タブを閉じる・再訪問でリセット）。セッションをまたいだ抑制が
+   必要になった場合は`localStorage`または新規テーブルでの永続化を検討する。
 
 3. **teacher招待コードの再発行履歴**
    優先度A完了項目3の残課題。現状は再発行すると旧コードの記録が残らない。

@@ -1,27 +1,34 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
-import { sample, shuffle } from "@/lib/utils/shuffle";
+import { shuffle } from "@/lib/utils/shuffle";
 import { saveStudyResult } from "@/lib/srs/saveResult";
+import { selectQuizWords, pickDistractors, type SrsQuizWord } from "@/lib/quiz/wordSelection";
 import { useAppInterstitial, AppRewardedAdButton } from "@/components/ads/AppAds";
 import { speakEn } from "@/lib/tts";
 import { PronounceButton } from "@/components/ui/PronounceButton";
 import { trackFeatureUsed } from "@/lib/analytics/events";
 
-type W = { id: string; word: string; meaning: string; streak: number; is_weak: boolean };
+type W = SrsQuizWord & { streak: number; is_weak: boolean };
 
 type Q = { w: W; choices: string[]; answer: string; prompt: string };
 
-function buildQuestions(pool: W[], mode: "en2ja" | "ja2en", n: number): Q[] {
-  const targets = sample(pool, n);
+// 同一セッション（ページ表示中）で直近に出題した単語数の上限。
+// これを超えて出題履歴を保持すると、単語数の少ない単語帳で出題不能になるため上限を設ける。
+const RECENT_HISTORY_LIMIT = 12;
+
+function buildQuestions(
+  pool: W[],
+  mode: "en2ja" | "ja2en",
+  n: number,
+  excludeIds?: readonly string[],
+): Q[] {
+  const targets = selectQuizWords(pool, n, { excludeIds }) as W[];
   return targets.map((w) => {
-    const distractors = sample(
-      pool.filter((p) => p.id !== w.id),
-      3,
-    ).map((p) => (mode === "en2ja" ? p.meaning : p.word));
+    const distractors = pickDistractors(w, pool, 3, mode);
     const answer = mode === "en2ja" ? w.meaning : w.word;
     const prompt = mode === "en2ja" ? w.word : w.meaning;
     const choices = shuffle([answer, ...distractors]);
@@ -34,7 +41,19 @@ export function ChoiceTestRunner({
 }: { pool: W[]; mode: "en2ja" | "ja2en"; count: number; placement?: string }) {
   const router = useRouter();
   const showInterstitial = useAppInterstitial();
-  const [qs, setQs] = useState(() => buildQuestions(pool, mode, count));
+  // 同一ページ表示中に出題した単語IDの履歴（直近出題の連続再出題を避けるため）。
+  // 「もう一度」で再挑戦した場合も引き継がれる（コンポーネントがアンマウントされないため）。
+  const recentIdsRef = useRef<string[]>([]);
+  const rememberShown = (questions: Q[]) => {
+    recentIdsRef.current = [...recentIdsRef.current, ...questions.map((q) => q.w.id)].slice(
+      -RECENT_HISTORY_LIMIT,
+    );
+  };
+  const [qs, setQs] = useState(() => {
+    const built = buildQuestions(pool, mode, count);
+    rememberShown(built);
+    return built;
+  });
   const [idx, setIdx] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [results, setResults] = useState<{ word: string; meaning: string; ok: boolean }[]>([]);
@@ -75,7 +94,9 @@ export function ChoiceTestRunner({
   };
 
   const restart = () => {
-    setQs(buildQuestions(pool, mode, count));
+    const built = buildQuestions(pool, mode, count, recentIdsRef.current);
+    rememberShown(built);
+    setQs(built);
     setIdx(0);
     setResults([]);
     setDone(false);
@@ -85,7 +106,9 @@ export function ChoiceTestRunner({
 
   // リワード広告視聴後に追加10問を開始
   const onRewardedExtra = () => {
-    setQs(buildQuestions(pool, mode, Math.min(10, pool.length)));
+    const built = buildQuestions(pool, mode, Math.min(10, pool.length), recentIdsRef.current);
+    rememberShown(built);
+    setQs(built);
     setIdx(0);
     setResults([]);
     setDone(false);
@@ -108,7 +131,7 @@ export function ChoiceTestRunner({
 
   if (done) {
     return (
-      <div className="min-h-dvh px-4 py-6 max-w-md mx-auto">
+      <div className="min-h-dvh px-4 py-6 max-w-md mx-auto" data-testid="quiz-done">
         <h1 className="text-2xl font-bold text-navy-800 text-center">結果</h1>
         <div className="mt-6 bg-white rounded-2xl border border-navy-100 shadow-card p-6 text-center">
           <div className="text-sm text-navy-500">正答率</div>
@@ -168,10 +191,14 @@ export function ChoiceTestRunner({
         <div className="text-xs text-navy-400">
           {mode === "en2ja" ? "意味を選ぼう" : "英単語を選ぼう"}
         </div>
-        <div className={cn(
-          "mt-2 font-bold text-navy-900 flex items-center justify-center gap-2",
-          mode === "en2ja" ? "text-4xl" : "text-2xl",
-        )}>
+        <div
+          data-testid="quiz-prompt"
+          data-word-id={cur.w.id}
+          className={cn(
+            "mt-2 font-bold text-navy-900 flex items-center justify-center gap-2",
+            mode === "en2ja" ? "text-4xl" : "text-2xl",
+          )}
+        >
           {cur.prompt}
           {mode === "en2ja" && (
             <PronounceButton word={cur.prompt} size="lg" />
@@ -179,7 +206,7 @@ export function ChoiceTestRunner({
         </div>
       </div>
 
-      <ul className="mt-8 space-y-3">
+      <ul className="mt-8 space-y-3" data-testid="quiz-choices">
         {cur.choices.map((c) => {
           const isAnswer = c === cur.answer;
           const isPicked = c === picked;
@@ -192,6 +219,8 @@ export function ChoiceTestRunner({
           return (
             <li key={c}>
               <button
+                data-testid="quiz-choice"
+                data-answer={isAnswer ? "true" : "false"}
                 onClick={() => onPick(c)}
                 className={cn(
                   "w-full text-left px-4 py-4 rounded-2xl border font-semibold text-navy-800",
@@ -214,7 +243,7 @@ export function ChoiceTestRunner({
               <div className="mt-1 text-navy-600">{cur.w.word} = {cur.w.meaning}</div>
             </div>
           )}
-          <Button fullWidth size="lg" onClick={next}>
+          <Button fullWidth size="lg" onClick={next} data-testid="quiz-next">
             {idx + 1 >= qs.length ? "結果を見る" : "次へ"}
           </Button>
         </div>

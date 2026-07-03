@@ -5,6 +5,89 @@
 
 ---
 
+## 2026-07-03 4択テストの出題ロジックをSRS状態考慮型に修正（未学習優先・重複抑制）
+
+**報告された問題**: 4択クイズ（/test/choice）で、まだ一度も出ていない単語より既出単語ばかり
+繰り返し出題されているように感じる。
+
+**調査結果（Explore agentによる詳細調査を実施）**:
+- `/test/choice`の出題ロジックは`src/lib/utils/shuffle.ts`の`sample()`（Fisher-Yatesシャッフル
+  →先頭n件）のみで、SRSフィールド（correct_count/wrong_count/is_weak/next_review_at/
+  interval_days/ease_factor/last_studied_at）を一切取得・参照していなかった
+  （`page.tsx`の`select()`が`id, word, meaning, streak, is_weak`のみに限定されていた）
+- 未学習単語の判定ロジック自体が存在せず、既学習・未学習が完全に等確率で出題されていた
+- 直近出題履歴を見ないため、同一セッション内での連続再出題を抑制する仕組みもなかった
+- 4択のダミー選択肢も同様に`sample()`によるランダム抽選のみで、品詞を揃える・正解と同じ意味の
+  選択肢を除外する、といった配慮が一切なかった（複数の「正解」が選択肢に並ぶ事故が起こりうる状態）
+- `/review`（SRS V2復習）は`next_review_at`でソートしており、`/test/choice`とは完全に独立した
+  別系統の実装だった。`input`・`typing`も同じ`sample()`を使用しランダム、`listening`のみ
+  `last_studied_at`昇順ソートを実装済み、`attack`は全体シャッフル後に順番出題
+
+**学習状態ラベル設計（DBスキーマ変更なし。既存のSRSカラムから都度算出）**:
+`src/lib/quiz/wordSelection.ts`（新規）に`classifyWordState()`を実装。
+`unseen`（correct_count=0かつwrong_count=0かつlast_studied_at未設定）→`due`
+（next_review_atが到来済み。is_weak/masteredより優先し、定着済みでも期限が来れば`due`に
+再分類される）→`weak`（is_weak=trueかつ未到来）→`mastered`（correct_count≥5かつ
+interval_days≥14かつ未到来）→`learning`（累計解答数が少ない）→`reviewing`（その他）
+の優先順で判定。`suspended`（出題を一時停止）は対応するカラムが存在しないため実装していない
+（必要な場合は別途boolean列追加のmigration設計から着手する）。
+
+**出題ロジック（`selectQuizWords`）**: 単語帳内に未学習(`unseen`)単語が残っている場合は
+全件を優先的に採用（シャッフルした順で上限n件まで）。残り枠は`due`>`weak`>`learning`>
+`reviewing`>`mastered`の順に重み付けした重み付きランダム抽選で埋める（同じ状態の単語ばかり
+連続しないよう毎回ランダム、`mastered`も完全排除はせず低頻度で出題される）。
+直近出題済みID（`excludeIds`）はプールから除外するが、除外すると必要数を満たせない小さい
+単語帳では自動的に除外を解除する。
+
+**選択肢生成ロジック（`pickDistractors`）**: 正解と全く同じ表記（大小文字・空白差異を無視）の
+候補は除外（複数正解事故の防止）、空欄候補は除外、可能な限り正解と同じ品詞(pos)を優先、
+選択肢同士の表記重複を排除。厳密条件で必要数に満たない極小プールでは、表記重複のみ避けて
+補充するフォールバックを用意。
+
+**適用範囲**: `src/app/test/choice/page.tsx`（select()にSRSフィールドを追加）・
+`ChoiceTestRunner.tsx`（新ロジックの利用、直近出題履歴をコンポーネント内`useRef`で保持し
+「もう一度」でも引き継ぐ）のみ。`input`・`typing`・`listening`・`attack`は今回変更していない
+（同じ`selectQuizWords`/`pickDistractors`を将来的に適用できるが、最小限の変更方針のため
+今回はスコープ外。`NEXT_IMPROVEMENTS.md`に残課題として記録）。
+
+**SRS V2との関係**: 出題後の正誤判定・`ease_factor`/`interval_days`/`correct_count`/
+`wrong_count`/`is_weak`/`next_review_at`更新ロジック（`saveStudyResult`/`applySrsV2`）は
+一切変更していない。`/review`と`/test/choice`は同じ`saveStudyResult`を共有しているため、
+このロジック自体は既存のSRS V2 E2E（`test:srs`）で引き続き検証される。
+
+**発見・修正したE2Eテスト基盤の不備**: `resetOnboardingUser()`（`scripts/testing/seed-test-data.mjs`）
+が`word_books`/`words`のみリセットし`study_results`/`daily_stats`をリセットしていなかったため、
+今回追加した4択E2E（実際に解答してSRSを更新する初のE2E）が`test+onboarding`アカウントに
+学習履歴を残し、dashboardの「はじめの3ステップ」ガイド（`everStudied`で表示制御）を前提とする
+`onboarding-dictionary.mjs`のFlow Aが恒久的に失敗する状態になっていた。
+`resetOnboardingUser()`に`study_results`/`daily_stats`の削除を追加し、`quiz.mjs`自身の後始末
+でも同様に削除するよう修正して解消（他の3テストアカウントには影響しない）。
+
+**追加したテスト**:
+- `scripts/testing/test-quiz-selection.mjs`（`npm run test:quiz`、DB不要の単体テスト）:
+  `classifyWordState`の7ケース、`selectQuizWords`の出題順テスト6件（未学習優先・全既習時は
+  due優先・weak/masteredが排除されない・masteredの頻度低下・直近出題除外・除外解除
+  フォールバック）、`pickDistractors`の選択肢テスト6件（4件・正解1つ・重複なし・空欄なし・
+  同義語除外・品詞優先・フォールバック）。計24項目、全PASS
+- `scripts/testing/e2e/quiz.mjs`（`npm run test:quiz:e2e`、`test:e2e`にも6フロー目として統合）:
+  実ブラウザで未学習2語・due1語・weak1語・mastered2語の単語帳を用意し、未学習語が確実に
+  先頭に出題されること・4択の健全性（4件・空欄なし・重複なし・正解1つ）・同一セッション内で
+  単語が重複出題されないこと・正解後にDBの`correct_count`が更新されること・`/review`/`/pdf`
+  への遷移に回帰がないことを検証。計25項目、全PASS
+
+**検証**: `npx tsc --noEmit` / `npm run build` / `npm run test:quiz`（24項目PASS） /
+`npm run test:smoke` / `npm run test:e2e`（6フロー全PASS、`resetOnboardingUser`修正後に
+再確認） / `npm run verify:prod` / `npm run verify:srs-global` 全通過。
+
+**制約**: DBスキーマ変更なし（学習状態は既存カラムから都度算出）、RLS変更なし、SRS V2の
+コア計算ロジック（`applySrsV2`）は不変、teacher機能・教材データには触れていない。
+
+**残課題**（`NEXT_IMPROVEMENTS.md`に記録）: `input`/`typing`/`listening`/`attack`への同ロジック
+適用、`suspended`ラベルの実装（要migration検討）、直近出題履歴のセッション間永続化
+（現状はページ表示中のみ・タブを閉じるとリセット）。
+
+---
+
 ## 2026-07-03 品詞(pos)自動補完候補3,267件の実補完（ユーザー承認済み）
 
 前回のdry-run計画（自動補完候補3,267件、高信頼度ルール1〜5のみ）についてユーザーの承認を

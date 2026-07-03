@@ -64,6 +64,9 @@ async function main() {
 
     console.log("\n=== 8. materials import E2E ===");
     results.materials = runNode("scripts/testing/e2e/materials.mjs");
+
+    console.log("\n=== 9. quiz selection E2E ===");
+    results.quiz = runNode("scripts/testing/e2e/quiz.mjs");
   } finally {
     stopDevServer(dev);
   }
