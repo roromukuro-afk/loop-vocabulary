@@ -75,13 +75,24 @@ export default async function WordBookDetailPage({ params }: { params: Promise<{
       <div className="mt-4 grid grid-cols-2 gap-2">
         <Link href={`/wordbooks/${book.id}/add`}><Button fullWidth>＋ 単語追加</Button></Link>
         <Link href={`/learn?book=${book.id}`}><Button fullWidth variant="secondary">📖 レッスンで学ぶ</Button></Link>
-        <Link href={`/test/choice?book=${book.id}`}><Button fullWidth variant="secondary">4択テスト</Button></Link>
-        <Link href={`/review?book=${book.id}`}><Button fullWidth variant="secondary">この帳を復習</Button></Link>
+      </div>
+
+      {/* 学習モード導線: すべてこの単語帳(?book=)を引き継ぐ */}
+      <div className="mt-4">
+        <div className="text-xs font-bold text-navy-500 mb-2">この単語帳で学習する</div>
+        <div className="grid grid-cols-2 gap-2">
+          <Link href={`/test/choice?book=${book.id}`}><Button fullWidth variant="secondary">🎯 4択テスト</Button></Link>
+          <Link href={`/test/input?book=${book.id}`}><Button fullWidth variant="secondary">✏️ 入力テスト</Button></Link>
+          <Link href={`/test/typing?book=${book.id}`}><Button fullWidth variant="secondary">⌨️ タイピング（Premium）</Button></Link>
+          <Link href={`/test/listening?book=${book.id}`}><Button fullWidth variant="secondary">🎧 リスニング（Premium）</Button></Link>
+          <Link href={`/test/attack?book=${book.id}`}><Button fullWidth variant="secondary">⚡ タイムアタック</Button></Link>
+          <Link href={`/pdf?book=${book.id}`}><Button fullWidth variant="secondary">📄 PDFテスト</Button></Link>
+          <Link href={`/review?book=${book.id}`} className="col-span-2"><Button fullWidth variant="secondary">🔁 SRS復習</Button></Link>
+        </div>
+      </div>
+
+      <div className="mt-4">
         <Link href={`/wordbooks/${book.id}/csv-import`}><Button fullWidth variant="secondary">📁 CSV インポート</Button></Link>
-        <Link href={`/test/attack?book=${book.id}`}><Button fullWidth variant="secondary">⚡ タイムアタック</Button></Link>
-        <Link href={`/test/typing?book=${book.id}`} className="col-span-2">
-          <Button fullWidth variant="secondary">⌨️ タイピング練習（Premium）</Button>
-        </Link>
       </div>
       <AiSuggestButton wordbookId={book.id} isPremium={isPremium} />
 

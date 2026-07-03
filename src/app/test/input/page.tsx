@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { InputTestRunner } from "./InputTestRunner";
+import { resolveScopeLabel } from "@/lib/learning/scopeLabel";
 
 export const dynamic = "force-dynamic";
 
@@ -31,5 +32,6 @@ export default async function InputTestPage({
       </AppShell>
     );
   }
-  return <InputTestRunner pool={pool} count={Math.min(n, pool.length)} />;
+  const scopeLabel = await resolveScopeLabel(supabase, user.id, sp.book);
+  return <InputTestRunner pool={pool} count={Math.min(n, pool.length)} scopeLabel={scopeLabel} />;
 }

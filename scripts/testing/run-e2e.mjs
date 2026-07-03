@@ -73,6 +73,9 @@ async function main() {
 
     console.log("\n=== 11. premium gating regression (profiles.plan → is_premium) ===");
     results.premiumGating = runNode("scripts/testing/verify-premium-gating.mjs");
+
+    console.log("\n=== 12. learning-mode entry points & scope labels E2E ===");
+    results.entryPoints = runNode("scripts/testing/e2e/entry-points.mjs");
   } finally {
     stopDevServer(dev);
   }

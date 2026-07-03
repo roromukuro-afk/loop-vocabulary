@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { srsV2EnabledFor } from "@/lib/srs";
+import { resolveScopeLabel } from "@/lib/learning/scopeLabel";
 import { ChoiceTestRunner } from "../test/choice/ChoiceTestRunner";
 import { FlipCardRunner } from "@/components/review/FlipCardRunner";
 
@@ -29,6 +30,8 @@ export default async function ReviewPage({
 
   const pool = (due ?? []).filter((w) => w.word && w.meaning);
   const mode = sp.mode === "choice" ? "choice" : "flip";
+  const scopeLabel = await resolveScopeLabel(supabase, user.id, sp.book);
+  const bookQuery = sp.book ? `&book=${sp.book}` : "";
 
   if (sp.start === "1") {
     if (mode === "flip" && pool.length >= 1) {
@@ -37,10 +40,10 @@ export default async function ReviewPage({
         .select("srs_v2")
         .eq("id", user.id)
         .maybeSingle();
-      return <FlipCardRunner pool={pool} v2Enabled={srsV2EnabledFor(prof?.srs_v2)} />;
+      return <FlipCardRunner pool={pool} v2Enabled={srsV2EnabledFor(prof?.srs_v2)} scopeLabel={scopeLabel} />;
     }
     if (mode === "choice" && pool.length >= 4) {
-      return <ChoiceTestRunner pool={pool} mode="en2ja" count={Math.min(10, pool.length)} placement="review" />;
+      return <ChoiceTestRunner pool={pool} mode="en2ja" count={Math.min(10, pool.length)} placement="review" scopeLabel={scopeLabel} />;
     }
   }
 
@@ -52,6 +55,7 @@ export default async function ReviewPage({
           ? `${pool.length}語が復習タイミングに来ています。今が覚えどき。`
           : "今日の復習は完了しています。"}
       </p>
+      <p className="text-xs text-navy-400 mt-1" data-testid="quiz-scope-label">{scopeLabel}</p>
 
       {pool.length > 0 && (
         <div className="mt-3 bg-sky-50 border border-sky-200 rounded-xl px-4 py-3 text-xs text-sky-700">
@@ -66,17 +70,17 @@ export default async function ReviewPage({
 
       {/* モード選択ボタン */}
       <div className="mt-5 space-y-3">
-        <Link href="/review?start=1&mode=flip">
+        <Link href={`/review?start=1&mode=flip${bookQuery}`}>
           <Button fullWidth size="lg" disabled={pool.length < 1}>
             🃏 フラッシュカードで復習
           </Button>
         </Link>
-        <Link href="/review?start=1&mode=choice">
+        <Link href={`/review?start=1&mode=choice${bookQuery}`}>
           <Button fullWidth size="lg" variant="secondary" disabled={pool.length < 4}>
             ✏️ 4択テストで復習
           </Button>
         </Link>
-        <Link href="/test/typing">
+        <Link href={`/test/typing${sp.book ? `?book=${sp.book}` : ""}`}>
           <Button fullWidth size="lg" variant="secondary">
             ⌨️ タイピング練習（Premium）
           </Button>

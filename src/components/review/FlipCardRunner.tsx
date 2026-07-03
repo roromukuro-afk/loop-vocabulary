@@ -17,7 +17,7 @@ type Result = { word: string; meaning: string; ok: boolean };
 
 const SWIPE_KEY = "lv_swipe_mode";
 
-export function FlipCardRunner({ pool, v2Enabled }: { pool: W[]; v2Enabled?: boolean }) {
+export function FlipCardRunner({ pool, v2Enabled, scopeLabel }: { pool: W[]; v2Enabled?: boolean; scopeLabel?: string }) {
   const showInterstitial = useAppInterstitial();
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -192,6 +192,9 @@ export function FlipCardRunner({ pool, v2Enabled }: { pool: W[]; v2Enabled?: boo
           {swipeMode ? "👆 スワイプON" : "👆 スワイプ"}
         </button>
       </div>
+      {scopeLabel && (
+        <p className="mt-1 text-center text-[11px] text-navy-400" data-testid="quiz-scope-label">{scopeLabel}</p>
+      )}
 
       <div className="mt-2 h-1.5 bg-navy-100 rounded-full overflow-hidden">
         <div className="h-full bg-sky-500 transition-all duration-300" style={{ width: `${(idx / pool.length) * 100}%` }} />

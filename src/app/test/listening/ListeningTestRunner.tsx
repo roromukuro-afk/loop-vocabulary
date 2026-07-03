@@ -14,7 +14,7 @@ function speakWord(word: string) {
   window.speechSynthesis.speak(utt);
 }
 
-export function ListeningTestRunner({ pool, count = 10 }: { pool: Word[]; count?: number }) {
+export function ListeningTestRunner({ pool, count = 10, scopeLabel }: { pool: Word[]; count?: number; scopeLabel?: string }) {
   // 未学習優先→due/weak優先の重み付き抽選（4択テストと共通ロジック、詳細はwordSelection.ts参照）
   const questions = useMemo(() => selectQuizWords(pool, Math.min(count, pool.length)) as Word[], [pool, count]);
   const [idx, setIdx]         = useState(0);
@@ -119,6 +119,9 @@ export function ListeningTestRunner({ pool, count = 10 }: { pool: Word[]; count?
           <a href="/test" className="hover:underline">← テスト一覧</a>
           <span>{idx + 1} / {questions.length}</span>
         </div>
+        {scopeLabel && (
+          <p className="text-center text-[11px] text-navy-400 mb-3" data-testid="quiz-scope-label">{scopeLabel}</p>
+        )}
         <div className="h-1.5 bg-navy-100 rounded-full overflow-hidden mb-8">
           <div className="h-full bg-indigo-500 transition-all" style={{ width: `${(idx / questions.length) * 100}%` }} />
         </div>

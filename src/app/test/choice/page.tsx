@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { ChoiceTestRunner } from "./ChoiceTestRunner";
 import { AppShell } from "@/components/layout/AppShell";
+import { resolveScopeLabel } from "@/lib/learning/scopeLabel";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export default async function ChoiceTestPage({
 
   const { data: words } = await query.limit(200);
   const pool = words ?? [];
+  const scopeLabel = await resolveScopeLabel(supabase, user.id, sp.book);
 
   if (pool.length < 4) {
     return (
@@ -38,5 +40,5 @@ export default async function ChoiceTestPage({
     );
   }
 
-  return <ChoiceTestRunner pool={pool} mode={mode} count={Math.min(n, pool.length)} />;
+  return <ChoiceTestRunner pool={pool} mode={mode} count={Math.min(n, pool.length)} scopeLabel={scopeLabel} />;
 }

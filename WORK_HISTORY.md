@@ -1,7 +1,90 @@
 # WORK_HISTORY — Loop Vocabulary
 
 > 作業の時系列ログ。新しいものを上に追記する。
-> 最終更新: 2026-07-03
+> 最終更新: 2026-07-04
+
+---
+
+## 2026-07-04 学習モード入口の整理・対象範囲ラベルの全モード統一
+
+出題ロジックの改善(SRS考慮・attack単語帳スコープ)に続き、「どの単語帳で、どの
+学習モードを使っているか」がユーザーに分かりやすくなるよう、単語帳詳細ページの
+導線と各テスト画面の対象範囲表示を整理した。
+
+**整理した導線**: `src/app/wordbooks/[id]/page.tsx`のアクショングリッドを再編し、
+「この単語帳で学習する」セクションに以下7モードへの導線をまとめた。すべて
+`?book=<word_book_id>`を引き継ぐ:
+- 🎯 4択テスト・✏️ 入力テスト・⌨️ タイピング（Premium）・🎧 リスニング（Premium）・
+  ⚡ タイムアタック・📄 PDFテスト・🔁 SRS復習
+
+調査時点では入力テスト・リスニング・PDFテストへの導線が単語帳詳細ページに
+存在していなかった（4択・タイピング・復習の3つのみ）。既存の＋単語追加/📖レッスン/
+📁CSVインポートは維持し、UIの大枠(グリッドレイアウト・Buttonコンポーネント)は
+変更していない。
+
+**各モードの対象範囲表示**: attackモードで先に導入した「「◯◯」から出題中」/
+「全単語帳から出題中」ラベル（`data-testid="quiz-scope-label"`）のロジックを
+`src/lib/learning/scopeLabel.ts`（新規共有ヘルパー、`resolveScopeLabel()`）に切り出し、
+以下全モードへ統一適用した:
+- `/test/choice`・`/test/input`・`/test/typing`・`/test/listening`・`/test/attack`
+  （page.tsxでラベルを算出しRunnerへ`scopeLabel`propとして渡す形に統一。各Runner
+  の「← 中断 / N問中M問目」ヘッダー行の直下に表示）
+- `/review`（一覧画面・フラッシュカード・4択復習の両実行画面）
+- `/pdf`（単語帳選択時のみ「対象語数: N語」を表示。ダミーの語数取得ではなく実際に
+  `words`テーブルをcountクエリで取得）
+
+**PDFの`?book=`対応**: `src/app/pdf/page.tsx`が`searchParams`を受け取り、
+`PdfTestBuilder.tsx`に`initialBookId`propとして渡すよう変更。従来PDFページには
+クエリパラメータの受け口が一切なく、単語帳選択は常に先頭固定だった。
+
+**reviewの引き継ぎバグ修正**: `/review?book=<id>`で表示した「復習待ち」件数は
+book指定を反映していたが、「フラッシュカードで復習」「4択テストで復習」ボタンの
+リンクが`book`パラメータを引き継いでおらず、実際に復習を開始すると対象範囲が
+全単語帳に戻ってしまうバグがあった。両リンクに`&book=<id>`を追加して修正。
+
+**Premium機能の見せ方**: typing/listeningは従来通りルート単位でPremium判定する
+既存方式（`/test/typing`・`/test/listening`にアクセスすると、非Premiumはランナーに
+一切到達せず全画面のプレミアム案内のみが表示され、Premiumなら正常に機能する）を
+維持。単語帳詳細ページのボタンラベルに「（Premium）」を付けることで、非Premium
+ユーザーにも機能の存在自体は伝わるようにした。ゲーティングの仕組み自体（AiSuggestButton
+のようなインライン表示への変更）は今回行わず、既存の実装のみ流用した。
+
+**変更ファイル**: `src/app/wordbooks/[id]/page.tsx`、`src/lib/learning/scopeLabel.ts`
+（新規）、`src/app/test/{choice,input,typing,listening,attack}/page.tsx`、
+`src/app/test/choice/ChoiceTestRunner.tsx`、`src/app/test/input/InputTestRunner.tsx`、
+`src/app/test/typing/TypingTestRunner.tsx`、`src/app/test/listening/ListeningTestRunner.tsx`、
+`src/app/review/page.tsx`、`src/components/review/FlipCardRunner.tsx`、
+`src/app/pdf/page.tsx`、`src/app/pdf/PdfTestBuilder.tsx`、
+`scripts/testing/e2e/entry-points.mjs`（新規）、`package.json`、`scripts/testing/run-e2e.mjs`。
+
+**追加したテスト**: `scripts/testing/e2e/entry-points.mjs`（新規、`npm run
+test:entry-points:e2e`、33項目、`test:e2e`にも12フロー目として統合）。対象単語帳＋
+デコイ単語帳を用意し、①単語帳詳細ページの7導線がすべて正しい`?book=`href付きで
+存在する、②choice/input/attackのスコープラベルに単語帳名が表示される、③typing/
+listeningは非Premiumではランナーに到達せず既存のプレミアム案内のまま、④Premiumでは
+ランナーに到達しスコープラベルが表示される、⑤PDFで単語帳がプリセレクトされ対象
+語数(6語、デコイを含まない)が表示される、⑥reviewの一覧・フラッシュカード実行画面
+双方でスコープラベルが表示されbookパラメータが引き継がれる、⑦dashboard/wordbooks/
+materialsへの回帰なし、を検証。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run
+test:learning-modes:e2e`（25/25、ラベル追加後も既存アサーションに影響なし） /
+`npm run test:premium-gating`（21/21） / `npm run test:entry-points:e2e`（33/33） /
+`npm run test:e2e`（12フロー全PASS） / `npm run test:smoke` / `npm run verify:prod` /
+`npm run verify:srs-global`。
+
+**残課題**:
+- typing/listeningのPremiumゲーティングは今回ルート単位ブロックのまま維持した。
+  AiSuggestButtonのような「同一ページ内でインライン表示を切り替える」方式への
+  変更は行っていない（要望が出た場合に検討）。
+- `ImportMaterialButton.tsx`の「テスト開始」ボタンは引き続き`/test/choice?book=`
+  固定（NEXT_IMPROVEMENTS.md 2f、既存の残課題のまま）。
+- PDFの対象語数表示は`words`テーブルの単純な件数のみで、SRS状態別（未学習/苦手等）
+  の内訳は表示していない（既存の「絞り込み」セレクトで対応可能なため今回は追加せず）。
+
+DBスキーマ変更なし、RLS変更なし、SRS V2ロジック変更なし、teacher機能変更なし、
+教材データ変更なし、課金本番導入なし。既存の全単語帳横断モードは維持（book未指定時は
+従来通り全単語帳から出題）。
 
 ---
 

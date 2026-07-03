@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { AppShell } from "@/components/layout/AppShell";
 import { AttackRunner } from "./AttackRunner";
+import { resolveScopeLabel } from "@/lib/learning/scopeLabel";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -30,20 +31,7 @@ export default async function AttackPage({
   const { data: words } = await query.limit(200);
   const pool = words ?? [];
 
-  // book指定時のみ表示用にタイトルを取得（未指定時は全単語帳横断のまま、query自体は変更しない）
-  let bookTitle: string | null = null;
-  if (sp.book) {
-    const { data: book } = await supabase
-      .from("word_books")
-      .select("title")
-      .eq("id", sp.book)
-      .eq("user_id", user.id)
-      .maybeSingle();
-    bookTitle = book?.title ?? null;
-  }
-  const scopeLabel = sp.book
-    ? (bookTitle ? `「${bookTitle}」から出題中` : "指定した単語帳から出題中")
-    : "全単語帳から出題中";
+  const scopeLabel = await resolveScopeLabel(supabase, user.id, sp.book);
 
   return (
     <AppShell>

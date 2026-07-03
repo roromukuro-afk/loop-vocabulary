@@ -37,8 +37,8 @@ function buildQuestions(
 }
 
 export function ChoiceTestRunner({
-  pool, mode, count, placement = "choice_test",
-}: { pool: W[]; mode: "en2ja" | "ja2en"; count: number; placement?: string }) {
+  pool, mode, count, placement = "choice_test", scopeLabel,
+}: { pool: W[]; mode: "en2ja" | "ja2en"; count: number; placement?: string; scopeLabel?: string }) {
   const router = useRouter();
   const showInterstitial = useAppInterstitial();
   // 同一ページ表示中に出題した単語IDの履歴（直近出題の連続再出題を避けるため）。
@@ -182,6 +182,9 @@ export function ChoiceTestRunner({
         <Link href="/dashboard">← 中断</Link>
         <span>{idx + 1} / {qs.length}</span>
       </div>
+      {scopeLabel && (
+        <p className="mt-1 text-center text-[11px] text-navy-400" data-testid="quiz-scope-label">{scopeLabel}</p>
+      )}
       <div className="mt-2 h-1.5 bg-navy-100 rounded-full overflow-hidden">
         <div className="h-full bg-navy-700 transition-all"
              style={{ width: `${((idx + (picked ? 1 : 0)) / qs.length) * 100}%` }} />

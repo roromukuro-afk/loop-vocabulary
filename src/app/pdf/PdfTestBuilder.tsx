@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -21,10 +21,12 @@ type AnswerMode = "none" | "inline" | "separate";
 type Row = { word: string; meaning: string };
 
 export function PdfTestBuilder({
-  books, materials,
-}: { books: { id: string; title: string }[]; materials: { id: string; title: string }[] }) {
-  const [src, setSrc] = useState<SourceKind>(books[0] ? "book" : "material");
-  const [sourceId, setSourceId] = useState<string>(books[0]?.id ?? materials[0]?.id ?? "");
+  books, materials, initialBookId,
+}: { books: { id: string; title: string }[]; materials: { id: string; title: string }[]; initialBookId?: string | null }) {
+  // ?book=<id> で単語帳詳細ページ等から遷移してきた場合は、その単語帳を初期選択する
+  const initialBook = initialBookId ? books.find((b) => b.id === initialBookId) : undefined;
+  const [src, setSrc] = useState<SourceKind>(initialBook ? "book" : books[0] ? "book" : "material");
+  const [sourceId, setSourceId] = useState<string>(initialBook?.id ?? books[0]?.id ?? materials[0]?.id ?? "");
   const [direction, setDirection] = useState<Direction>("en2ja");
   const [format, setFormat] = useState<Format>("write");
   const [filter, setFilter] = useState<Filter>("all");
@@ -34,6 +36,22 @@ export function PdfTestBuilder({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [showUpsell, setShowUpsell] = useState(false);
+  const [scopeWordCount, setScopeWordCount] = useState<number | null>(null);
+
+  // 選択中の単語帳の対象語数を表示するため、選択が変わるたびに件数のみ取得する
+  useEffect(() => {
+    if (src !== "book" || !sourceId) { setScopeWordCount(null); return; }
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const { count: n } = await supabase
+        .from("words")
+        .select("*", { count: "exact", head: true })
+        .eq("word_book_id", sourceId);
+      if (!cancelled) setScopeWordCount(n ?? 0);
+    })();
+    return () => { cancelled = true; };
+  }, [src, sourceId]);
 
   const fetchRows = async (): Promise<Row[]> => {
     const supabase = createClient();
@@ -140,6 +158,11 @@ export function PdfTestBuilder({
           {options.length === 0 && <option value="">選択肢がありません</option>}
           {options.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
         </Select>
+        {src === "book" && sourceId && (
+          <p className="mt-1 text-[11px] text-navy-400" data-testid="quiz-scope-label">
+            {scopeWordCount === null ? "対象語数を確認中…" : `対象語数: ${scopeWordCount}語`}
+          </p>
+        )}
       </Field>
       <Field label="出題方向">
         <Select value={direction} onChange={(e) => setDirection(e.target.value as Direction)}>

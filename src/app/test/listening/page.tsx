@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { ListeningTestRunner } from "./ListeningTestRunner";
 import { Button } from "@/components/ui/Button";
+import { resolveScopeLabel } from "@/lib/learning/scopeLabel";
 
 export const metadata: Metadata = {
   title: "リスニングテスト | Loop Vocabulary",
@@ -61,6 +62,7 @@ export default async function ListeningTestPage({
 
   const pool = (words ?? []).filter((w) => w.word && w.meaning);
   const n = Math.min(parseInt(sp.n ?? "10", 10) || 10, pool.length);
+  const scopeLabel = await resolveScopeLabel(supabase, user.id, sp.book);
 
-  return <ListeningTestRunner pool={pool} count={n} />;
+  return <ListeningTestRunner pool={pool} count={n} scopeLabel={scopeLabel} />;
 }

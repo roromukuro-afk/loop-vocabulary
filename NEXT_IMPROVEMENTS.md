@@ -4,7 +4,7 @@
 > 大きめの機能追加は実際の利用状況を見てから判断する。
 > 各項目は着手前に個別のご確認をいただく（本ドキュメントは提案のみ・実装はまだしない）。
 >
-> **2026-07-03時点: 優先度A（下記10項目）はすべて完了。現在は次の優先度整理フェーズ。**
+> **2026-07-04時点: 優先度A（下記13項目）はすべて完了。現在は次の優先度整理フェーズ。**
 > 本番ヘルスチェック結果・現在の運用状態は [WORK_HISTORY.md](WORK_HISTORY.md) の
 > 「2026-07-02 運用状態の整理・本番ヘルスチェック」を参照。
 > 既存教材の品質状況は [MATERIALS_AUDIT.md](MATERIALS_AUDIT.md) を参照
@@ -125,6 +125,22 @@
     `npm run test:premium-gating`（新規、21項目、`test:e2e`にも8フロー目として統合）で
     非Premium/Premium双方の表示分岐・API 403/非403分岐・5学習モードへの回帰なしを検証、
     全PASS。詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
+
+13. ✅ **完了（2026-07-04）: 学習モード入口の整理・対象範囲ラベルの全モード統一**
+    単語帳詳細ページ(`/wordbooks/[id]`)に4択/入力/タイピング/リスニング/タイムアタック/
+    PDFテスト/SRS復習の7導線をすべて`?book=<id>`引き継ぎ付きで整理して追加（従来は
+    4択・タイピング・復習の3つのみ、入力/リスニング/PDFへの導線は存在しなかった）。
+    attackで先に導入した対象範囲ラベル（「◯◯」から出題中／全単語帳から出題中、
+    `data-testid="quiz-scope-label"`）のロジックを`src/lib/learning/scopeLabel.ts`
+    （新規共有ヘルパー）に切り出し、choice/input/typing/listening/review/attackの
+    全モードへ適用。PDFは`?book=`でのプリセレクト＋対象語数表示を追加。reviewは
+    従来モード選択ボタンが`?book=`を引き継いでおらず復習実行時にスコープが失われる
+    バグがあったため、これも合わせて修正。typing/listeningのPremium制限は既存の
+    ルート単位ブロック（存在は見える・利用時にプレミアム案内・Premiumユーザーは
+    正常利用）をそのまま維持し、ゲーティング方式自体は変更していない。
+    `scripts/testing/e2e/entry-points.mjs`（新規、33項目、`test:e2e`にも12フロー目
+    として統合）で7導線のhref・各モードのラベル表示・PDF語数・review引き継ぎ・
+    Premium有無の分岐を検証、全PASS。詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
 
 ---
 

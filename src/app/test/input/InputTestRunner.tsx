@@ -11,7 +11,7 @@ type W = SrsQuizWord & { streak: number; is_weak: boolean };
 type State = "input" | "judged";
 type Verdict = "correct" | "close" | "wrong";
 
-export function InputTestRunner({ pool, count }: { pool: W[]; count: number }) {
+export function InputTestRunner({ pool, count, scopeLabel }: { pool: W[]; count: number; scopeLabel?: string }) {
   // 未学習優先→due/weak優先の重み付き抽選（4択テストと共通ロジック、詳細はwordSelection.ts参照）
   const qs = useMemo(() => selectQuizWords(pool, count) as W[], [pool, count]);
   const [idx, setIdx] = useState(0);
@@ -86,6 +86,9 @@ export function InputTestRunner({ pool, count }: { pool: W[]; count: number }) {
         <Link href="/dashboard">← 中断</Link>
         <span>{idx + 1} / {qs.length}</span>
       </div>
+      {scopeLabel && (
+        <p className="mt-1 text-center text-[11px] text-navy-400" data-testid="quiz-scope-label">{scopeLabel}</p>
+      )}
       <div className="mt-2 h-1.5 bg-navy-100 rounded-full overflow-hidden">
         <div className="h-full bg-navy-700 transition-all" style={{ width: `${(idx / qs.length) * 100}%` }} />
       </div>
