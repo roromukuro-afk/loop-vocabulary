@@ -329,13 +329,30 @@ export default async function MaterialsPage({
 
       <SearchBar />
 
+      {/* カテゴリから探す（アンカーリンクでページ内ジャンプ。新規ページは作らない） */}
+      <div className="mt-4 flex flex-wrap gap-1.5" data-testid="category-quick-jump">
+        {CATEGORY_GROUPS.map((group) => {
+          const grouped = allMaterials.filter((m) => group.match(m));
+          if (grouped.length === 0 && !group.comingSoon?.length) return null;
+          return (
+            <a
+              key={group.id}
+              href={`#${group.id}`}
+              className="text-[11px] px-2.5 py-1 rounded-full bg-navy-50 text-navy-700 hover:bg-navy-100 transition-colors"
+            >
+              {group.icon} {group.label}
+            </a>
+          );
+        })}
+      </div>
+
       <div className="mt-5 space-y-7">
         {CATEGORY_GROUPS.map((group) => {
           const grouped = allMaterials.filter((m) => group.match(m));
           if (grouped.length === 0 && !group.comingSoon?.length) return null;
 
           return (
-            <section key={group.id}>
+            <section key={group.id} id={group.id} className="scroll-mt-4">
               <div className="flex items-center gap-2.5 mb-3">
                 <div
                   className={`w-8 h-8 ${group.iconBg} rounded-xl flex items-center justify-center text-base flex-shrink-0`}

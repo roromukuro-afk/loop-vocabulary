@@ -82,6 +82,9 @@ async function main() {
 
     console.log("\n=== 14. review recovery mode E2E ===");
     results.recoveryMode = runNode("scripts/testing/e2e/recovery-mode.mjs");
+
+    console.log("\n=== 15. internal links (materials/dictionary) E2E ===");
+    results.internalLinks = runNode("scripts/testing/e2e/internal-links.mjs");
   } finally {
     stopDevServer(dev);
   }

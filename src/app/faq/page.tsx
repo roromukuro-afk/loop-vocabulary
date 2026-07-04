@@ -105,8 +105,10 @@ export default function FaqPage() {
           </Link>
         </div>
 
-        <div className="text-center pt-2">
-          <Link href="/" className="text-sm text-navy-500 underline">← トップページ</Link>
+        <div className="flex justify-center gap-4 text-sm flex-wrap pt-2">
+          <Link href="/materials" className="text-navy-500 underline">教材一覧</Link>
+          <Link href="/dictionary" className="text-navy-500 underline">辞書検索</Link>
+          <Link href="/" className="text-navy-500 underline">← トップページ</Link>
         </div>
       </div>
     </div>

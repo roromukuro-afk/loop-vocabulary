@@ -5,6 +5,85 @@
 
 ---
 
+## 2026-07-04 教材・辞書ページの内部リンク強化
+
+**目的**: 前回の収益化・成長監査で確認した「教材詳細ページに関連教材リンクが無い」
+「辞書⇄教材の相互導線が無い」という内部リンクの弱さに対応し、SEO流入・教材ページの
+回遊率・無料ユーザーの継続導線を強化した。
+
+**現状調査（実施結果）**:
+- `/materials`から各教材詳細への導線はカテゴリ別セクション表示のみで、セクションへの
+  アンカージャンプは無かった
+- `/materials/[id]`から関連教材への導線は皆無（`/materials`一覧への「戻る」リンクのみ）
+- `/dictionary`から教材・単語帳への導線は無く、検索機能のみだった
+- `/guide`・`/grammar`・`/faq`はいずれも下部CTAが`/signup`または`/contact`のみで、
+  `/materials`・`/dictionary`への相互リンクが無かった
+- 教材詳細ページのSEO title/descriptionは既に動的生成（`generateMetadata`）でキーワードを
+  含む具体的な内容になっていた（例: 「TOEIC 基礎100【スターターパック】単語帳【無料】
+  TOEIC基礎レベル・TOEIC対策 | Loop Vocabulary」）
+- Breadcrumb構造化データは`/materials/[id]`・`/grammar/[slug]`には既にあったが、
+  `/dictionary`には無かった
+- FAQ構造化データは`/faq`に既に実装済みだった
+- 公開ページ（`/materials`・`/materials/[id]`・`/dictionary`・`/guide`・`/grammar`・`/faq`）は
+  いずれも未ログインで本文閲覧・回遊が可能だった
+- `materials.exam_type`は全43教材で必ず設定されており（NULL無し）、値は
+  `大学受験`(11)・`高校入試`(5)・`英検`(10)・`高校英語`(2)・`大学入試`(2)・`一般`(7)・
+  `TOEIC`(4)・`ビジネス英語`(2)の8種類。カテゴリごとに表記ゆれがあるため、そのまま
+  `exam_type`だけで関連判定するとグルーピングが崩れる（例: 「高校入試」と「高校英語」は
+  本来同じ括り）ことを確認した
+
+**実装内容**:
+- `src/app/materials/[id]/page.tsx`: `EXAM_TYPE_GROUP`マップで8種類の`exam_type`を
+  「大学受験・共通テスト」「中学・高校基礎」「英検対策」「TOEIC・ビジネス英語」
+  「日常会話・学び直し」の5グループに正規化。同グループの他教材を`material_words`を
+  取得しない軽量クエリ（4列のみ・`.limit(6)`）で最大6件取得し、「関連する教材」
+  セクションとして表示（自身は`.neq("id", material.id)`で除外）。既存のBreadcrumb
+  JSON-LD・インポート導線は無変更。教材⇄辞書の回遊のため「🔍 辞書で単語を調べる」
+  「📚 教材一覧に戻る」のリンク行も追加。
+- `src/app/dictionary/page.tsx`: 「単語帳を自分で作るのが大変な方へ」というカードを
+  検索カードの下に追加し、`/materials`への導線を新設（未ログインユーザーにも表示）。
+  Breadcrumb JSON-LD（ホーム→辞書検索の2階層）も新規追加。
+- `src/app/materials/page.tsx`: カテゴリ別表示の各`<section>`に`id={group.id}`を付与し、
+  検索バーの下に絵文字+ラベルのアンカーリンク一覧（クイックジャンプ）を追加。ページ内
+  スクロールのみで新規ページ作成は無し。
+- `src/app/grammar/page.tsx`・`src/app/guide/page.tsx`・`src/app/faq/page.tsx`: 下部の
+  リンク行に`/materials`（教材一覧）・`/dictionary`（辞書検索）への相互リンクを追加。
+
+**関連教材ロジックの検証**: TOEIC 基礎100（`exam_type=TOEIC`）で確認したところ、同じ
+「TOEIC・ビジネス英語」グループに属するビジネス英語 基礎100（`exam_type=ビジネス英語`）・
+会議/メール英語100・TOEIC頻出動詞100・既存TOEIC頻出単語800/600の計5件が正しく関連教材に
+表示され、2026-07-04に追加したばかりの新規TOEIC/ビジネス教材も自動的にこの仕組みに
+乗ることを確認した（手動でのリンク登録は不要）。
+
+**テスト**: `scripts/testing/e2e/internal-links.mjs`（新規、`npm run test:internal-links`）
+を新設し、`test:e2e`にも15フロー目として統合。実ブラウザで、(1)カテゴリクイックジャンプの
+表示、(2)関連教材セクションの表示・新規ビジネス英語教材が含まれること・自分自身が
+除外されていること、(3)関連教材リンクのクリック遷移、(4)教材詳細→辞書、(5)辞書→教材一覧
+の相互導線、(6)既存の無料登録CTA（インポート導線）が壊れていないこと、(7)モバイル幅
+(375px)で横スクロールが発生しないこと、をすべて検証。
+
+**変更ファイル**: `src/app/materials/[id]/page.tsx`、`src/app/dictionary/page.tsx`、
+`src/app/materials/page.tsx`、`src/app/grammar/page.tsx`、`src/app/guide/page.tsx`、
+`src/app/faq/page.tsx`、`scripts/testing/e2e/internal-links.mjs`（新規）、`package.json`
+（`test:internal-links`スクリプト追加）、`scripts/testing/run-e2e.mjs`（15フロー目として
+統合）、`NEXT_IMPROVEMENTS.md`。
+
+**変更していないもの**: DBスキーマ（マイグレーション無し）、RLS、SRS V2ロジック、
+teacher機能、教材データ本体（`material_words`の内容は一切変更していない）、AdSense広告枠
+（学習中・復習中画面への追加はしていない）、既存のSEOメタ情報（すでに強かったため
+`/dictionary`のBreadcrumb追加以外は変更なし）、既存の教材インポート導線。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run test:smoke` /
+`npm run test:internal-links`（単独実行、全項目PASS） / `npm run test:materials:e2e`
+（25/25、回帰なし） / `npm run test:e2e`（15フロー全PASS） / `npm run verify:prod` /
+`npm run verify:srs-global`。
+
+**残課題**: 関連教材の並び順は現状「タイトルのアルファベット/五十音順」のみ（レベル近似度
+による並び替えは未実装）。カテゴリ別のLP新設（TOEIC向け公開LP等）は今回のスコープ外
+（教材追加の状況を見てから検討）。
+
+---
+
 ## 2026-07-04 復習リカバリーモードの実装
 
 **目的**: 前回の収益化・成長監査で確認した「復習の雪だるま問題」（`/review`の復習キューは

@@ -35,8 +35,22 @@ export default async function DictionaryPage() {
     books = data ?? [];
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "ホーム", item: siteUrl },
+      { "@type": "ListItem", position: 2, name: "辞書検索", item: `${siteUrl}/dictionary` },
+    ],
+  };
+
   return (
     <AppShell>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
       <h1 className="text-xl font-bold text-navy-800">辞書検索</h1>
       <p className="text-sm text-navy-500 mt-1">
         {user
@@ -67,6 +81,20 @@ export default async function DictionaryPage() {
         ※ 検索対象は、許諾済みの公開教材データ・あなた自身の登録単語です。
         外部辞書APIには将来差し替え可能な構造にしています。
       </p>
+
+      {/* 単語帳を自分で作るのが大変な方へ: 内蔵教材への導線 */}
+      <div className="mt-4 bg-navy-50 border border-navy-100 rounded-2xl px-4 py-3" data-testid="dictionary-materials-cta">
+        <p className="text-xs font-bold text-navy-700">単語帳を自分で作るのが大変な方へ</p>
+        <p className="text-xs text-navy-500 mt-1">
+          TOEIC・英検・大学受験など目的別の内蔵教材から、まとめて単語帳にインポートできます。
+        </p>
+        <Link
+          href="/materials"
+          className="mt-2 inline-block text-xs font-bold text-sky-600 hover:underline"
+        >
+          📚 目的別の教材一覧を見る →
+        </Link>
+      </div>
     </AppShell>
   );
 }

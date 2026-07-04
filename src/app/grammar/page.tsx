@@ -98,8 +98,10 @@ export default function GrammarIndexPage() {
           </Link>
         </div>
 
-        <div className="flex justify-center gap-4 text-sm">
+        <div className="flex justify-center gap-4 text-sm flex-wrap">
           <Link href="/guide" className="text-navy-500 underline">単語学習ガイド</Link>
+          <Link href="/materials" className="text-navy-500 underline">教材一覧</Link>
+          <Link href="/dictionary" className="text-navy-500 underline">辞書検索</Link>
           <Link href="/" className="text-navy-500 underline">トップページ</Link>
         </div>
       </div>

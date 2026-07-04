@@ -60,6 +60,20 @@ const LEVEL_COLOR: Record<string, string> = {
 
 const IMPORTANCE_COLOR = ["", "text-navy-300", "text-navy-400", "text-navy-500", "text-amber-500", "text-red-500"];
 
+// 関連教材のグルーピング（/materials の CATEGORY_GROUPS と同じ分類軸に揃える）。
+// materials.exam_type は必ず設定されているため、これだけで重複なく1グループに決まる。
+const EXAM_TYPE_GROUP: Record<string, string> = {
+  "大学受験": "大学受験・共通テスト",
+  "共通テスト": "大学受験・共通テスト",
+  "大学入試": "大学受験・共通テスト",
+  "高校入試": "中学・高校基礎",
+  "高校英語": "中学・高校基礎",
+  "英検": "英検対策",
+  "TOEIC": "TOEIC・ビジネス英語",
+  "ビジネス英語": "TOEIC・ビジネス英語",
+  "一般": "日常会話・学び直し",
+};
+
 export default async function MaterialDetailPage({
   params,
   searchParams,
@@ -116,9 +130,16 @@ export default async function MaterialDetailPage({
     return all;
   };
 
+  // 関連教材: 同じexam_typeグループ（大学受験系/中高基礎/英検/TOEIC・ビジネス/一般）の
+  // 他教材を最大6件。material_wordsを取得しない軽量クエリ（4列のみ・最大6行）。
+  const relatedGroupLabel = EXAM_TYPE_GROUP[material.exam_type ?? ""] ?? null;
+  const relatedExamTypes = relatedGroupLabel
+    ? Object.entries(EXAM_TYPE_GROUP).filter(([, v]) => v === relatedGroupLabel).map(([k]) => k)
+    : [];
+
   // Fetch total word count (exact count, no rows returned), level breakdown for
-  // tabs, filtered words for display, and import status in parallel
-  const [{ count: totalWordCount }, allLevels, { data: words }, { data: importedBook }] =
+  // tabs, filtered words for display, import status, and related materials in parallel
+  const [{ count: totalWordCount }, allLevels, { data: words }, { data: importedBook }, { data: relatedMaterials }] =
     await Promise.all([
       supabase
         .from("material_words")
@@ -134,6 +155,17 @@ export default async function MaterialDetailPage({
             .eq("source_material_id", material.id)
             .maybeSingle()
         : Promise.resolve({ data: null }),
+      relatedExamTypes.length > 0
+        ? supabase
+            .from("materials")
+            .select("id, title, level, exam_type")
+            .eq("is_public", true)
+            .in("license_status", ["approved", "original"])
+            .in("exam_type", relatedExamTypes)
+            .neq("id", material.id)
+            .order("title", { ascending: true })
+            .limit(6)
+        : Promise.resolve({ data: [] }),
     ]);
 
   // Level breakdown for tabs
@@ -344,6 +376,45 @@ export default async function MaterialDetailPage({
           ))}
         </ul>
       </Card>
+
+      {/* 関連教材（同じカテゴリ・レベル帯の他教材。最大6件） */}
+      {relatedMaterials && relatedMaterials.length > 0 && (
+        <div className="mt-5" data-testid="related-materials">
+          <div className="text-sm font-bold text-navy-700 mb-2">{relatedGroupLabel}の他の教材</div>
+          <ul className="space-y-2">
+            {relatedMaterials.map((m) => (
+              <li key={m.id}>
+                <Link
+                  href={`/materials/${m.id}`}
+                  className="block bg-white rounded-xl border border-navy-100 px-4 py-3 hover:shadow-md transition-shadow"
+                >
+                  <div className="font-semibold text-navy-800 text-sm">{m.title}</div>
+                  <div className="flex gap-2 mt-1 text-[11px] text-navy-400">
+                    {m.level && <span>{m.level}</span>}
+                    {m.exam_type && <span>・{m.exam_type}</span>}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* 他の学び方への導線 */}
+      <div className="mt-5 flex flex-wrap gap-2 text-xs">
+        <Link
+          href="/dictionary"
+          className="px-3 py-2 rounded-xl border border-navy-200 text-navy-600 hover:bg-navy-50 transition-colors"
+        >
+          🔍 辞書で単語を調べる
+        </Link>
+        <Link
+          href="/materials"
+          className="px-3 py-2 rounded-xl border border-navy-200 text-navy-600 hover:bg-navy-50 transition-colors"
+        >
+          📚 教材一覧に戻る
+        </Link>
+      </div>
     </AppShell>
   );
 }
