@@ -76,6 +76,9 @@ async function main() {
 
     console.log("\n=== 12. learning-mode entry points & scope labels E2E ===");
     results.entryPoints = runNode("scripts/testing/e2e/entry-points.mjs");
+
+    console.log("\n=== 13. wordbook deletion E2E ===");
+    results.wordbookDelete = runNode("scripts/testing/e2e/wordbook-delete.mjs");
   } finally {
     stopDevServer(dev);
   }

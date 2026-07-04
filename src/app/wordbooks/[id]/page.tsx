@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/supabase/requireUser";
 import { WordListWithDrawer } from "./WordListWithDrawer";
 import { ShareButton } from "@/components/wordbooks/ShareButton";
 import { AiSuggestButton } from "@/components/wordbooks/AiSuggestButton";
+import { DeleteWordbookButton } from "@/components/wordbooks/DeleteWordbookButton";
 import { QuickAddWord } from "./QuickAddWord";
 
 export const dynamic = "force-dynamic";
@@ -112,6 +113,8 @@ export default async function WordBookDetailPage({ params }: { params: Promise<{
           initialCode={book.share_code ?? null}
         />
       </div>
+
+      <DeleteWordbookButton wordbookId={book.id} title={book.title} wordCount={totalCount} />
     </AppShell>
   );
 }

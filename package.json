@@ -23,6 +23,7 @@
     "test:learning-modes:e2e": "node scripts/testing/e2e/learning-modes.mjs",
     "test:premium-gating": "node scripts/testing/verify-premium-gating.mjs",
     "test:entry-points:e2e": "node scripts/testing/e2e/entry-points.mjs",
+    "test:wordbook-delete": "node scripts/testing/e2e/wordbook-delete.mjs",
     "test:dates": "node scripts/testing/test-date-utils.mjs",
     "test:quiz": "node scripts/testing/test-learning-selection.mjs",
     "test:learning-selection": "node scripts/testing/test-learning-selection.mjs",

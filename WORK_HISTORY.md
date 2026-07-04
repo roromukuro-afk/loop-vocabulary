@@ -5,6 +5,113 @@
 
 ---
 
+## 2026-07-04 収益化・成長観点の監査 + 単語帳削除バグの修正
+
+**目的**: Loop Vocabularyを「ただの英単語アプリ」から収益化できる強いWebアプリにするため、
+事業・収益・継続率・SEO流入の観点でコード・DB・教材・導線を監査し、優先順位付きロードマップに
+反映した。全実装は行わず、Phase 0（監査）→Phase 1（最優先バグ確認・修正）→Phase 2
+（ロードマップ反映）の順で進めた。
+
+**監査方法**: 3体のExplore系サブエージェントを並列起動し、(1)教材のTOEIC/ビジネス/専門分野
+語彙の充実度、(2)SEO メタ情報・構造化データ・内部リンク、(3)ゲーミフィケーション・
+ダッシュボード可視化・SRS復習スケジューリングの3領域を独立調査。単語帳削除バグの調査
+（Phase 1最優先事項）は自分で直接コード・スキーマを確認した。
+
+**監査結果サマリー（詳細は[NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md)「💰 収益化・成長 監査」参照）**:
+- **TOEIC/ビジネス教材が弱い（確認済み）**: 全39教材・32,692語のうちTOEICはわずか2件
+  （計2,763語）、ビジネス英語専用教材は0件。ユーザーの問題意識通り、大学受験(9件)・
+  英検(11件)に比べて明確に手薄だった。
+- **復習の雪だるま問題への救済導線が未実装（確認済み）**: `/review`の復習キューは`.limit(50)`
+  のハード上限のみで、ソフト上限・「今日はここまで」提案・「まず10語だけ」ボタン・
+  非難しないメッセージング等はいずれも存在しなかった。優先順位付け（`next_review_at`昇順）
+  自体は妥当な設計で機能している。
+- **専門分野・ニュース語彙がほぼ無い（確認済み）**: 経済・金融・企業・決算・株式・
+  テクノロジー・バイオ・医療をタイトルに含む教材は「loop学びなおし英単語③【ニュース・教養】」
+  （300語、一般教養寄り）の1件のみ。専門特化デッキは0件。
+- **ダッシュボードの進捗可視化は想定よりかなり充実していた**: ストリーク・目標進捗バー・
+  3統計カード・状況に応じたCTA・デイリーミッション・バッジ・次バッジ進捗・週間チャレンジ・
+  XP/レベル・90日カレンダー・最近の単語・今日の単語まで既に実装済み。唯一の欠落は
+  `words.mastery`（習得率）がダッシュボードに一切表示されていない点。
+- **ゲーミフィケーションも想定よりかなり充実していた**: バッジ6種・週間ランキング（公開）・
+  XP/レベル・デイリーミッション・週間チャレンジが既に実装済み。ユーザーが「不足」と想定していた
+  要素の多くが既にあった。唯一の欠落はバッジ/ストリーク達成とリワードチケットシステムの連携。
+- **SEO・メタ情報・構造化データは想定より強かった**: `/materials`・`/materials/[id]`
+  （動的generateMetadata）・`/dictionary`・`/guide`・`/grammar`・`/faq`いずれもキーワードを
+  含む具体的なtitle/description、8ファイルにJSON-LD構造化データ（BreadcrumbList・
+  FAQPage・Article・ItemList）実装済み、sitemapも動的ルートを網羅。実質的な弱点は
+  内部リンクの密度（関連教材リンク・辞書→教材導線が無い）のみだった。
+- **調べる→登録→復習→テストの導線は前回までにほぼ整備済み**: 2026-07-04の他ラウンドで
+  単語帳詳細への7導線整理・教材インポート後CTAをすでに実施済みで、大きな穴はなかった。
+- **AI復習最適化は土台はあるが分析機能は未実装**: SRS V2・`is_weak`フラグ・正誤カウントは
+  既に出題重み付けに活用されているが、「品詞別弱点分析」等のユーザー向け分析UIはまだ無い。
+
+**Phase 1: 単語帳削除バグの確認・修正（最優先事項、本当にバグがあった）**
+
+`/wordbooks`（一覧）・`/wordbooks/[id]`（詳細）のいずれにも単語帳を削除するUIが一切存在せず、
+`src/app/api/wordbook/`配下にもDELETEハンドラを持つルートが存在しなかった。RLS
+（`word_books owner all`ポリシー、`for all using (auth.uid()=user_id)`）は削除自体を
+禁止していなかったため、原因は**RLSではなく純粋なアプリ側の機能欠落**だった。
+
+放置した場合の設計上の問題も確認: `words.word_book_id`は`on delete set null`のため、
+仮に将来DB側だけで単語帳を削除しても単語が孤立し（`word_book_id = null`）、`/review`の
+デフォルト（`book`パラメータ未指定時）復習プールは`user_id`のみでスコープされているため、
+削除したはずの単語帳の単語が復習キューに永久に残り続ける「幽霊単語」問題が起きる設計だった。
+これを避けるため、単語帳削除時は紐づく単語も明示的に削除する仕様にした
+（`study_results.word_id`は`on delete cascade`のため学習履歴も安全に連鎖削除される。
+`daily_stats`は日次集計のみで単語IDに依存しないため影響なし。共有単語帳の`import-shared`は
+取込時に単語を丸ごとコピーする設計のため、元の単語帳を後で削除しても他ユーザーの
+取込先単語帳には影響しないことも確認済み）。
+
+**実装内容**:
+- `src/app/api/wordbook/[id]/route.ts`（新規）: DELETEハンドラ。認証確認→所有権確認
+  （`user_id`一致、`requireUser`と同等のパターン）→紐づく単語を削除→単語帳本体を削除。
+  DBスキーマ変更・RLS変更は一切行っていない。
+- `src/components/wordbooks/DeleteWordbookButton.tsx`（新規）: 確認ダイアログ
+  （単語帳名・語数を明示）付きの削除ボタン。既存の`WordListWithDrawer.tsx`の単語削除UXと
+  同じ`confirm()`パターンを踏襲。
+- `src/app/wordbooks/[id]/page.tsx`: 共有セクションの下に、危険操作として控えめに配置。
+
+**検証**: `scripts/testing/e2e/wordbook-delete.mjs`（新規、`npm run test:wordbook-delete`）を
+新設し、`test:e2e`にも13フロー目として統合。実ブラウザで、削除ボタン表示→削除実行→
+`/wordbooks`へリダイレクト→DB上でword_books行・words行の両方が削除されている（孤立無し）→
+`/wordbooks`一覧・`/dashboard`・`/review`に残骸が出ない→削除済みIDへの直接アクセスが404、
+までを検証。テスト作成中に2つの誤検知を発見・修正: (1) `router.push`直後にDOM検証すると
+クライアント遷移が完了する前に古いページ内容を読んでしまうタイミング問題（`waitForLoadState`
++短い待機を追加）、(2) `page.textContent("body")`はNext.jsが埋め込む非表示のRSCフライト
+データ`<script>`タグの中身まで拾ってしまうため、実際に画面表示されるテキストのみを見る
+`page.locator("body").innerText()`に変更。いずれもテストスクリプト側の問題で、アプリの
+実装自体に問題はなかった。
+
+**Phase 2: ロードマップ反映**: [NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md)に完了項目20
+（単語帳削除修正）と新セクション「💰 収益化・成長 監査」（観点別サマリー表＋9観点の詳細）を
+追加し、優先度A/B/Cに新規項目（復習リカバリーモード・教材内部リンク強化・TOEIC/ビジネス
+教材追加・ダッシュボード習得率/苦手単語カード・ゲーミフィケーション/リワード連携・
+AI弱点クラスタ分析・専門分野語彙拡充）を追加した。[PRODUCTION_MONITORING.md](PRODUCTION_MONITORING.md)
+にも本監査の運用への反映事項と、13フローに更新された`test:e2e`の内訳を追記した。
+
+**Phase 3は今回実装せず、次の高ROI改善として3つに絞って提案**（完了報告参照）。
+
+**変更ファイル**: `src/app/api/wordbook/[id]/route.ts`（新規）、
+`src/components/wordbooks/DeleteWordbookButton.tsx`（新規）、
+`src/app/wordbooks/[id]/page.tsx`、`scripts/testing/e2e/wordbook-delete.mjs`（新規）、
+`package.json`（`test:wordbook-delete`スクリプト追加）、
+`scripts/testing/run-e2e.mjs`（13フロー目として統合）、
+`NEXT_IMPROVEMENTS.md`・`PRODUCTION_MONITORING.md`。
+
+**変更していないもの**: SRS V2の中核ロジック（間隔計算・評価ロジック）、teacher機能、
+DBスキーマ（マイグレーション無し）、RLS、課金機能の本番導入、教材データの大量追加
+（TOEIC/ビジネス/専門分野語彙は別タスクとして計画のみ）。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run test:smoke` /
+`npm run test:wordbook-delete`（単独実行、全項目PASS） / `npm run test:e2e`
+（13フロー、全PASS） / `npm run verify:prod` / `npm run verify:srs-global`。
+
+**残課題**: 優先度A/B/Cに記載した各項目（詳細は[NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md)
+参照）。特にTOEIC/ビジネス/専門分野語彙の教材追加は、内容作成のボリュームが大きいため
+明示的に別タスクとして計画する。
+
+---
+
 ## 2026-07-04 AdSense広告ユニットの本番投入（1箇所限定でスタート）
 
 **経緯**: 前回のAdSense調査ラウンドで、AdSense管理画面のオーナー確認結果が共有された。
