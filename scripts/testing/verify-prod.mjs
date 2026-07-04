@@ -11,8 +11,8 @@ async function main() {
   let allPass = true;
 
   const pub = await checkPublicPages(baseUrl, [
-    "/", "/dictionary", "/materials", "/guide", "/grammar", "/faq",
-    "/privacy", "/terms", "/sitemap.xml", "/signup",
+    "/", "/dictionary", "/materials", "/materials/toeic", "/materials/business",
+    "/guide", "/grammar", "/faq", "/privacy", "/terms", "/sitemap.xml", "/signup",
   ]);
   allPass = printResults("Public pages (expect 200)", pub) && allPass;
 

@@ -32,6 +32,7 @@
     "test:learning-selection": "node scripts/testing/test-learning-selection.mjs",
     "test:smoke": "node scripts/testing/smoke.mjs",
     "verify:prod": "node scripts/testing/verify-prod.mjs",
+    "verify:seo-lp-audit": "node scripts/testing/seo-lp-audit.mjs",
     "verify:srs-global": "node scripts/testing/check-prod-srs-v2-global.mjs",
     "validate:materials": "node scripts/materials/validate-materials.mjs",
     "test:materials": "node scripts/materials/test-materials.mjs",

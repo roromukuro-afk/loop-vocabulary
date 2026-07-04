@@ -4,7 +4,7 @@
 > 大きめの機能追加は実際の利用状況を見てから判断する。
 > 各項目は着手前に個別のご確認をいただく（本ドキュメントは提案のみ・実装はまだしない）。
 >
-> **2026-07-04時点: 優先度A（下記24項目）はすべて完了。現在は次の優先度整理フェーズ。**
+> **2026-07-04時点: 優先度A（下記25項目）はすべて完了。現在は次の優先度整理フェーズ。**
 > 2026-07-04には収益化・成長観点の監査も実施（詳細は本ドキュメント内
 > 「💰 収益化・成長 監査」参照）。教材追加以外の指摘事項は下記の優先度A/B/Cに反映済み。
 > 本番ヘルスチェック結果・現在の運用状態は [WORK_HISTORY.md](WORK_HISTORY.md) の
@@ -352,6 +352,30 @@
     ことを確認） / `test:smoke` / `test:internal-links`（回帰なし） / `test:category-lps`
     （単独実行、全項目PASS） / `test:materials:e2e`（25/25、回帰なし） / `test:e2e`
     （16フロー全PASS） / `verify:prod` / `verify:srs-global`、全PASS。
+    詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
+
+25. ✅ **完了（2026-07-04）: カテゴリLPの公開URL・sitemap・canonical・robots・Search Console対応確認**（前項目24の仕上げ）
+    前回新設した`/materials/toeic`・`/materials/business`が実際にSEOで拾われるよう、
+    公開URL・クロール導線を確認・修正した。**発見した不足点**: `src/app/sitemap.ts`に
+    両LPが含まれていなかった（既存教材の動的ルートのみ登録され、新規静的LPを追加漏れ）→
+    修正済み。両LPのmetadataに`alternates.canonical`が未設定だった（`/materials/[id]`との
+    競合可能性を無くすため明示）→ 追加済み。`robots.txt`は元々対象パスをブロックしておらず
+    修正不要だった。JSON-LD（BreadcrumbList・ItemList）は各LPに1個ずつ正しく実装済みで
+    パース不能な不正値も無いことを確認した。内部リンク（`/materials`⇄各LP・LP間相互リンク・
+    `/dictionary`⇄`/materials`・関連教材・guide/grammar/faqからの導線）はすべて前回までに
+    実装済みであることを再確認した。
+    `scripts/testing/seo-lp-audit.mjs`（新規、`npm run verify:seo-lp-audit`、HTTPのみで
+    ブラウザ不要）を新設し、本番の`/sitemap.xml`に主要ページ・両LPが含まれるか、
+    `/robots.txt`が対象パスをブロックしていないか、両LPのcanonicalが自分自身を指すか、
+    JSON-LDが妥当なJSONか、既存`/materials/[id]`への非影響を検証できるようにした
+    （`verify:prod`と同様デフォルトで本番URLを対象とする）。
+    `SEARCH_CONSOLE_SETUP.md`に、オーナーがURL検査ツールで個別にインデックス登録を
+    リクエストすべきURL（`/materials/toeic`・`/materials/business`・`/materials`・
+    `/dictionary`）を追記した。
+    DBスキーマ変更・RLS変更・教材データ本体の変更・AdSense広告枠追加・新規LP作成なし。
+    検証: `tsc --noEmit` / `build` / `test:smoke` / `test:internal-links`（回帰なし） /
+    `test:category-lps`（回帰なし） / `test:e2e`（16フロー全PASS） / `verify:prod` /
+    `verify:srs-global` / `verify:seo-lp-audit`（新規、全項目PASS）、全PASS。
     詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
 
 ---

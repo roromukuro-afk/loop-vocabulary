@@ -14,7 +14,10 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ビジネス英語の単語教材【無料】会議・メールで使える語彙",
     description: "職場英語・会議・メールで使うビジネス英語を無料で学習。忘却曲線で自動復習。",
+    url: `${SITE_URL}/materials/business`,
+    type: "website",
   },
+  alternates: { canonical: `${SITE_URL}/materials/business` },
 };
 
 type MaterialRow = {

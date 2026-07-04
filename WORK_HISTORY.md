@@ -5,6 +5,67 @@
 
 ---
 
+## 2026-07-04 カテゴリLPの公開URL・sitemap・canonical・robots・Search Console対応確認
+
+**目的**: 前回新設した`/materials/toeic`・`/materials/business`が検索流入に正しくつながるよう、
+公開URL・クロール導線を確認・修正した。
+
+**確認結果（発見・修正した不足点）**:
+- **sitemap.xmlに両LPが含まれていなかった**（実質的なバグ）: `src/app/sitemap.ts`は
+  既存教材の動的ルート（`materialIds.map(...)`）は網羅していたが、新規に追加した静的LP
+  （`/materials/toeic`・`/materials/business`）を追加し忘れていた。`/materials`・
+  `/dictionary`・`/guide`・`/grammar`・`/faq`は元から含まれていたことを確認 → 両LPを
+  priority 0.85・changeFrequency weeklyで追加した。
+- **canonicalが未設定だった**: 両LPのmetadataに`alternates.canonical`が無かった。
+  `/materials/[id]`との実質的な競合は無い（Next.js App Routerは静的セグメントを動的
+  セグメントより優先して解決するため、`/materials/toeic`が`[id]="toeic"`として誤解釈
+  されることは無い）が、明示的にcanonicalを設定することで曖昧さを排除した。
+  `openGraph.url`も合わせて設定。
+- **robots.txtは修正不要だった**: `/materials/toeic`・`/materials/business`・`/materials`・
+  `/dictionary`のいずれも`Disallow`に含まれておらず、既存の許可設定のままで問題無し。
+- **JSON-LDは既に正しく実装済みだった**: 両LPともBreadcrumbList・ItemListの2種類が
+  それぞれ1個ずつ存在し、いずれも妥当なJSONとしてパースできることを確認。
+- **内部リンクは前回までにすべて実装済み**: `/materials`⇄各LP、LP間相互リンク、
+  `/dictionary`⇄`/materials`、教材詳細⇄関連教材、guide/grammar/faqからmaterials/dictionary
+  への導線、いずれも既存の実装で満たされていることを再確認した（新規追加は無し）。
+
+**実装内容**:
+- `src/app/sitemap.ts`: `/materials`エントリの直後に`/materials/toeic`・
+  `/materials/business`を追加（priority 0.85、changeFrequency weekly）。
+- `src/app/materials/toeic/page.tsx`・`src/app/materials/business/page.tsx`:
+  `metadata.alternates.canonical`と`openGraph.url`を追加。
+
+**テスト**: `scripts/testing/seo-lp-audit.mjs`（新規、`npm run verify:seo-lp-audit`）を
+新設。既存の`verify-prod.mjs`と同じくHTTPのみ（ブラウザ不要）で、本番の`/sitemap.xml`に
+主要ページ・両LPが含まれるか、`/robots.txt`が対象パスをブロックしていないか、両LPの
+`<link rel="canonical">`が自分自身のURLを指しているか、JSON-LDが妥当なJSON（2個・
+BreadcrumbList/ItemList）か、既存`/materials/[id]`が引き続き200で表示されるか、を検証する。
+`verify-prod.mjs`の公開ページ一覧にも`/materials/toeic`・`/materials/business`を追加した。
+
+**ドキュメント**: `SEARCH_CONSOLE_SETUP.md`に、オーナーがSearch ConsoleのURL検査ツールで
+個別にインデックス登録をリクエストすべきURL（`/materials/toeic`・`/materials/business`・
+`/materials`・`/dictionary`）を新セクション「0-1」として追記した。
+
+**変更ファイル**: `src/app/sitemap.ts`、`src/app/materials/toeic/page.tsx`、
+`src/app/materials/business/page.tsx`、`scripts/testing/verify-prod.mjs`、
+`scripts/testing/seo-lp-audit.mjs`（新規）、`package.json`（`verify:seo-lp-audit`
+スクリプト追加）、`SEARCH_CONSOLE_SETUP.md`、`NEXT_IMPROVEMENTS.md`。
+
+**変更していないもの**: DBスキーマ（マイグレーション無し）、RLS、SRS V2ロジック、
+teacher機能、教材データ本体、AdSense広告枠、新規LP作成（今回は既存2LPのSEO導線確認のみ）、
+既存の内部リンク実装（すべて前回までの実装で要件を満たしていたため変更不要）。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run test:smoke` /
+`npm run test:internal-links`（回帰なし） / `npm run test:category-lps`（回帰なし） /
+`npm run test:e2e`（16フロー全PASS） / `npm run verify:prod` / `npm run verify:srs-global` /
+`npm run verify:seo-lp-audit`（新規、本番で全項目PASS）。
+
+**残課題**: Search Console側でのインデックス登録状況（URL検査ツールでのリクエスト結果）は
+オーナー確認待ち。他カテゴリ（大学受験・英検・中学高校基礎・日常会話）のLPは引き続き
+スコープ外（今回のTOEIC/ビジネス英語LPの効果を見てから検討）。
+
+---
+
 ## 2026-07-04 カテゴリ別公開LP（TOEIC・ビジネス英語）の新設
 
 **目的**: 前回の内部リンク強化に続き、SEO流入増加と社会人ユーザー獲得のため、TOEIC学習者・

@@ -218,6 +218,10 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
   `/materials/toeic`・`/materials/business`の2LPを新設。`test:category-lps`が週次`test:e2e`に
   含まれているため、教材追加時・ルーティング変更時の退行があれば自動検知される。他カテゴリ
   （大学受験・英検・中学高校基礎・日常会話）のLPは未着手（効果を見てから検討）
+- **カテゴリLPのSEO導線（sitemap/robots/canonical/構造化データ）**: 2026-07-04確認・修正済み
+  （優先度A項目25）。両LPをsitemap.xmlに追加、canonicalを明示、`verify:seo-lp-audit`で
+  週次・デプロイ後に自動検証。Search Consoleでのインデックス登録状況は
+  [SEARCH_CONSOLE_SETUP.md](SEARCH_CONSOLE_SETUP.md)§0-1でオーナー確認待ち
 
 ---
 
@@ -233,6 +237,7 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 | `npm run test:recovery-mode` | `/review`の復習リカバリーモード・FlipCardRunnerを変更した時 | 35語due時のバナー表示→10語モードでちょうど10語出題・DB更新→残り25語でバナー継続→20語モードで20語出題→残り5語でバナー消滅→通常復習は残り全件を出題、をbook指定スコープ隔離も含めて実ブラウザで検証 |
 | `npm run test:internal-links` | 教材詳細の関連教材・辞書⇄教材の相互導線・`/materials`カテゴリクイックジャンプを変更した時 | カテゴリクイックジャンプ表示・関連教材表示（新規教材追加時の自動反映含む）・関連教材リンクの遷移・教材⇄辞書の相互導線・既存インポート導線の非破壊・モバイル幅での横スクロール無し、を実ブラウザで検証 |
 | `npm run test:category-lps` | `/materials/toeic`・`/materials/business`・`/materials`のLP導線を変更した時 | 両LPの200表示・教材カード件数と内容・教材詳細への遷移・辞書導線・LP間相互リンク・`/materials`からの導線・モバイル幅での崩れなし・既存`/materials/[id]`への非影響、を実ブラウザで検証 |
+| `npm run verify:seo-lp-audit` | sitemap.ts・robots.txt・カテゴリLPのmetadataを変更した時／**本番デプロイ後** | 本番の`/sitemap.xml`に主要ページ・両LPが含まれるか・`/robots.txt`が対象パスをブロックしていないか・両LPのcanonicalが自分自身を指すか・JSON-LD(BreadcrumbList/ItemList)が妥当なJSONか・既存`/materials/[id]`への非影響を、HTTPのみ（ブラウザ不要）で検証。`verify:prod`同様デフォルトで本番URLを対象とする |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |
 | `npm run test:teacher` | 先生機能・RLS・RPCを変更した時 | ロスター集計のみ表示・同意撤回/再同意・招待コードの再発行/無効化/期限管理を検証 |

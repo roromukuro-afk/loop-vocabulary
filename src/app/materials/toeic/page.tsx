@@ -14,7 +14,10 @@ export const metadata: Metadata = {
   openGraph: {
     title: "TOEIC対策の英単語教材【無料】基礎100語から始める",
     description: "TOEIC初心者向けの英単語教材を無料で学習。忘却曲線で自動復習。",
+    url: `${SITE_URL}/materials/toeic`,
+    type: "website",
   },
+  alternates: { canonical: `${SITE_URL}/materials/toeic` },
 };
 
 type MaterialRow = {
