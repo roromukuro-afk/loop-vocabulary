@@ -199,7 +199,7 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 | `npm run test:premium-gating` | Premium判定（`profiles.is_premium`）を参照する箇所を変更した時 | `/wordbooks/[id]`・`/plan`・`/extract`・`/weak`の表示分岐と`/api/ai/weakness-analysis`・`/api/ai/extract-words`・`/api/wordbook/[id]/ai-suggest{,/add}`の403/非403分岐を非Premium/Premium両状態で検証、5学習モードへの回帰なしも確認（21項目） |
 | `npm run validate:materials` | プリセット教材パック（`src/data/presets/*`）を追加・変更した時 | word/meaning空でない・教材内重複なし・pos/難易度が範囲内・タグが想定内かをDB不要で高速チェック。既存教材の監査レポートも非ブロッキングで再生成 |
 | `npm run test:materials` | プリセット教材パックをDBに反映する前 | 静的検証→DB投入(冪等)→語数一致確認→インポート後SRS/PDF互換性確認→既存教材の非破壊確認までを一括実行 |
-| `npm run test:materials:e2e` | 教材インポート導線（`/materials/[id]`・`ImportMaterialButton`・`/pdf`）を変更した時 | 未ログイン時CTA・インポート→単語帳作成→SRS既定値→PDF選択肢反映→再インポート時の重複防止、およびインポート後（新規・再訪問済み双方）のメインCTA(`/wordbooks/<id>`)・サブCTA(`/test/choice?book=`・`/pdf?book=`)遷移を実ブラウザで検証（23項目） |
+| `npm run test:materials:e2e` | 教材インポート導線（`/materials/[id]`・`ImportMaterialButton`・`/pdf`）を変更した時 | 未ログイン時CTA・インポート→単語帳作成→SRS既定値→PDF選択肢反映→再インポート時の重複防止、インポート後（新規・再訪問済み双方）のメインCTA(`/wordbooks/<id>`)・サブCTA(`/test/choice?book=`・`/pdf?book=`)遷移、および1000語超の既存教材(1,500語・2,000語)で総語数がSupabase既定の1000件で頭打ちにならず正しく表示されることを実ブラウザで検証（25項目） |
 | `npm run validate:materials` / `npm run test:materials` | `src/lib/materials/existingMaterialMeta.ts`（既存31教材のgrade/purpose/tags等）や`presetMeta.ts`を変更した時 | 4スターターパックの静的品質チェック・既存教材の非破壊回帰ガード（31件以上維持・総語数0の教材なし）を確認。表示メタデータ自体の内容は`/materials`・`/materials/[id]`を目視確認する |
 | `npm run audit:materials` | 既存教材データの品質状況を確認したい時（いつでも・読み取り専用） | DB上の全教材（既存31+新規パック）を監査し`MATERIALS_AUDIT.md`を再生成 |
 | `npm run materials:dedupe:dry-run` | 完全重複行の削除計画を確認・更新したい時（いつでも・読み取り専用、DB変更なし） | 削除対象行・教材別内訳・バックアップ・ロールバックSQLを`reports/materials-duplicate-*`に生成 |

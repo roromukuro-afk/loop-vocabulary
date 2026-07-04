@@ -82,7 +82,8 @@ export default async function MaterialDetailPage({
     .maybeSingle();
   if (!material) notFound();
 
-  // Filtered words query (optionally restricted by level)
+  // Filtered words query（表示する単語リスト。levelで絞り込み可）。
+  // 3000は現状の最大教材(2,500語)を上回る余裕を持った上限のため、単純な.limit()でよい。
   const baseWordsQuery = supabase
     .from("material_words")
     .select(
@@ -95,13 +96,36 @@ export default async function MaterialDetailPage({
     ? baseWordsQuery.eq("level", sp.level)
     : baseWordsQuery;
 
-  // Fetch level counts, filtered words, and import status in parallel
-  const [{ data: allWords }, { data: words }, { data: importedBook }] =
+  // レベル別タブの件数集計に使うlevel一覧。PostgRESTはSELECTのGROUP BY集計を返せない
+  // ため、level列のみ（word/meaning等の重い列は取得しない）をページングして全件取得する。
+  // .limit()だけでは不十分: PostgRESTは1リクエストあたりの応答行数に既定上限(1000件)が
+  // あり、明示的にページングしない限りその上限で暗黙的に打ち切られてしまうため
+  // （実際に「全1,000語」と誤表示されていた不具合の原因）。
+  const fetchAllLevels = async (): Promise<{ level: string | null }[]> => {
+    const pageSize = 1000;
+    const all: { level: string | null }[] = [];
+    for (let from = 0; ; from += pageSize) {
+      const { data } = await supabase
+        .from("material_words")
+        .select("level")
+        .eq("material_id", material.id)
+        .range(from, from + pageSize - 1);
+      if (!data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < pageSize) break;
+    }
+    return all;
+  };
+
+  // Fetch total word count (exact count, no rows returned), level breakdown for
+  // tabs, filtered words for display, and import status in parallel
+  const [{ count: totalWordCount }, allLevels, { data: words }, { data: importedBook }] =
     await Promise.all([
       supabase
         .from("material_words")
-        .select("level")
+        .select("*", { count: "exact", head: true })
         .eq("material_id", material.id),
+      fetchAllLevels(),
       filteredWordsQuery,
       user
         ? supabase
@@ -114,12 +138,12 @@ export default async function MaterialDetailPage({
     ]);
 
   // Level breakdown for tabs
-  const levelCounts = (allWords ?? []).reduce((acc: Record<string, number>, w) => {
+  const levelCounts = allLevels.reduce((acc: Record<string, number>, w) => {
     if (w.level) acc[w.level] = (acc[w.level] ?? 0) + 1;
     return acc;
   }, {});
   const levels = Object.entries(levelCounts).sort(([, a], [, b]) => b - a);
-  const totalWords = (allWords ?? []).length;
+  const totalWords = totalWordCount ?? 0;
 
   // Study progress if already imported (login required)
   let progress: { avgMastery: number; studied: number; weak: number } | null = null;

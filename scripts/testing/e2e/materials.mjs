@@ -13,6 +13,10 @@
  *     （メインCTA、/wordbooks/[id]）「4択で始める」「PDFテストを作る」（サブCTA）の
  *     3ボタンパネルが表示され、従来固定だった/test/choice?book=一本槍の導線ではなく
  *     単語帳詳細ページの学習モード選択に自然につながることを検証する
+ *  8. 1000語超の既存教材（教材データは変更せず閲覧のみ）で、教材詳細ページの総語数が
+ *     Supabase既定の1000件上限で頭打ちにならず正しく表示されることを検証する
+ *     （2026-07-04発見・修正: 総語数集計クエリに.limit()が無く「全1,000語」と
+ *     誤表示されていたバグの回帰確認）
  *
  * 使い方: node scripts/testing/e2e/materials.mjs
  */
@@ -82,6 +86,28 @@ async function main() {
     } else {
       ok("未ログイン: 実際のインポートボタンは表示されない");
     }
+
+    // ================= 1000語超教材の総語数表示（回帰確認） =================
+    // 従来、総語数集計クエリに.limit()が無くSupabase既定の1000件で頭打ちになり、
+    // 1000語超の教材で「全1,000語」と誤表示されるバグがあった（2026-07-04発見・修正）。
+    // 実際にDB上で1000語を超える既存教材（教材データ自体は変更しない、閲覧のみ）で
+    // 正しい語数が表示されることを確認する。
+    console.log("\n--- 1000語超教材の総語数表示（回帰確認） ---");
+    const LARGE_MATERIALS = [
+      { id: "00000000-0000-0000-0000-000000000036", title: "日常英会話 基礎フレーズ", expectedWords: 1500 },
+      { id: "00000000-0000-0000-0000-000000000020", title: "大学入試頻出英単語 2000+", expectedWords: 2000 },
+    ];
+    for (const m of LARGE_MATERIALS) {
+      await gotoReady(guestPage, `${baseUrl}/materials/${m.id}`);
+      const bodyText = await guestPage.locator("body").innerText();
+      const expectedText = `全 ${m.expectedWords.toLocaleString()} 語`;
+      if (bodyText.includes(expectedText)) {
+        ok(`${m.title}: 総語数が正しく表示される (${expectedText}、1,000語で頭打ちにならない)`);
+      } else {
+        bad(`${m.title}: 総語数表示が想定外（期待="${expectedText}」を含まない）`);
+      }
+    }
+
     await guestPage.close();
 
     // ================= 2〜4. ログイン済み: インポート実行 =================

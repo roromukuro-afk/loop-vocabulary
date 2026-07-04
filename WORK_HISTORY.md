@@ -5,6 +5,59 @@
 
 ---
 
+## 2026-07-04 教材詳細ページの総語数集計バグを修正（Supabase既定1000件上限）
+
+前回のpresetMeta拡張の目視確認中に発見した`/materials/[id]`の総語数表示バグに対応。
+
+**原因**: `src/app/materials/[id]/page.tsx`が総語数(`totalWords`)を`material_words`
+テーブルから`level`列のみ全行取得し`.length`で数える方式だったが、このクエリに
+`.limit()`が一切無かった。PostgREST(Supabaseの内部REST層)は1リクエストあたりの
+応答行数に既定上限(1000件)があり、明示的にページングしない限りその上限で暗黙的に
+打ち切られる。そのため1,000語を超える教材では実際の語数によらず「全1,000語」と
+表示されていた。
+
+**調査結果**:
+- `/materials`一覧ページの語数表示は`get_material_word_counts` RPC（`SELECT
+  material_id, COUNT(*) ... GROUP BY material_id`をDB側で実行するSQL関数）を使って
+  おり、この不具合の対象外であることを確認した。
+- 教材インポートAPI(`/api/material/[id]/import/route.ts`)の単語コピー処理は、元から
+  `.range(offset, offset+PAGE_SIZE-1)`によるページングループが実装済みで、この不具合の
+  対象外であることを確認した。
+- `PdfTestBuilder.tsx`の教材ソース取得(`.limit(500)`)はPDF生成用の出題数上限という
+  別の意図された制約であり、この不具合とは無関係。
+
+**修正内容**: 総語数(`totalWords`)は`.select("*", { count: "exact", head: true })`
+による厳密なcountクエリに変更し、行データを一切取得せずDB側で正確な件数のみを
+取得する形にした（ユーザー指定の方針通り）。レベル別タブの件数内訳
+（`levelCounts`、例:「英検2級 (799)」の内訳表示）はPostgRESTがSELECTのGROUP BY
+集計を返せないため、`level`列のみを`.range()`でページングして全件取得する方式を
+維持した（word/meaning等の重い列を含まない軽量なクエリ）。表示用の単語リスト自体
+（`baseWordsQuery`の`.limit(3000)`）は現状の最大教材(2,500語)を上回る余裕があり
+不具合の対象ではなかったため無変更のまま残した。
+
+**確認した教材**: 「日常英会話 基礎フレーズ」（実際1,500語、修正前は「全1,000語」と
+誤表示）で「全1,500語」、「大学入試頻出英単語 2000+」（実際2,000語）で「全2,000語」
+と正しく表示されることを実ブラウザで確認した。新規4スターターパック（各100語）の
+表示も従来通り壊れていないことを確認した。
+
+**変更ファイル**: `src/app/materials/[id]/page.tsx`、`scripts/testing/e2e/materials.mjs`。
+
+**追加したテスト**: `scripts/testing/e2e/materials.mjs`に、実際に1,000語を超える
+既存教材（1,500語・2,000語、教材データ自体は変更せず閲覧のみ）の教材詳細ページを
+訪問し、正しい総語数が表示されることを確認するテストを追加（18項目→25項目）。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run
+validate:materials` / `npm run test:materials`（18/18）/ `npm run
+test:materials:e2e`（25/25、新規2項目含む）/ `npm run test:e2e`（9フロー全PASS）/
+`npm run test:smoke` / `npm run verify:prod` / `npm run verify:srs-global`。
+
+**残課題**: なし。
+
+DBスキーマ変更なし、RLS変更なし、SRS V2ロジック変更なし、teacher機能変更なし、
+教材データ（単語本体・削除・上書き）変更なし、presetMetaの内容は無変更。
+
+---
+
 ## 2026-07-04 既存31教材へのpresetMeta拡張（対象学年・目的・推奨期間・タグ）
 
 前回の教材インポート後導線整理で残課題としていた「既存31教材にpresetMetaが未登録」に

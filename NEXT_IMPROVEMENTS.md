@@ -4,7 +4,7 @@
 > 大きめの機能追加は実際の利用状況を見てから判断する。
 > 各項目は着手前に個別のご確認をいただく（本ドキュメントは提案のみ・実装はまだしない）。
 >
-> **2026-07-04時点: 優先度A（下記15項目）はすべて完了。現在は次の優先度整理フェーズ。**
+> **2026-07-04時点: 優先度A（下記16項目）はすべて完了。現在は次の優先度整理フェーズ。**
 > 本番ヘルスチェック結果・現在の運用状態は [WORK_HISTORY.md](WORK_HISTORY.md) の
 > 「2026-07-02 運用状態の整理・本番ヘルスチェック」を参照。
 > 既存教材の品質状況は [MATERIALS_AUDIT.md](MATERIALS_AUDIT.md) を参照
@@ -169,10 +169,25 @@
     title・level・exam_type・語数から推定した目安であり、市販教材の説明文の転載はしていない。
     調査中に副次的発見: `/materials/[id]`の総語数集計クエリに`.limit()`が無くSupabase既定の
     1000件で頭打ちになるバグ（1000語超の教材15件以上に影響）を発見したが、今回のスコープ外
-    のため修正せず別タスクとして提案済み（`task_b6814f96`）。
+    のため修正せず別タスクとして提案した（`task_b6814f96`）。
     検証: `tsc --noEmit` / `build` / `validate:materials` / `test:materials`（18/18）/
     `test:materials:e2e`（23/23）/ `test:e2e`（9フロー全PASS）/ `test:smoke` /
     `verify:prod` / `verify:srs-global`、全PASS。詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
+
+16. ✅ **完了（2026-07-04）: `/materials/[id]`の総語数集計クエリの`.limit()`欠如を修正**
+    項目15で発見・提案した`task_b6814f96`に対応。総語数(`totalWords`)は
+    `.select("*", { count: "exact", head: true })`による厳密なcountクエリに変更し、
+    行データを一切取得せずDB側で正確な件数のみを取得する形にした。レベル別タブの
+    件数内訳（`levelCounts`）はPostgRESTがGROUP BY集計を返せないため、`level`列のみを
+    `.range()`でページングして全件取得する方式を維持（word/meaning等の重い列は含まない
+    ため軽量）。表示用の単語リスト自体（`.limit(3000)`）は現状の最大教材(2,500語)を
+    上回る余裕があり不具合の対象ではなかったため無変更。一覧ページの語数表示は
+    `get_material_word_counts` RPCが`GROUP BY COUNT`をDB側で実行しておりこの不具合の
+    対象外、教材インポートAPIの単語コピーは元から`.range()`によるページングが実装済みで
+    こちらも対象外であることを確認した。`scripts/testing/e2e/materials.mjs`に、
+    実際に1000語を超える既存教材（1,500語・2,000語、教材データ自体は変更せず閲覧のみ）で
+    正しい総語数が表示されることを確認するテストを追加（25項目）。全PASS。
+    詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
 
 ---
 
