@@ -247,8 +247,15 @@ develop,発達する,動詞,...,...,5,4,高校基礎,Ch1,U1,13,2
 既存教材（新規パック含むDB上の全教材）の品質状況は `npm run audit:materials`（読み取り専用）で
 [MATERIALS_AUDIT.md](MATERIALS_AUDIT.md) を再生成できる。
 
+**既存31教材への表示メタデータ拡張（2026-07-04）**: 新規パック以外の既存31教材（`words`本体
+を持たない）にも同じ`grade`/`purpose`/`recommendedWeeks`/`dailyWordTarget`/`category`/`tags`を
+表示したい場合は、`src/lib/materials/existingMaterialMeta.ts`に教材ID(`materials.id`)をキーに
+した`PresetMeta`エントリを追加する（`PresetMaterialPack`のような単語データは不要）。
+`presetMeta.ts`が新規パック由来のメタデータと自動マージする（DBスキーマ変更不要）。
+
 詳細な設計判断は [WORK_HISTORY.md](WORK_HISTORY.md) の「2026-07-02 プリセット教材パック基盤の構築」
-「2026-07-02 既存教材の品質監査基盤 + 教材インポートE2E追加」参照。
+「2026-07-02 既存教材の品質監査基盤 + 教材インポートE2E追加」
+「2026-07-04 既存31教材へのpresetMeta拡張」参照。
 
 ---
 

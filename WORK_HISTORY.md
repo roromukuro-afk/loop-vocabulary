@@ -5,6 +5,73 @@
 
 ---
 
+## 2026-07-04 既存31教材へのpresetMeta拡張（対象学年・目的・推奨期間・タグ）
+
+前回の教材インポート後導線整理で残課題としていた「既存31教材にpresetMetaが未登録」に
+対応。DBスキーマは変更せず、コード側の表示専用レジストリに既存31教材ぶんのメタデータを
+追加した。
+
+**既存31教材の一覧調査**: Supabase本番DBに直接クエリし、35教材（既存31件+新規4スターター
+パック）の`id`/`title`/`level`/`exam_type`/`description`/語数を取得。既存31教材は
+中学・高校入試向け4件、高校基礎〜大学受験向け12件、英検向け8件、TOEIC向け2件、
+日常会話・学び直し向け5件に大別できることを確認した（`MATERIALS_AUDIT.md`の既存監査結果と
+語数は完全一致、ドリフトなし）。
+
+**presetMetaの既存教材対応**: `PRESET_META_BY_MATERIAL_ID`は従来`PRESET_PACKS`（単語データ
+本体を含む新規4パック定義）から`Object.fromEntries`で自動導出される構造で、既存31教材ぶん
+のエントリを直接追加できる形ではなかった。そこで、単語データを持たない表示専用の新規
+レジストリ`src/lib/materials/existingMaterialMeta.ts`（`EXISTING_MATERIAL_META: Record<string,
+PresetMeta>`）を追加し、`presetMeta.ts`で`{ ...EXISTING_MATERIAL_META, ...PRESET_PACK_META }`
+としてマージする形に変更した。`PresetMeta`型に`category`フィールドを追加（新規4パックは
+`PresetMaterialPack`が既に`category`を持っていたため無変更で対応可能）。
+`src/lib/materials/types.ts`の`ALLOWED_TAGS`に「大学受験向け」「TOEIC対策」「日常会話」
+「重要語」「完成・発展」を、`ALLOWED_CATEGORIES`に「toeic」「general」を追加し、既存31教材の
+実態に合わせて許容タグ・カテゴリの語彙を拡張した。
+
+grade（対象学年）・purpose（目的）・recommendedWeeks（推奨期間）・dailyWordTarget（1日目安
+語数）は、各教材のtitle・level・exam_type・語数から自然に推定できる範囲でのみ設定し
+（推奨期間 ≈ 語数 ÷ (1日目安語数 × 7) となるよう概算）、市販教材の説明文の転載はしていない。
+推定が難しい・幅広い対象を持つ教材（学び直し系など）は「社会人・学び直し」のような汎用的な
+表記にとどめ、断定的な学年表記は避けた。
+
+**教材一覧・詳細での見え方**:
+- `/materials/[id]`詳細ページは既存の`{preset && (...)}`ブロック（grade/purpose/
+  recommendedWeeks/dailyWordTarget/tagsをすべて表示）が無変更のまま、既存31教材でも
+  自動的にメタデータが表示されるようになった。
+- `/materials`一覧ページのカードに`preset.grade`を追加表示（従来はrecommendedWeeks/
+  dailyWordTarget/tagsの一部のみ表示していた）。
+- 従来どの`CATEGORY_GROUPS`セクションにも属していなかった「学び直し・日常会話」系5教材
+  （`loop学びなおし英単語`①〜④、`日常英会話 基礎フレーズ`、いずれも`exam_type="一般"`）が
+  検索以外では一覧に表示されない状態だったため、新セクション「日常会話・学び直し」を追加した。
+- 実際の`/materials`・`/materials/[id]`をdev previewで目視確認し、既存教材にも
+  「対象学年・目安期間・1日語数・タグ」が正しく表示されること、新設「日常会話・学び直し」
+  セクションが表示されることを確認した。
+
+**副次的発見（今回は未修正）**: dev previewでの目視確認中、`/materials/[id]`の総語数集計
+クエリ（`material_words`から`level`列のみ取得する箇所）に`.limit()`が無く、Supabaseの既定
+上限1000件で頭打ちになるバグを発見した（例: 実際1,500語の教材が「全1,000語」と表示される）。
+1000語超の教材が既存31教材中15件以上存在するため広く影響するが、今回のpresetMeta拡張とは
+無関係のスコープのため修正せず、別セッション用のタスクとして提案した（`task_b6814f96`）。
+
+**変更ファイル**: `src/lib/materials/existingMaterialMeta.ts`（新規）、
+`src/lib/materials/presetMeta.ts`、`src/lib/materials/types.ts`、
+`src/app/materials/page.tsx`、`README.md`。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run validate:materials`
+（4パック errors=0、既存監査レポート再生成）/ `npm run test:materials`（18/18、既存31教材の
+非破壊回帰ガード含む）/ `npm run test:materials:e2e`（23/23、回帰なし）/ `npm run test:e2e`
+（9フロー全PASS）/ `npm run test:smoke` / `npm run verify:prod` / `npm run verify:srs-global`。
+
+**残課題**:
+- `/materials/[id]`の総語数集計クエリの`.limit()`欠如バグ（`task_b6814f96`として提案済み）。
+- 既存31教材のgrade/purpose/recommendedWeeks/dailyWordTargetは推定値であり、実際の学習者の
+  フィードバックを見て調整が必要になる可能性がある。
+
+DBスキーマ変更なし、RLS変更なし、SRS V2ロジック変更なし、teacher機能変更なし、教材データ
+（単語本体）変更なし、品詞未設定6,730件・意味違い重複1,952件には触れていない。
+
+---
+
 ## 2026-07-04 教材インポート後導線の整理（ImportMaterialButton）
 
 前回の学習モード入口整理で残課題としていた「`ImportMaterialButton.tsx`の

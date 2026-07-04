@@ -4,7 +4,7 @@
 > 大きめの機能追加は実際の利用状況を見てから判断する。
 > 各項目は着手前に個別のご確認をいただく（本ドキュメントは提案のみ・実装はまだしない）。
 >
-> **2026-07-04時点: 優先度A（下記14項目）はすべて完了。現在は次の優先度整理フェーズ。**
+> **2026-07-04時点: 優先度A（下記15項目）はすべて完了。現在は次の優先度整理フェーズ。**
 > 本番ヘルスチェック結果・現在の運用状態は [WORK_HISTORY.md](WORK_HISTORY.md) の
 > 「2026-07-02 運用状態の整理・本番ヘルスチェック」を参照。
 > 既存教材の品質状況は [MATERIALS_AUDIT.md](MATERIALS_AUDIT.md) を参照
@@ -155,6 +155,25 @@
     更新（23項目、自動遷移前提だった1件のアサーションをボタンクリック経由の遷移確認に
     更新、サブCTA2件の遷移確認を追加）。全PASS。詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
 
+15. ✅ **完了（2026-07-04）: 既存31教材へのpresetMeta拡張**
+    項目2cで残課題としていた「既存31教材にpresetMetaが未登録」に対応。
+    `src/lib/materials/existingMaterialMeta.ts`（新規、単語データを持たない表示専用
+    レジストリ）に既存31教材ぶんの`grade`/`purpose`/`recommendedWeeks`/`dailyWordTarget`/
+    `category`/`tags`を追加し、`presetMeta.ts`で新規4パック由来のメタデータとマージする形に
+    変更。`types.ts`の`ALLOWED_TAGS`に「大学受験向け」「TOEIC対策」「日常会話」「重要語」
+    「完成・発展」を、`ALLOWED_CATEGORIES`に「toeic」「general」を追加。`/materials`一覧
+    ページのカードに`preset.grade`を追加表示し、従来どのカテゴリセクションにも属していなかった
+    「学び直し・日常会話」系5教材（exam_type="一般"）向けに新セクション「日常会話・学び直し」
+    を追加した。`/materials/[id]`詳細ページは既存の`{preset && (...)}`ブロックが無変更のまま
+    自動的に既存31教材でも表示されるようになった。grade/purpose/recommendedWeeksは各教材の
+    title・level・exam_type・語数から推定した目安であり、市販教材の説明文の転載はしていない。
+    調査中に副次的発見: `/materials/[id]`の総語数集計クエリに`.limit()`が無くSupabase既定の
+    1000件で頭打ちになるバグ（1000語超の教材15件以上に影響）を発見したが、今回のスコープ外
+    のため修正せず別タスクとして提案済み（`task_b6814f96`）。
+    検証: `tsc --noEmit` / `build` / `validate:materials` / `test:materials`（18/18）/
+    `test:materials:e2e`（23/23）/ `test:e2e`（9フロー全PASS）/ `test:smoke` /
+    `verify:prod` / `verify:srs-global`、全PASS。詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
+
 ---
 
 ## 🟢 優先度A: 今すぐ着手できる（低工数・高効果・外部依存少）
@@ -192,10 +211,9 @@
    判断材料なし）と**意味違いの重複1,952件**は今回一切触れていない。
    word/meaning/example/example_jaが変更されていないことをサンプル100件で確認済み。
 
-2c. **既存教材へのプリセットメタデータ拡張**
-   現在、対象学年・目的・推奨期間・1日目安語数・タグの表示（[presetMeta.ts](src/lib/materials/presetMeta.ts)）
-   は新規4パックのみに付与されている。既存31教材にも同様のメタデータを付けたい場合は、
-   レジストリにエントリを追加するだけで対応可能（DBスキーマ変更不要）。
+2c. ✅ **完了（2026-07-04）: 既存教材へのプリセットメタデータ拡張**
+   優先度A完了項目15で対応済み。既存31教材にも対象学年・目的・推奨期間・1日目安語数・
+   カテゴリ・タグを付与した。詳細は完了項目15参照。
 
 2d. **出題の「suspended」ラベル・直近出題履歴の永続化（優先度A完了項目9・10の延長）**
    `suspended`（特定単語の出題を一時停止）は対応するDBカラムが存在せず未実装。必要になった

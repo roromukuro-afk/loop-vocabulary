@@ -25,24 +25,36 @@ export type PartOfSpeech = (typeof ALLOWED_POS)[number];
 export const DIFFICULTY_MIN = 1;
 export const DIFFICULTY_MAX = 5;
 
-/** アプリ内導線で使うタグの許容セット（想定外タグの混入を防ぐ） */
+/**
+ * アプリ内導線で使うタグの許容セット（想定外タグの混入を防ぐ）。
+ * "大学受験向け"・"TOEIC対策"・"日常会話"・"重要語"・"完成・発展" は既存31教材への
+ * presetMeta拡張（DBスキーマ変更なし・表示専用）で追加した。
+ */
 export const ALLOWED_TAGS = [
   "はじめての人におすすめ",
   "中学生向け",
   "高校生向け",
   "英検対策",
   "大学受験基礎",
+  "大学受験向け",
+  "TOEIC対策",
+  "日常会話",
   "短期集中",
   "基礎固め",
   "動詞強化",
+  "重要語",
+  "完成・発展",
 ] as const;
 export type PresetTag = (typeof ALLOWED_TAGS)[number];
 
+/** "toeic"・"general"（日常会話・学び直し）は既存31教材への presetMeta 拡張で追加した */
 export const ALLOWED_CATEGORIES = [
   "junior",
   "highschool",
   "eiken",
   "university",
+  "toeic",
+  "general",
 ] as const;
 export type PresetCategory = (typeof ALLOWED_CATEGORIES)[number];
 

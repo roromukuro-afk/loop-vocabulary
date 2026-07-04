@@ -106,6 +106,14 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
         (m.level ?? "").startsWith(p),
       ),
   },
+  {
+    id: "general",
+    label: "日常会話・学び直し",
+    icon: "☕",
+    description: "社会人の学び直し・日常英会話に",
+    iconBg: "bg-orange-50",
+    match: (m) => m.exam_type === "一般",
+  },
 ];
 
 function MaterialCard({
@@ -162,7 +170,8 @@ function MaterialCard({
         </div>
         {preset && (
           <div className="mt-1.5 flex items-center gap-2 text-[10px] flex-wrap text-navy-400">
-            <span>目安 {preset.recommendedWeeks}週間</span>
+            <span>{preset.grade}</span>
+            <span>・目安 {preset.recommendedWeeks}週間</span>
             <span>・1日{preset.dailyWordTarget}語</span>
             {preset.tags.slice(0, 2).map((t) => (
               <span key={t} className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
