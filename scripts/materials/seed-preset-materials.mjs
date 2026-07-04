@@ -1,7 +1,7 @@
 /**
  * プリセット教材パック（src/data/presets/*）を materials / material_words に投入する（冪等）。
  *
- * ・対象は固定UUID(pack.id)を持つ4パックのみ。他の既存教材(31件)には一切触れない。
+ * ・対象は固定UUID(pack.id)を持つプリセットパックのみ。他の既存教材(31件)には一切触れない。
  * ・materials 行は upsert（同じidなら更新、無ければ作成）。
  * ・material_words は「対象material_idの既存行を全削除→作り直し」で毎回クリーンな状態にする
  *   （教材データの更新を安全に反映するため。ユーザーの word_books/words には一切影響しない
@@ -15,8 +15,21 @@ import { juniorBasic100 } from "../../src/data/presets/junior-basic-100.ts";
 import { highschoolBasic100 } from "../../src/data/presets/highschool-basic-100.ts";
 import { eikenPre2Basic100 } from "../../src/data/presets/eiken-pre2-basic-100.ts";
 import { universityBasicVerbs100 } from "../../src/data/presets/university-basic-verbs-100.ts";
+import { eiken3Basic100 } from "../../src/data/presets/eiken3-basic-100.ts";
+import { highschoolBasic100Part2 } from "../../src/data/presets/highschool-basic-100-part2.ts";
+import { universityBasicNouns100 } from "../../src/data/presets/university-basic-nouns-100.ts";
+import { dailyConversationUltraBasic50 } from "../../src/data/presets/daily-conversation-ultra-basic-50.ts";
 
-const PRESET_PACKS = [juniorBasic100, highschoolBasic100, eikenPre2Basic100, universityBasicVerbs100];
+const PRESET_PACKS = [
+  juniorBasic100,
+  highschoolBasic100,
+  eikenPre2Basic100,
+  universityBasicVerbs100,
+  eiken3Basic100,
+  highschoolBasic100Part2,
+  universityBasicNouns100,
+  dailyConversationUltraBasic50,
+];
 
 export async function seedPresetMaterials(admin) {
   const results = [];

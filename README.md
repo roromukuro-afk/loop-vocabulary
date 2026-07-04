@@ -253,9 +253,16 @@ develop,発達する,動詞,...,...,5,4,高校基礎,Ch1,U1,13,2
 した`PresetMeta`エントリを追加する（`PresetMaterialPack`のような単語データは不要）。
 `presetMeta.ts`が新規パック由来のメタデータと自動マージする（DBスキーマ変更不要）。
 
+**注意（3スクリプトの二重管理）**: `scripts/materials/{validate-materials,test-materials,
+seed-preset-materials}.mjs`はいずれも対象パックを`import`文と`PRESET_PACKS`配列の
+ハードコードで管理している（`src/data/presets/index.ts`の`PRESET_PACKS`を動的に
+参照する構造ではない）。新しいパックを追加した際は、上記手順1・2に加えてこの3ファイルにも
+同じパターンでimportと配列追加が必要。
+
 詳細な設計判断は [WORK_HISTORY.md](WORK_HISTORY.md) の「2026-07-02 プリセット教材パック基盤の構築」
 「2026-07-02 既存教材の品質監査基盤 + 教材インポートE2E追加」
-「2026-07-04 既存31教材へのpresetMeta拡張」参照。
+「2026-07-04 既存31教材へのpresetMeta拡張」
+「2026-07-04 教材パックの追加拡充 Part2」参照。
 
 ---
 

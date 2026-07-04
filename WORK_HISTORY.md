@@ -5,6 +5,81 @@
 
 ---
 
+## 2026-07-04 教材パックの追加拡充 Part2（4パック・計350語）
+
+2026-07-02に追加した初回4スターターパックに続き、追加の4パックを新規作成した。
+すべてオリジナル作成、市販単語帳・教材の本文からの転載は一切していない。
+
+**追加した教材パック**:
+1. **英検3級 基礎100**（`10000000-0000-0000-0000-000000000105`、100語）—
+   季節・場所・家族・基本動詞/形容詞など、英検3級で問われる日常語彙
+2. **高校英単語 基礎100 Part2**（`...0106`、100語）— 既存「高校英単語 基礎100」の続編。
+   共通テスト・大学受験で狙われる分析・論証系の語彙（動詞・名詞・形容詞・つなぎの副詞）
+3. **大学受験 基礎名詞100**（`...0107`、100語）— 既存「大学受験 基礎動詞100」の姉妹編。
+   長文読解で頻出する抽象的な基礎名詞（社会・経済・環境・文学など）
+4. **日常英会話 超基礎50**（`...0108`、50語）— 既存「日常英会話 基礎フレーズ」（1500語）
+   は初学者には多すぎるため、あいさつ・簡単なフレーズに絞った入門版として追加
+
+**教材メタ情報**: 各パックにgrade（対象学年）・purpose（目的）・recommendedWeeks（推奨
+期間）・dailyWordTarget（1日目安語数）・category・tagsを設定した。
+- 英検3級基礎100: 中学2〜3年 / 2週間 / 1日7語 / category=eiken / tags=[英検対策,
+  中学生向け, 基礎固め, 短期集中]
+- 高校英単語基礎100 Part2: 高校1〜2年 / 2週間 / 1日7語 / category=highschool /
+  tags=[高校生向け, 大学受験基礎, 基礎固め, 短期集中]
+- 大学受験基礎名詞100: 高校2〜3年 / 2週間 / 1日7語 / category=university /
+  tags=[大学受験基礎, 短期集中, 基礎固め]
+- 日常英会話超基礎50: 社会人・学び直し / 1週間 / 1日7語 / category=general /
+  tags=[はじめての人におすすめ, 日常会話, 基礎固め, 短期集中]
+
+**実装**: `src/data/presets/`に4ファイル（`eiken3-basic-100.ts`、
+`highschool-basic-100-part2.ts`、`university-basic-nouns-100.ts`、
+`daily-conversation-ultra-basic-50.ts`）を新規追加し、`index.ts`の`PRESET_PACKS`に
+登録した。`src/lib/materials/presetMeta.ts`は`PRESET_PACKS`から`grade`/`purpose`/
+`recommendedWeeks`/`dailyWordTarget`/`category`/`tags`を自動導出する仕組みのため、
+新4パックのメタデータは追加コード不要で`/materials`・`/materials/[id]`に自動反映された。
+
+**関連スクリプトの更新**: `scripts/materials/validate-materials.mjs`・
+`scripts/materials/test-materials.mjs`・`scripts/materials/seed-preset-materials.mjs`
+の3スクリプトは、いずれも対象パックを`import`文とハードコードされた`PRESET_PACKS`
+配列で管理する設計だったため、新4パックを同じパターンで追加した（`src/data/presets/
+index.ts`の`PRESET_PACKS`をこれらのスクリプトが動的に参照する構造ではないため、
+新パック追加時は今後もこの3ファイルの更新が必要）。
+
+**品質チェック結果**: `validate:materials`で8パック中errors=0（`大学受験 基礎動詞100`の
+既存1件の警告のみ、今回の新パックには警告なし）。パック内の単語重複は`grep`で機械的に
+確認し0件。`test:materials`で新4パックのDB投入・語数一致・インポート後のSRS/PDF互換性を
+確認（26項目、全PASS）。既存31教材+旧4パック（35件）は無変更、新4パック追加後は
+39教材・総語数32,692語（32,342語+350語）。
+
+**教材一覧・詳細での見え方**: dev previewで実際に確認。「英検3級 基礎100」は
+`/materials`の「英検対策」セクションに、「日常英会話 超基礎50」は「はじめての人に
+おすすめ」と「日常会話・学び直し」の両セクションに表示され、詳細ページでは
+タグ・目安期間・1日語数・対象学年・収録単語一覧が正しく表示されることを確認した。
+
+**既存教材への影響**: 既存31教材・旧4スターターパックのデータ・表示には一切変更なし。
+DBスキーマ変更なし、RLS変更なし、SRS V2ロジック変更なし、teacher機能変更なし、
+品詞未設定6,730件・意味違い重複1,952件には触れていない。前回修正した教材詳細ページの
+総語数表示（`.limit()`欠如バグ）・教材インポート後導線（3ボタンCTAパネル）・学習モード
+入口はいずれも回帰なし。
+
+**変更ファイル**: `src/data/presets/eiken3-basic-100.ts`（新規）、
+`src/data/presets/highschool-basic-100-part2.ts`（新規）、
+`src/data/presets/university-basic-nouns-100.ts`（新規）、
+`src/data/presets/daily-conversation-ultra-basic-50.ts`（新規）、
+`src/data/presets/index.ts`、`scripts/materials/validate-materials.mjs`、
+`scripts/materials/test-materials.mjs`、`scripts/materials/seed-preset-materials.mjs`。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run
+validate:materials`（8パック、errors=0） / `npm run test:materials`（26/26） /
+`npm run test:materials:e2e`（25/25、回帰なし） / `npm run test:e2e`（9フロー全PASS）/
+`npm run test:smoke` / `npm run verify:prod` / `npm run verify:srs-global`。
+
+**次に追加すべき教材候補**: 英検2級 基礎100（英検3級・準2級の次のステップ）、
+TOEIC 基礎100（既存TOEIC教材は大規模のみでスターター規模が無い）、大学受験 基礎形容詞100
+（基礎動詞100・基礎名詞100と対になる形容詞版）、日常英会話 超基礎50 Part2（旅行・買い物編）。
+
+---
+
 ## 2026-07-04 教材詳細ページの総語数集計バグを修正（Supabase既定1000件上限）
 
 前回のpresetMeta拡張の目視確認中に発見した`/materials/[id]`の総語数表示バグに対応。

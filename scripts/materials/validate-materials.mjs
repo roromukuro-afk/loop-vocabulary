@@ -13,6 +13,10 @@ import { juniorBasic100 } from "../../src/data/presets/junior-basic-100.ts";
 import { highschoolBasic100 } from "../../src/data/presets/highschool-basic-100.ts";
 import { eikenPre2Basic100 } from "../../src/data/presets/eiken-pre2-basic-100.ts";
 import { universityBasicVerbs100 } from "../../src/data/presets/university-basic-verbs-100.ts";
+import { eiken3Basic100 } from "../../src/data/presets/eiken3-basic-100.ts";
+import { highschoolBasic100Part2 } from "../../src/data/presets/highschool-basic-100-part2.ts";
+import { universityBasicNouns100 } from "../../src/data/presets/university-basic-nouns-100.ts";
+import { dailyConversationUltraBasic50 } from "../../src/data/presets/daily-conversation-ultra-basic-50.ts";
 import {
   ALLOWED_POS,
   ALLOWED_TAGS,
@@ -24,7 +28,16 @@ import { auditExistingMaterials, writeAuditReports } from "./audit-existing-mate
 import { getAdminClient } from "../testing/lib/supabaseAdmin.mjs";
 import { loadEnv } from "../testing/lib/env.mjs";
 
-const PRESET_PACKS = [juniorBasic100, highschoolBasic100, eikenPre2Basic100, universityBasicVerbs100];
+const PRESET_PACKS = [
+  juniorBasic100,
+  highschoolBasic100,
+  eikenPre2Basic100,
+  universityBasicVerbs100,
+  eiken3Basic100,
+  highschoolBasic100Part2,
+  universityBasicNouns100,
+  dailyConversationUltraBasic50,
+];
 
 let errors = 0;
 let warnings = 0;
