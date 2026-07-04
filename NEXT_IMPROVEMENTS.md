@@ -4,7 +4,7 @@
 > 大きめの機能追加は実際の利用状況を見てから判断する。
 > 各項目は着手前に個別のご確認をいただく（本ドキュメントは提案のみ・実装はまだしない）。
 >
-> **2026-07-04時点: 優先度A（下記18項目）はすべて完了。現在は次の優先度整理フェーズ。**
+> **2026-07-04時点: 優先度A（下記19項目）はすべて完了。現在は次の優先度整理フェーズ。**
 > 本番ヘルスチェック結果・現在の運用状態は [WORK_HISTORY.md](WORK_HISTORY.md) の
 > 「2026-07-02 運用状態の整理・本番ヘルスチェック」を参照。
 > 既存教材の品質状況は [MATERIALS_AUDIT.md](MATERIALS_AUDIT.md) を参照
@@ -225,6 +225,21 @@
     （管理画面の実際の操作・スロットIDの発行はオーナー側の作業）。
     検証: `tsc --noEmit` / `build` / `test:smoke` / `test:e2e`（9フロー全PASS） /
     `verify:prod` / `verify:srs-global`、全PASS。詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
+
+19. ✅ **完了（2026-07-04）: AdSense広告ユニットの本番投入（1箇所限定）**
+    オーナーがAdSense管理画面で広告ユニット「Loop Vocabulary Display Banner」
+    （ディスプレイ広告・レスポンシブ）を作成し発行された`data-ad-slot="5952840845"`を、
+    `NEXT_PUBLIC_ADSENSE_SLOT_BANNER`としてVercel Production環境変数に設定した。
+    修正前は`BannerAdPlaceholder`が9ページ10箇所に配置されており、スロットID有効化と
+    同時に全箇所で一斉に実広告が表示される状態だったため、AdSenseがまだ`Getting ready`
+    （審査未確定）であることを踏まえて**`/dashboard`の1箇所のみ**に限定し、残り8ページ
+    （`materials`×2箇所・`materials/[id]`・`review`・`road`・`settings`・`stats`・`weak`・
+    `wordbooks/[id]`・`learn`のレッスン結果画面）からは呼び出しとimportを削除した
+    （`NativeAdCard`は引き続き各所に残置——`NEXT_PUBLIC_ADSENSE_SLOT_INFEED`が未設定のため
+    本番では何も表示されない）。Publisher ID・スロットIDとも新規作成・推測はしていない。
+    検証: `tsc --noEmit` / `build` / `test:smoke` / `test:e2e`（9フロー全PASS） /
+    `verify:prod` / `verify:srs-global`、全PASS。詳細は[ADSENSE_SETUP.md](ADSENSE_SETUP.md)§4・
+    [WORK_HISTORY.md](WORK_HISTORY.md)参照。
 
 ---
 

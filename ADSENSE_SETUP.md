@@ -3,7 +3,7 @@
 > AdSense管理画面の操作・審査状況の確認はオーナー側で行う。本書はアプリ側の実装状況、
 > 管理画面で見るべき項目、そして今回発見・修正した不足点をまとめたもの。
 
-## 0. 現在のステータス（2026-07-04調査時点）
+## 0. 現在のステータス（2026-07-04調査時点 → 同日中に広告ユニット1件を本番投入）
 
 - **サイト側のAdSense実装**: 実装済み（プレースホルダではない）
   - `layout.tsx`に `<meta name="google-adsense-account" content="ca-pub-5148247638505100">` を常時出力
@@ -11,11 +11,15 @@
     `adsbygoogle.js`（Google公式スクリプト）を読み込み、自動広告（`enable_page_level_ads: true`）を有効化
   - `public/ads.txt`公開済み（`google.com, pub-5148247638505100, DIRECT, f08c47fec0942fa0`）。
     `layout.tsx`の`ca-pub-5148247638505100`と一致（矛盾なし）
-- **個別の広告ユニット（バナー/レクタングル/インフィード）は未設定**:
-  `NEXT_PUBLIC_ADSENSE_SLOT_BANNER` / `_RECTANGLE` / `_INFEED` の3つの環境変数が
-  Vercelに未設定のため、`src/components/ads/AdSense.tsx`内の各コンポーネントは
-  スロットIDが無い場合に何も表示しない設計になっている（本番で広告が過剰表示される事故は無い）
-- **審査状況そのものはAdSense管理画面でしか確認できない**（本書§2参照、オーナー操作が必要）
+- **AdSense管理画面のサイトステータス（オーナー確認、2026-07-04）**: `Getting ready`。
+  ads.txtはAuthorized、ポリシーセンター警告なし、自動広告ON、広告ユニット作成可能な状態
+- **広告ユニット「Loop Vocabulary Display Banner」を1件作成・本番投入済み（2026-07-04）**:
+  - 種類: ディスプレイ広告 / サイズ: レスポンシブ / `data-ad-slot="5952840845"`
+  - `NEXT_PUBLIC_ADSENSE_SLOT_BANNER=5952840845` をVercel Production環境変数に設定済み
+  - 表示箇所は**`/dashboard`の1ページのみ**に限定（本書§4参照）。`Getting ready`段階での
+    最初の実配置のため、意図的に最小限に絞っている
+  - `NEXT_PUBLIC_ADSENSE_SLOT_RECTANGLE` / `_INFEED` は引き続き未設定 →
+    `AdSenseRectangle`/`AdSenseInFeed`（`NativeAdCard`が内部で使用）は本番で何も表示しない
 
 ---
 
@@ -98,19 +102,59 @@ Web版のAdSense・広告Cookie・第三者配信・オプトアウト手段へ�
   プレースホルダ前提の説明から、実際にAdSense/AdMobへ接続済みである現状に合わせて更新
 
 **変更していないもの**（AdSense管理画面での操作・発行が必要なため）:
-- 広告ユニットのスロットID（`NEXT_PUBLIC_ADSENSE_SLOT_BANNER`等）
-- Publisher ID（`ca-pub-5148247638505100`・`ads.txt`）— 既存の値をそのまま使用、新規作成・推測はしていない
+- 広告ユニットのスロットID（`NEXT_PUBLIC_ADSENSE_SLOT_BANNER`等）→ **2026-07-04にオーナーが作成・
+  発行済み**（§4参照）。Publisher ID・スロットIDとも新規作成・推測はしていない
+- Publisher ID（`ca-pub-5148247638505100`・`ads.txt`）— 既存の値をそのまま使用
 - 課金・Premium広告非表示プランの本番導入
+
+---
+
+## 4. 広告ユニットの本番投入（2026-07-04）
+
+オーナーがAdSense管理画面で「Loop Vocabulary Display Banner」（ディスプレイ広告・レスポンシブ）
+を作成し、`data-ad-slot="5952840845"` が発行された。これを受けて以下を実施した。
+
+### 4-1. 環境変数設定
+
+`NEXT_PUBLIC_ADSENSE_SLOT_BANNER=5952840845` をVercel Production環境変数に設定
+（`vercel env add` で追加。Preview/Developmentには追加していない）。
+
+### 4-2. 表示箇所を最小限に絞り込み
+
+修正前の実装では`BannerAdPlaceholder`（内部的に`AdSenseBanner`を呼ぶ）が以下10箇所
+（9ページ）に配置されていた: `dashboard` / `learn`(レッスン結果画面) / `materials`(検索結果・
+カテゴリ一覧の2箇所) / `materials/[id]` / `review` / `road` / `settings` / `stats` / `weak` /
+`wordbooks/[id]`。
+
+スロットIDが有効化されると、これら全箇所で一斉に実広告が表示される状態だったため、
+AdSenseがまだ`Getting ready`（審査未確定）であることを踏まえ、**最初の本番投入は
+`/dashboard`の1箇所のみに限定**し、残り8ページからは`BannerAdPlaceholder`の呼び出しを削除した
+（インポートも合わせて削除、`NativeAdCard`の呼び出しはそのまま残置——こちらは
+`NEXT_PUBLIC_ADSENSE_SLOT_INFEED`が未設定のため本番では引き続き何も表示されない）。
+
+`/dashboard`の配置は、統計カードや学習導線などのメインコンテンツすべての後、「先生向け機能への
+導線」よりさらに下という、ページ最下部・区切り位置(このページの中で最後の要素)にあり、
+学習操作やボタンを妨げない。レイアウト崩れ防止のため`AdSenseBanner`は`minHeight: 90`を
+指定しており、広告が配信されない場合もレイアウトが潰れない。
+
+**削除した8ページ**: `materials`（2箇所）・`materials/[id]`・`review`・`road`・`settings`・
+`stats`・`weak`・`wordbooks/[id]`・`learn`(レッスン結果画面)。いずれもコード自体を削除しており
+（コメントアウトではない）、再度表示したくなった場合は`git log`から該当コミットの差分を参照し、
+`BannerAdPlaceholder`の呼び出しとimportを復元すれば良い。
+
+### 4-3. 今後の拡大方針
+
+AdSenseの審査状況が`準備完了`になり、`/dashboard`での配信・収益・レイアウトに問題が
+無いことを確認できた段階で、他ページへの再展開を検討する。展開の判断はオーナー承認を得てから
+行う（本書の制約「広告を過剰に増やさない」を維持）。
 
 ---
 
 ## 次回チェック時に共有いただきたい情報
 
-- AdSense管理画面「サイト」でのステータス表示（準備完了 / レビュー中 / 要確認 / 不承認、
+- AdSense管理画面「サイト」でのステータス表示の変化（`Getting ready` → `準備完了`等、
   不承認の場合はその理由文言）
-- 「ポリシーセンター」に警告が出ている場合はその文言
-- 広告ユニットが作成できる状態であれば、実際に1つ作成して発行されたスロットID
-  （バナー1つで構いません）
-- 自動広告が有効化できる状態かどうか
-
-これらが分かれば、次のステップ（広告ユニットのスロットID設定・表示箇所の最終確認）に進めます。
+- `/dashboard`の広告が実際に配信されているか（表示回数・クリック率がAdSense管理画面の
+  「広告」→「サマリー」で確認できるようになったら共有してください）
+- ポリシーセンターに新しい警告が出ていないか
+- 他ページへの展開を進めてよいかどうかの判断（§4-3参照）

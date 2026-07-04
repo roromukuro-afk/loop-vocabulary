@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { BannerAdPlaceholder, NativeAdCard } from "@/components/ads/AdComponents";
+import { NativeAdCard } from "@/components/ads/AdComponents";
 
 type Word = { id: string; word: string; meaning: string; phonetic?: string | null; example?: string | null; example_ja?: string | null };
 
@@ -249,9 +249,6 @@ export function LearnRunner({ words, onComplete }: { words: Word[]; onComplete?:
         {/* 広告 */}
         <div className="mt-4">
           <NativeAdCard />
-        </div>
-        <div className="mt-3">
-          <BannerAdPlaceholder />
         </div>
       </div>
     </div>

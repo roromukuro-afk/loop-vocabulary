@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
-import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { createClient } from "@/lib/supabase/server";
 import { getPresetMeta } from "@/lib/materials/presetMeta";
 
@@ -286,9 +285,6 @@ export default async function MaterialsPage({
             </li>
           )}
         </ul>
-        <div className="mt-5">
-          <BannerAdPlaceholder />
-        </div>
       </AppShell>
     );
   }
@@ -371,10 +367,6 @@ export default async function MaterialsPage({
             </section>
           );
         })}
-      </div>
-
-      <div className="mt-6">
-        <BannerAdPlaceholder />
       </div>
     </AppShell>
   );

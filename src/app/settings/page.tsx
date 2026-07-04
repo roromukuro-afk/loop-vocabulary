@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle } from "@/components/ui/Card";
-import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { SUPPORT_EMAIL } from "@/lib/support";
 import { DeleteAccountPanel } from "@/components/account/DeleteAccountPanel";
@@ -171,8 +170,6 @@ export default async function SettingsPage() {
           Web からも削除リクエストできます: <Link href="/account/delete" className="underline">/account/delete</Link>
         </p>
       </Card>
-
-      <div className="mt-5"><BannerAdPlaceholder /></div>
     </AppShell>
   );
 }

@@ -1,6 +1,5 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle, Stat } from "@/components/ui/Card";
-import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { StudyCalendar } from "./StudyCalendar";
 import { StudyWeekGraph } from "./StudyWeekGraph";
@@ -84,8 +83,6 @@ export default async function StatsPage() {
           <li>苦手単語は <code>/weak</code> から並び替えて集中復習できます。</li>
         </ul>
       </Card>
-
-      <div className="mt-5"><BannerAdPlaceholder /></div>
     </AppShell>
   );
 }

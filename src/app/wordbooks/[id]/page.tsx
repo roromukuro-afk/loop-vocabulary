@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { WordListWithDrawer } from "./WordListWithDrawer";
 import { ShareButton } from "@/components/wordbooks/ShareButton";
@@ -113,8 +112,6 @@ export default async function WordBookDetailPage({ params }: { params: Promise<{
           initialCode={book.share_code ?? null}
         />
       </div>
-
-      <div className="mt-5"><BannerAdPlaceholder /></div>
     </AppShell>
   );
 }

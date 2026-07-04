@@ -2,7 +2,6 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle, Stat } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { srsV2EnabledFor } from "@/lib/srs";
 import { resolveScopeLabel } from "@/lib/learning/scopeLabel";
@@ -123,8 +122,6 @@ export default async function ReviewPage({
           )}
         </ul>
       </Card>
-
-      <div className="mt-5"><BannerAdPlaceholder /></div>
     </AppShell>
   );
 }

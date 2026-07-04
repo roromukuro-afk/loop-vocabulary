@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
-import { BannerAdPlaceholder, NativeAdCard } from "@/components/ads/AdComponents";
+import { NativeAdCard } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 
 type WordCountRow = { material_id: string; word_count: number };
@@ -380,10 +380,6 @@ export default async function RoadPage() {
         <Link href="/materials" className="mt-3 inline-block text-xs font-bold text-navy-700 underline underline-offset-2">
           すべての教材を見る →
         </Link>
-      </div>
-
-      <div className="mt-4">
-        <BannerAdPlaceholder />
       </div>
     </AppShell>
   );

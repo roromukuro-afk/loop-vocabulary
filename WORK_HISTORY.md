@@ -5,6 +5,55 @@
 
 ---
 
+## 2026-07-04 AdSense広告ユニットの本番投入（1箇所限定でスタート）
+
+**経緯**: 前回のAdSense調査ラウンドで、AdSense管理画面のオーナー確認結果が共有された。
+`loop-vocabulary.app`は`Getting ready`（審査未確定）だが、ads.txtはAuthorized、
+ポリシーセンター警告なし、自動広告ON、広告ユニット作成可能な状態。オーナーがAdSense管理画面で
+ディスプレイ広告ユニット「Loop Vocabulary Display Banner」（レスポンシブ）を作成し、
+`data-ad-slot="5952840845"`が発行された。Publisher ID（`ca-pub-5148247638505100`）は
+既存のまま、新規作成はしていない。
+
+**環境変数設定**: `NEXT_PUBLIC_ADSENSE_SLOT_BANNER=5952840845`を`vercel env add`で
+Vercel Production環境に追加（Preview/Developmentには追加していない）。設定作業に着手する前に
+一度、ユーザーの発言が明確な承認か確認を要する状況が生じ、作業を止めて確認を取ってから
+再開した（このやり取り自体はこの回のスコープ外だが、以降のオーナー指示は明確な承認として扱った）。
+
+**表示箇所の絞り込み**: `NEXT_PUBLIC_ADSENSE_SLOT_BANNER`が設定されると、`AdSenseBanner`
+（`BannerAdPlaceholder`から呼ばれる)が有効化され、修正前の実装のままでは以下9ページ10箇所で
+一斉に実広告が表示される状態だった: `dashboard`・`materials`（検索結果/カテゴリ一覧の2箇所）・
+`materials/[id]`・`review`・`road`・`settings`・`stats`・`weak`・`wordbooks/[id]`・
+`learn`（レッスン結果画面）。AdSenseがまだ`Getting ready`であることを踏まえ、オーナーからの
+「表示箇所が過剰なら減らしてほしい」という方針に沿って、**最初の実配置は`/dashboard`の
+1箇所のみに限定**し、残り8ページからは`BannerAdPlaceholder`の呼び出しとimportを削除した
+（コメントアウトではなく削除。復元する場合は該当コミットの差分を参照）。
+各ページの`NativeAdCard`呼び出しはそのまま残置——`NEXT_PUBLIC_ADSENSE_SLOT_INFEED`が
+未設定のため本番では引き続き何も表示されない（内部で`AdSenseInFeed`→スロット無しで
+`AdPlaceholder`→本番ではnullを返す設計のため、コード上残っていても無害）。
+
+`/dashboard`の配置は、統計カード・学習導線などのメインコンテンツすべての後、「先生向け機能への
+導線」よりさらに下というページ最下部（そのページの最後の要素）にあり、学習操作やボタンを
+妨げない。`AdSenseBanner`は`minHeight: 90`を指定しているため、広告が配信されない場合も
+レイアウトが潰れない。クリック誘導文（「広告をクリックしてください」等）は元々使用しておらず、
+今回も追加していない。
+
+**変更ファイル**: `src/app/materials/page.tsx`・`src/app/materials/[id]/page.tsx`・
+`src/app/review/page.tsx`・`src/app/road/page.tsx`・`src/app/settings/page.tsx`・
+`src/app/stats/page.tsx`・`src/app/weak/page.tsx`・`src/app/wordbooks/[id]/page.tsx`・
+`src/app/learn/LearnRunner.tsx`（いずれも`BannerAdPlaceholder`の呼び出し+importを削除）、
+`ADSENSE_SETUP.md`・`PRODUCTION_MONITORING.md`・`NEXT_IMPROVEMENTS.md`（ドキュメント更新）。
+DBスキーマ・RLS・SRS V2ロジック・教材データ・teacher機能・課金機能はいずれも変更していない。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run test:smoke` /
+`npm run test:e2e`（9フロー全PASS、`/dashboard`・`/materials`・`/wordbooks`への回帰なし
+確認済み） / `npm run verify:prod` / `npm run verify:srs-global`。
+
+**残課題**: AdSense審査が`準備完了`になり、`/dashboard`での配信・収益・レイアウトに
+問題が無いことを確認できた段階で、他ページへの再展開をオーナー承認の上で検討する
+（詳細は[ADSENSE_SETUP.md](ADSENSE_SETUP.md)§4-3参照）。
+
+---
+
 ## 2026-07-04 AdSense審査状況の確認・アプリ側の不足項目整理
 
 **目的**: 広告掲載の準備状況とAdSense審査に必要な要件を確認。AdSense管理画面へのログインが

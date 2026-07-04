@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
-import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { WeaknessAnalysis } from "./WeaknessAnalysis";
@@ -86,8 +85,6 @@ export default async function WeakPage({ searchParams }: { searchParams: Promise
       </Card>
 
       <WeaknessAnalysis isPremium={isPremium} />
-
-      <div className="mt-5"><BannerAdPlaceholder /></div>
     </AppShell>
   );
 }

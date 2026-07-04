@@ -172,12 +172,16 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 
 ## 9. AdSense/広告まわりで見るべき項目
 
-> 2026-07-04時点のアプリ側実装状況・不足項目の調査結果は [ADSENSE_SETUP.md](ADSENSE_SETUP.md)
-> 参照。`NEXT_PUBLIC_ADSENSE_CLIENT`（本番設定済み）・`adsbygoogle.js`・`ads.txt`は
-> 実装済みでプレースホルダではない。広告ユニットのスロットIDのみ未設定（過剰表示なし）。
+> 2026-07-04: 広告ユニット「Loop Vocabulary Display Banner」（`data-ad-slot="5952840845"`）を
+> 本番投入済み。`NEXT_PUBLIC_ADSENSE_SLOT_BANNER`をVercel Productionに設定し、表示箇所は
+> `/dashboard`の1ページのみに限定（AdSenseが`Getting ready`のため最小限からスタート）。
+> 詳細・拡大方針は [ADSENSE_SETUP.md](ADSENSE_SETUP.md)§4 参照。
 
-- **審査状況**: AdSense管理画面「サイト」でのステータス（準備完了/レビュー中/要確認/不承認）を
-  定期確認。承認後は広告表示の有無・収益発生を確認（確認手順は[ADSENSE_SETUP.md](ADSENSE_SETUP.md)§2）
+- **審査状況**: AdSense管理画面「サイト」でのステータス（2026-07-04時点: `Getting ready`。
+  準備完了/レビュー中/要確認/不承認）を定期確認。承認後は広告表示の有無・収益発生を確認
+  （確認手順は[ADSENSE_SETUP.md](ADSENSE_SETUP.md)§2）
+- **`/dashboard`の広告表示**: レイアウト崩れがないか、配信の有無（AdSense管理画面「広告」→
+  「サマリー」の表示回数・クリック率で確認可能になり次第）
 - **広告表示エラー**: ブラウザコンソールでAdSense関連エラーが出ていないか
 - **ads.txt / app-ads.txt**: 正しく公開され、AdSense/AdMobが要求する内容と一致しているか
   （2026-07-04確認: Web版`pub-5148247638505100`、App版`pub-7135124532952935`、いずれも

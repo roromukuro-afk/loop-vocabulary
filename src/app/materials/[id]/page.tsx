@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle } from "@/components/ui/Card";
-import { BannerAdPlaceholder } from "@/components/ads/AdComponents";
 import { createClient } from "@/lib/supabase/server";
 import { ImportMaterialButton } from "./ImportMaterialButton";
 import { PronounceButton } from "@/components/ui/PronounceButton";
@@ -345,10 +344,6 @@ export default async function MaterialDetailPage({
           ))}
         </ul>
       </Card>
-
-      <div className="mt-5">
-        <BannerAdPlaceholder />
-      </div>
     </AppShell>
   );
 }
