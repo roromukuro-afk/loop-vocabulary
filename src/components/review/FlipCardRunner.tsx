@@ -17,7 +17,21 @@ type Result = { word: string; meaning: string; ok: boolean };
 
 const SWIPE_KEY = "lv_swipe_mode";
 
-export function FlipCardRunner({ pool, v2Enabled, scopeLabel }: { pool: W[]; v2Enabled?: boolean; scopeLabel?: string }) {
+export function FlipCardRunner({
+  pool,
+  v2Enabled,
+  scopeLabel,
+  recoveryMode,
+  recoveryTotalDue,
+}: {
+  pool: W[];
+  v2Enabled?: boolean;
+  scopeLabel?: string;
+  /** リカバリーモード（復習待ちが溜まっている時に少量だけ出題するモード）かどうか */
+  recoveryMode?: boolean;
+  /** リカバリーモード開始時点での復習待ち総数（poolはこの一部にlimitで絞ったもの） */
+  recoveryTotalDue?: number;
+}) {
   const showInterstitial = useAppInterstitial();
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -123,9 +137,25 @@ export function FlipCardRunner({ pool, v2Enabled, scopeLabel }: { pool: W[]; v2E
   };
 
   if (done) {
+    const remaining = Math.max(0, (recoveryTotalDue ?? pool.length) - pool.length);
     return (
       <div className="min-h-dvh px-4 py-6 max-w-md mx-auto">
-        <h1 className="text-2xl font-bold text-navy-800 text-center">完了！</h1>
+        <h1 className="text-2xl font-bold text-navy-800 text-center">
+          {recoveryMode ? "今日はここまででOK！" : "完了！"}
+        </h1>
+        {recoveryMode && (
+          <div
+            className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-center"
+            data-testid="recovery-complete-message"
+          >
+            <p className="text-sm font-semibold text-emerald-800">
+              {remaining > 0
+                ? `残り${remaining}語は少しずつ消化していきましょう。`
+                : "復習待ちの単語をすべて終えました。"}
+            </p>
+            <p className="text-xs text-emerald-700 mt-1">一気に全部やらなくても大丈夫です。</p>
+          </div>
+        )}
         <div className="mt-6 bg-white rounded-2xl border border-navy-100 shadow-card p-6 text-center">
           <div className="text-6xl mb-2">{acc >= 90 ? "🎯" : acc >= 70 ? "📚" : "💪"}</div>
           <div className="text-sm text-navy-500">記憶率</div>
@@ -194,6 +224,11 @@ export function FlipCardRunner({ pool, v2Enabled, scopeLabel }: { pool: W[]; v2E
       </div>
       {scopeLabel && (
         <p className="mt-1 text-center text-[11px] text-navy-400" data-testid="quiz-scope-label">{scopeLabel}</p>
+      )}
+      {recoveryMode && (
+        <p className="mt-1 text-center text-[11px] text-amber-600 font-semibold" data-testid="recovery-mode-badge">
+          🌱 リカバリーモード（{pool.length}語だけ）
+        </p>
       )}
 
       <div className="mt-2 h-1.5 bg-navy-100 rounded-full overflow-hidden">

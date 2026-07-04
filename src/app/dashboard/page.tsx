@@ -211,14 +211,24 @@ export default async function DashboardPage() {
         <>
           <section className="mt-5 space-y-3">
             {(dueCount ?? 0) > 0 ? (
-              <Link href="/review?start=1&mode=flip">
-                <Button fullWidth size="lg" className="relative">
-                  🔁 今日の復習
-                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                    {Math.min(dueCount ?? 0, 99)}
-                  </span>
-                </Button>
-              </Link>
+              <>
+                <Link href="/review?start=1&mode=flip">
+                  <Button fullWidth size="lg" className="relative">
+                    🔁 今日の復習
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                      {Math.min(dueCount ?? 0, 99)}
+                    </span>
+                  </Button>
+                </Link>
+                {(dueCount ?? 0) >= 20 && (
+                  <p className="text-center text-xs text-navy-500" data-testid="dashboard-recovery-hint">
+                    復習が少し溜まっています。
+                    <Link href="/review?start=1&mode=recovery&limit=10" className="text-sky-600 font-semibold underline underline-offset-2 ml-1">
+                      まずは10語だけ →
+                    </Link>
+                  </p>
+                )}
+              </>
             ) : (
               <Link href="/learn">
                 <Button fullWidth size="lg">📖 レッスンで新単語を学ぶ</Button>

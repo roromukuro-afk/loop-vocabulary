@@ -5,6 +5,89 @@
 
 ---
 
+## 2026-07-04 復習リカバリーモードの実装
+
+**目的**: 前回の収益化・成長監査で確認した「復習の雪だるま問題」（`/review`の復習キューは
+`.limit(50)`のみで、サボった後の救済導線が一切無い）に対応するため、復習待ちが溜まった時に
+少量から再開できる「リカバリーモード」を実装した。
+
+**現状調査（実施結果）**:
+- `/review`のdue取得は`.eq("user_id",...).or("next_review_at.lte.now,is_weak.eq.true").order("next_review_at",{ascending:true}).limit(50)`で、`book`パラメータ指定時は`.eq("word_book_id", book)`を追加する設計だった
+- due単語は最大50件まで一括取得され、`start=1`時は`FlipCardRunner`にpool全体（最大50件）が
+  そのまま渡され、**間に区切りなく全件を通しでこなす設計**だった（例えば45件溜まっていれば
+  45件を一度に消化しないと「完了」画面に辿り着かない）
+- ダッシュボードの「復習待ち」は`dueCount`（`.select("*",{count:"exact",head:true})`、
+  50件制限を受けない実際の総数）を生の数字でそのまま表示していた
+- 優先順位付けは`next_review_at`昇順（最も遅延している単語が先）のみで、正答率・wrong_count・
+  ease_factorによる重み付けは無かった
+- book指定時と全単語帳時の違いは、due取得クエリへの`.eq("word_book_id", book)`追加の有無のみ
+- SRS V2の採点・更新（`saveStudyResult`→`applySrsV2`）は1問ごとに`FlipCardRunner`から
+  呼ばれる設計で、「どの単語がpoolに含まれるか」とは完全に独立していることを確認
+  （リカバリーモードを追加してもこのロジックには一切触れる必要が無いことを確認済み）
+
+**実装方針**: DBスキーマ変更・SRS中核ロジック変更はせず、復習セッションの入り口と表示改善のみに
+限定した。
+
+**実装内容**:
+- `src/app/review/page.tsx`: due取得クエリに`wrong_count`を追加選択し、
+  `.order("next_review_at",{ascending:true})`に続けて`.order("wrong_count",{ascending:false})`
+  を追加（同時刻の場合のタイブレークとして正答率が低い単語を優先。既存の第一優先順位は無変更）。
+  `RECOVERY_THRESHOLD=20`語以上の時にリカバリーバナー（「復習が少し溜まっています」+
+  「まず10語だけ」「20語だけ進める」ボタン）を表示。`mode=recovery`のとき、既に取得済みの
+  poolを`Array.slice(0, limit)`するだけで追加クエリなしに出題数を絞る（`limit`は`?limit=`から
+  取得、1〜50の範囲にクランプ）。`book`パラメータは既存の仕組みをそのまま通すため、
+  リカバリーモードも自動的に単語帳スコープに対応する。
+- `src/components/review/FlipCardRunner.tsx`: `recoveryMode`/`recoveryTotalDue`propsを追加。
+  完了画面で、通常時は「完了！」のまま、リカバリーモード時は「今日はここまででOK！」+
+  「残り{N}語は少しずつ消化していきましょう」（残りが無ければ「すべて終えました」）という
+  前向きな表示に切り替える。セッション中も「🌱 リカバリーモード（N語だけ）」の小さな
+  バッジを表示。ユーザーを責める文言（「サボった」「遅れた」等）は一切使っていない。
+  `saveStudyResult`の呼び出し方・SRS V2の採点ロジックは一切変更していない。
+- `src/app/dashboard/page.tsx`: 「🔁 今日の復習」ボタンの下に、`dueCount>=20`の時だけ
+  「復習が少し溜まっています。まずは10語だけ →」という控えめなテキストリンクを追加
+  （`/review?start=1&mode=recovery&limit=10`）。既存のボタン・バッジ表示は無変更。
+
+**URLの設計**: `/review?mode=recovery&limit=10`・`/review?mode=recovery&limit=20`・
+`/review?book=<id>&mode=recovery&limit=10`のいずれにも対応。`mode`パラメータは既存の
+`flip`/`choice`と同列の第3の値として`recovery`を追加する形にし、既存の2値との衝突は無い。
+
+**テスト作成中に発見した2つの誤り（いずれもテストスクリプト側の問題、アプリ側は正常）**:
+1. `FlipCardRunner`の次カードへの切り替わり待ちを固定時間（450ms）で行っていたところ、
+   ネットワーク往復（Supabaseへの複数回の書き込み）に対して待ち時間が不足しタイムアウトする
+   ことがあったため、`data-word`属性の変化を待つ`waitForFunction`方式（既存の`srs.mjs`と
+   同じパターン）に変更して解消した。
+2. `next_review_at`の更新確認を文字列の完全一致(`!==`)で行っていたところ、PostgRESTが返す
+   タイムスタンプの文字列表現がinsert時のISO文字列と一致しないことがあり、更新されていない
+   単語まで「更新された」と誤判定していた。`new Date(...).getTime()`で実際の時刻を比較する
+   方式に変更して解消した。
+
+**テスト**: `scripts/testing/e2e/recovery-mode.mjs`（新規、`npm run test:recovery-mode`）を
+新設し、`test:e2e`にも14フロー目として統合。実ブラウザで、35語due（メイン単語帳）+
+5語due（デコイ単語帳、スコープ隔離確認用）を用意し、(1)バナー表示、(2)「まず10語だけ」で
+ちょうど10語出題・DBで10語のみ更新、(3)残り25語でバナー継続、(4)「20語だけ進める」で
+20語出題、(5)残り5語でバナー消滅、(6)通常復習(`mode=flip`)が残り全5語を出題（capなし）、
+(7)デコイ単語帳が一切更新されない（book指定のスコープ隔離）、をすべて検証。
+
+**変更ファイル**: `src/app/review/page.tsx`、`src/components/review/FlipCardRunner.tsx`、
+`src/app/dashboard/page.tsx`、`scripts/testing/e2e/recovery-mode.mjs`（新規）、`package.json`
+（`test:recovery-mode`スクリプト追加）、`scripts/testing/run-e2e.mjs`（14フロー目として統合）、
+`NEXT_IMPROVEMENTS.md`。
+
+**変更していないもの**: DBスキーマ（マイグレーション無し）、RLS、SRS V2の採点・更新ロジック
+（`src/lib/srs/`配下は無変更）、teacher機能、教材データ、単語帳削除機能、AdSense広告枠
+（学習中・復習中画面への追加はしていない）、通常復習（`mode=flip`/`mode=choice`）の挙動。
+「リセット」「復習スケジュールの一括再調整」は今回意図的にスコープ外とした（別タスク）。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run test:smoke` /
+`npm run test:recovery-mode`（単独実行、全項目PASS） / `npm run test:e2e`（14フロー全PASS）/
+`npm run verify:prod` / `npm run verify:srs-global`。
+
+**残課題**: 「復習スケジュールの一括再調整」「due単語のリセット」機能は別タスクとして検討。
+リカバリーモードの閾値（20語）・選択肢（10/20語）は初期値として設定したもので、実際の
+利用状況を見てから調整の余地がある。
+
+---
+
 ## 2026-07-04 TOEIC・ビジネス英語スターターパック4種の追加（計400語）
 
 **目的**: 前回の収益化・成長監査で確認した「TOEIC/ビジネス教材が弱い」（全39教材中TOEIC

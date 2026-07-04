@@ -15,7 +15,7 @@
 
 ## 2. 週1で確認する項目（15〜20分）
 
-- [ ] `npm run test:e2e`（フルE2E一式）を実行し、13フロー（onboarding/dictionary・SRS V2・teacher・admin・教材インポート・4択出題ロジック・他学習モード出題ロジック・Premium判定回帰・学習モード入口/対象範囲ラベル・単語帳削除）が全PASSか
+- [ ] `npm run test:e2e`（フルE2E一式）を実行し、14フロー（onboarding/dictionary・SRS V2・teacher・admin・教材インポート・4択出題ロジック・他学習モード出題ロジック・Premium判定回帰・学習モード入口/対象範囲ラベル・単語帳削除・復習リカバリーモード）が全PASSか
 - [ ] `npm run verify:srs-global` — SRS V2のグローバル有効化が維持されているか
 - [ ] [`/admin/srs`](https://loop-vocabulary.app/admin/srs) — 異常値検知セクションに⚠が出ていないか目視確認（詳細は§3。ページ自体が正しく表示されること・認可が効いていることは`test:e2e`/`test:admin`で自動検証済みなので、ここでは「値」の異常有無だけ見ればよい）
 - [ ] Supabase → Database → 使用量（行数・DBサイズ・API呼び出し数）が想定内か
@@ -205,8 +205,10 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
   組み込み済みのため退行があれば自動検知される
 - **専門分野・ニュース語彙の拡充**: 未着手（優先度C項目15）。別タスクとして計画中。
   教材追加時は既存の`validate:materials`/`test:materials`基盤を使う
-- **復習リカバリーモード**: 未着手（優先度A項目2）。実装時はSRS V2の間隔計算ロジック自体を
-  変更しないことを確認しながら進める
+- **復習リカバリーモード**: 2026-07-04実装済み（優先度A項目22）。`/review`のdue件数20語以上で
+  「まず10語だけ」「20語だけ進める」ボタンを表示。`test:recovery-mode`が週次`test:e2e`に
+  含まれているため、退行があれば自動検知される。「リセット」「スケジュール再調整」は
+  別タスクとして未着手のまま
 - **ダッシュボードの習得率・苦手単語カード追加**: 未着手（優先度B項目11）。表示のみの
   追加なので低リスク
 
@@ -218,9 +220,10 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 |---|---|---|
 | `npm run test:dates` | 日付/streak/カレンダーに関わるコードを変更した時（`test:smoke`内でも自動実行） | JST日付ユーティリティの単体テスト（サーバ不要・数秒） |
 | `npm run test:smoke` | **コード変更のコミット前**（ローカル） | build成功＋日付ユーティリティ＋主要ページのHTTP健全性を素早く確認 |
-| `npm run test:e2e` | **本番デプロイ前**（大きめの変更時）／**週1定期** | onboarding・SRS V2・teacher・admin・教材インポート・4択出題ロジック・他学習モード出題ロジック・Premium判定回帰・学習モード入口/対象範囲ラベル・単語帳削除の13フローを実ブラウザで通しで検証 |
+| `npm run test:e2e` | **本番デプロイ前**（大きめの変更時）／**週1定期** | onboarding・SRS V2・teacher・admin・教材インポート・4択出題ロジック・他学習モード出題ロジック・Premium判定回帰・学習モード入口/対象範囲ラベル・単語帳削除・復習リカバリーモードの14フローを実ブラウザで通しで検証 |
 | `npm run test:entry-points:e2e` | `/wordbooks/[id]`の導線・各モードのスコープラベル(`quiz-scope-label`)・PDFの`?book=`プリセレクトを変更した時 | 単語帳詳細ページの7導線(`choice`/`input`/`typing`/`listening`/`attack`/`pdf`/`review`)が`?book=`付きで存在すること・各モードのスコープラベル表示・PDFの対象語数・reviewのbook引き継ぎ・Premium有無の分岐を検証（33項目） |
 | `npm run test:wordbook-delete` | 単語帳削除機能(`/api/wordbook/[id]` DELETE・`DeleteWordbookButton`)を変更した時 | 削除ボタン表示→削除実行→DB上でword_books・words両方が削除される→一覧/dashboard/reviewに残骸が出ない→削除済みIDへの直接アクセスが404、を実ブラウザで検証 |
+| `npm run test:recovery-mode` | `/review`の復習リカバリーモード・FlipCardRunnerを変更した時 | 35語due時のバナー表示→10語モードでちょうど10語出題・DB更新→残り25語でバナー継続→20語モードで20語出題→残り5語でバナー消滅→通常復習は残り全件を出題、をbook指定スコープ隔離も含めて実ブラウザで検証 |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |
 | `npm run test:teacher` | 先生機能・RLS・RPCを変更した時 | ロスター集計のみ表示・同意撤回/再同意・招待コードの再発行/無効化/期限管理を検証 |

@@ -79,6 +79,9 @@ async function main() {
 
     console.log("\n=== 13. wordbook deletion E2E ===");
     results.wordbookDelete = runNode("scripts/testing/e2e/wordbook-delete.mjs");
+
+    console.log("\n=== 14. review recovery mode E2E ===");
+    results.recoveryMode = runNode("scripts/testing/e2e/recovery-mode.mjs");
   } finally {
     stopDevServer(dev);
   }
