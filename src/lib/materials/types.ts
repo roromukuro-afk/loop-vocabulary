@@ -29,6 +29,8 @@ export const DIFFICULTY_MAX = 5;
  * アプリ内導線で使うタグの許容セット（想定外タグの混入を防ぐ）。
  * "大学受験向け"・"TOEIC対策"・"日常会話"・"重要語"・"完成・発展" は既存31教材への
  * presetMeta拡張（DBスキーマ変更なし・表示専用）で追加した。
+ * "ビジネス英語"・"社会人向け"・"仕事で使える英語" はTOEIC/ビジネス英語スターターパック
+ * （2026-07-04）追加時に、社会人ユーザー向けの表示ラベルとして追加した。
  */
 export const ALLOWED_TAGS = [
   "はじめての人におすすめ",
@@ -44,6 +46,9 @@ export const ALLOWED_TAGS = [
   "動詞強化",
   "重要語",
   "完成・発展",
+  "ビジネス英語",
+  "社会人向け",
+  "仕事で使える英語",
 ] as const;
 export type PresetTag = (typeof ALLOWED_TAGS)[number];
 

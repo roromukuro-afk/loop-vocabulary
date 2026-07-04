@@ -5,6 +5,98 @@
 
 ---
 
+## 2026-07-04 TOEIC・ビジネス英語スターターパック4種の追加（計400語）
+
+**目的**: 前回の収益化・成長監査で確認した「TOEIC/ビジネス教材が弱い」（全39教材中TOEIC
+2件・ビジネス専用0件）という課題に対応するため、社会人・TOEICユーザー向けのスターターパック
+4種を追加した。
+
+**追加した教材パック**:
+1. **TOEIC 基礎100**（`10000000-0000-0000-0000-000000000109`、100語）—
+   TOEIC Part 3/4/7で頻出するオフィス・日常業務の基本語彙（office/meeting/report/client/
+   schedule等）。TOEIC初心者・社会人の学び直し向け
+2. **TOEIC 頻出動詞100**（`...0110`、100語）— TOEICの文書・メール・案内文で頻出する
+   ビジネス動詞（confirm/submit/arrange/attend/provide等）。TOEIC 500〜700点目標向け
+3. **ビジネス英語 基礎100**（`...0111`、100語）— 職場・取引先・キャリアで使う実務語彙
+   （deadline/proposal/invoice/department/manager等）。TOEIC以外の職場英語全般でも使える語を優先
+4. **会議・メール英語100**（`...0112`、100語）— 会議・議事録・メール・依頼・日程調整で使う
+   実践語彙（agenda/minutes/attachment/request/follow-up等）
+
+すべてオリジナル作成で、市販教材・TOEIC公式問題集の本文・配列からの転載は一切していない。
+追加前に既存のTOEIC/一般教材（`loop学びなおし英単語`4種・TOEIC頻出単語800/600等、計1,000語）
+の語彙をDBから抽出して照合し、重複を避けて語彙を選定した。
+
+**教材メタ情報**: 各パックにgrade（対象学年）・purpose（目的）・recommendedWeeks（推奨期間）・
+dailyWordTarget（1日目安語数）・category・tagsを設定した。
+- TOEIC基礎100: 社会人・TOEIC初心者 / 2週間 / 1日7語 / category=toeic / exam_type=TOEIC /
+  level=TOEIC基礎 / tags=[TOEIC対策, はじめての人におすすめ, 社会人向け, 基礎固め, 短期集中]
+- TOEIC頻出動詞100: 社会人・TOEIC500〜700点 / 2週間 / 1日7語 / category=toeic /
+  exam_type=TOEIC / level=TOEIC / tags=[TOEIC対策, 動詞強化, 社会人向け, 基礎固め, 短期集中]
+- ビジネス英語基礎100: 社会人 / 2週間 / 1日7語 / category=toeic / exam_type=ビジネス英語 /
+  level=ビジネス基礎 / tags=[ビジネス英語, 社会人向け, 仕事で使える英語, はじめての人におすすめ,
+  基礎固め, 短期集中]
+- 会議・メール英語100: 社会人 / 2週間 / 1日7語 / category=toeic / exam_type=ビジネス英語 /
+  level=ビジネス実践 / tags=[ビジネス英語, 社会人向け, 仕事で使える英語, 基礎固め, 短期集中]
+
+**表示・メタ情報の拡張**: `ALLOWED_TAGS`に「ビジネス英語」「社会人向け」「仕事で使える英語」を
+追加（DBスキーマ変更なし・表示専用）。`/materials`の「TOEIC・ビジネス英語」セクションの一致
+条件（`CATEGORY_GROUPS`）を、従来の`exam_type === "TOEIC"`判定に加えて
+`exam_type === "ビジネス英語"`・`level`が"ビジネス"で始まる場合も一致するよう拡張し、
+ビジネス英語基礎100・会議/メール英語100もこのセクションに表示されるようにした（既存の
+TOEIC判定・他セクションの判定は無変更）。`LEVEL_COLOR`に新レベル用のバッジ色
+（TOEIC基礎/TOEIC/ビジネス基礎/ビジネス実践、いずれも既存カラーパレットの範囲内）を追加した。
+
+**実装**: `src/data/presets/`に4ファイル（`toeic-basic-100.ts`、
+`toeic-frequent-verbs-100.ts`、`business-basic-100.ts`、`meeting-email-english-100.ts`）を
+新規追加し、`index.ts`の`PRESET_PACKS`に登録。既存の`presetMeta.ts`は`PRESET_PACKS`から
+自動導出する仕組みのため、新4パックのメタデータは追加コード不要で`/materials`・
+`/materials/[id]`に自動反映された。
+
+**関連スクリプトの更新**: `scripts/materials/{validate-materials,test-materials,
+seed-preset-materials}.mjs`の3スクリプト（いずれも対象パックをハードコードでimportする既存
+パターンのため）を更新し、新4パックを追加。
+
+**執筆時の修正**: 当初の下書きではTOEIC基礎100が101語、会議・メール英語100が107語になって
+いた（重複はなく、計画時より単語数が多くなっていただけ）ため、各パックの主旨に照らして
+重要度が低い語（例: 会議・メール英語100の"cc list"「attachment size」等、既存語と機能が
+近い語）を間引いて厳密に100語に揃えた。
+
+**品質チェック結果**: `validate:materials`で12パック中errors=0（警告2件はフレーズ動詞
+「catch/caught」「bounce back」の語幹検出における既知の誤検知で、既存パックにも同種の
+警告が1件ある。実際の例文品質には問題なし）。`test:materials`で新4パックのDB投入・語数
+一致・インポート後のSRS/PDF互換性を確認（34項目、全PASS）。既存31教材+旧8パック
+（39件）は無変更、新4パック追加後は43教材・総語数33,092語（32,692語+400語）。
+
+**教材一覧・詳細での見え方**: `test:materials:e2e`で実際のインポートフロー（未ログイン時の
+CTA・ログイン後インポート・再インポート時の重複防止・PDFテスト導線・review導線）を確認
+（25項目、全PASS）。「TOEIC 基礎100」「TOEIC 頻出動詞100」「ビジネス英語 基礎100」
+「会議・メール英語100」はいずれも`/materials`の「TOEIC・ビジネス英語」セクションに表示される。
+
+**既存教材への影響**: 既存31教材・旧8スターターパックのデータ・表示には一切変更なし。
+DBスキーマ変更なし、RLS変更なし、SRS V2ロジック変更なし、teacher機能変更なし、AdSense広告枠
+の追加なし。前回修正した単語帳削除機能・教材詳細ページの総語数表示・教材インポート後導線は
+いずれも回帰なし（`test:e2e`13フローに含めて確認）。
+
+**変更ファイル**: `src/data/presets/toeic-basic-100.ts`（新規）、
+`src/data/presets/toeic-frequent-verbs-100.ts`（新規）、
+`src/data/presets/business-basic-100.ts`（新規）、
+`src/data/presets/meeting-email-english-100.ts`（新規）、`src/data/presets/index.ts`、
+`src/lib/materials/types.ts`（ALLOWED_TAGS拡張）、`src/app/materials/page.tsx`
+（CATEGORY_GROUPS一致条件・LEVEL_COLOR拡張）、`scripts/materials/validate-materials.mjs`、
+`scripts/materials/test-materials.mjs`、`scripts/materials/seed-preset-materials.mjs`、
+`NEXT_IMPROVEMENTS.md`。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run
+validate:materials`（12パック、errors=0） / `npm run test:materials`（34/34） /
+`npm run test:materials:e2e`（25/25、回帰なし） / `npm run test:e2e`（13フロー全PASS）/
+`npm run test:smoke` / `npm run verify:prod` / `npm run verify:srs-global`。
+
+**次に追加すべき教材候補**: TOEIC 頻出名詞100（今回見送り、動詞パックと対）、英検2級 基礎100、
+大学受験 基礎形容詞100、日常英会話 超基礎50 Part2（旅行編）、経済ニュース英単語100・
+企業ニュース英単語100（専門分野・ニュース語彙拡充、収益化監査#3の次の一手）。
+
+---
+
 ## 2026-07-04 収益化・成長観点の監査 + 単語帳削除バグの修正
 
 **目的**: Loop Vocabularyを「ただの英単語アプリ」から収益化できる強いWebアプリにするため、

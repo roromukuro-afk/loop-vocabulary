@@ -25,6 +25,10 @@ const LEVEL_COLOR: Record<string, string> = {
   "英検準1級":  "bg-orange-50 text-orange-700",
   "英検1級":    "bg-red-50 text-red-700",
   "共通テスト":  "bg-rose-50 text-rose-700",
+  "TOEIC基礎":  "bg-sky-50 text-sky-700",
+  "TOEIC":      "bg-sky-50 text-sky-700",
+  "ビジネス基礎": "bg-cyan-50 text-cyan-700",
+  "ビジネス実践": "bg-cyan-50 text-cyan-700",
 };
 
 type Material = {
@@ -86,11 +90,14 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
     id: "toeic",
     label: "TOEIC・ビジネス英語",
     icon: "💼",
-    description: "TOEIC 600〜990点・就活・昇進対策",
+    description: "TOEIC 600〜990点・就活・昇進対策・社会人の学び直しに",
     iconBg: "bg-sky-50",
     comingSoon: ["TOEIC 990点突破"],
     match: (m) =>
-      m.exam_type === "TOEIC" || (m.level ?? "").startsWith("TOEIC"),
+      m.exam_type === "TOEIC" ||
+      m.exam_type === "ビジネス英語" ||
+      (m.level ?? "").startsWith("TOEIC") ||
+      (m.level ?? "").startsWith("ビジネス"),
   },
   {
     id: "junior",

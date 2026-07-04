@@ -7,6 +7,10 @@ import { eiken3Basic100 } from "./eiken3-basic-100";
 import { highschoolBasic100Part2 } from "./highschool-basic-100-part2";
 import { universityBasicNouns100 } from "./university-basic-nouns-100";
 import { dailyConversationUltraBasic50 } from "./daily-conversation-ultra-basic-50";
+import { toeicBasic100 } from "./toeic-basic-100";
+import { toeicFrequentVerbs100 } from "./toeic-frequent-verbs-100";
+import { businessBasic100 } from "./business-basic-100";
+import { meetingEmailEnglish100 } from "./meeting-email-english-100";
 
 /** 全プリセット教材パック（新規パックはここに追加する） */
 export const PRESET_PACKS: PresetMaterialPack[] = [
@@ -18,6 +22,10 @@ export const PRESET_PACKS: PresetMaterialPack[] = [
   highschoolBasic100Part2,
   universityBasicNouns100,
   dailyConversationUltraBasic50,
+  toeicBasic100,
+  toeicFrequentVerbs100,
+  businessBasic100,
+  meetingEmailEnglish100,
 ];
 
 export const PRESET_PACKS_BY_ID: Record<string, PresetMaterialPack> = Object.fromEntries(

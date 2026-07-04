@@ -17,6 +17,10 @@ import { eiken3Basic100 } from "../../src/data/presets/eiken3-basic-100.ts";
 import { highschoolBasic100Part2 } from "../../src/data/presets/highschool-basic-100-part2.ts";
 import { universityBasicNouns100 } from "../../src/data/presets/university-basic-nouns-100.ts";
 import { dailyConversationUltraBasic50 } from "../../src/data/presets/daily-conversation-ultra-basic-50.ts";
+import { toeicBasic100 } from "../../src/data/presets/toeic-basic-100.ts";
+import { toeicFrequentVerbs100 } from "../../src/data/presets/toeic-frequent-verbs-100.ts";
+import { businessBasic100 } from "../../src/data/presets/business-basic-100.ts";
+import { meetingEmailEnglish100 } from "../../src/data/presets/meeting-email-english-100.ts";
 import {
   ALLOWED_POS,
   ALLOWED_TAGS,
@@ -37,6 +41,10 @@ const PRESET_PACKS = [
   highschoolBasic100Part2,
   universityBasicNouns100,
   dailyConversationUltraBasic50,
+  toeicBasic100,
+  toeicFrequentVerbs100,
+  businessBasic100,
+  meetingEmailEnglish100,
 ];
 
 let errors = 0;
