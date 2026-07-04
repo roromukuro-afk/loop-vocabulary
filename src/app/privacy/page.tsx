@@ -35,6 +35,20 @@ export default function PrivacyPage() {
         iOS では App Tracking Transparency に従い、トラッキングの可否をユーザーが選択できます。
         広告 ID のリセット・パーソナライズ広告のオプトアウトは端末設定からいつでも変更できます。
       </p>
+      <p>
+        Web 版では <b>Google AdSense</b> を利用して広告を配信する場合があります。
+        Google を含む第三者配信事業者は Cookie を使用し、ユーザーが本サービスや他のウェブサイトに
+        アクセスした際の情報に基づいて広告を配信することがあります。
+        ユーザーは{" "}
+        <a className="underline" href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">
+          Google 広告設定
+        </a>{" "}
+        でパーソナライズ広告を無効にできるほか、{" "}
+        <a className="underline" href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">
+          Google の広告に関するポリシー
+        </a>{" "}
+        もあわせてご確認ください。
+      </p>
 
       <h2 className="text-lg font-bold text-navy-800 mt-6">4. 第三者提供</h2>
       <p>法令に基づく場合を除き、ユーザーの同意なく第三者に個人情報を提供することはありません。</p>

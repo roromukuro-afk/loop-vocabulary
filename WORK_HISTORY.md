@@ -5,6 +5,67 @@
 
 ---
 
+## 2026-07-04 AdSense審査状況の確認・アプリ側の不足項目整理
+
+**目的**: 広告掲載の準備状況とAdSense審査に必要な要件を確認。AdSense管理画面へのログインが
+必要な操作はオーナー側の作業とし、アプリ側の実装・公開状態・確認手順の整理のみを担当した。
+
+**調査結果**: AdSense関連の実装はプレースホルダではなく、アカウントレベルで実際に接続済み
+だった。`src/app/layout.tsx`に`<meta name="google-adsense-account" content="ca-pub-
+5148247638505100">`が常時出力され、Vercel Production環境に`NEXT_PUBLIC_ADSENSE_CLIENT`が
+設定済み。設定時は`adsbygoogle.js`を読み込み自動広告（`enable_page_level_ads`）を有効化する
+実装が`src/app/layout.tsx`にすでに存在した。`public/ads.txt`（`google.com, pub-
+5148247638505100, DIRECT, f08c47fec0942fa0`）もPublisher IDと一致して公開済み。個別広告
+ユニットのスロットID（`NEXT_PUBLIC_ADSENSE_SLOT_BANNER`/`_RECTANGLE`/`_INFEED`）は未設定の
+ため、`src/components/ads/AdSense.tsx`の各コンポーネントは何も表示しない設計になっており、
+本番での広告過剰表示のリスクは無いことを確認した。
+
+robots.txt/sitemap/Search Console登録状況は2026-07-01の監査（`SEARCH_CONSOLE_SETUP.md`）で
+既に整合済みで、AdSense審査の妨げになる不整合は無かった。未ログインでの公開ページ
+（トップ・`/materials`一覧/詳細・`/dictionary`・`/guide`・`/grammar`・`/faq`・`/terms`・
+`/privacy`・`/contact`）はすべて本文が閲覧可能で、ログイン必須ページは学習系機能
+（`/dashboard`等）のみに限定されていることも確認した。
+
+**発見した唯一の実質的な不足点**: `src/app/privacy/page.tsx`の「3. 広告について」は、
+Android/iOSアプリ版のGoogle AdMobのみを記載し、Web版のGoogle AdSense・広告Cookie・
+第三者配信・オプトアウト手段への言及が無かった。AdSenseのプログラムポリシーは広告Cookieの
+使用と第三者配信について開示することを推奨しているため、既存のAdMob段落は変更せず、
+Web版AdSenseに関する新しい段落を追加した（Google広告設定 <https://adssettings.google.com/>
+とGoogleの広告ポリシー <https://policies.google.com/technologies/ads> へのリンクを含む）。
+
+**Publisher ID・広告IDは一切新規作成・推測していない**: 既存の`ca-pub-5148247638505100`
+（Web）・`pub-7135124532952935`（app-ads.txt、AdMob用、別アカウントで想定通り）をそのまま
+使用。広告ユニットのスロットIDはAdSense管理画面でオーナーが発行する必要があるため、
+アプリ側では未設定のまま維持した。
+
+**ドキュメント整備**: 新規`ADSENSE_SETUP.md`を作成し、(1)現在の実装ステータス、
+(2)アプリ側チェック結果一覧、(3)AdSense管理画面でオーナーが確認すべき項目（サイト審査
+ステータス・ads.txt警告・ポリシーセンター警告・広告ユニット作成可否・自動広告有効化可否）、
+(4)修正した実装内容、(5)次回共有してほしい情報、をまとめた。`README.md`§7は「プレース
+ホルダ実装 (AdMob/GAM への差し替え前提)」という古い説明を、実際にAdSense/AdMobへ接続済み
+である現状に合わせて更新（コンポーネント対応表・`ADSENSE_SETUP.md`への参照を追加）。
+`PRODUCTION_MONITORING.md`§9にも`ADSENSE_SETUP.md`への参照とプライバシーポリシー修正の
+記録を追記。`NEXT_IMPROVEMENTS.md`に完了項目18として追加し、項目11（AdSense承認後の広告枠
+最適化）の説明もこの調査結果を踏まえて更新した。
+
+**変更していないもの**: SRS V2ロジック、教材データ、teacher機能、DBスキーマ、RLS、課金・
+Premium機能の本番導入（すべて制約により対象外）。README.mdの他のAdMob関連記述（ネイティブ
+アプリ側のAdMob導入手順、行377/383/571-577/605/627/650/702付近）は、Web版AdSenseの不足とは
+無関係で内容自体は現在も正確なため、意図的に変更していない。
+
+**変更ファイル**: `src/app/privacy/page.tsx`、`README.md`、`ADSENSE_SETUP.md`（新規）、
+`PRODUCTION_MONITORING.md`、`NEXT_IMPROVEMENTS.md`。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run test:smoke` /
+`npm run test:e2e`（9フロー全PASS） / `npm run verify:prod` / `npm run verify:srs-global`。
+
+**残課題**: AdSense管理画面での実際の審査ステータス（準備完了/レビュー中/不承認）・
+ポリシーセンター警告の有無・広告ユニット作成可否はオーナー確認待ち。広告ユニットの
+スロットIDが発行され次第、Vercel環境変数に設定して段階的に広告表示を有効化する
+（詳細は[ADSENSE_SETUP.md](ADSENSE_SETUP.md)参照）。
+
+---
+
 ## 2026-07-04 教材パックの追加拡充 Part2（4パック・計350語）
 
 2026-07-02に追加した初回4スターターパックに続き、追加の4パックを新規作成した。

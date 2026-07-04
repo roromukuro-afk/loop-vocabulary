@@ -48,7 +48,7 @@
 | UI        | Tailwind CSS / 自前コンポーネント              |
 | 認証 / DB | Supabase Auth / Postgres + RLS               |
 | PWA       | manifest.json + メタタグ                      |
-| 広告      | プレースホルダ実装 (AdMob/GAM への差し替え前提) |
+| 広告      | Web: Google AdSense 実装済み（審査状況待ち）/ Native: AdMob 実装済み |
 | AI        | モック (`/api/ai` を OpenAI/Anthropic に差し替え可) |
 | デプロイ   | Vercel 想定                                   |
 
@@ -266,16 +266,28 @@ seed-preset-materials}.mjs`はいずれも対象パックを`import`文と`PRESE
 
 ---
 
-## 7. 広告の差し替え位置 (AdMob 導入)
+## 7. 広告実装 (Web: AdSense / Native: AdMob、2026-07-04時点で実装済み)
 
-広告コンポーネントは [`src/components/ads/AdComponents.tsx`](src/components/ads/AdComponents.tsx) に集約されています。
+**2026-07-04追記**: 以下のコンポーネント名には歴史的経緯で "Placeholder" が残っているが、
+現在はダミー実装ではなく実際の広告ネットワークに接続済み。詳細は
+[ADSENSE_SETUP.md](ADSENSE_SETUP.md) 参照。
 
-| コンポーネント            | 現状                  | 本番差し替え                              |
-|--------------------------|----------------------|------------------------------------------|
-| `BannerAdPlaceholder`    | 静的な枠を表示         | AdMob Banner / AdSense レスポンシブ広告   |
-| `NativeAdCard`           | カード型のダミー       | AdMob Native Advanced                    |
-| `RewardedAdButton`       | 0.8 秒ダミー再生       | AdMob Rewarded — 完了コールバックで `onReward` |
-| `useInterstitialAdTrigger` | no-op               | 画面遷移時に AdMob Interstitial          |
+広告コンポーネントは [`src/components/ads/AdComponents.tsx`](src/components/ads/AdComponents.tsx)
+（`src/components/ads/AppAds.tsx`・[`src/components/ads/AdSense.tsx`](src/components/ads/AdSense.tsx)への
+互換レイヤー）に集約されています。
+
+| コンポーネント            | Web (ブラウザ)                          | Native (Capacitorアプリ) |
+|--------------------------|------------------------------------------|---------------------------|
+| `BannerAdPlaceholder`    | `AdSenseBanner`（実AdSense、要スロットID設定） | AdMob Adaptive Banner（実装済み） |
+| `NativeAdCard`           | `AdSenseInFeed`（実AdSense、要スロットID設定） | AdMob Native Advanced（実装済み） |
+| `RewardedAdButton`       | プレースホルダのまま（Web版はリワード広告非対応） | AdMob Rewarded — 完了コールバックで `onReward` |
+| `useInterstitialAdTrigger` | no-op（Web版はインタースティシャル非対応） | 画面遷移時に AdMob Interstitial |
+
+Web版のAdSense本体（`ca-pub-...`・`adsbygoogle.js`・自動広告）は
+`NEXT_PUBLIC_ADSENSE_CLIENT`環境変数が設定済みで本番稼働中。ただし個別の広告ユニット
+（`NEXT_PUBLIC_ADSENSE_SLOT_BANNER`/`_RECTANGLE`/`_INFEED`）は未設定のため、
+AdSense管理画面で審査完了・広告ユニット発行後にVercelの環境変数へ設定する必要がある
+（詳細は[ADSENSE_SETUP.md](ADSENSE_SETUP.md)参照）。
 
 ### 表示ポリシー (実装に組み込み済み)
 

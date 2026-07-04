@@ -4,7 +4,7 @@
 > 大きめの機能追加は実際の利用状況を見てから判断する。
 > 各項目は着手前に個別のご確認をいただく（本ドキュメントは提案のみ・実装はまだしない）。
 >
-> **2026-07-04時点: 優先度A（下記17項目）はすべて完了。現在は次の優先度整理フェーズ。**
+> **2026-07-04時点: 優先度A（下記18項目）はすべて完了。現在は次の優先度整理フェーズ。**
 > 本番ヘルスチェック結果・現在の運用状態は [WORK_HISTORY.md](WORK_HISTORY.md) の
 > 「2026-07-02 運用状態の整理・本番ヘルスチェック」を参照。
 > 既存教材の品質状況は [MATERIALS_AUDIT.md](MATERIALS_AUDIT.md) を参照
@@ -209,6 +209,23 @@
     （25/25、回帰なし） / `test:e2e`（9フロー全PASS） / `test:smoke` / `verify:prod` /
     `verify:srs-global`、全PASS。詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
 
+18. ✅ **完了（2026-07-04）: AdSense審査状況の確認・アプリ側の不足項目整理**
+    AdSense関連の実装状況を調査し、`NEXT_PUBLIC_ADSENSE_CLIENT`（本番設定済み）・
+    `adsbygoogle.js`・`<ins class="adsbygoogle">`・`ads.txt`（Publisher ID一致）が
+    すでに実装済みで、プレースホルダではなく実際のAdSense接続であることを確認した。
+    広告ユニットのスロットID（`NEXT_PUBLIC_ADSENSE_SLOT_BANNER`等）は未設定のため
+    個別広告は未表示（過剰表示の事故なし）。robots.txt/sitemap/Search Console登録は
+    2026-07-01の監査で既に整合済みで問題なし。調査で発見した唯一の実質的な不足点
+    「プライバシーポリシーがWeb版のGoogle AdSense・広告Cookie・オプトアウト手段に
+    触れておらず、Android/iOSアプリ版のAdMobのみ記載されていた」を修正し、Google広告設定
+    （オプトアウト）・Googleの広告ポリシーへのリンクを追記した。`README.md`§7の
+    「プレースホルダ実装前提」という古い説明も、実際にAdSense/AdMobへ接続済みである
+    現状に合わせて更新。AdSense管理画面での審査ステータス・ポリシーセンター警告・
+    ads.txt警告の確認方法を[ADSENSE_SETUP.md](ADSENSE_SETUP.md)（新規）にまとめた
+    （管理画面の実際の操作・スロットIDの発行はオーナー側の作業）。
+    検証: `tsc --noEmit` / `build` / `test:smoke` / `test:e2e`（9フロー全PASS） /
+    `verify:prod` / `verify:srs-global`、全PASS。詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
+
 ---
 
 ## 🟢 優先度A: 今すぐ着手できる（低工数・高効果・外部依存少）
@@ -309,8 +326,10 @@
     総単語数が数万〜十万件規模まで増えてから着手すれば十分（今は不要）。
 
 11. **AdSense承認後の広告枠最適化**
-    AdSenseの審査状況に依存。承認前に最適化しても意味がないため、**承認され次第**着手。
-    審査状況はPRODUCTION_MONITORING.mdの「AdSense/広告まわり」項目で定期確認する。
+    優先度A完了項目18で審査状況確認・不足項目の整理までは対応済み。AdSense管理画面での
+    実際の審査ステータス（準備完了/レビュー中/不承認）はオーナー確認待ち。広告ユニットの
+    スロットID（`NEXT_PUBLIC_ADSENSE_SLOT_BANNER`等）が発行され次第、Vercel環境変数に設定
+    して広告枠の最終確認・最適化に着手する。詳細は[ADSENSE_SETUP.md](ADSENSE_SETUP.md)参照。
 
 12. **保護者同意導線**
     先生機能に未成年の生徒が本格的に関わる場合に必要。現状は「本人同意のみ」でMVP化した設計
