@@ -85,6 +85,9 @@ async function main() {
 
     console.log("\n=== 15. internal links (materials/dictionary) E2E ===");
     results.internalLinks = runNode("scripts/testing/e2e/internal-links.mjs");
+
+    console.log("\n=== 16. category landing pages (TOEIC/business) E2E ===");
+    results.categoryLps = runNode("scripts/testing/e2e/category-lps.mjs");
   } finally {
     stopDevServer(dev);
   }

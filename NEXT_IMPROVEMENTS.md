@@ -4,7 +4,7 @@
 > 大きめの機能追加は実際の利用状況を見てから判断する。
 > 各項目は着手前に個別のご確認をいただく（本ドキュメントは提案のみ・実装はまだしない）。
 >
-> **2026-07-04時点: 優先度A（下記23項目）はすべて完了。現在は次の優先度整理フェーズ。**
+> **2026-07-04時点: 優先度A（下記24項目）はすべて完了。現在は次の優先度整理フェーズ。**
 > 2026-07-04には収益化・成長観点の監査も実施（詳細は本ドキュメント内
 > 「💰 収益化・成長 監査」参照）。教材追加以外の指摘事項は下記の優先度A/B/Cに反映済み。
 > 本番ヘルスチェック結果・現在の運用状態は [WORK_HISTORY.md](WORK_HISTORY.md) の
@@ -329,6 +329,30 @@
     検証: `tsc --noEmit` / `build` / `test:smoke` / `test:internal-links`（単独実行、全項目
     PASS） / `test:materials:e2e`（25/25、回帰なし） / `test:e2e`（15フロー全PASS） /
     `verify:prod` / `verify:srs-global`、全PASS。詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
+
+24. ✅ **完了（2026-07-04）: カテゴリ別公開LP（TOEIC・ビジネス英語）の新設**（収益化監査#7の延長、SEO流入・社会人獲得）
+    社会人ユーザー獲得に直結するTOEIC・ビジネス英語の2LPを新設した。`/materials/toeic`
+    （TOEIC教材4件: TOEIC基礎100・TOEIC頻出動詞100・既存TOEIC頻出単語800/600）と
+    `/materials/business`（ビジネス英語教材2件: ビジネス英語基礎100・会議/メール英語100）。
+    `/materials/[id]`（動的ルート）とはNext.js App Routerの静的セグメント優先ルールにより
+    衝突しないことを`build`のルート一覧・実ブラウザ確認の両方で検証済み（`toeic`/`business`が
+    UUID形式の教材IDと一致することはあり得ないため実質的にも安全）。各LPはmetadata
+    （title/description/OGP）・Breadcrumb JSON-LD・ItemList JSON-LDを設定し、教材カード・
+    学習の流れ（TOEICは「教材を選ぶ→単語帳に追加→復習→テスト」、ビジネス英語は
+    「調べる→登録→復習→テスト」）・辞書導線・LP間相互リンク・`/materials`への導線で構成。
+    SEOテキストは短い説明文のみに留め、教材カード・学習導線を主役にした。`/materials`の
+    「TOEIC・ビジネス英語」セクション見出し下に、UIをゴチャつかせない小さなリンク行
+    （「TOEIC対策ページへ →」「ビジネス英語ページへ →」）を追加。
+    `scripts/testing/e2e/category-lps.mjs`（新規、`npm run test:category-lps`、`test:e2e`にも
+    16フロー目として統合）で、両LPの200表示・教材カード件数と内容・教材詳細への遷移・
+    辞書導線・LP間相互リンク・`/materials`からの導線・モバイル幅(375px)での崩れなし・
+    既存`/materials/[id]`への非影響、をすべて実ブラウザで検証。
+    DBスキーマ変更・RLS変更・教材データ本体の変更・AdSense広告枠追加なし。
+    検証: `tsc --noEmit` / `build`（ルート一覧でtoeic/businessが独立ルートとして生成される
+    ことを確認） / `test:smoke` / `test:internal-links`（回帰なし） / `test:category-lps`
+    （単独実行、全項目PASS） / `test:materials:e2e`（25/25、回帰なし） / `test:e2e`
+    （16フロー全PASS） / `verify:prod` / `verify:srs-global`、全PASS。
+    詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
 
 ---
 

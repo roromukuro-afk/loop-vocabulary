@@ -49,6 +49,8 @@ type CategoryGroup = {
   iconBg: string;
   comingSoon?: string[];
   match: (m: Material) => boolean;
+  /** このカテゴリに対応する公開LPがあれば表示（例: /materials/toeic） */
+  landingPages?: { href: string; label: string }[];
 };
 
 const CATEGORY_GROUPS: CategoryGroup[] = [
@@ -98,6 +100,10 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
       m.exam_type === "ビジネス英語" ||
       (m.level ?? "").startsWith("TOEIC") ||
       (m.level ?? "").startsWith("ビジネス"),
+    landingPages: [
+      { href: "/materials/toeic", label: "TOEIC対策ページへ" },
+      { href: "/materials/business", label: "ビジネス英語ページへ" },
+    ],
   },
   {
     id: "junior",
@@ -366,6 +372,20 @@ export default async function MaterialsPage({
                   <p className="text-[11px] text-navy-400">{group.description}</p>
                 </div>
               </div>
+
+              {group.landingPages && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {group.landingPages.map((lp) => (
+                    <Link
+                      key={lp.href}
+                      href={lp.href}
+                      className="text-[11px] px-2.5 py-1 rounded-full border border-sky-200 text-sky-700 hover:bg-sky-50 transition-colors"
+                    >
+                      {lp.label} →
+                    </Link>
+                  ))}
+                </div>
+              )}
 
               <ul className="space-y-2.5">
                 {grouped.map((m) => (

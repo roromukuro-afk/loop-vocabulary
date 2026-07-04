@@ -5,6 +5,74 @@
 
 ---
 
+## 2026-07-04 カテゴリ別公開LP（TOEIC・ビジネス英語）の新設
+
+**目的**: 前回の内部リンク強化に続き、SEO流入増加と社会人ユーザー獲得のため、TOEIC学習者・
+社会人の学び直し・ビジネス英語学習者・会議/メール英語学習者がログイン前でも「このアプリは
+使えそう」と感じられる公開LPを新設した。全カテゴリを一気に作るのではなく、社会人ユーザー
+獲得に直結するTOEIC・ビジネス英語の2ページから着手した。
+
+**ルーティング衝突の確認**: `/materials/[id]`という動的ルートが既に存在するため、
+`/materials/toeic`・`/materials/business`という新規静的ルートが競合しないかを事前に確認した。
+Next.js App Routerでは同じ階層に静的セグメント（`toeic`/`business`）と動的セグメント
+（`[id]`）が共存する場合、静的セグメントの完全一致が優先されるため、`/materials/toeic`への
+アクセスは新設ページに、それ以外のUUID形式のIDへのアクセスは従来通り`/materials/[id]`に
+ルーティングされる。また教材の`id`列はUUID形式で保存されているため、"toeic"や"business"
+という文字列と実際に衝突することは構造上あり得ないことも確認した。`npm run build`のルート
+一覧で`/materials/toeic`・`/materials/business`・`/materials/[id]`がそれぞれ独立したルートとして
+生成されることを確認し、実ブラウザでも両方が正しく動作することを確認した。
+
+**実装内容**:
+- `src/app/materials/toeic/page.tsx`（新規）: 「TOEIC対策の英単語教材」。
+  `materials.exam_type = 'TOEIC'`の4教材（TOEIC 基礎100・TOEIC 頻出動詞100・
+  TOEIC頻出単語800・TOEIC頻出単語600）を表示。学習の流れは「①教材を選ぶ→②単語帳に追加→
+  ③復習→④テスト」。CTA「TOEIC教材を見る」（ページ内アンカー）「🔍 単語を調べる」
+  （`/dictionary`）「無料で始める」（未ログイン時のみ、`/signup?next=/materials/toeic`）。
+  末尾に`/dictionary`・`/materials/business`・`/materials`への相互リンク。
+- `src/app/materials/business/page.tsx`（新規）: 「ビジネス英語の単語教材」。
+  `materials.exam_type = 'ビジネス英語'`の2教材（ビジネス英語 基礎100・会議・メール英語100）
+  を表示。学習の流れは「①調べる→②登録→③復習→④テスト」（TOEIC LPとは順序を変え、
+  辞書検索からの入り口を強調）。CTA「ビジネス英語教材を見る」「🔍 辞書で調べる」
+  「無料で始める」。末尾に`/dictionary`・`/materials/toeic`・`/materials`への相互リンク。
+- 両ページとも、教材の単語数表示には既存の`get_material_word_counts` RPC（`/materials`一覧
+  ページで使用しているものと同一）を再利用し、新規の重いクエリを追加していない。
+- SEO: `metadata`（title/description/OGP）、BreadcrumbList JSON-LD（ホーム→教材・単語帳→
+  各LP）、ItemList JSON-LD（表示教材一覧）を設定。説明文は2〜3文の短いものに留め、
+  教材カード・学習導線・辞書導線を主役にした（薄いテキストページにしないため）。
+- `src/app/materials/page.tsx`: `CategoryGroup`型に`landingPages`（任意）フィールドを追加し、
+  「TOEIC・ビジネス英語」セクションの見出し直下に「TOEIC対策ページへ →」「ビジネス英語
+  ページへ →」の小さなリンク行を追加（他のセクションには影響なし、UIの圧迫を避けるため
+  ラベル+矢印のみのミニマルな表示）。
+
+**テスト**: `scripts/testing/e2e/category-lps.mjs`（新規、`npm run test:category-lps`）を
+新設し、`test:e2e`にも16フロー目として統合。実ブラウザで、(1)両LPが200で表示される、
+(2)教材カードが正しい件数・タイトルで表示される（TOEIC4件・ビジネス2件）、(3)教材カードから
+`/materials/[id]`への遷移、(4)`/dictionary`への導線、(5)LP間相互リンク、(6)`/materials`から
+各LPへの導線、(7)モバイル幅(375px)での横スクロール無し、(8)既存`/materials/[id]`が
+ルーティング競合の影響を受けず正常動作すること、をすべて検証した。
+
+**変更ファイル**: `src/app/materials/toeic/page.tsx`（新規）、
+`src/app/materials/business/page.tsx`（新規）、`src/app/materials/page.tsx`
+（`landingPages`フィールド・リンク行追加）、`scripts/testing/e2e/category-lps.mjs`（新規）、
+`package.json`（`test:category-lps`スクリプト追加）、`scripts/testing/run-e2e.mjs`
+（16フロー目として統合）、`NEXT_IMPROVEMENTS.md`。
+
+**変更していないもの**: DBスキーマ（マイグレーション無し）、RLS、SRS V2ロジック、
+teacher機能、教材データ本体（`materials`/`material_words`の内容は一切変更していない）、
+AdSense広告枠（学習中・復習中画面への追加はしていない）、既存の`/materials/[id]`のロジック・
+既存の教材インポート導線。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build`（ルート一覧確認含む） /
+`npm run test:smoke` / `npm run test:internal-links`（回帰なし） / `npm run test:category-lps`
+（単独実行、全項目PASS） / `npm run test:materials:e2e`（25/25、回帰なし） /
+`npm run test:e2e`（16フロー全PASS） / `npm run verify:prod` / `npm run verify:srs-global`。
+
+**残課題**: 他のカテゴリ（大学受験・英検・中学高校基礎・日常会話）向けの公開LPは今回のスコープ
+外。今回のTOEIC/ビジネス英語LPの効果（Search Console経由の流入・回遊状況）を見てから、
+他カテゴリへの展開を検討する。
+
+---
+
 ## 2026-07-04 教材・辞書ページの内部リンク強化
 
 **目的**: 前回の収益化・成長監査で確認した「教材詳細ページに関連教材リンクが無い」
