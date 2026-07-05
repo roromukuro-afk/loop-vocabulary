@@ -5,6 +5,105 @@
 
 ---
 
+## 2026-07-05 extra_reviewの消費コード未整備を解消
+
+**目的**: 前回のreward_tickets調査で見つかった残課題「`extra_review`は広告視聴で
+付与されるが消費先が存在せず、`used_amount`が永久に0のまま溜まり続けている」に対応する。
+ユーザー視点では「広告を見た→チケットをもらった→でも何に使われたか分からない→残高だけ
+残る」という不自然な状態であり、収益化・広告視聴体験・信頼性に関わるため整理が必要と
+判断した。
+
+**調査結果**:
+- **付与元**: `src/components/review/FlipCardRunner.tsx`（復習完了画面の
+  「広告を見てもう一周チャレンジ」、`pool.length >= 4`のときのみ表示）と
+  `src/app/test/choice/ChoiceTestRunner.tsx`（4択テスト完了画面の
+  「広告を見てもう10問チャレンジ」、同条件）の2箇所。どちらも
+  `AppRewardedAdButton`（`src/components/ads/AppAds.tsx`）経由で
+  `watchRewardedAndGrant("extra_review")`を呼び、Web版は実際の広告再生を行わず
+  600msの疑似待機のみ、Native版は実際の広告再生後にチケットを`reward_tickets`へ
+  1件INSERTする設計だった（`ai_generation`と同じ共通関数を使用）。
+- **付与後の挙動**: `AppRewardedAdButton`の`onReward`コールバックは
+  `FlipCardRunner`側が`restart()`、`ChoiceTestRunner`側が`onRewardedExtra()`という
+  **同期関数**で、どちらも広告視聴完了の直後にその場で復習/テストを再開するだけの
+  実装。`watchRewardedAndGrant()`の戻り値（`amount`/`used_amount`）は呼び出し側の
+  どこからも参照されていない。
+- **`used_amount`が更新されない理由**: `extra_review`を消費するAPI・関数が
+  コードベース全体に一つも存在しないため。付与(INSERT)だけがあり、消費
+  (`used_amount`のUPDATE)を行うコードパス自体が最初から実装されていなかった。
+- **決定的な発見**: 両画面には、広告視聴が必要な「もう一周/もう10問チャレンジ」
+  ボタンと**並んで**、広告なし・チケットなしで完全に無料の「もう一度」ボタンが
+  既に存在し、`buildQuestions()`をほぼ同じ引数で呼ぶだけの、ほぼ同一の内容を
+  無制限に提供していた。つまり広告視聴で得られる「延長」は、無料ボタンで既に
+  得られるものとほぼ同じであり、`extra_review`チケットはそもそも何かを実質的に
+  ゲート（制限）していなかった。
+- **Premium/無料の挙動差**: 無し。両ボタンともPremium判定（`is_premium`）を一切
+  参照しておらず、Premium・無料どちらのユーザーにも全く同じ2つのボタンが表示される。
+- **広告視聴なしで無料追加ができる箇所**: 上記の「もう一度」ボタンがまさにそれに
+  該当することを確認した。ただしこれは今回のスコープ（`extra_review`のDB記録の
+  不整合を正す）とは別の設計判断（広告ゲートの強化・差別化）であり、既存の
+  収益化方針・体験を変えることになるため、今回は一切変更していない
+  （NEXT_IMPROVEMENTS.mdの提案セクションに残課題として記録した）。
+
+**判断**: 案A（真に消費するチケットとして実装する）は不自然と判断し見送った。
+- `restart()`/`onRewardedExtra()`が広告視聴の直後に結果を即座に使い切る設計のため、
+  「後で消費する」という時間差が最初から存在しない。真の残高管理（ダッシュボードでの
+  残高表示・後日の任意タイミングでの消費・二重消費防止のトランザクション設計等）を
+  作ると、既存の「広告視聴→その場で完結する」UXを不自然に崩すことになる。
+- 加えて、無料の「もう一度」ボタンが同等の体験を既に無制限に提供しているため、
+  仮に真の消費ロジックを実装しても、ユーザーは無料ボタンを使えば同じ結果を得られる
+  ため実質的な効果に乏しい。
+案B（reward_ticketsへの永続化自体をやめる）を採用した。
+
+**実装内容**: `src/lib/native/rewards.ts`の`watchRewardedAndGrant()`に
+`INSTANT_USE_REWARD_KINDS`（現状`extra_review`のみを含むSet）を追加。該当kindは
+広告視聴（Native）またはWeb版の擬似待機（600ms）が完了した後、`reward_tickets`への
+`INSERT`を行わず、広告視聴の成否のみを`{ ok: true, reason: "rewarded" }`として返す
+ようにした。`ai_generation`等ほかのkindはこれまで通り`reward_tickets`へ記録される。
+呼び出し元（`AppRewardedAdButton`、`FlipCardRunner.tsx`、`ChoiceTestRunner.tsx`）・
+UI文言・ボタンの見た目・広告視聴のフロー自体は一切変更していない（ユーザー体験は
+完全に同じで、内部のDB書き込みだけを止めた）。
+
+**used_amountの扱い**: `extra_review`は今後`reward_tickets`にINSERTされなくなるため、
+`used_amount`という概念自体がこのkindには発生しなくなる。既存の本番データ
+（`extra_review`が9件蓄積、2026-07-05時点で確認済み）は削除していない。過去の
+広告視聴の記録として残置し、新規の行が増えなくなるだけである。
+
+**既存データへの影響**: なし。`extra_review`の既存9件は削除・変更していない。
+`ai_generation`/`daily_achievement`等ほかのkindの付与・消費ロジック、既存データも
+一切変更していない。
+
+**変更ファイル**: `src/lib/native/rewards.ts`（`INSTANT_USE_REWARD_KINDS`追加、
+`watchRewardedAndGrant()`にkind別の分岐追加）、
+`scripts/testing/e2e/extra-review-ticket.mjs`（新規）、`scripts/testing/run-e2e.mjs`
+（ステップ19として追加）、`package.json`（`test:extra-review-ticket`スクリプト追加）、
+`NEXT_IMPROVEMENTS.md`、`PRODUCTION_MONITORING.md`、`WORK_HISTORY.md`。
+
+**追加・更新したテスト**: `scripts/testing/e2e/extra-review-ticket.mjs`（新規、
+`npm run test:extra-review-ticket`、12項目）:
+1. FlipCardRunner「もう一周チャレンジ」— テスト専用単語帳(4語、復習待ち)を用意して
+   復習を完走し、広告視聴後に実際に復習(フラッシュカード)が再開されること・
+   `reward_tickets(kind=extra_review)`に新規行が作られないことを検証。
+2. ChoiceTestRunner「もう10問チャレンジ」— 同様に4択テストを完走し、広告視聴後に
+   新しい問題セットで実際にテストが再開されること・DBに新規行が作られないことを検証。
+3. `ai_generation`（ダミーチケットを事前投入）・`daily_achievement`等ほかのkindの
+   行数が一連の操作前後で一切変化しないことを検証。
+4. 0語ユーザー(test+onboarding)でも`/review`が空状態表示のまま崩れないことを検証。
+
+**検証結果**: `tsc --noEmit`（エラー無し）/ `build`（成功）/ `test:smoke`（全PASS）/
+`test:extra-review-ticket`（12項目、全PASS）/ `test:e2e`（19フロー全PASS、
+既存回帰なし）/ `verify:prod`（全PASS）/ `verify:srs-global`（V2グローバルフラグ
+本番反映を再確認、全PASS）。
+
+**残課題**: 広告視聴なしで完全に無料の「もう一度」ボタンが、広告ゲート版の
+「もう一周/もう10問チャレンジ」とほぼ同じ内容を無制限に提供している点は、今回
+一切変更していない。広告視聴に実質的な価値（出題数の増量・苦手単語優先など）を
+持たせて差別化するかどうかは収益化・広告視聴体験に関わる設計判断のため、対応する
+場合はオーナー承認の上で別タスクとして着手する。`pdf_export`/`weak_word_test`/
+`analysis_ticket`の3種は引き続き完全に未実装のまま。`daily_achievement`への将来の
+交換機能追加も未着手。
+
+---
+
 ## 2026-07-05 リワードチケットの使い道・表示・消費導線を整理
 
 **目的**: `daily_achievement`チケットは安全に1日1枚付与・DB側の二重防止まで実装できたが、

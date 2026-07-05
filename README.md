@@ -606,11 +606,13 @@ Loop Vocabulary は Next.js の Server Components / middleware / Supabase SSR �
 #### リワード広告のチケット種別
 
 `src/lib/native/rewards.ts` の `RewardKind`:
-- `ai_generation` — AI 例文・解説生成
-- `pdf_export` — PDF 出力回数
-- `extra_review` — 復習対象拡張
-- `weak_word_test` — 苦手単語テスト追加
-- `analysis_ticket` — 詳細分析ロック解除 (将来用)
+- `ai_generation` — AI 例文・解説生成（`reward_tickets` へ永続化・`api/ai/route.ts` が消費）
+- `pdf_export` — PDF 出力回数（未実装、付与・消費コードとも無し）
+- `extra_review` — 復習対象拡張。広告視聴の直後にその場で復習/テストを再開する
+  「即時消費」の報酬のため、2026-07-05以降は `reward_tickets` へ永続化しない
+  （`INSTANT_USE_REWARD_KINDS` 参照。過去付与分の既存データは残置）
+- `weak_word_test` — 苦手単語テスト追加（未実装、付与・消費コードとも無し）
+- `analysis_ticket` — 詳細分析ロック解除 (将来用、未実装)
 
 ### 14-3. 広告 ID の本番切替
 

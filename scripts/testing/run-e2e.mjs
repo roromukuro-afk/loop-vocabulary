@@ -94,6 +94,9 @@ async function main() {
 
     console.log("\n=== 18. reward ticket claim (今日の達成チケット実付与) E2E ===");
     results.rewardTicketClaim = runNode("scripts/testing/e2e/reward-ticket-claim.mjs");
+
+    console.log("\n=== 19. extra_review ticket (広告視聴→追加復習) E2E ===");
+    results.extraReviewTicket = runNode("scripts/testing/e2e/extra-review-ticket.mjs");
   } finally {
     stopDevServer(dev);
   }
