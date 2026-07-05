@@ -9,7 +9,9 @@ export const runtime = "nodejs";
 const DAILY_GOAL = 20;
 
 /**
- * 「今日の達成チケット」を実際に reward_tickets へ1日1枚まで付与する。
+ * 「今日の達成スタンプ」を実際に reward_tickets(kind=daily_achievement) へ
+ * 1日1枚まで記録する。API応答の`claimed`/`reason`等のフィールド名は既存のまま
+ * 変更していない（クライアント側との契約を維持するため）。
  *
  * - ユーザー操作（ボタン押下）起点のPOSTでのみ動作する（SSR描画中には呼ばない）
  * - 達成条件（今日の学習達成/復習10語達成/苦手単語を復習/7日連続達成）はこの

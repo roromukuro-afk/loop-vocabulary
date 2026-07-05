@@ -7,10 +7,16 @@ interface Props {
 }
 
 /**
- * 「今日の達成チケット」を実際に reward_tickets へ1日1枚まで付与するボタン。
- * ユーザーの明示的なクリックでのみ /api/gamification/claim-daily-ticket を呼ぶ
- * （SSR描画時の自動付与は行わない）。連打・二重送信防止のため送信中はボタンを
- * 即座に無効化する。達成条件・重複付与チェックはサーバー側で再検証される。
+ * 「今日の達成スタンプ」を実際に reward_tickets(kind=daily_achievement) へ
+ * 1日1枚まで記録するボタン。ユーザーの明示的なクリックでのみ
+ * /api/gamification/claim-daily-ticket を呼ぶ（SSR描画時の自動記録は行わない）。
+ * 連打・二重送信防止のため送信中はボタンを即座に無効化する。達成条件・重複記録
+ * チェックはサーバー側で再検証される。
+ *
+ * このスタンプは現時点でAI生成回数・PDF出力等どの消費先にも接続していない
+ * 「達成の記録」のため、UI文言は「チケットを受け取る」ではなく「達成を記録する」
+ * で統一している（誤って何かに交換・消費できると誤解されないようにするため）。
+ * data-testid・API応答の`reason`文字列（already_claimed等）は既存のまま変更していない。
  */
 export function ClaimDailyTicketButton({ eligible, alreadyClaimedToday }: Props) {
   const [claimed, setClaimed] = useState(alreadyClaimedToday);
@@ -20,7 +26,7 @@ export function ClaimDailyTicketButton({ eligible, alreadyClaimedToday }: Props)
   if (claimed) {
     return (
       <div className="px-4 py-3 bg-emerald-50 text-center text-xs text-emerald-700 font-semibold" data-testid="claim-daily-ticket-claimed">
-        ✅ 本日の達成チケットは受け取り済みです
+        ✅ 本日の達成は記録済みです
       </div>
     );
   }
@@ -28,7 +34,7 @@ export function ClaimDailyTicketButton({ eligible, alreadyClaimedToday }: Props)
   if (!eligible) {
     return (
       <div className="px-4 py-3 text-center text-[11px] text-navy-400" data-testid="claim-daily-ticket-locked">
-        条件を1つ達成すると「受け取る」ボタンが押せるようになります
+        条件を1つ達成すると「記録する」ボタンが押せるようになります
       </div>
     );
   }
@@ -42,17 +48,17 @@ export function ClaimDailyTicketButton({ eligible, alreadyClaimedToday }: Props)
       const body = await res.json().catch(() => ({}));
       if (res.ok && body.claimed) {
         setClaimed(true);
-        setMessage("🎉 今日の達成チケットを受け取りました！");
+        setMessage("🎉 今日の達成を記録しました！");
       } else if (body.reason === "already_claimed") {
         setClaimed(true);
-        setMessage("本日はすでに受け取り済みでした");
+        setMessage("本日はすでに記録済みでした");
       } else if (body.reason === "not_eligible") {
-        setMessage("条件を達成してから受け取ってください");
+        setMessage("条件を達成してから記録してください");
       } else {
-        setMessage("受け取りに失敗しました。時間をおいて再度お試しください");
+        setMessage("記録に失敗しました。時間をおいて再度お試しください");
       }
     } catch {
-      setMessage("受け取りに失敗しました。時間をおいて再度お試しください");
+      setMessage("記録に失敗しました。時間をおいて再度お試しください");
     } finally {
       setBusy(false);
     }
@@ -67,7 +73,7 @@ export function ClaimDailyTicketButton({ eligible, alreadyClaimedToday }: Props)
         data-testid="claim-daily-ticket-button"
         className="w-full rounded-xl bg-amber-500 text-white font-bold text-sm py-2.5 hover:bg-amber-600 transition-colors disabled:opacity-50"
       >
-        {busy ? "受け取り中..." : "🎟️ 今日の達成チケットを受け取る"}
+        {busy ? "記録中..." : "📝 今日の達成を記録する"}
       </button>
       {message && <div className="mt-2 text-xs text-navy-600 text-center" data-testid="claim-daily-ticket-message">{message}</div>}
     </div>

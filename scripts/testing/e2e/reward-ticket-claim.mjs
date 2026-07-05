@@ -1,15 +1,20 @@
 /**
- * 「今日の達成チケット」の実付与（/api/gamification/claim-daily-ticket）自律E2E検証
+ * 「今日の達成スタンプ」の実記録（/api/gamification/claim-daily-ticket）自律E2E検証
  * （テストアカウント専用: test+onboarding、完全にリセットしたクリーンな状態から検証する）
+ *
+ * UI文言は「チケットを受け取る」ではなく「達成を記録する」（2026-07-05〜、
+ * NEXT_IMPROVEMENTS.md「リワードチケットの使い道整理」参照）だが、DBのkind値
+ * (daily_achievement)・APIの`reason`文字列(already_claimed等)は変更していないため、
+ * このファイル内のテスト名やdata-testidも「daily-ticket」のまま維持している。
  *
  * 1. 未達成状態: ボタンが押せない（ロック表示）・APIを直接叩いても400 not_eligible・
  *    reward_ticketsに行が作られないこと
- * 2. 達成状態（今日の学習目標達成）: ボタンから1枚だけ受け取れる・DBに正しく1行
- *    (kind=daily_achievement, amount=1) 作成されること
+ * 2. 達成状態（今日の学習目標達成）: ボタンから1枚だけ記録できる・DBに正しく1行
+ *    (kind=daily_achievement, amount=1) 作成されること・通算スタンプ数が表示されること
  * 3. 同じ日にもう一度ボタン押下・API直接呼び出し → 409 already_claimed・
  *    reward_ticketsの行数が2に増えないこと（重複防止）
- * 4. リロードしても「受け取り済み」表示が維持され、行数が増えないこと
- * 5. 0語ユーザーでもダッシュボード・チケットカードが崩れないこと
+ * 4. リロードしても「記録済み」表示が維持され、行数が増えないこと
+ * 5. 0語ユーザーでもダッシュボード・達成スタンプカードが崩れないこと
  * 6. 既存の広告視聴チケット(kind=ai_generation等)と混ざらない・干渉しないこと
  * 7. モバイル幅(375px)で崩れないこと
  * 8. 同時に複数のPOSTを送っても reward_tickets(kind=daily_achievement) が1件しか
@@ -78,7 +83,7 @@ async function main() {
     const lockedVisible = await page1.locator('[data-testid="claim-daily-ticket-locked"]').isVisible().catch(() => false);
     const buttonVisibleWhenLocked = await page1.locator('[data-testid="claim-daily-ticket-button"]').isVisible().catch(() => false);
     if (lockedVisible && !buttonVisibleWhenLocked) {
-      ok("未達成時は「受け取る」ボタンが表示されず、ロック表示になる");
+      ok("未達成時は「記録する」ボタンが表示されず、ロック表示になる");
     } else {
       fail(`未達成時の表示が想定と異なる (locked=${lockedVisible}, button=${buttonVisibleWhenLocked})`);
     }
@@ -120,14 +125,14 @@ async function main() {
 
     const claimButton = page2.locator('[data-testid="claim-daily-ticket-button"]');
     if (await claimButton.isVisible().catch(() => false)) {
-      ok("今日の学習目標(25語>=20語)達成後は「受け取る」ボタンが表示される");
+      ok("今日の学習目標(25語>=20語)達成後は「記録する」ボタンが表示される");
     } else {
-      fail("達成済みのはずなのに「受け取る」ボタンが表示されない");
+      fail("達成済みのはずなのに「記録する」ボタンが表示されない");
     }
 
     await claimButton.click();
     await page2.locator('[data-testid="claim-daily-ticket-claimed"]').waitFor({ state: "visible", timeout: 10000 });
-    ok("ボタンをクリックすると「受け取り済み」表示に切り替わる");
+    ok("ボタンをクリックすると「記録済み」表示に切り替わる");
 
     const rowsAfterClaim = await getDailyAchievementTickets(admin, onboardingId);
     if (rowsAfterClaim.length === 1 && rowsAfterClaim[0].amount === 1 && rowsAfterClaim[0].used_amount === 0) {
@@ -160,23 +165,30 @@ async function main() {
     else fail(`console error / 5xx 発生: ${realErrors2.join(" | ")}`);
     await page2.close();
 
-    // ================= 4. リロードしても増えない・「受け取り済み」表示が維持される =================
-    console.log("\n--- 4. リロード後も「受け取り済み」表示が維持され、行数が増えない ---");
+    // ================= 4. リロードしても増えない・「記録済み」表示が維持される =================
+    console.log("\n--- 4. リロード後も「記録済み」表示が維持され、行数が増えない ---");
     const page3 = await browser.newPage();
     await suppressOnboardingModal(page3);
     await login(page3, baseUrl, TEST_ACCOUNTS.onboarding.email, process.env[TEST_ACCOUNTS.onboarding.passwordEnvKey]);
     await gotoReady(page3, `${baseUrl}/dashboard`);
     const claimedAfterReload = await page3.locator('[data-testid="claim-daily-ticket-claimed"]').isVisible().catch(() => false);
     if (claimedAfterReload) {
-      ok("リロード後もSSRの再取得により「受け取り済み」表示が正しく維持される");
+      ok("リロード後もSSRの再取得により「記録済み」表示が正しく維持される");
     } else {
-      fail("リロード後に「受け取り済み」表示が維持されていない");
+      fail("リロード後に「記録済み」表示が維持されていない");
     }
     const rowsAfterReload = await getDailyAchievementTickets(admin, onboardingId);
     if (rowsAfterReload.length === 1) {
       ok("リロードしてもreward_ticketsの行数は1件のまま増えない");
     } else {
       fail(`リロード後の行数が想定外: ${rowsAfterReload.length}件`);
+    }
+
+    const totalStampsText = await page3.locator('[data-testid="today-reward-tickets-total-stamps"]').textContent().catch(() => "");
+    if (/通算\s*1\s*日分を記録済み/.test(totalStampsText ?? "")) {
+      ok(`通算スタンプ数(1日分)が正しく表示される: "${totalStampsText}"`);
+    } else {
+      fail(`通算スタンプ数の表示が想定外: "${totalStampsText}"`);
     }
     await page3.close();
 
@@ -191,8 +203,8 @@ async function main() {
     if (!hasOverflow) ok("モバイル幅(375px)で横スクロールが発生していない");
     else fail("モバイル幅(375px)で横スクロールが発生している");
     const claimedVisibleMobile = await page4.locator('[data-testid="claim-daily-ticket-claimed"]').isVisible().catch(() => false);
-    if (claimedVisibleMobile) ok("モバイル幅でも「受け取り済み」表示が正しく表示される");
-    else fail("モバイル幅で「受け取り済み」表示が見つからない");
+    if (claimedVisibleMobile) ok("モバイル幅でも「記録済み」表示が正しく表示される");
+    else fail("モバイル幅で「記録済み」表示が見つからない");
     await page4.close();
 
     // ================= 6. 既存の広告視聴チケット(kind=ai_generation)と混ざらないこと =================

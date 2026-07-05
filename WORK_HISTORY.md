@@ -5,6 +5,112 @@
 
 ---
 
+## 2026-07-05 リワードチケットの使い道・表示・消費導線を整理
+
+**目的**: `daily_achievement`チケットは安全に1日1枚付与・DB側の二重防止まで実装できたが、
+「受け取ったものが何に使えるのか」がユーザー視点で曖昧という残課題に対応する。
+`reward_tickets`の全kindについて付与元・消費先を調査し、`daily_achievement`の位置づけを
+明確にする。
+
+**調査結果**（読み取り専用の全文検索で確認、コード変更前に実施）:
+- `reward_tickets.kind`は現在6種類定義されている
+  （`src/lib/native/rewards.ts`の`RewardKind`型 + `daily_achievement`）が、実際に
+  付与・消費の両方が機能しているのは**`ai_generation`のみ**。
+- **`ai_generation`**: 広告視聴（`watchRewardedAndGrant()`、Web版は実際の広告再生を
+  行わず600msの疑似待機のみ）またはStripe購入（`src/app/api/stripe/webhook/route.ts`
+  の`checkout.session.completed`）で付与。`src/app/api/ai/route.ts`が、非Premium
+  ユーザーの1日5回のAI生成上限（`DAILY_LIMIT`）を超えた際に、残高のある最も古いチケット
+  から1枚(`used_amount`+1)消費して1回分のAI生成を追加許可する、実際に機能する消費先を
+  持つ。
+- **`extra_review`**: `FlipCardRunner.tsx`（「もう一周チャレンジ」）・
+  `ChoiceTestRunner.tsx`（「もう10問チャレンジ」）から広告視聴で付与されるが、
+  **消費コードが存在しない**。ボタンのコールバックは`reward_tickets`の残高を
+  一切参照せず直接`restart()`/`onRewardedExtra()`を呼ぶだけの設計で、DBへのINSERTは
+  行われるが`used_amount`は常に0のまま。本番で9件蓄積していることを確認（データの
+  削除はしていない）。
+- **`pdf_export`/`weak_word_test`/`analysis_ticket`**: 付与コード・消費コードとも
+  一切存在しない（`RewardKind`型定義のみ）。
+- **`daily_achievement`**（2026-07-05実装）: 付与・二重防止は完備しているが、消費先は
+  一切存在しない（`used_amount`は常に0のまま溜まる）。
+- ダッシュボード・設定画面のどこにも「保有チケット残高」を表示するUIは存在しなかった
+  （`src/components/ads/AppAds.tsx`の`useTicketBalance()`フックは定義されているが
+  どのコンポーネントからも呼ばれていない）。
+
+**判断**: `daily_achievement`を安全な既存の消費先へ接続する案（オーナー提案の案A）は
+見送った。
+- 実際に機能している消費先は`ai_generation`（AI利用上限バイパス）のみであり、無料で
+  付与される達成スタンプをそこに接続すると「無料でAI利用上限を回避できる経路が増える」
+  ことになる。ユーザーの明示的な注意事項「AI利用上限を無料で抜けすぎる形にしない」
+  「Premium価値を壊さない」に抵触するリスクがあると判断した。
+- `extra_review`は消費コード自体が存在しないため、「既存の消費先に接続する」という
+  前提条件が成立しない。新たに消費導線を設計することは、今回の「まず整理する」という
+  スコープを超える別タスクと判断した。
+
+**採用した方針（案B）**: `daily_achievement`は「交換可能なチケット」ではなく
+「達成の記録（スタンプ）」として扱う方向にUI文言を整理した。
+- `reward_tickets`テーブル・`kind='daily_achievement'`という値そのもの、DB制約
+  （`migrations/014_daily_achievement_ticket_unique.sql`）、付与・二重防止ロジックは
+  一切変更していない。すでに本番で付与済みのデータ（`test+srs`アカウントの1件含む）も
+  無変更。
+- UI文言を「🎟️ 今日の達成チケットを受け取る」→「📝 今日の達成を記録する」、
+  「✅ 本日の達成チケットは受け取り済みです」→「✅ 本日の達成は記録済みです」等に変更
+  （`ClaimDailyTicketButton.tsx`）。カード見出しも「🎟️ 今日の達成チケット」→
+  「📝 今日の達成スタンプ」に変更（`TodayRewardTickets.tsx`）。API応答の
+  `claimed`/`reason`（`already_claimed`等）のフィールド名・値、`data-testid`は
+  クライアント/サーバー間の契約と既存テストへの影響を避けるため、既存のまま
+  一切変更していない。
+- ダッシュボードに「通算◯日分を記録済み」という**累計スタンプ数**を新規表示。
+  `reward_tickets`の`kind=daily_achievement`件数を軽量な`COUNT`クエリ
+  （`select("*", { count: "exact", head: true })`）で取得し、
+  `TodayRewardTickets`に`totalStampCount`propとして渡している。交換可能な残高ではなく
+  達成の積み重ねを示す表示として位置づけている（0件のときは非表示）。
+- `src/lib/gamification/rewardTickets.ts`のコメントに、消費先を意図的に接続していない
+  理由（AI利用上限バイパス・Premium価値希薄化のリスク回避）と、将来交換機能を追加する
+  場合はオーナー承認の上で別タスクとして設計する旨を明記した。
+
+**AI利用上限・Premium導線への影響**: なし。`ai_generation`の付与ロジック
+（広告視聴・Stripe購入）・消費ロジック（`api/ai/route.ts`のチケット消費処理）は
+一切変更していない。
+
+**既存チケットへの影響**: なし。`extra_review`/`ai_generation`等の付与UI・DB・RLSは
+無変更。
+
+**変更ファイル**: `src/app/dashboard/page.tsx`（`totalAchievementStampCount`の
+COUNTクエリ追加、`TodayRewardTickets`へprop受け渡し）、
+`src/components/dashboard/TodayRewardTickets.tsx`（見出し・完了メッセージの文言変更、
+累計スタンプ数の表示追加）、`src/components/dashboard/ClaimDailyTicketButton.tsx`
+（ボタン・メッセージの文言変更）、`src/lib/gamification/rewardTickets.ts`
+（コメント更新のみ、ロジック無変更）、
+`src/app/api/gamification/claim-daily-ticket/route.ts`（コメント更新のみ、
+ロジック・応答フィールド無変更）、`scripts/testing/e2e/reward-ticket-claim.mjs`
+（ログ文言の追従、通算スタンプ数表示のアサーション追加）、
+`scripts/testing/e2e/dashboard-insights.mjs`（ログ文言の追従のみ、アサーション内容・
+data-testidは無変更）、`NEXT_IMPROVEMENTS.md`、`PRODUCTION_MONITORING.md`、
+`WORK_HISTORY.md`。
+
+**追加・更新したテスト**: `reward-ticket-claim.mjs`のシナリオ4（リロード確認）に、
+達成スタンプを1件記録した後の「通算1日分を記録済み」という累計表示のアサーションを
+追加（22項目→23項目）。既存のロック/記録/重複防止/モバイル/同時POSTの各シナリオは
+ログ文言のみ新UI文言に追従させ、判定ロジック・data-testidは変更していない。
+
+**検証結果**: `tsc --noEmit`（エラー無し）/ `build`（成功）/ `test:smoke`（全PASS）/
+`test:reward-ticket-claim`（23項目、全PASS）/ `test:e2e`（18フロー全PASS、
+既存回帰なし）/ `verify:prod`（全PASS）/ `verify:srs-global`（V2グローバルフラグ
+本番反映を再確認、全PASS）。
+
+**残課題**:
+- `extra_review`（もう一周/もう10問チャレンジ）は付与のみで消費コードが存在しない
+  という、今回の調査で見つかった別の未整理問題。実害は無い（体験上は広告視聴後に
+  即座に追加復習が始まる）が、DBに使われない行が溜まり続ける。対応するかはオーナー
+  判断で、対応する場合は別タスクとして着手する。
+- `pdf_export`/`weak_word_test`/`analysis_ticket`の3種は完全に未実装のまま
+  （型定義のみ）。実装するか型定義から削除するかは今後の判断が必要。
+- `daily_achievement`への将来の交換機能追加（例: 期間限定特典との交換）は今回
+  実装していない。追加する場合はAI利用上限・Premium価値への影響を踏まえ、
+  オーナー承認の上で別タスクとして設計する。
+
+---
+
 ## 2026-07-05 `daily_achievement`チケットの二重付与防止をDB側で完全化
 
 **目的**: 前回実装した「今日の達成チケット」実付与の残課題として、

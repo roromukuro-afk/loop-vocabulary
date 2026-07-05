@@ -71,6 +71,7 @@ export default async function DashboardPage() {
     { data: weakWords },
     { count: weakReviewedTodayCount },
     { data: claimedTodayRows },
+    { count: totalAchievementStampCount },
   ] = await Promise.all([
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id),
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id).lte("next_review_at", new Date().toISOString()),
@@ -99,7 +100,7 @@ export default async function DashboardPage() {
       .eq("user_id", user.id)
       .eq("words.is_weak", true)
       .gte("answered_at", todayStartJstISO()),
-    // 今日の達成チケット用: 本日すでにreward_ticketsへ受け取り済みか（表示のみ・付与はAPIルート側で行う）
+    // 今日の達成スタンプ用: 本日すでにreward_ticketsへ記録済みか（表示のみ・付与はAPIルート側で行う）
     supabase
       .from("reward_tickets")
       .select("id")
@@ -107,6 +108,12 @@ export default async function DashboardPage() {
       .eq("kind", DAILY_ACHIEVEMENT_TICKET_KIND)
       .gte("granted_at", todayStartJstISO())
       .limit(1),
+    // 今日の達成スタンプ用: 通算で何日分記録したか（消費できない達成履歴のため、件数のみ集計）
+    supabase
+      .from("reward_tickets")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("kind", DAILY_ACHIEVEMENT_TICKET_KIND),
   ]);
 
   const isPremium = profile?.is_premium ?? false;
@@ -355,13 +362,14 @@ export default async function DashboardPage() {
       {/* デイリーミッション */}
       <DailyMissions studied={studied} dailyGoal={DAILY_GOAL} streak={streak} wordCount={wordCount ?? 0} />
 
-      {/* 今日の達成チケット */}
+      {/* 今日の達成スタンプ */}
       <TodayRewardTickets
         studied={studied}
         dailyGoal={DAILY_GOAL}
         streak={streak}
         weakReviewedToday={weakReviewedTodayCount ?? 0}
         alreadyClaimedToday={(claimedTodayRows ?? []).length > 0}
+        totalStampCount={totalAchievementStampCount ?? 0}
       />
 
       {/* 実績バッジ */}
