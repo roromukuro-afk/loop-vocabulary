@@ -29,6 +29,7 @@
     "test:category-lps": "node scripts/testing/e2e/category-lps.mjs",
     "test:dashboard-insights": "node scripts/testing/e2e/dashboard-insights.mjs",
     "test:dates": "node scripts/testing/test-date-utils.mjs",
+    "test:gamification-rewards": "node scripts/testing/test-gamification-rewards.mjs",
     "test:quiz": "node scripts/testing/test-learning-selection.mjs",
     "test:learning-selection": "node scripts/testing/test-learning-selection.mjs",
     "test:smoke": "node scripts/testing/smoke.mjs",

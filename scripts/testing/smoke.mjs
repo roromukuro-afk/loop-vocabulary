@@ -19,6 +19,13 @@ async function main() {
     stdio: "inherit",
   });
 
+  // 今日の達成チケット判定ロジックの単体テスト（サーバ不要・高速）
+  console.log("\n=== gamification rewards unit tests ===");
+  execFileSync(process.execPath, ["scripts/testing/test-gamification-rewards.mjs"], {
+    cwd: REPO_ROOT,
+    stdio: "inherit",
+  });
+
   // ensureServer が未起動時に build + start する（build成功=必須チェック済み）
   const dev = await ensureServer(PORT);
   const baseUrl = dev.url;

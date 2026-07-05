@@ -13,6 +13,9 @@
  * 3. due単語が多い（>=20件）状態でも、既存のリカバリーモード導線
  *    （dashboard-recovery-hint）が壊れず、かつ新カードと共存して表示されること
  * 4. モバイル幅(375px)で横スクロールが発生しないこと
+ * 5. 「今日の達成チケット」カード（ゲーミフィケーション×リワードチケット連携）:
+ *    0語ユーザーでも崩れず表示され、通常ユーザーでは達成状況に応じた進捗が表示され、
+ *    習得率・苦手単語カードやリカバリーヒントと共存すること
  *
  * 使い方: node scripts/testing/e2e/dashboard-insights.mjs
  */
@@ -24,6 +27,7 @@ import { TEST_ACCOUNTS } from "../lib/testAccounts.mjs";
 import { resetOnboardingUser, resolveUserId, seedSrsUser } from "../seed-test-data.mjs";
 import { login, collectErrors } from "./lib/login.mjs";
 import { gotoReady } from "./lib/nav.mjs";
+import { todayJST } from "../../../src/lib/utils/date.ts";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 const HIGH_DUE_BOOK_TITLE = "TEST_ダッシュボード高due検証用単語帳";
@@ -85,6 +89,21 @@ async function main() {
     const guideVisible = await pageEmpty.locator('[data-testid="first-steps-guide"]').isVisible().catch(() => false);
     if (guideVisible) ok("0語ユーザーでは既存の「はじめの3ステップ」ガイドが引き続き表示される");
     else fail("0語ユーザーでFirstStepsGuideが表示されない（既存機能への回帰の可能性）");
+
+    // ---- 今日の達成チケット（0語ユーザーでも崩れないこと） ----
+    const rewardTicketsEmpty = pageEmpty.locator('[data-testid="today-reward-tickets"]');
+    if (await rewardTicketsEmpty.isVisible().catch(() => false)) {
+      ok("0語ユーザーでも「今日の達成チケット」カードが崩れずに表示される");
+    } else {
+      fail("0語ユーザーで「今日の達成チケット」カードが表示されない");
+    }
+    const doneCountEmptyText = await pageEmpty.locator('[data-testid="today-reward-tickets-done-count"]').textContent().catch(() => "");
+    if (/^\s*0\s*\/\s*4\s*$/.test(doneCountEmptyText ?? "")) {
+      ok(`0語ユーザーでは達成チケットが0/4（未達成）と表示される: "${doneCountEmptyText}"`);
+    } else {
+      fail(`0語ユーザーの達成チケット件数表示が想定外: "${doneCountEmptyText}"`);
+    }
+
     if (errorsEmpty.length === 0) ok("0語ユーザーのダッシュボード表示中にconsole error / 5xxなし");
     else fail(`console error / 5xx 発生: ${errorsEmpty.join(" | ")}`);
     await pageEmpty.close();
@@ -140,6 +159,52 @@ async function main() {
       ok("非Premiumユーザーには控えめなPremium導線（詳しい弱点分析はPremiumで確認）が表示される");
     } else {
       fail("非PremiumユーザーへのPremium導線が表示されない");
+    }
+
+    // ---- 今日の達成チケット（習得率・苦手単語カードと共存し、実データと整合していること） ----
+    const rewardTicketsMain = pageMain.locator('[data-testid="today-reward-tickets"]');
+    if (await rewardTicketsMain.isVisible().catch(() => false)) {
+      ok("習得率・苦手単語カードと並んで「今日の達成チケット」カードが表示される（共存・重複なし）");
+    } else {
+      fail("「今日の達成チケット」カードが表示されない");
+    }
+    const { data: todayStatsRow } = await admin
+      .from("daily_stats")
+      .select("studied_count")
+      .eq("user_id", srsId)
+      .eq("day", todayJST())
+      .maybeSingle();
+    const studiedToday = todayStatsRow?.studied_count ?? 0;
+
+    const goalDoneAttr = await pageMain.locator('[data-testid="reward-ticket-goal"]').getAttribute("data-done");
+    const expectGoalDone = String(studiedToday >= 20);
+    if (goalDoneAttr === expectGoalDone) {
+      ok(`「今日の学習達成」チケットの達成状態(${goalDoneAttr})が実際のdaily_stats(今日${studiedToday}語)と整合している`);
+    } else {
+      fail(`「今日の学習達成」チケットの達成状態(${goalDoneAttr})が実データ(今日${studiedToday}語, 期待${expectGoalDone})と食い違っている`);
+    }
+
+    const review10DoneAttr = await pageMain.locator('[data-testid="reward-ticket-review10"]').getAttribute("data-done");
+    const expectReview10Done = String(studiedToday >= 10);
+    if (review10DoneAttr === expectReview10Done) {
+      ok(`「復習10語達成」チケットの達成状態(${review10DoneAttr})が実際のdaily_stats(今日${studiedToday}語)と整合している`);
+    } else {
+      fail(`「復習10語達成」チケットの達成状態(${review10DoneAttr})が実データ(今日${studiedToday}語, 期待${expectReview10Done})と食い違っている`);
+    }
+
+    const weakDoneAttr = await pageMain.locator('[data-testid="reward-ticket-weak"]').getAttribute("data-done");
+    const streak7DoneAttr = await pageMain.locator('[data-testid="reward-ticket-streak7"]').getAttribute("data-done");
+    if ((weakDoneAttr === "true" || weakDoneAttr === "false") && (streak7DoneAttr === "true" || streak7DoneAttr === "false")) {
+      ok("「苦手単語を復習」「7日連続達成」チケットも正しい真偽値で表示される（詳細な閾値判定はtest:gamification-rewardsで検証済み）");
+    } else {
+      fail(`「苦手単語を復習」/「7日連続達成」チケットのdata-done値が不正: weak=${weakDoneAttr}, streak7=${streak7DoneAttr}`);
+    }
+
+    const doneCountMainText = await pageMain.locator('[data-testid="today-reward-tickets-done-count"]').textContent().catch(() => "");
+    if (/^\s*\d\s*\/\s*4\s*$/.test(doneCountMainText ?? "")) {
+      ok(`達成チケットの件数表示が正しい形式で表示される: "${doneCountMainText}"`);
+    } else {
+      fail(`達成チケットの件数表示が想定外: "${doneCountMainText}"`);
     }
 
     // ---- リンク導線の確認 ----
@@ -222,6 +287,12 @@ async function main() {
       } else {
         fail(`リカバリーヒント表示時に新カードが表示されない (mastery=${masteryStillVisible}, weak=${weakStillVisible})`);
       }
+      const rewardTicketsHighDue = await pageHighDue.locator('[data-testid="today-reward-tickets"]').isVisible().catch(() => false);
+      if (rewardTicketsHighDue) {
+        ok("リカバリーヒント表示時でも「今日の達成チケット」カードが引き続き表示される（競合しない）");
+      } else {
+        fail("リカバリーヒント表示時に「今日の達成チケット」カードが表示されない");
+      }
 
       if (errorsHighDue.length === 0) ok("高due状態のダッシュボード表示中にconsole error / 5xxなし");
       else fail(`console error / 5xx 発生: ${errorsHighDue.join(" | ")}`);
@@ -244,6 +315,9 @@ async function main() {
     const mobileWeakVisible = await pageMobile.locator('[data-testid="weak-words-card"]').isVisible().catch(() => false);
     if (mobileMasteryVisible && mobileWeakVisible) ok("モバイル幅でも習得率カード・苦手単語カードが表示される");
     else fail("モバイル幅でカードが表示されない");
+    const mobileRewardTicketsVisible = await pageMobile.locator('[data-testid="today-reward-tickets"]').isVisible().catch(() => false);
+    if (mobileRewardTicketsVisible) ok("モバイル幅でも「今日の達成チケット」カードが表示される");
+    else fail("モバイル幅で「今日の達成チケット」カードが表示されない");
     if (errorsMobile.length === 0) ok("モバイル幅表示中にconsole error / 5xxなし");
     else fail(`console error / 5xx 発生: ${errorsMobile.join(" | ")}`);
     await pageMobile.close();

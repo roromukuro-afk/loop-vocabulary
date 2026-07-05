@@ -13,7 +13,8 @@ import { FirstStepsGuide } from "@/components/dashboard/FirstStepsGuide";
 import { EnsureDefaultWordbook } from "@/components/dashboard/EnsureDefaultWordbook";
 import { DailyMissions } from "@/components/dashboard/DailyMissions";
 import { StreakShareCard } from "@/components/dashboard/StreakShareCard";
-import { todayJST, daysAgoJST, jstWeekdayIndex, jstHour, jstDayOfMonth } from "@/lib/utils/date";
+import { TodayRewardTickets } from "@/components/dashboard/TodayRewardTickets";
+import { todayJST, daysAgoJST, jstWeekdayIndex, jstHour, jstDayOfMonth, todayStartJstISO } from "@/lib/utils/date";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,7 @@ export default async function DashboardPage() {
     { count: masteredCount },
     { count: weakCount },
     { data: weakWords },
+    { count: weakReviewedTodayCount },
   ] = await Promise.all([
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id),
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id).lte("next_review_at", new Date().toISOString()),
@@ -87,6 +89,13 @@ export default async function DashboardPage() {
       .or("is_weak.eq.true,wrong_count.gt.0")
       .order("wrong_count", { ascending: false })
       .limit(5),
+    // 今日の達成チケット用: 今日、苦手単語(is_weak=true)を復習したか（件数のみ・行データは取得しない）
+    supabase
+      .from("study_results")
+      .select("id, words!inner(is_weak)", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("words.is_weak", true)
+      .gte("answered_at", todayStartJstISO()),
   ]);
 
   const isPremium = profile?.is_premium ?? false;
@@ -341,6 +350,14 @@ export default async function DashboardPage() {
 
       {/* デイリーミッション */}
       <DailyMissions studied={studied} dailyGoal={DAILY_GOAL} streak={streak} wordCount={wordCount ?? 0} />
+
+      {/* 今日の達成チケット */}
+      <TodayRewardTickets
+        studied={studied}
+        dailyGoal={DAILY_GOAL}
+        streak={streak}
+        weakReviewedToday={weakReviewedTodayCount ?? 0}
+      />
 
       {/* 実績バッジ */}
       {badges.length > 0 && (

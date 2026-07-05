@@ -5,6 +5,110 @@
 
 ---
 
+## 2026-07-05 ゲーミフィケーション×リワードチケット連携「今日の達成チケット」の追加
+
+**目的**: 教材・LP・ダッシュボード可視化・復習リカバリーモードが整ってきたため、次は継続率
+向上のために学習継続と報酬をつなげる（収益化監査#5）。単なるバッジ表示ではなく、今日も
+学習したくなる・連続学習を続けたくなる・復習を消化した達成感がある・無料ユーザーにも価値が
+ある・Premium転換にも自然につながる仕組みを目指した。
+
+**現状調査（実装前）**:
+- **バッジ**: `src/app/dashboard/page.tsx`の`getBadges()`/`getNextBadge()`関数で、streak
+  （3/7/30日）とwordCount（100/500/1000語）から都度計算。DB保存なし。
+- **XP/レベル**: 同ファイル内で`xp = wordCount×10 + totalCorrect×2 + streak×100`、
+  `level = floor(xp/1000)+1`として都度計算。DB保存なし。
+- **連続学習記録**: `daily_stats`テーブルの`studied_count>0`の日を`daysAgoJST()`で遡って
+  カウント（今日だけは未学習でも許容、それ以前に空白があれば打ち切り）。
+- **デイリーミッション**: `src/components/dashboard/DailyMissions.tsx`で4種
+  （5語学習・目標達成・連続学習・100語登録）を都度計算、DB保存なし。
+- **週間ランキング**: `/ranking`が`daily_stats`を今週分集計するライブクエリ。報酬の概念なし。
+- **リワードチケット**: `reward_tickets`テーブルが既に存在（`kind`/`amount`/`used_amount`/
+  `granted_at`/`expires_at`）。`src/lib/native/rewards.ts`の`watchRewardedAndGrant()`が
+  リワード広告視聴という**ユーザー操作起点**でのみ1件ずつ付与する設計。ゲーミフィケーション
+  （バッジ/ストリーク/ミッション達成）との連携は無かった。
+- `study_results`テーブルには`mode`等の種別列が無く、「復習モード」と「テストモード」の
+  区別はDBレベルでは不可能（このアプリのSRSは全モード共通で`saveStudyResult`経由のため、
+  リカバリーモードでの学習も通常の学習と同じ`study_results`/`daily_stats`に記録される）。
+
+**実装した表示・導線**: ダッシュボードに「🎟️ 今日の達成チケット」カードを新設
+（デイリーミッションの直後、獲得バッジの直前）。4種のチケットを表示:
+1. 🎯 今日の学習達成（`studied >= dailyGoal`）
+2. 🔁 復習10語達成（`studied >= 10`。リカバリーモードでの学習も同じ`studied`にカウントされる
+   ため、明示的な検出ロジックを組まなくても自然にカバーされる）
+3. 💪 苦手単語を復習（今日、is_weak=trueの単語に1問でも解答した場合に達成）
+4. 🔥 7日連続達成（`streak >= 7`）
+
+達成済みは🎟️アイコン+amber色、未達成はグレーアウト+各アイコンで表示。未達成のうち表示順で
+最初の1件について「あと◯語/◯日で「アイコン ラベル」達成！」の進捗ヒントを表示。全達成時は
+「🎉 今日の達成チケットをコンプリート！」のお祝い表示に切り替わる。
+
+デイリーミッション（今日すべきことのチェックリスト）とは役割を分け、こちらは「今日集めた
+ごほうびを振り返る」発表カードとして位置づけた（今日の学習達成チケットはミッション#2と
+同じ条件を再利用しているが、チェックリストと収集物という異なる文脈で提示している）。
+
+**使用したデータ・算出方法**: 判定ロジックを`src/lib/gamification/rewardTickets.ts`（新規）に
+`computeTodayTickets()`/`nextTodayTicket()`という純粋関数として切り出した。ダッシュボードの
+既存`Promise.all`データ取得ブロックに、苦手単語の今日の復習件数を取得する軽量クエリを1件
+追加した:
+```
+supabase.from("study_results")
+  .select("id, words!inner(is_weak)", { count: "exact", head: true })
+  .eq("user_id", user.id).eq("words.is_weak", true).gte("answered_at", todayStartJstISO())
+```
+`words!inner(is_weak)`のPostgREST埋め込みJOINで、行データを取得せずCOUNTのみをDB側で計算する
+（本番Supabaseに対して事前に動作確認済み）。studied/dailyGoal/streakは既存のダッシュボード
+計算値をそのまま再利用し、追加クエリなし。
+
+**リワードチケット連携の可否**: `reward_tickets`テーブル自体は既存のため、技術的には
+今回の4種の達成を直接INSERTすることも可能だった。しかし、ダッシュボードはSSR（サーバー
+コンポーネント）でありページを開くたびに再描画されるため、レンダー中にDB書き込みを行うと
+ページを開くたびに再付与されてしまう危険がある（二重付与防止には「その日すでに付与済みか」の
+事前チェック+重複防止の仕組みが必要で、レンダーというタイミングでの副作用のある書き込みは
+Next.jsのベストプラクティスにも反する）。ユーザー指示の「リワードチケットのDBがまだ無い
+場合は、チケット風UI+次の報酬までの進捗表示に留めて、実際の消費型チケット機能は別タスクに
+分ける」という方針に沿い、今回は表示のみに留めた。実際に付与する場合の設計案（サーバー
+アクション+ユーザー操作起点でのINSERT、`granted_at`列を使った1日1回ガード）は
+`NEXT_IMPROVEMENTS.md`「ゲーミフィケーション×リワードチケットの次の一手」に提案として記録
+した（DBスキーマ変更は不要な設計）。
+
+**表現面の配慮**: ガチャ・くじ引き風の演出、射幸性を煽る表現は使わず、「達成すればもらえる」
+という単純な条件明示に留めた。Premium訴求はこのカード内には追加していない（既存の
+Premiumバナーが別途あるため）。
+
+**新規テスト**:
+- `scripts/testing/test-gamification-rewards.mjs`（新規、`npm run test:gamification-rewards`、
+  `test-date-utils.mjs`と同じ「実装を直接importする純粋関数の単体テスト」パターン、19項目）:
+  0語ユーザー相当（すべて0）で4件生成・全未達成・次のヒントが正しいこと、各チケットの閾値・
+  境界値（studied=9/10、streak=6/7/30）、全達成時の判定とnextTodayTicketがnullを返すこと、
+  を検証。`smoke.mjs`にも自動組み込み（`test-date-utils.mjs`と同じ扱い）。
+- `scripts/testing/e2e/dashboard-insights.mjs`を拡張: 0語ユーザーでカードが崩れず0/4と
+  表示されること、通常ユーザーで実際の`daily_stats.studied_count`と「今日の学習達成」
+  「復習10語達成」チケットのdata-done属性が一致すること（DBの実データと表示の整合性を
+  直接クロスチェック）、due単語20件以上のリカバリーヒント表示時・モバイル幅(375px)表示時にも
+  カードが共存して壊れないこと、を実ブラウザで検証。
+
+**変更ファイル**: `src/lib/gamification/rewardTickets.ts`（新規）、
+`src/components/dashboard/TodayRewardTickets.tsx`（新規）、`src/app/dashboard/page.tsx`、
+`scripts/testing/test-gamification-rewards.mjs`（新規）、`scripts/testing/smoke.mjs`、
+`scripts/testing/e2e/dashboard-insights.mjs`、`package.json`
+（`test:gamification-rewards`スクリプト追加）、`NEXT_IMPROVEMENTS.md`、
+`PRODUCTION_MONITORING.md`、`WORK_HISTORY.md`。
+
+**変更していないもの**: DBスキーマ（マイグレーション無し）、RLS、SRS V2中核ロジック、
+teacher機能、教材データ、AdSense広告枠（追加なし）、学習中・復習中画面への広告（追加なし）、
+既存のバッジ/XP・レベル/デイリーミッション/週間ランキング/リカバリーモードのロジック
+（そのまま再利用のみ）。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run test:smoke`
+（単体テスト19項目含む、全PASS） / `npm run test:dashboard-insights`（新規チェック含め
+全項目PASS） / `npm run test:e2e`（17フロー全PASS、回帰なし） / `npm run verify:prod` /
+`npm run verify:srs-global`、全PASS。
+
+**残課題**: `reward_tickets`への実際の付与（消費型チケット機能）は別タスク。
+`NEXT_IMPROVEMENTS.md`の提案（サーバーアクション+1日1回ガード）を参照。
+
+---
+
 ## 2026-07-05 ニュース英語向け公開LP（`/materials/news`）の新設
 
 **目的**: 前回追加した「経済ニュース英単語100」「企業ニュース英単語100」を活かし、
