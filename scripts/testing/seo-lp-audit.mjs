@@ -1,12 +1,12 @@
 /**
- * カテゴリLP（/materials/toeic・/materials/business）のSEO導線監査（HTTPのみ・ブラウザ不要）
+ * カテゴリLP（/materials/toeic・/materials/business・/materials/news）のSEO導線監査
+ * （HTTPのみ・ブラウザ不要）
  *
- * 1. /sitemap.xml に /materials/toeic・/materials/business・/materials・/dictionary・
- *    /guide・/grammar・/faq が含まれているか
+ * 1. /sitemap.xml に /materials/toeic・/materials/business・/materials/news・/materials・
+ *    /dictionary・/guide・/grammar・/faq が含まれているか
  * 2. /robots.txt が上記パスをブロックしていないか
- * 3. /materials/toeic・/materials/business のcanonicalタグが自分自身のURLを指しているか
- *    （/materials/[id]と競合していないか）
- * 4. 両LPのJSON-LD（BreadcrumbList・ItemList）がそれぞれ1個ずつ・妥当なJSONとして
+ * 3. 3LPのcanonicalタグが自分自身のURLを指しているか（/materials/[id]と競合していないか）
+ * 4. 3LPのJSON-LD（BreadcrumbList・ItemList）がそれぞれ1個ずつ・妥当なJSONとして
  *    パースできるか
  * 5. /materials/[id]（既存の動的教材詳細ページ）が引き続き200で表示されるか
  *
@@ -44,6 +44,7 @@ async function main() {
   const requiredInSitemap = [
     "/materials/toeic",
     "/materials/business",
+    "/materials/news",
     "/materials</loc>",
     "/dictionary</loc>",
     "/guide</loc>",
@@ -64,15 +65,16 @@ async function main() {
     .split("\n")
     .filter((l) => l.trim().toLowerCase().startsWith("disallow:"))
     .map((l) => l.split(":")[1]?.trim());
-  const targetPaths = ["/materials/toeic", "/materials/business", "/materials", "/dictionary"];
+  const targetPaths = ["/materials/toeic", "/materials/business", "/materials/news", "/materials", "/dictionary"];
   const blocked = targetPaths.filter((p) => disallowLines.some((d) => d && p.startsWith(d)));
-  if (blocked.length === 0) ok("robots.txtが対象パス（/materials/toeic・/materials/business・/materials・/dictionary）をブロックしていない");
+  if (blocked.length === 0) ok("robots.txtが対象パス（/materials/toeic・/materials/business・/materials/news・/materials・/dictionary）をブロックしていない");
   else bad(`robots.txtが以下のパスをブロックしている: ${blocked.join(", ")}`);
 
   // ---- 3. canonical確認 ----
   for (const [path, expectedCanonical] of [
     ["/materials/toeic", `${baseUrl}/materials/toeic`],
     ["/materials/business", `${baseUrl}/materials/business`],
+    ["/materials/news", `${baseUrl}/materials/news`],
   ]) {
     const { text } = await fetchText(path);
     const canonicalMatch = text.match(/<link rel="canonical" href="([^"]+)"/);
@@ -84,7 +86,7 @@ async function main() {
   }
 
   // ---- 4. JSON-LD確認 ----
-  for (const path of ["/materials/toeic", "/materials/business"]) {
+  for (const path of ["/materials/toeic", "/materials/business", "/materials/news"]) {
     const { text } = await fetchText(path);
     const blocks = extractJsonLdBlocks(text);
     // 注: layout.tsxがサイト全体にOrganization/WebSiteのJSON-LDを常時出力しているため、

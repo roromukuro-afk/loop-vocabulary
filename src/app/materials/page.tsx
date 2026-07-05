@@ -103,6 +103,7 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
     landingPages: [
       { href: "/materials/toeic", label: "TOEIC対策ページへ" },
       { href: "/materials/business", label: "ビジネス英語ページへ" },
+      { href: "/materials/news", label: "ニュース英語ページへ" },
     ],
   },
   {

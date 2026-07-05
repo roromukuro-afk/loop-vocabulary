@@ -5,6 +5,76 @@
 
 ---
 
+## 2026-07-05 ニュース英語向け公開LP（`/materials/news`）の新設
+
+**目的**: 前回追加した「経済ニュース英単語100」「企業ニュース英単語100」を活かし、
+TOEIC・ビジネス英語LPに続く3本目のカテゴリLPとして、英語ニュースを読みたい社会人・
+経済/企業ニュースを英語で読みたい人・投資/ビジネス情報を英語で追いたい人を取り込むための
+公開LP `/materials/news` を新設した（収益化監査#1・#3の延長）。
+
+**ルーティング競合の確認**: `/materials/[id]`という既存の動的ルートに対し、
+`/materials/news`という新規静的ルートが競合しないかを事前に確認した。`/toeic`・`/business`
+新設時と同じ理由（Next.js App Routerは同階層で静的セグメントを動的セグメントより優先して
+解決するため）で衝突しないことを`npm run build`のルート一覧と実ブラウザ双方で確認した。
+
+**実装内容**:
+- `src/app/materials/news/page.tsx`（新規）: 主役は「経済ニュース英単語100」
+  （`10000000-...-114`）「企業ニュース英単語100」（`10000000-...-115`）の2教材（固定ID指定、
+  `data-testid="category-lp-materials"`）。関連教材として「ビジネス英語 基礎100」
+  （`...-111`）「TOEIC 頻出名詞100」（`...-113`）「TOEIC 頻出動詞100」（`...-110`）の3教材を
+  「あわせて学びたい方に」という別セクション（`data-testid="news-related-materials"`）で表示し、
+  ニュース英語LPの主役が薄まらないようにした。ItemList JSON-LDには主役2教材のみを含めている
+  （関連教材はページの主要リストではないため）。
+  H1「ニュース英語の単語教材」、学習の流れは①教材を選ぶ→②単語帳に追加→③SRSで復習→
+  ④4択・入力・タイピングで確認→⑤辞書で単語を追加、の5ステップ（既存2LPは4ステップだが、
+  ユーザー指定の流れをそのまま反映）。
+- `src/app/materials/page.tsx`: 「TOEIC・ビジネス英語」セクションの`landingPages`に
+  「ニュース英語ページへ」を追加（既存2件と同じ表示トーン）。
+- `src/app/materials/business/page.tsx`: 内部リンク行に「📰 経済・企業ニュースの英単語も学ぶ」
+  を追加。`/materials/toeic`は変更していない（ユーザー指定の導線範囲どおり）。
+- `src/app/sitemap.ts`: `/materials/news`をpriority 0.85・changeFrequency weeklyで追加
+  （既存2LPと同じ設定）。
+- SEOメタ情報は既存2LPと同品質: `metadata.title`/`description`/`openGraph`/
+  `alternates.canonical`、BreadcrumbList JSON-LD（ホーム→教材・単語帳→ニュース英語）、
+  ItemList JSON-LD（name: "ニュース英語の単語教材"）。
+- `robots.txt`は元々`/materials`配下をブロックしておらず修正不要だった（確認のみ）。
+
+**新規教材データは追加していない**（既存の経済/企業ニュース英単語100・ビジネス英語基礎100・
+TOEIC頻出名詞100・TOEIC頻出動詞100をそのまま活用）。DBスキーマ変更・RLS変更・SRS V2中核
+ロジック変更・teacher機能変更・AdSense広告枠追加・Premium課金導線の追加なし。
+
+**テスト**:
+- `scripts/testing/e2e/category-lps.mjs`に新規セクション（9. `/materials/news`）を追加:
+  200表示・H1・主役教材カード2件・主役2教材タイトル表示・関連教材3件（データ件数+タイトル）・
+  `/dictionary`導線・`/materials/business`⇄`/materials/news`・`/materials`⇄`/materials/news`の
+  相互導線・モバイル幅(375px)での崩れなし・`/materials/news`追加後も既存`/materials/[id]`が
+  正常動作すること（ルーティング非競合の最終確認）、を実ブラウザで検証。
+- `scripts/testing/seo-lp-audit.mjs`: sitemap包含・robots非ブロック・canonical・JSON-LDの
+  4チェックすべてに`/materials/news`を追加（既存2LP分の項目は無変更）。
+- `scripts/testing/verify-prod.mjs`: 公開ページ一覧に`/materials/news`を追加。
+
+**変更ファイル**: `src/app/materials/news/page.tsx`（新規）、`src/app/materials/page.tsx`、
+`src/app/materials/business/page.tsx`、`src/app/sitemap.ts`、
+`scripts/testing/e2e/category-lps.mjs`、`scripts/testing/seo-lp-audit.mjs`、
+`scripts/testing/verify-prod.mjs`、`NEXT_IMPROVEMENTS.md`、`PRODUCTION_MONITORING.md`、
+`WORK_HISTORY.md`、`SEARCH_CONSOLE_SETUP.md`。
+
+**変更していないもの**: `/materials/toeic`（内部リンク・構造とも無変更）、既存教材データ
+（新規パック追加なし）、DBスキーマ（マイグレーション無し）、RLS、SRS V2中核ロジック、
+teacher機能、AdSense広告枠。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run test:category-lps`
+（28項目、全PASS） / `npm run test:internal-links`（回帰なし） / `npm run test:e2e`
+（17フロー全PASS、回帰なし） / `npm run test:smoke` / `npm run verify:srs-global`、全PASS。
+`npm run verify:seo-lp-audit` / `npm run verify:prod`はデプロイ前は`/materials/news`関連の
+3項目のみ想定通り失敗（本番に未デプロイのため）し、デプロイ後に再実行して全PASSを確認した。
+
+**残課題**: 他カテゴリ（大学受験・英検・中学高校基礎・日常会話）向けの公開LPは引き続き
+未着手（効果を見てから検討）。テクノロジー/IT・就活/転職・人事/労務向けの追加ニュース語彙
+パックを作った場合、`/materials/news`の主役リストへの追加要否は利用状況を見てから判断する。
+
+---
+
 ## 2026-07-05 社会人向け教材3パックの追加（TOEIC頻出名詞100・経済/企業ニュース英単語100）
 
 **目的**: TOEIC・ビジネス英語LP、内部リンク、ダッシュボード可視化が整ってきたため、次は

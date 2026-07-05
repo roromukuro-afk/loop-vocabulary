@@ -4,7 +4,7 @@
 > 大きめの機能追加は実際の利用状況を見てから判断する。
 > 各項目は着手前に個別のご確認をいただく（本ドキュメントは提案のみ・実装はまだしない）。
 >
-> **2026-07-05時点: 優先度A（下記27項目）はすべて完了。現在は次の優先度整理フェーズ。**
+> **2026-07-05時点: 優先度A（下記28項目）はすべて完了。現在は次の優先度整理フェーズ。**
 > 2026-07-04には収益化・成長観点の監査も実施（詳細は本ドキュメント内
 > 「💰 収益化・成長 監査」参照）。教材追加以外の指摘事項は下記の優先度A/B/Cに反映済み。
 > 本番ヘルスチェック結果・現在の運用状態は [WORK_HISTORY.md](WORK_HISTORY.md) の
@@ -446,6 +446,35 @@
     `test:smoke` / `verify:prod` / `verify:srs-global`、全PASS。
     詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
 
+28. ✅ **完了（2026-07-05）: ニュース英語向け公開LP（`/materials/news`）の新設**（収益化監査#1・#3の延長）
+    経済ニュース・企業ニュースを英語で読みたい社会人・投資/ビジネス関心層を取り込むため、
+    `/materials/toeic`・`/materials/business`に続く3本目のカテゴリLPとして`/materials/news`を
+    新設した。主役は「経済ニュース英単語100」「企業ニュース英単語100」の2教材、関連教材として
+    「ビジネス英語 基礎100」「TOEIC 頻出名詞100」「TOEIC 頻出動詞100」の3教材を別セクションで
+    表示する（ニュース英語LPの主役が薄まらないよう、ItemList JSON-LDには主役2教材のみを含めた）。
+    `/materials/[id]`という既存の動的ルートとの競合は`/toeic`・`/business`新設時と同じ理由
+    （Next.js App Routerが同階層の静的セグメントを動的セグメントより優先して解決するため）で
+    発生しないことを確認済み。
+    `/materials`の「TOEIC・ビジネス英語」セクションの`landingPages`にニュース英語ページへの
+    リンクを追加、`/materials/business`にも「📰 経済・企業ニュースの英単語も学ぶ」の内部リンクを
+    追加した（`/materials/toeic`は変更せず、既存2LPの構造は無変更）。
+    SEO対応は既存2LPと同品質: `metadata.title`/`description`/OGP/`alternates.canonical`、
+    BreadcrumbList・ItemList JSON-LD、`src/app/sitemap.ts`への追加（priority 0.85）。
+    robots.txtは元々`/materials`配下をブロックしておらず修正不要だった。
+    新規教材データの追加は行っていない（既存の経済/企業ニュース英単語100をそのまま活用）。
+    DBスキーマ変更・RLS変更・SRS V2中核ロジック変更・teacher機能変更・AdSense広告枠追加なし。
+    テスト: `scripts/testing/e2e/category-lps.mjs`に新規セクション（9. `/materials/news`）を
+    追加し、200表示・H1・主役教材カード2件・関連教材3件・`/dictionary`導線・
+    `/materials/business`⇄`/materials/news`・`/materials`⇄`/materials/news`の相互導線・
+    モバイル幅崩れなし・`/materials/[id]`とのルーティング非競合を検証。
+    `scripts/testing/seo-lp-audit.mjs`・`scripts/testing/verify-prod.mjs`にも`/materials/news`を
+    追加。
+    検証: `tsc --noEmit` / `build` / `test:category-lps`（28項目、全PASS） /
+    `test:internal-links`（回帰なし） / `verify:seo-lp-audit`（デプロイ後、全項目PASS） /
+    `test:e2e`（17フロー全PASS、回帰なし） / `test:smoke` / `verify:prod`
+    （デプロイ後、全項目PASS） / `verify:srs-global`、全PASS。
+    詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
+
 ---
 
 ## 💰 収益化・成長 監査（2026-07-04）
@@ -480,6 +509,9 @@
 **2026-07-05追加対応**: 「TOEIC 頻出名詞100」「経済ニュース英単語100」「企業ニュース英単語100」
 の3パック（計300語）を追加し、TOEIC教材は5件、ビジネス英語専用教材は4件に増加した。
 詳細は優先度A完了項目27参照。
+**2026-07-05さらに追加対応**: 経済/企業ニュースを英語で読みたい社会人・投資/ビジネス関心層を
+取り込むため、`/materials/toeic`・`/materials/business`に続く3本目のカテゴリLP
+`/materials/news`を新設した。詳細は優先度A完了項目28参照。
 
 ### 2. 復習の雪だるま問題（🟢 対応済み・2026-07-04）
 
@@ -691,6 +723,10 @@ descriptionを持ち、構造化データ（BreadcrumbList・FAQPage・Article�
 13. ✅ **完了（2026-07-05）: 社会人向け教材3パックの追加**（収益化監査#1・#3の延長）
    優先度A完了項目27で対応済み。「TOEIC 頻出名詞100」「経済ニュース英単語100」
    「企業ニュース英単語100」の3パック（計300語）を追加した。詳細は完了項目27参照。
+
+14. ✅ **完了（2026-07-05）: ニュース英語向け公開LP（`/materials/news`）の新設**（収益化監査#1・#3の延長）
+   優先度A完了項目28で対応済み。経済ニュース英単語100・企業ニュース英単語100を主役とした
+   3本目のカテゴリLPを新設した。詳細は完了項目28参照。
 
 ## 🟠 優先度C: 条件が整ってから（外部要因・法務要因あり、または現時点で不要）
 

@@ -1,5 +1,5 @@
 /**
- * カテゴリ別公開LP（/materials/toeic・/materials/business）自律E2E検証
+ * カテゴリ別公開LP（/materials/toeic・/materials/business・/materials/news）自律E2E検証
  * （未ログインでも動作する公開ページのみ対象）
  *
  * 1. /materials/toeic が200で表示され、TOEIC教材（5件）が正しく表示される
@@ -10,6 +10,9 @@
  * 6. /materialsのTOEIC・ビジネス英語セクションから各LPへ遷移できる
  * 7. モバイル幅(375px)で横スクロールが発生しない
  * 8. 既存の/materials/[id]が壊れていない（教材詳細ページが正常表示される）
+ * 9. /materials/news が200で表示され、経済/企業ニュース英単語100（主役2件）+関連教材3件が
+ *    正しく表示される。/materials/business⇄/materials/news・/materials⇄/materials/newsの
+ *    相互導線、モバイル幅での崩れなし、/materials/[id]とのルーティング非競合も確認する
  *
  * 使い方: node scripts/testing/e2e/category-lps.mjs
  */
@@ -153,6 +156,88 @@ async function main() {
       ok("既存の/materials/[id]（動的ルート）が引き続き正常に動作する（/toeic・/businessとのルーティング競合なし）");
     } else {
       fail(`/materials/${TOEIC_BASIC_100_ID} の表示が想定と異なる: "${existingDetailTitle}"`);
+    }
+
+    // ---- 9. /materials/news ----
+    const newsRes = await page.goto(`${baseUrl}/materials/news`, { waitUntil: "load" });
+    await page.waitForLoadState("networkidle");
+    if (newsRes && newsRes.status() === 200) ok("/materials/news が200で表示される");
+    else fail(`/materials/news のステータスが200ではない (${newsRes?.status()})`);
+
+    const newsH1 = await page.locator("h1").textContent();
+    if (newsH1?.includes("ニュース英語")) ok(`/materials/news のH1に「ニュース英語」を含む: "${newsH1}"`);
+    else fail(`/materials/news のH1が想定と異なる: "${newsH1}"`);
+
+    const newsPrimaryCards = page.locator('[data-testid="category-lp-materials"] a');
+    const newsPrimaryCount = await newsPrimaryCards.count();
+    if (newsPrimaryCount === 2) ok("/materials/news に主役の教材カードが2件（経済/企業ニュース）表示される");
+    else fail(`/materials/news の主役教材カード数が想定(2件)と異なる (実際: ${newsPrimaryCount}件)`);
+
+    const newsBodyText = await page.locator("body").innerText();
+    if (newsBodyText.includes("経済ニュース英単語100") && newsBodyText.includes("企業ニュース英単語100")) {
+      ok("/materials/news に「経済ニュース英単語100」「企業ニュース英単語100」が表示される");
+    } else {
+      fail("/materials/news に想定の主役教材タイトルが表示されていない");
+    }
+
+    const newsRelatedLinks = page.locator('[data-testid="news-related-materials"] a');
+    const newsRelatedCount = await newsRelatedLinks.count();
+    if (
+      newsRelatedCount === 3 &&
+      newsBodyText.includes("ビジネス英語 基礎100") &&
+      newsBodyText.includes("TOEIC 頻出名詞100") &&
+      newsBodyText.includes("TOEIC 頻出動詞100")
+    ) {
+      ok("/materials/news に関連教材3件（ビジネス英語基礎100・TOEIC頻出名詞100・TOEIC頻出動詞100）が表示される");
+    } else {
+      fail(`/materials/news の関連教材表示が想定と異なる (実際件数: ${newsRelatedCount}件)`);
+    }
+
+    const newsDictLink = page.locator('a[href="/dictionary"]');
+    if (await newsDictLink.first().isVisible().catch(() => false)) ok("/materials/news に/dictionaryへの導線がある");
+    else fail("/materials/news に/dictionaryへの導線が見つからない");
+
+    // ---- 9b. /materials/business ⇄ /materials/news ----
+    await gotoReady(page, `${baseUrl}/materials/business`);
+    const toNewsLink = page.locator('a[href="/materials/news"]');
+    if (await toNewsLink.first().isVisible().catch(() => false)) {
+      await Promise.all([
+        page.waitForURL((u) => u.pathname === "/materials/news", { timeout: 10000 }),
+        toNewsLink.first().click(),
+      ]);
+      ok("/materials/business から/materials/newsへ遷移できる");
+    } else {
+      fail("/materials/business に/materials/newsへの導線が見つからない");
+    }
+
+    // ---- 9c. /materials ⇄ /materials/news ----
+    await gotoReady(page, `${baseUrl}/materials`);
+    const newsLpLink = page.locator('a[href="/materials/news"]');
+    if ((await newsLpLink.count()) > 0) {
+      await Promise.all([
+        page.waitForURL((u) => u.pathname === "/materials/news", { timeout: 10000 }),
+        newsLpLink.first().click(),
+      ]);
+      ok("/materials から/materials/newsへ遷移できる");
+    } else {
+      fail("/materials に/materials/newsへの導線が見つからない");
+    }
+
+    // ---- 9d. モバイル幅での表示崩れ確認 ----
+    await page.setViewportSize({ width: 375, height: 812 });
+    await gotoReady(page, `${baseUrl}/materials/news`);
+    const hasOverflowNews = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
+    if (!hasOverflowNews) ok("/materials/news: モバイル幅(375px)で横スクロールが発生していない");
+    else fail("/materials/news: モバイル幅(375px)で横スクロールが発生している");
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // ---- 9e. /materials/[id]とのルーティング非競合（newsパック自体の詳細ページも正しく開けること） ----
+    await gotoReady(page, `${baseUrl}/materials/${TOEIC_BASIC_100_ID}`);
+    const stillOk = await page.locator('[data-testid="material-title"]').textContent().catch(() => null);
+    if (stillOk?.includes("TOEIC 基礎100")) {
+      ok("/materials/news追加後も既存の/materials/[id]が正常に動作する（ルーティング競合なし）");
+    } else {
+      fail(`/materials/news追加後、/materials/${TOEIC_BASIC_100_ID} の表示が想定と異なる: "${stillOk}"`);
     }
 
     if (errors.length === 0) ok("操作中に console error / 5xx なし");
