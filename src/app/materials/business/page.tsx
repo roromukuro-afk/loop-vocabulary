@@ -89,7 +89,8 @@ export default async function BusinessMaterialsLandingPage() {
       <h1 className="text-xl font-bold text-navy-800 mt-2">ビジネス英語の単語教材</h1>
       <p className="text-sm text-navy-600 mt-2 leading-relaxed">
         職場・取引先・会議・メールで使う実務英語の単語を厳選した内蔵教材です。TOEIC対策に限らず、
-        日々の職場英語としてもそのまま使えます。単語帳に追加するだけで自動復習が始まります。
+        日々の職場英語としてもそのまま使えます。経済ニュース・企業ニュースを読むための語彙パックも
+        あわせて用意しています。単語帳に追加するだけで自動復習が始まります。
       </p>
 
       {/* CTA */}

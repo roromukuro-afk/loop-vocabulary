@@ -88,8 +88,9 @@ export default async function ToeicMaterialsLandingPage() {
       </Link>
       <h1 className="text-xl font-bold text-navy-800 mt-2">TOEIC対策の英単語教材</h1>
       <p className="text-sm text-navy-600 mt-2 leading-relaxed">
-        TOEIC初心者〜600・700点前後を目指す方向けに、頻出語彙を厳選した内蔵教材をご用意しています。
-        単語帳に追加するだけで、忘却曲線（SRS）による自動復習・AI解説がすぐに使えます。
+        TOEIC初心者〜600・700点前後を目指す方向けに、頻出動詞・頻出名詞を中心とした語彙を
+        厳選した内蔵教材をご用意しています。単語帳に追加するだけで、忘却曲線（SRS）による
+        自動復習・AI解説がすぐに使えます。
       </p>
 
       {/* CTA */}

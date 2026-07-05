@@ -5,6 +5,100 @@
 
 ---
 
+## 2026-07-05 社会人向け教材3パックの追加（TOEIC頻出名詞100・経済/企業ニュース英単語100）
+
+**目的**: TOEIC・ビジネス英語LP、内部リンク、ダッシュボード可視化が整ってきたため、次は
+社会人ユーザー向けの教材ラインナップを厚くし、TOEIC・ビジネス英語LPに載せられる教材を
+増やして検索流入・継続率・Premium転換につながる入口を強化する（収益化監査#1・#3の延長）。
+
+**追加した教材パック**（すべてオリジナル作成、市販教材・公式問題集・ニュース記事本文からの
+転載なし）:
+1. `src/data/presets/toeic-frequent-nouns-100.ts` — TOEIC 頻出名詞100（100語）。
+   「TOEIC 頻出動詞100」と対になる名詞版。TOEIC 500〜700点を目指す方向け。
+2. `src/data/presets/economic-news-vocabulary-100.ts` — 経済ニュース英単語100（100語）。
+   インフレ・金利・株式市場など、経済ニュースを読むための基礎語彙。
+3. `src/data/presets/corporate-news-vocabulary-100.ts` — 企業ニュース英単語100（100語）。
+   決算・買収・経営戦略・人事など、企業ニュースを読むための語彙。
+
+**教材メタ情報**: 「TOEIC 頻出名詞100」は`examType: "TOEIC"`・`level: "TOEIC"`（既存の
+「TOEIC 頻出動詞100」と同じ設定に揃えた）。経済/企業ニュース2パックは`examType: "ビジネス英語"`・
+`level: "ニュース英語"`（新設）。`category`はいずれも既存の`"toeic"`を再利用（`category`
+フィールドはDB非保存・表示専用だがアプリのどこからも参照されていないことを確認済みのため、
+新規カテゴリ値は追加しなかった）。`ALLOWED_TAGS`に「経済ニュース」「企業ニュース」
+「ニュース英語」「学び直し」の4タグを追加（表示専用、DBスキーマ変更なし）。
+
+**既存パックとの重複回避**: 既存12パック・31教材（計1,032語のプリセット語彙）の単語一覧を
+抽出し、新規300語との完全一致（大文字小文字区別なし）を機械的にチェックした。ユーザーが
+提示した例語のうち`acquisition`・`merger`・`workforce`・`subsidiary`・`demand`・`supply`・
+`interest rate`・`profit`・`revenue`が既存パックと重複していたため、`buyout`/`takeover`・
+`headcount`・`parent company`・`consumer demand`・`supply chain`・`interest rate hike/cut`・
+`profitability`・`sales revenue`等の意味的に近い別語へ置き換えた。3パック間の相互重複も
+チェック済み（重複ゼロ）。
+
+**`/materials/toeic`への反映**: `examType: "TOEIC"`のため、既存の`.eq("exam_type", "TOEIC")`
+フィルタにより追加コード無しで自動的に表示対象になった（TOEIC教材カード数 4→5件）。
+導入文を「頻出動詞・頻出名詞を中心とした語彙」に軽く調整（大きなSEO文追加なし）。
+
+**`/materials/business`への反映**: 経済/企業ニュース2パックも`examType: "ビジネス英語"`のため、
+既存の`.eq("exam_type", "ビジネス英語")`フィルタにより追加コード無しで自動的に表示対象に
+なった（ビジネス英語教材カード数 2→4件）。導入文に「経済ニュース・企業ニュースを読むための
+語彙パックもあわせて用意」の一文を追加。
+
+**`/materials`一覧・関連教材への反映**: `/materials`の「TOEIC・ビジネス英語」セクションは
+`exam_type === "TOEIC" || exam_type === "ビジネス英語"`で判定しているため自動反映。
+`/materials/[id]`の関連教材セクションも同じ`EXAM_TYPE_GROUP`マッピングを使うため、
+新3パックも相互に「関連する教材」として表示される（内部リンクE2Eで6件表示を確認、範囲内）。
+これらはすべて既存コードのロジックそのままで、コード変更は一切行っていない。
+
+**実装内容（コード変更）**:
+- `src/data/presets/{toeic-frequent-nouns-100,economic-news-vocabulary-100,corporate-news-vocabulary-100}.ts`（新規3ファイル）
+- `src/data/presets/index.ts`: `PRESET_PACKS`に新3パックを追加
+- `scripts/materials/{seed-preset-materials,validate-materials,test-materials}.mjs`:
+  既存4パック追加時と同じパターンでimport・配列登録
+- `src/lib/materials/types.ts`: `ALLOWED_TAGS`に4タグ追加
+- `src/app/materials/toeic/page.tsx`・`src/app/materials/business/page.tsx`: 導入文を
+  各1〜2文だけ軽く調整
+
+**検証で発見した既存バグ**: 無し（前回ラウンドで発見した`/weak/page.tsx`のバグは今回の
+スコープ外で、既に前回修正済み）。
+
+**品質チェック結果**: `npm run validate:materials` — 新3パックはerrors=0・warnings=0
+（既存2パックの既知warning2件のみ、新パックとは無関係）。`npm run test:materials` — 40項目
+全PASS、DB上の語数一致・SRS初期値・PDFテスト互換性を確認、既存31教材（プリセット以外）は
+1件も変更されず、総語数0の教材も発生していないことを確認。
+
+**既存教材への影響**: 無し。既存46件（プリセット15件+レガシー31件）のうち、レガシー31件は
+一切触れていない（`test:materials`のステップ5で非破壊確認済み）。DBスキーマ変更・RLS変更・
+SRS V2中核ロジック変更・teacher機能変更・AdSense広告枠追加・学習中/復習中画面への広告追加なし。
+
+**変更ファイル**: 上記「実装内容」参照 + `scripts/testing/e2e/category-lps.mjs`
+（想定教材カード数をTOEIC 4→5件・ビジネス英語 2→4件に更新、新3パックのタイトル表示
+チェックを追加）+ `NEXT_IMPROVEMENTS.md`・`PRODUCTION_MONITORING.md`・`WORK_HISTORY.md`。
+
+**追加・更新したテスト**: `scripts/testing/e2e/category-lps.mjs`を更新（新規テストファイル
+追加は無し。既存の`validate:materials`/`test:materials`/`test:materials:e2e`基盤が
+新パックにもそのまま適用されるため、専用の新規E2Eは不要と判断した）。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run validate:materials`
+（15パック・errors=0） / `npm run test:materials`（40項目PASS） /
+`npm run test:materials:e2e`（25項目PASS、回帰なし） / `npm run test:category-lps`
+（更新後、全18項目PASS） / `npm run verify:seo-lp-audit`（本番、17項目PASS） /
+`npm run test:e2e`（17フロー全PASS、回帰なし） / `npm run test:smoke` / `npm run verify:prod` /
+`npm run verify:srs-global`、全PASS。
+
+**本番反映状況**: `npm run test:materials`が本番Supabaseに直接`materials`/`material_words`を
+投入するため、新3パックのデータは検証時点で既に本番DBに反映済み（`verify:seo-lp-audit`が
+本番URLに対して実行され、新パックを含むsitemap/canonical/JSON-LDの健全性を確認できている）。
+アプリ側のコード変更（LP導入文の軽微な調整・テストファイル更新）はコミット・デプロイ後に反映。
+
+**次に追加すべき社会人向け教材候補**: テクノロジー・IT業界ニュース英単語100（AI・スタートアップ
+関連ニュースを読む語彙）、就活・転職英語100（職務経歴・面接・条件交渉）、人事・労務ニュース
+英単語100（採用・評価制度・働き方改革）。英検2級基礎100・大学受験基礎形容詞100・
+日常英会話超基礎50 Part2（旅行編）も引き続き候補として保留。詳細は
+[NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md)「次に増やすべき教材候補」参照。
+
+---
+
 ## 2026-07-05 ダッシュボードに習得率カード・苦手単語カードを追加
 
 **目的**: Loop Vocabularyを収益化できるWebアプリにするには、ユーザーがログインした瞬間に

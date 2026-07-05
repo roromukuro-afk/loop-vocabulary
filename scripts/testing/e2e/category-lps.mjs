@@ -2,8 +2,8 @@
  * カテゴリ別公開LP（/materials/toeic・/materials/business）自律E2E検証
  * （未ログインでも動作する公開ページのみ対象）
  *
- * 1. /materials/toeic が200で表示され、TOEIC教材（4件）が正しく表示される
- * 2. /materials/business が200で表示され、ビジネス英語教材（2件）が正しく表示される
+ * 1. /materials/toeic が200で表示され、TOEIC教材（5件）が正しく表示される
+ * 2. /materials/business が200で表示され、ビジネス英語教材（4件）が正しく表示される
  * 3. 教材カードから教材詳細ページ(/materials/[id])へ遷移できる
  * 4. 各LPから/dictionaryへの導線がある
  * 5. 各LP間の相互リンク（TOEIC⇄ビジネス英語）が機能する
@@ -46,12 +46,16 @@ async function main() {
 
     const toeicCards = page.locator('[data-testid="category-lp-materials"] a');
     const toeicCardCount = await toeicCards.count();
-    if (toeicCardCount === 4) ok(`/materials/toeic に教材カードが4件表示される`);
-    else fail(`/materials/toeic の教材カード数が想定(4件)と異なる (実際: ${toeicCardCount}件)`);
+    if (toeicCardCount === 5) ok(`/materials/toeic に教材カードが5件表示される`);
+    else fail(`/materials/toeic の教材カード数が想定(5件)と異なる (実際: ${toeicCardCount}件)`);
 
     const toeicBodyText = await page.locator("body").innerText();
-    if (toeicBodyText.includes("TOEIC 基礎100") && toeicBodyText.includes("TOEIC 頻出動詞100")) {
-      ok("/materials/toeic に「TOEIC 基礎100」「TOEIC 頻出動詞100」が表示される");
+    if (
+      toeicBodyText.includes("TOEIC 基礎100") &&
+      toeicBodyText.includes("TOEIC 頻出動詞100") &&
+      toeicBodyText.includes("TOEIC 頻出名詞100")
+    ) {
+      ok("/materials/toeic に「TOEIC 基礎100」「TOEIC 頻出動詞100」「TOEIC 頻出名詞100」が表示される");
     } else {
       fail("/materials/toeic に想定の教材タイトルが表示されていない");
     }
@@ -68,12 +72,17 @@ async function main() {
 
     const businessCards = page.locator('[data-testid="category-lp-materials"] a');
     const businessCardCount = await businessCards.count();
-    if (businessCardCount === 2) ok(`/materials/business に教材カードが2件表示される`);
-    else fail(`/materials/business の教材カード数が想定(2件)と異なる (実際: ${businessCardCount}件)`);
+    if (businessCardCount === 4) ok(`/materials/business に教材カードが4件表示される`);
+    else fail(`/materials/business の教材カード数が想定(4件)と異なる (実際: ${businessCardCount}件)`);
 
     const businessBodyText = await page.locator("body").innerText();
-    if (businessBodyText.includes("ビジネス英語 基礎100") && businessBodyText.includes("会議・メール英語100")) {
-      ok("/materials/business に「ビジネス英語 基礎100」「会議・メール英語100」が表示される");
+    if (
+      businessBodyText.includes("ビジネス英語 基礎100") &&
+      businessBodyText.includes("会議・メール英語100") &&
+      businessBodyText.includes("経済ニュース英単語100") &&
+      businessBodyText.includes("企業ニュース英単語100")
+    ) {
+      ok("/materials/business に「ビジネス英語 基礎100」「会議・メール英語100」「経済ニュース英単語100」「企業ニュース英単語100」が表示される");
     } else {
       fail("/materials/business に想定の教材タイトルが表示されていない");
     }

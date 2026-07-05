@@ -201,9 +201,12 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 - **単語帳削除機能**（本監査で発見・修正したバグ）: `test:wordbook-delete`が週次`test:e2e`に
   含まれているため、退行があれば自動検知される
 - **TOEIC/ビジネス教材**: 2026-07-04に4パック(計400語)を追加済み（優先度A項目21）。
-  TOEIC教材2件→6件、ビジネス英語専用0件→2件。`test:materials`/`test:materials:e2e`に
-  組み込み済みのため退行があれば自動検知される
-- **専門分野・ニュース語彙の拡充**: 未着手（優先度C項目15）。別タスクとして計画中。
+  2026-07-05にさらに3パック（TOEIC頻出名詞100・経済/企業ニュース英単語100、計300語）を
+  追加済み（優先度A項目27）。TOEIC教材は5件、ビジネス英語専用教材は4件（計15パック・
+  1,450語）。`test:materials`/`test:materials:e2e`/`test:category-lps`に組み込み済みの
+  ため退行があれば自動検知される
+- **専門分野・ニュース語彙の拡充**: 経済・企業ニュースは2026-07-05に対応済み（優先度A項目27）。
+  テクノロジー/IT・バイオ・医療の専門語彙デッキは引き続き未着手（優先度C項目15）。
   教材追加時は既存の`validate:materials`/`test:materials`基盤を使う
 - **復習リカバリーモード**: 2026-07-04実装済み（優先度A項目22）。`/review`のdue件数20語以上で
   「まず10語だけ」「20語だけ進める」ボタンを表示。`test:recovery-mode`が週次`test:e2e`に
@@ -254,7 +257,7 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 | `npm run validate:materials` | プリセット教材パック（`src/data/presets/*`）を追加・変更した時 | word/meaning空でない・教材内重複なし・pos/難易度が範囲内・タグが想定内かをDB不要で高速チェック。既存教材の監査レポートも非ブロッキングで再生成 |
 | `npm run test:materials` | プリセット教材パックをDBに反映する前 | 静的検証→DB投入(冪等)→語数一致確認→インポート後SRS/PDF互換性確認→既存教材の非破壊確認までを一括実行 |
 | `npm run test:materials:e2e` | 教材インポート導線（`/materials/[id]`・`ImportMaterialButton`・`/pdf`）を変更した時 | 未ログイン時CTA・インポート→単語帳作成→SRS既定値→PDF選択肢反映→再インポート時の重複防止、インポート後（新規・再訪問済み双方）のメインCTA(`/wordbooks/<id>`)・サブCTA(`/test/choice?book=`・`/pdf?book=`)遷移、および1000語超の既存教材(1,500語・2,000語)で総語数がSupabase既定の1000件で頭打ちにならず正しく表示されることを実ブラウザで検証（25項目） |
-| `npm run validate:materials` / `npm run test:materials` | `src/lib/materials/existingMaterialMeta.ts`（既存31教材のgrade/purpose/tags等）や`presetMeta.ts`を変更した時 | 8スターターパック（2026-07-02の4パック+2026-07-04の4パック）の静的品質チェック・既存教材の非破壊回帰ガード（31件以上維持・総語数0の教材なし）を確認。表示メタデータ自体の内容は`/materials`・`/materials/[id]`を目視確認する |
+| `npm run validate:materials` / `npm run test:materials` | `src/lib/materials/existingMaterialMeta.ts`（既存31教材のgrade/purpose/tags等）や`presetMeta.ts`を変更した時 | 15スターターパック（2026-07-02の4パック+2026-07-04の8パック+2026-07-05の3パック）の静的品質チェック・既存教材の非破壊回帰ガード（31件以上維持・総語数0の教材なし）を確認。表示メタデータ自体の内容は`/materials`・`/materials/[id]`を目視確認する |
 | `npm run audit:materials` | 既存教材データの品質状況を確認したい時（いつでも・読み取り専用） | DB上の全教材（既存31+新規パック）を監査し`MATERIALS_AUDIT.md`を再生成 |
 | `npm run materials:dedupe:dry-run` | 完全重複行の削除計画を確認・更新したい時（いつでも・読み取り専用、DB変更なし） | 削除対象行・教材別内訳・バックアップ・ロールバックSQLを`reports/materials-duplicate-*`に生成 |
 | `npm run materials:dedupe:apply` | **完全重複行を実際に削除する時（要ユーザーの事前承認 + `CONFIRM_MATERIALS_DEDUPE=yes`）** | dry-runと同じ計画に基づき`material_words`から完全重複行のみ削除。承認なしに実行しないこと |

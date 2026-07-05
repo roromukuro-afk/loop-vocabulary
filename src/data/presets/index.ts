@@ -11,6 +11,9 @@ import { toeicBasic100 } from "./toeic-basic-100";
 import { toeicFrequentVerbs100 } from "./toeic-frequent-verbs-100";
 import { businessBasic100 } from "./business-basic-100";
 import { meetingEmailEnglish100 } from "./meeting-email-english-100";
+import { toeicFrequentNouns100 } from "./toeic-frequent-nouns-100";
+import { economicNewsVocabulary100 } from "./economic-news-vocabulary-100";
+import { corporateNewsVocabulary100 } from "./corporate-news-vocabulary-100";
 
 /** 全プリセット教材パック（新規パックはここに追加する） */
 export const PRESET_PACKS: PresetMaterialPack[] = [
@@ -26,6 +29,9 @@ export const PRESET_PACKS: PresetMaterialPack[] = [
   toeicFrequentVerbs100,
   businessBasic100,
   meetingEmailEnglish100,
+  toeicFrequentNouns100,
+  economicNewsVocabulary100,
+  corporateNewsVocabulary100,
 ];
 
 export const PRESET_PACKS_BY_ID: Record<string, PresetMaterialPack> = Object.fromEntries(

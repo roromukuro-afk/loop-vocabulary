@@ -30,6 +30,9 @@ import { toeicBasic100 } from "../../src/data/presets/toeic-basic-100.ts";
 import { toeicFrequentVerbs100 } from "../../src/data/presets/toeic-frequent-verbs-100.ts";
 import { businessBasic100 } from "../../src/data/presets/business-basic-100.ts";
 import { meetingEmailEnglish100 } from "../../src/data/presets/meeting-email-english-100.ts";
+import { toeicFrequentNouns100 } from "../../src/data/presets/toeic-frequent-nouns-100.ts";
+import { economicNewsVocabulary100 } from "../../src/data/presets/economic-news-vocabulary-100.ts";
+import { corporateNewsVocabulary100 } from "../../src/data/presets/corporate-news-vocabulary-100.ts";
 
 const PRESET_PACKS = [
   juniorBasic100,
@@ -44,6 +47,9 @@ const PRESET_PACKS = [
   toeicFrequentVerbs100,
   businessBasic100,
   meetingEmailEnglish100,
+  toeicFrequentNouns100,
+  economicNewsVocabulary100,
+  corporateNewsVocabulary100,
 ];
 const PRESET_PACK_IDS = new Set(PRESET_PACKS.map((p) => p.id));
 
