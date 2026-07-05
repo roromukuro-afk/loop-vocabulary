@@ -88,6 +88,9 @@ async function main() {
 
     console.log("\n=== 16. category landing pages (TOEIC/business) E2E ===");
     results.categoryLps = runNode("scripts/testing/e2e/category-lps.mjs");
+
+    console.log("\n=== 17. dashboard insights (mastery/weak-words cards) E2E ===");
+    results.dashboardInsights = runNode("scripts/testing/e2e/dashboard-insights.mjs");
   } finally {
     stopDevServer(dev);
   }

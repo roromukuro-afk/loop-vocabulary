@@ -15,7 +15,7 @@
 
 ## 2. 週1で確認する項目（15〜20分）
 
-- [ ] `npm run test:e2e`（フルE2E一式）を実行し、16フロー（onboarding/dictionary・SRS V2・teacher・admin・教材インポート・4択出題ロジック・他学習モード出題ロジック・Premium判定回帰・学習モード入口/対象範囲ラベル・単語帳削除・復習リカバリーモード・内部リンク・カテゴリLP）が全PASSか
+- [ ] `npm run test:e2e`（フルE2E一式）を実行し、17フロー（onboarding/dictionary・SRS V2・teacher・admin・教材インポート・4択出題ロジック・他学習モード出題ロジック・Premium判定回帰・学習モード入口/対象範囲ラベル・単語帳削除・復習リカバリーモード・内部リンク・カテゴリLP・ダッシュボード習得率/苦手単語カード）が全PASSか
 - [ ] `npm run verify:srs-global` — SRS V2のグローバル有効化が維持されているか
 - [ ] [`/admin/srs`](https://loop-vocabulary.app/admin/srs) — 異常値検知セクションに⚠が出ていないか目視確認（詳細は§3。ページ自体が正しく表示されること・認可が効いていることは`test:e2e`/`test:admin`で自動検証済みなので、ここでは「値」の異常有無だけ見ればよい）
 - [ ] Supabase → Database → 使用量（行数・DBサイズ・API呼び出し数）が想定内か
@@ -209,8 +209,12 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
   「まず10語だけ」「20語だけ進める」ボタンを表示。`test:recovery-mode`が週次`test:e2e`に
   含まれているため、退行があれば自動検知される。「リセット」「スケジュール再調整」は
   別タスクとして未着手のまま
-- **ダッシュボードの習得率・苦手単語カード追加**: 未着手（優先度B項目11）。表示のみの
-  追加なので低リスク
+- **ダッシュボードの習得率・苦手単語カード追加**: 2026-07-05実装済み（優先度A項目26）。
+  習得率カード（習得済み/学習中/苦手の内訳・全体習得率・`/wordbooks`/`/review`導線）と
+  苦手単語カード（上位5件・`/weak`導線・控えめなPremium導線）を追加。`test:dashboard-insights`が
+  週次`test:e2e`に含まれているため、退行があれば自動検知される。あわせて`/weak/page.tsx`の
+  既存バグ（苦手単語がある状態で開くと必ずサーバーレンダリングがクラッシュしていた）も
+  今回発見・修正した
 - **教材・辞書ページの内部リンク強化**: 2026-07-04実装済み（優先度A項目23）。関連教材
   セクション・教材⇄辞書の相互CTA・カテゴリクイックジャンプ等を追加。`test:internal-links`が
   週次`test:e2e`に含まれているため、新規教材追加時も関連教材表示の退行があれば自動検知される
@@ -231,12 +235,13 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 |---|---|---|
 | `npm run test:dates` | 日付/streak/カレンダーに関わるコードを変更した時（`test:smoke`内でも自動実行） | JST日付ユーティリティの単体テスト（サーバ不要・数秒） |
 | `npm run test:smoke` | **コード変更のコミット前**（ローカル） | build成功＋日付ユーティリティ＋主要ページのHTTP健全性を素早く確認 |
-| `npm run test:e2e` | **本番デプロイ前**（大きめの変更時）／**週1定期** | onboarding・SRS V2・teacher・admin・教材インポート・4択出題ロジック・他学習モード出題ロジック・Premium判定回帰・学習モード入口/対象範囲ラベル・単語帳削除・復習リカバリーモード・内部リンク・カテゴリLPの16フローを実ブラウザで通しで検証 |
+| `npm run test:e2e` | **本番デプロイ前**（大きめの変更時）／**週1定期** | onboarding・SRS V2・teacher・admin・教材インポート・4択出題ロジック・他学習モード出題ロジック・Premium判定回帰・学習モード入口/対象範囲ラベル・単語帳削除・復習リカバリーモード・内部リンク・カテゴリLP・ダッシュボード習得率/苦手単語カードの17フローを実ブラウザで通しで検証 |
 | `npm run test:entry-points:e2e` | `/wordbooks/[id]`の導線・各モードのスコープラベル(`quiz-scope-label`)・PDFの`?book=`プリセレクトを変更した時 | 単語帳詳細ページの7導線(`choice`/`input`/`typing`/`listening`/`attack`/`pdf`/`review`)が`?book=`付きで存在すること・各モードのスコープラベル表示・PDFの対象語数・reviewのbook引き継ぎ・Premium有無の分岐を検証（33項目） |
 | `npm run test:wordbook-delete` | 単語帳削除機能(`/api/wordbook/[id]` DELETE・`DeleteWordbookButton`)を変更した時 | 削除ボタン表示→削除実行→DB上でword_books・words両方が削除される→一覧/dashboard/reviewに残骸が出ない→削除済みIDへの直接アクセスが404、を実ブラウザで検証 |
 | `npm run test:recovery-mode` | `/review`の復習リカバリーモード・FlipCardRunnerを変更した時 | 35語due時のバナー表示→10語モードでちょうど10語出題・DB更新→残り25語でバナー継続→20語モードで20語出題→残り5語でバナー消滅→通常復習は残り全件を出題、をbook指定スコープ隔離も含めて実ブラウザで検証 |
 | `npm run test:internal-links` | 教材詳細の関連教材・辞書⇄教材の相互導線・`/materials`カテゴリクイックジャンプを変更した時 | カテゴリクイックジャンプ表示・関連教材表示（新規教材追加時の自動反映含む）・関連教材リンクの遷移・教材⇄辞書の相互導線・既存インポート導線の非破壊・モバイル幅での横スクロール無し、を実ブラウザで検証 |
 | `npm run test:category-lps` | `/materials/toeic`・`/materials/business`・`/materials`のLP導線を変更した時 | 両LPの200表示・教材カード件数と内容・教材詳細への遷移・辞書導線・LP間相互リンク・`/materials`からの導線・モバイル幅での崩れなし・既存`/materials/[id]`への非影響、を実ブラウザで検証 |
+| `npm run test:dashboard-insights` | `/dashboard`の習得率カード・苦手単語カードを変更した時 | 0語ユーザーでのカード非表示・表示崩れ無し、通常ユーザーでの習得率内訳・苦手単語表示・`/wordbooks`/`/review`/`/weak`各リンク導線・非Premium向けPremium導線・重複タイル非存在、due単語20件以上での既存リカバリーヒントとの共存、モバイル幅(375px)での横スクロール無し、を実ブラウザで検証 |
 | `npm run verify:seo-lp-audit` | sitemap.ts・robots.txt・カテゴリLPのmetadataを変更した時／**本番デプロイ後** | 本番の`/sitemap.xml`に主要ページ・両LPが含まれるか・`/robots.txt`が対象パスをブロックしていないか・両LPのcanonicalが自分自身を指すか・JSON-LD(BreadcrumbList/ItemList)が妥当なJSONか・既存`/materials/[id]`への非影響を、HTTPのみ（ブラウザ不要）で検証。`verify:prod`同様デフォルトで本番URLを対象とする |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |

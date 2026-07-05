@@ -1,7 +1,111 @@
 # WORK_HISTORY — Loop Vocabulary
 
 > 作業の時系列ログ。新しいものを上に追記する。
-> 最終更新: 2026-07-04
+> 最終更新: 2026-07-05
+
+---
+
+## 2026-07-05 ダッシュボードに習得率カード・苦手単語カードを追加
+
+**目的**: Loop Vocabularyを収益化できるWebアプリにするには、ユーザーがログインした瞬間に
+「自分がどれくらい進んでいるか」「何が苦手か」「今日何をやればいいか」「続ける価値が
+あるか」を直感的に分かる必要がある。教材・復習・リカバリーモードは前回までに整ったため、
+ダッシュボードで「学習の成果が見える」状態を強化した（収益化監査#4、優先度B項目11の対応）。
+
+**現状調査**:
+- `src/app/dashboard/page.tsx`（455行）: ストリークバッジ・今日の目標進捗バー・
+  学習数/正答率/復習待ちの3統計カード・状況に応じた次アクションCTA・デイリーミッション・
+  獲得バッジ・週間チャレンジ・XP/レベル・90日カレンダー・最近学習した単語・今日の単語、が
+  既に実装済みだった。`words.mastery`（0-100、DB保存済み）と苦手単語は、どちらも
+  ダッシュボード上に表示が無かった（苦手単語は`/weak`への遷移リンクのみ）。
+- `words.mastery`の利用状況: `src/app/wordbooks/[id]/page.tsx`が既に`mastery>=80`を
+  「習得済み」の閾値として使っていたため、同じ基準を再利用した（新規の閾値を発明しない）。
+- `/weak/page.tsx`（91行）: 苦手単語の抽出は`.or("is_weak.eq.true,wrong_count.gt.0")`・
+  デフォルト`wrong_count desc`。この条件をそのままダッシュボードの新カードにも流用した。
+- `src/app/weak/WeaknessAnalysis.tsx`: 既存の非Premiumユーザー向け「AI弱点分析
+  （Premium）」の控えめなCTAパターン（「プレミアムで解放する →」）を確認。今回は
+  新規AI分析機能は実装せず、この既存パターンに合わせた軽い一文リンクのみを追加する
+  方針にした。
+- `src/components/layout/BottomNav.tsx`・`AppShell.tsx`: 5タブ（ホーム/単語帳/復習/
+  ルート/記録）・ヘッダーいずれにも`/dictionary`への導線が無かったため、ダッシュボードの
+  アクショングリッドに追加することにした。
+- 単語帳単位の集計や苦手単語の抽出を行うSupabase RPCは存在しない（`grep -rn "rpc("`で
+  確認）。新規RPC作成にはDBマイグレーションが必要になり「DBスキーマ変更はしない」制約に
+  反するため、既存カラムに対するプレーンなSupabaseクエリのみで実装する方針にした。
+
+**追加した習得率カード**（`data-testid="mastery-card"`）:
+習得済み（`mastery>=80`）/学習中（残り）/苦手（`is_weak=true AND mastery<80`）の3区分
+（排他的・合計は総語数と一致）と、全体習得率（習得済み÷総語数、%）を表示。「単語帳別に
+見る」（`/wordbooks`）・「復習する」（`/review?start=1&mode=flip`）の2導線を配置した。
+全体習得率を`mastery`列の全件平均ではなく「習得済み÷総語数」で算出したのは、全件平均を
+取るには単語を全件フェッチする必要があり「1回の表示で大量のwordsを取得しない」という
+制約に反するため。3区分の集計はいずれも`count:"exact",head:true`のCOUNTのみのクエリで
+行がクライアントに転送されないため、単語数が多いユーザーでも軽量。
+
+**追加した苦手単語カード**（`data-testid="weak-words-card"`）:
+`/weak`と同じ抽出条件・並び順（`wrong_count desc`）で上位5件のみを表示（大量表示はしない）。
+「すべて見る →」で`/weak`へ遷移。「まず10語だけ復習」は既存の`/review?...&mode=recovery&limit=10`
+導線が既にダッシュボードの復習待ちセクションに存在するため、重複させずそちらに委ねた
+（苦手単語カード自体には新設していない）。
+
+**今日やること導線の変更**:
+アクショングリッドに「🎯 苦手単語を復習」（`/weak`）「🔍 単語を調べる」（`/dictionary`）を
+追加。下部「教材・その他」グリッドにあった旧「苦手単語」タイル（リンクのみのカード）は、
+新しい苦手単語カードと内容が重複するため削除して統合した。既存の「今日の復習」ボタン・
+リカバリーヒント（`dashboard-recovery-hint`、due>=20件で表示）は一切変更していない。
+
+**使用したデータ・算出方法**: 既存の`Promise.all`データ取得ブロックに3クエリを追加する
+だけで実装（`masteredCount`/`weakCount`はCOUNTのみ、`weakWords`は5件limitの軽量クエリ）。
+新規RPC・DBスキーマ変更・マイグレーションは無し。
+
+**Premium導線の有無**: 苦手単語カードに、苦手単語が1件以上ある非Premiumユーザーにのみ
+「詳しい弱点分析はPremiumで確認 →」という控えめな一文リンク（`/weak`へ）を追加した。
+既存の`/weak`の「AI弱点分析（Premium）」パターンをそのまま踏襲し、新規のAI分析機能は
+実装していない。
+
+**検証で発見・修正した既存バグ**（本タスクのスコープ外・`/weak/page.tsx`の既存コード）:
+苦手単語カードの「すべて見る →」リンクをE2Eでテストした際、苦手単語が1件以上ある状態で
+`/weak`を開くと必ず本番ビルドでサーバーレンダリングがクラッシュすることが判明した。
+原因は`/weak/page.tsx`（Server Component、`"use client"`無し）内の「🤖 AI解説」`Link`に
+`onClick={(e) => e.stopPropagation()}`というインライン関数がServer Componentから
+直接渡されており、Next.jsのRSC制約（Server ComponentからClient Componentへ関数を
+propとして渡せない）に違反していたため（"Event handlers cannot be passed to Client
+Component props"）。この`onClick`は阻止すべき親要素のクリックハンドラが元々存在せず
+無意味なコードだったため、削除して修正した（挙動の変更は無い）。これは本タスクとは
+無関係の既存バグで、これまでのE2Eが偶然このパスを踏んでいなかったために見過ごされて
+いたと考えられる。
+
+**新規テスト**: `scripts/testing/e2e/dashboard-insights.mjs`（新規、
+`npm run test:dashboard-insights`、`run-e2e.mjs`のステップ17として追加）:
+- 0語ユーザー（test+onboarding）: 習得率・苦手単語カードが表示されない（`hasWords=false`の
+  分岐）、既存の「はじめの3ステップ」ガイドは引き続き表示される、表示崩れ・console error無し
+- 通常ユーザー（test+srs、8語・is_weak=true×2・mastery=40）: 習得率カードの内訳
+  （習得済み0/学習中6/苦手2/全体習得率0%）が正しい、苦手単語カードに`is_weak=true`の
+  単語のみ表示（wrong_count=0かつis_weak=falseの単語は含まれない）、「単語帳別に見る」→
+  `/wordbooks`・「復習する」→`/review`・「すべて見る →」→`/weak`の各リンクが機能する、
+  非Premiumへの控えめなPremium導線が表示される、`/weak`へのリンクが想定通り3箇所
+  （重複タイルの復活が無い）
+- due単語20件以上の状態: 既存のリカバリーヒント（`dashboard-recovery-hint`）が新カードと
+  共存して正しく表示される（既存機能への回帰なし）
+- モバイル幅(375px)で横スクロールが発生しない
+
+**変更ファイル**: `src/app/dashboard/page.tsx`、`src/app/weak/page.tsx`（既存バグ修正）、
+`scripts/testing/e2e/dashboard-insights.mjs`（新規）、`scripts/testing/run-e2e.mjs`、
+`package.json`（`test:dashboard-insights`スクリプト追加）、`NEXT_IMPROVEMENTS.md`、
+`PRODUCTION_MONITORING.md`、`WORK_HISTORY.md`。
+
+**変更していないもの**: DBスキーマ（マイグレーション無し）、RLS、SRS V2中核ロジック、
+teacher機能、教材データ本体、AdSense広告枠（追加なし）、学習中・復習中画面への広告
+（追加なし）、既存のリカバリーモード導線、単語帳削除機能。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run test:smoke` /
+`npm run test:dashboard-insights`（新規、全24項目PASS） / `npm run test:e2e`
+（17フロー全PASS、既存フローに回帰なし） / `npm run verify:prod` / `npm run verify:srs-global`。
+
+**残課題**: 「まず10語だけ復習」の専用導線は苦手単語カード自体には追加していない
+（既存の復習待ちセクションの`mode=recovery&limit=10`導線と重複するため）。品詞別・
+出題形式別の弱点分析（ユーザー提案の発展形、収益化監査#6で言及済み）は今回スコープ外の
+まま（優先度Bの別項目として引き続き検討）。
 
 ---
 

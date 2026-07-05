@@ -70,7 +70,6 @@ export default async function WeakPage({ searchParams }: { searchParams: Promise
                   <Link
                     href={`/ai?word=${encodeURIComponent(w.word)}&meaning=${encodeURIComponent(w.meaning)}`}
                     className="text-[10px] px-2 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 font-semibold whitespace-nowrap"
-                    onClick={(e) => e.stopPropagation()}
                   >
                     🤖 AI解説
                   </Link>

@@ -63,6 +63,9 @@ export default async function DashboardPage() {
     { data: recentWords },
     { data: profile },
     { data: todaysWord },
+    { count: masteredCount },
+    { count: weakCount },
+    { data: weakWords },
   ] = await Promise.all([
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id),
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id).lte("next_review_at", new Date().toISOString()),
@@ -73,6 +76,17 @@ export default async function DashboardPage() {
     supabase.from("words").select("word, meaning, correct_count, wrong_count").eq("user_id", user.id).order("last_studied_at", { ascending: false }).limit(5),
     supabase.from("profiles").select("is_premium, exam_goal, exam_date").eq("id", user.id).maybeSingle(),
     supabase.from("words").select("word, meaning, phonetic").eq("user_id", user.id).is("last_studied_at", null).limit(20),
+    // 習得率カード用: 集計はCOUNTクエリのみ（行データは取得しない）でDB側に任せる
+    supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id).gte("mastery", 80),
+    supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("is_weak", true).lt("mastery", 80),
+    // 苦手単語カード用: /weak と同じ抽出条件（is_weak または wrong_count>0）で上位5件のみ取得
+    supabase
+      .from("words")
+      .select("id, word, meaning, wrong_count, correct_count")
+      .eq("user_id", user.id)
+      .or("is_weak.eq.true,wrong_count.gt.0")
+      .order("wrong_count", { ascending: false })
+      .limit(5),
   ]);
 
   const isPremium = profile?.is_premium ?? false;
@@ -99,6 +113,16 @@ export default async function DashboardPage() {
 
   const hasWords = (wordCount ?? 0) > 0;
   const everStudied = studied > 0 || (recentStats ?? []).some((d) => (d.studied_count ?? 0) > 0);
+
+  // 習得率カード: mastery>=80を「習得済み」、is_weak(かつ未習得)を「苦手」、残りを「学習中」とする
+  // 3区分（排他的・合計が総語数と一致）。全体習得率は「習得済み÷総語数」で算出する
+  // （全件のmastery平均を取るには words を全件フェッチする必要があり重くなるため、
+  // カウントクエリのみで安全に算出できるこの定義を採用）。
+  const totalWords = wordCount ?? 0;
+  const masteredWordCount = masteredCount ?? 0;
+  const weakWordCount = weakCount ?? 0;
+  const learningWordCount = Math.max(0, totalWords - masteredWordCount - weakWordCount);
+  const masteryPct = totalWords > 0 ? Math.round((masteredWordCount / totalWords) * 100) : 0;
 
   // 単語帳0件のユーザーにだけデフォルト単語帳を用意する（クライアントで冪等作成）
   const { count: wordbookCount } = await supabase
@@ -242,10 +266,76 @@ export default async function DashboardPage() {
               <Link href="/review?start=1&mode=flip"><Button fullWidth size="lg" variant="secondary">今日の復習</Button></Link>
             )}
             <Link href="/test"><Button fullWidth size="lg" variant="secondary">テストを始める</Button></Link>
+            <Link href="/weak"><Button fullWidth size="md" variant="secondary">🎯 苦手単語を復習</Button></Link>
+            <Link href="/dictionary"><Button fullWidth size="md" variant="secondary">🔍 単語を調べる</Button></Link>
             <Link href="/test/typing"><Button fullWidth size="md" variant="secondary">⌨️ タイピング練習</Button></Link>
             <Link href="/extract"><Button fullWidth size="md" variant="secondary">✨ 英文から単語抽出</Button></Link>
             <Link href="/plan" className="col-span-2"><Button fullWidth size="md" variant="secondary">🗓️ AIパーソナル学習プラン</Button></Link>
           </section>
+
+          {/* 習得率カード */}
+          <Card className="mt-5" data-testid="mastery-card">
+            <CardTitle>習得率</CardTitle>
+            <div className="grid grid-cols-3 gap-2 mt-2 text-center">
+              <div>
+                <div className="text-lg font-bold text-emerald-600">{masteredWordCount}</div>
+                <div className="text-[10px] text-navy-400">習得済み</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-navy-700">{learningWordCount}</div>
+                <div className="text-[10px] text-navy-400">学習中</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-red-500">{weakWordCount}</div>
+                <div className="text-[10px] text-navy-400">苦手</div>
+              </div>
+            </div>
+            <div className="mt-3">
+              <div className="flex items-center justify-between text-xs text-navy-500 mb-1">
+                <span>全体習得率</span>
+                <span className="font-semibold text-navy-700">{masteryPct}%</span>
+              </div>
+              <div className="h-2 bg-navy-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-400 rounded-full transition-all duration-500"
+                  style={{ width: `${masteryPct}%` }}
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex gap-3 text-xs">
+              <Link href="/wordbooks" className="text-sky-600 font-semibold underline underline-offset-2">単語帳別に見る</Link>
+              <Link href="/review?start=1&mode=flip" className="text-sky-600 font-semibold underline underline-offset-2">復習する</Link>
+            </div>
+          </Card>
+
+          {/* 苦手単語カード（最大5件・重い分析はしない。詳しい弱点分析は/weakのPremium機能に誘導） */}
+          <Card className="mt-4" data-testid="weak-words-card">
+            <div className="flex items-center justify-between">
+              <CardTitle>苦手単語</CardTitle>
+              <Link href="/weak" className="text-xs text-sky-600 font-semibold">すべて見る →</Link>
+            </div>
+            {(weakWords ?? []).length > 0 ? (
+              <ul className="divide-y divide-navy-100 mt-1">
+                {(weakWords ?? []).map((w) => (
+                  <li key={w.id} className="py-2 flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="font-semibold text-navy-800 text-sm">{w.word}</span>
+                      <span className="text-navy-400 mx-1.5 text-xs">—</span>
+                      <span className="text-navy-600 text-sm truncate">{w.meaning}</span>
+                    </div>
+                    <span className="text-[11px] text-red-500 shrink-0">誤 {w.wrong_count}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-navy-500 mt-2 text-center py-3">苦手単語はまだありません。順調です！</p>
+            )}
+            {!isPremium && (weakWords ?? []).length > 0 && (
+              <Link href="/weak" className="mt-2 block text-center text-[11px] text-navy-400">
+                詳しい弱点分析はPremiumで確認 →
+              </Link>
+            )}
+          </Card>
         </>
       )}
 
@@ -406,12 +496,6 @@ export default async function DashboardPage() {
             <p className="text-sm text-navy-600">
               {materialCount ? `${materialCount} 教材 · ${(materialWordCount ?? 0).toLocaleString()} 語収録` : "レベル別・試験別の単語を探す"}
             </p>
-          </Card>
-        </Link>
-        <Link href="/weak" className="block">
-          <Card>
-            <CardTitle>苦手単語</CardTitle>
-            <p className="text-sm text-navy-600">不正解の多い単語だけを集中的に復習。</p>
           </Card>
         </Link>
         <Link href="/ai" className="block">
