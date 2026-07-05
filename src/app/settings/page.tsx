@@ -43,7 +43,7 @@ export default async function SettingsPage() {
             href="/premium"
             className="mt-3 inline-block px-4 py-2 rounded-lg bg-white text-navy-800 text-xs font-bold hover:bg-navy-50 transition-colors"
           >
-            プレミアムを見る →
+            月額 ¥480〜 プレミアムを見る →
           </Link>
         </div>
       )}

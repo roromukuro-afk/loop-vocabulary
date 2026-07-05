@@ -561,9 +561,11 @@ export default async function DashboardPage() {
         塾・家庭教師の先生へ — クラスで生徒の学習状況を確認できます →
       </Link>
 
-      <div className="mt-5">
-        <BannerAdPlaceholder />
-      </div>
+      {!isPremium && (
+        <div className="mt-5">
+          <BannerAdPlaceholder />
+        </div>
+      )}
     </AppShell>
   );
 }

@@ -71,7 +71,7 @@ export function StudyPlanClient({ isPremium }: { isPremium: boolean }) {
         <h2 className="text-lg font-black">プレミアム機能</h2>
         <p className="text-sm text-navy-300 mt-2">AIパーソナル学習プランはプレミアムプランでご利用いただけます</p>
         <a href="/premium" className="mt-4 block py-3 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">
-          プレミアムにアップグレード →
+          月額 ¥480〜 プレミアムを見る →
         </a>
       </div>
     );

@@ -96,20 +96,20 @@ async function main() {
     {
       await gotoReady(page, `${baseUrl}/plan`);
       const text = await page.locator("body").innerText();
-      if (text.includes("プレミアムにアップグレード")) ok("/plan: 非Premiumではプレミアム誘導が表示される");
+      if (text.includes("月額 ¥480〜 プレミアムを見る →")) ok("/plan: 非Premiumではプレミアム誘導が表示される");
       else bad("/plan: 非Premium時にプレミアム誘導が表示されない");
     }
     {
       await gotoReady(page, `${baseUrl}/extract`);
       const text = await page.locator("body").innerText();
       const textareaCount = await page.locator("textarea").count();
-      if (text.includes("プレミアムにアップグレード") && textareaCount === 0) ok("/extract: 非Premiumでは抽出フォームが表示されずプレミアム誘導になる");
-      else bad(`/extract: 非Premium時の表示が想定外 (誘導文言=${text.includes("プレミアムにアップグレード")}, textarea数=${textareaCount})`);
+      if (text.includes("月額 ¥480〜 プレミアムを見る →") && textareaCount === 0) ok("/extract: 非Premiumでは抽出フォームが表示されずプレミアム誘導になる");
+      else bad(`/extract: 非Premium時の表示が想定外 (誘導文言=${text.includes("月額 ¥480〜 プレミアムを見る →")}, textarea数=${textareaCount})`);
     }
     {
       await gotoReady(page, `${baseUrl}/weak`);
       const text = await page.locator("body").innerText();
-      if (text.includes("プレミアムで解放する")) ok("/weak: 非PremiumではAI弱点分析がプレミアム誘導表示になる");
+      if (text.includes("月額 ¥480〜 プレミアムを見る →")) ok("/weak: 非PremiumではAI弱点分析がプレミアム誘導表示になる");
       else bad("/weak: 非Premium時にAI弱点分析のプレミアム誘導が表示されない");
     }
     {
@@ -153,7 +153,7 @@ async function main() {
       await gotoReady(page, `${baseUrl}/plan`);
       const selectCount = await page.locator("select").count();
       const text = await page.locator("body").innerText();
-      if (selectCount > 0 && !text.includes("プレミアムにアップグレード")) ok("/plan: Premiumでは学習プラン作成フォームが表示される");
+      if (selectCount > 0 && !text.includes("月額 ¥480〜 プレミアムを見る →")) ok("/plan: Premiumでは学習プラン作成フォームが表示される");
       else bad(`/plan: Premium時の表示が想定外 (select数=${selectCount})`);
     }
     {

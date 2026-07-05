@@ -854,6 +854,94 @@
     **残課題**: なし。将来的にAI分析へ単語帳別の弱点を含める場合は、AI入力の増加に
     見合う価値があるか慎重に判断すること（現状は決定論的な集計で十分と判断した）。
 
+36. ✅ **完了（2026-07-05）: Premium導線とプランページの棚卸し・改善
+    （収益化・Premium転換率の観点）**
+    AI弱点分析・AI単語抽出・AI学習プラン・タイピング・リスニング・PDF拡張等、
+    Premium価値になる機能が増えてきたため、導線・表示・Stripe連携が正しく
+    ユーザーに伝わっているかを棚卸しした。
+    **調査結果**: `/premium`ページ・`PremiumCheckout.tsx`・Stripe
+    checkout/webhookルート・各Premium gatingページはすでに高品質に実装されており、
+    大きな作り直しは不要と判断した。ただし以下2件の**実際の不具合**を発見した。
+    - **ダッシュボードの広告がPremiumユーザーにも表示されていた**:
+      `src/app/dashboard/page.tsx`の`<BannerAdPlaceholder />`が`isPremium`で
+      ガードされておらず、`/premium`・`/settings`・`/dashboard`で謳っている
+      「広告完全なし」「広告ゼロ」という訴求と実際の挙動が矛盾していた
+      （AdSenseは現在`/dashboard`が唯一の表示箇所であるため、実質的にPremiumの
+      「広告非表示」特典が機能していなかった）。`{!isPremium && (...)}`で
+      ラップして修正した。
+    - **`profiles.stripe_customer_id`/`premium_expires_at`カラムが本番に存在しな
+      かった**（`migrations/003_stripe_premium.sql`が本番に一度も適用されていな
+      かった、詳細は下記「重大発見」参照）。
+    **重大発見（今回のタスク範囲外だが安全のため対応）**: `/premium`の
+    Premium/非Premium表示が正しく切り替わるかをE2Eで検証する過程で、Premium状態を
+    セットしたテストアカウントで`/premium`が非Premium表示のままになる不具合を発見。
+    調査したところ、`src/app/premium/page.tsx`・checkout/webhookルートが参照する
+    `profiles.stripe_customer_id`列が**本番データベースに実在しなかった**
+    （`select("is_premium, stripe_customer_id")`が列不存在エラーで失敗し`profile`が
+    常に`null`扱いになっていた）。ローカルの`supabase/migrations/003_stripe_premium.sql`
+    は存在するが、本番のマイグレーション履歴（`list_migrations`で確認）に一度も
+    含まれていなかった。
+    これは実際のStripe決済フロー（`checkout.session.completed`のsubscription分岐
+    が`is_premium`/`stripe_customer_id`/`premium_expires_at`を含む`profiles`更新を
+    行う）にも影響しうる重大な問題だったため、オーナーに報告の上、承認を得て
+    追加専用の安全なマイグレーション（`ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
+    2列＋インデックス1件、破壊的変更なし）を本番へ適用した。
+    適用後、実際のStripe請求データ（`stripe.subscriptions.list()`、読み取り専用）を
+    確認したところ、**本番には現在サブスクリプションが0件**（実ユーザーは4件・
+    Premium 0件）で、この不具合による実害（課金済みなのにPremiumが有効にならない
+    ユーザー）は発生していなかったことを確認した。
+    - 適用前: `profiles`に`stripe_customer_id`/`premium_expires_at`列なし。
+    - 適用後: 両列が追加され（`information_schema.columns`で確認）、
+      `/premium`ページのPremium/非Premium表示切り替えが正しく動作することを
+      E2Eで確認した。
+    - 併せて、`POST /api/stripe/checkout`に「既にPremiumなら409
+      already_premiumを返す」防御的ガードを追加した（既存の`stripe_customer_id`
+      再利用ロジックの直前、Stripe API呼び出し前にリターンするため安全）。
+      UI側では`/premium`ページが元々Premiumユーザーにはチェックアウトボタン
+      自体を表示しない設計だったため通常は到達しないが、API単体の安全策として
+      追加した。
+    **Premium誘導CTA文言の統一**: `/weak`・`/extract`・`/plan`・`/settings`の
+    Premium誘導CTAが「プレミアムにアップグレード →」「プレミアムで解放する →」
+    「プレミアムを見る →」とバラバラだったため、`/test/typing`が既に採用していた
+    価格明記の「月額 ¥480〜 プレミアムを見る →」に統一した（価格を明示すること
+    でクリック後の「意外性」を減らす狙い）。見出し・機能説明文言は各機能の文脈に
+    合わせて維持し、無理に画一化していない。ダッシュボードのカード型CTA
+    （「月額 ¥480 〜 でアップグレード →」）は文脈が異なるため据え置いた。
+    **`/plan`の内容確認**: 「AIパーソナル学習プランはプレミアムプランでご利用いた
+    だけます」という文言・機能説明は現状の実装と一致しており、大きな変更は
+    不要と判断（オーナー指示の「すでに十分実装済みなら大きく変えない」に対応）。
+    **無料/Premium比較表の確認**: `/premium`の比較表（12行）・ランディングページの
+    Free/Premiumカードは、いずれも実装済み機能とのズレが無いことを確認した
+    （AI弱点分析・AI単語抽出・AI学習プラン・タイピング・リスニング・CSV一括
+    インポート・統計データ書き出し・小テストPDF等、すべて実装確認済み）。「広告
+    表示」の行も、上記のダッシュボード広告ガード修正により実態と一致するようになった。
+    **AdSenseとの関係**: 広告非表示は今回の修正で実装済みとなったため、既存の
+    訴求文言はそのまま維持した（未実装機能の訴求は無い）。AdSense自体は
+    `/dashboard`のみに表示中で、Getting ready状態（変更なし）。
+    **TOEIC/ビジネス教材・社会人向け教材**: `/materials/toeic`・`/materials/business`
+    ・`/materials/news`はいずれもPremium限定ではなく無料で閲覧・学習可能であることを
+    確認（教材データ自体は変更していない）。
+    DBスキーマ変更（追加専用マイグレーション、オーナー承認済み）・SRS V2中核ロジック
+    変更・teacher機能変更・教材データ変更・AdSense広告枠追加・reward_tickets仕様
+    変更なし。既存のPremium判定`profiles.is_premium`はそのまま。
+    テスト: `scripts/testing/e2e/premium-conversion.mjs`（新規、
+    `npm run test:premium-conversion`、`run-e2e.mjs`のステップ21として追加、
+    13項目）で、非Premium/Premiumの`/premium`表示切り替え・チェックアウトボタンの
+    表示制御・409ガード・CTA文言統一・`/test/typing`/`/test/listening`の
+    ペイウォール表示・モバイル崩れ・ダッシュボード広告ガードのソースコード確認を
+    検証。既存の`scripts/testing/verify-premium-gating.mjs`は文言変更に伴い3箇所の
+    アサーションを更新（動作自体は無変更、21項目全PASS）。
+    検証: `tsc --noEmit` / `build` / `test:smoke` / `test:premium-gating`
+    （21項目、全PASS） / `test:premium-conversion`（13項目、全PASS） /
+    `test:e2e`（21フロー全PASS、回帰なし） / `verify:prod` / `verify:srs-global`、
+    全PASS。
+    **残課題**: `/premium`の「3,200+ 登録ユーザー」「4.8★ ユーザー評価」
+    「42万語 学習済み単語」および3件の利用者の声は、実データではなくプレース
+    ホルダーの可能性が高い（本番の実ユーザーは4件・Premium 0件で数字と大きく
+    乖離している）。マーケティング方針に関わる判断のためオーナーに確認を依頼したが
+    未回答のため、今回は変更せず残課題として記録するに留めた。対応する場合は
+    実データに置き換えるか、具体的な数字を出さない訴求に変更することを検討。
+
 ---
 
 ## 💰 収益化・成長 監査（2026-07-04）

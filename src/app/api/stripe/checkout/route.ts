@@ -38,6 +38,13 @@ export async function POST(req: NextRequest) {
     .eq("id", user.id)
     .single();
 
+  // すでにPremiumのユーザーが誤って/直接APIを叩いても二重サブスクリプション（二重課金）を
+  // 作らないよう、事前にis_premiumを確認する（UI側では/premiumページが既にチェックアウト
+  // ボタン自体を非表示にしているため通常到達しないが、API単体としての安全策）。
+  if (profile?.is_premium) {
+    return NextResponse.json({ error: "already_premium" }, { status: 409 });
+  }
+
   let customerId = profile?.stripe_customer_id ?? undefined;
 
   if (!customerId) {

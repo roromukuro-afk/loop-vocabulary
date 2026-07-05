@@ -39,7 +39,7 @@ export default async function ListeningTestPage({
               <li>✓ 正誤記録で弱点把握</li>
             </ul>
             <Link href="/premium" className="mt-5 block py-3 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">
-              プレミアムにアップグレード →
+              月額 ¥480〜 プレミアムを見る →
             </Link>
           </div>
           <Link href="/test" className="mt-4 block text-sm text-navy-400 underline">← テスト一覧に戻る</Link>

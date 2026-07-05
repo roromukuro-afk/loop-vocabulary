@@ -13,7 +13,7 @@
  * 2. 「今すぐ復習する」「まず10語だけ復習する」導線が実際に/reviewへ遷移すること
  * 3. 苦手単語なし（test+onboarding、0語）: ページが崩れず「傾向を確認」セクション・
  *    復習導線が表示されないこと（苦手単語が無い場合は不要なため）
- * 4. 非Premium: 「プレミアムで解放する」の控えめな案内が表示されること
+ * 4. 非Premium: 「月額 ¥480〜 プレミアムを見る →」の控えめな案内が表示されること
  * 5. Premium: 「AI弱点分析を実行」ボタンからAI分析を実行し、成功時はレポートが、
  *    失敗時も「傾向を確認」セクションへの案内文とともにページが壊れず表示されること
  * 6. ダッシュボードの苦手単語カード「すべて見る →」から/weakへ遷移できること
@@ -181,7 +181,7 @@ async function main() {
     await login(page3, baseUrl, TEST_ACCOUNTS.srs.email, process.env[TEST_ACCOUNTS.srs.passwordEnvKey]);
     await gotoReady(page3, `${baseUrl}/weak`);
     const bodyText3 = await page3.locator("body").innerText();
-    if (bodyText3.includes("プレミアムで解放する") && bodyText3.includes("AI弱点分析")) {
+    if (bodyText3.includes("月額 ¥480〜 プレミアムを見る →") && bodyText3.includes("AI弱点分析")) {
       ok("非Premiumでは「AI弱点分析（Premium）」の控えめな案内が表示される（過剰な煽り文言なし）");
     } else {
       fail("非Premium時のPremium案内が表示されない");

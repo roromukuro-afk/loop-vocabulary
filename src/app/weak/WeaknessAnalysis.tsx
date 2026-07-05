@@ -27,7 +27,7 @@ export function WeaknessAnalysis({ isPremium }: { isPremium: boolean }) {
             <div className="text-xs text-navy-300 mt-0.5">間違いのパターンをAIが分析し改善策を提案</div>
           </div>
         </div>
-        <a href="/premium" className="mt-3 inline-block text-xs text-sky-300 underline">プレミアムで解放する →</a>
+        <a href="/premium" className="mt-3 inline-block text-xs text-sky-300 underline">月額 ¥480〜 プレミアムを見る →</a>
       </div>
     );
   }

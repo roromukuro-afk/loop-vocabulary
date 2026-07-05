@@ -100,6 +100,9 @@ async function main() {
 
     console.log("\n=== 20. /weak 弱点分析(傾向を確認・AI分析) E2E ===");
     results.weakAnalysis = runNode("scripts/testing/e2e/weak-analysis.mjs");
+
+    console.log("\n=== 21. Premium導線・プランページ棚卸し E2E ===");
+    results.premiumConversion = runNode("scripts/testing/e2e/premium-conversion.mjs");
   } finally {
     stopDevServer(dev);
   }

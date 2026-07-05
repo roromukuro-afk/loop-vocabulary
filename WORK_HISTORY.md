@@ -5,6 +5,159 @@
 
 ---
 
+## 2026-07-05 Premium導線とプランページの棚卸し・改善（+ 本番DB不具合の緊急修正）
+
+**目的**: AI弱点分析・AI単語抽出・AI学習プラン・タイピング・リスニング等、Premium価値に
+なる機能が増えてきたため、これらがユーザーに自然に伝わりPremium転換につながる導線に
+なっているかを棚卸しする。
+
+**調査結果**: `/premium`ページ・`PremiumCheckout.tsx`・Stripe checkout/webhookルート・
+各Premium gatingページ（`/weak`/`/extract`/`/plan`/`/test/typing`/`/test/listening`/
+`/wordbooks/[id]`）はすでに高品質に実装されており、大枠の作り直しは不要と判断した。
+調査の過程で以下2件の実際の不具合と、1件のマーケティング上の懸念を発見した。
+
+**発見1: ダッシュボードの広告がPremiumユーザーにも表示されていた**
+`src/app/dashboard/page.tsx`の`<BannerAdPlaceholder />`が`isPremium`でガードされて
+おらず、`/premium`の比較表「広告表示: Premium=完全なし」、`/settings`・`/dashboard`の
+「広告ゼロ」という訴求と実際の挙動が矛盾していた。AdSenseは現在`/dashboard`が唯一の
+表示箇所（`ADSENSE_SETUP.md`で確認済み）のため、これはPremiumの「広告非表示」特典が
+実質的に機能していないことを意味していた。`{!isPremium && (<div className="mt-5">
+<BannerAdPlaceholder /></div>)}`でラップして修正した。
+
+**発見2（重大・緊急対応）: `profiles.stripe_customer_id`/`premium_expires_at`列が
+本番データベースに存在しなかった**
+
+`/premium`ページのPremium/非Premium表示切り替えをE2Eで検証する過程で、テスト
+アカウントの`is_premium`をtrueにセットしても`/premium`が非Premium表示のままになる
+不具合を発見した。原因を追跡した結果:
+- `src/app/premium/page.tsx`・`src/app/api/stripe/checkout/route.ts`・
+  `src/app/api/stripe/webhook/route.ts`はいずれも`profiles.stripe_customer_id`
+  （と`premium_expires_at`）列を参照するコードになっていた。
+- ローカルの`supabase/migrations/003_stripe_premium.sql`にこの2列を追加する
+  マイグレーションが存在していたが、本番プロジェクト（`befjjebsrnsfwhtmydiv`）の
+  マイグレーション履歴（`list_migrations`で確認）には一度も含まれていなかった。
+  実際に`information_schema.columns`で確認したところ、本番の`profiles`テーブルに
+  この2列は存在しなかった。
+- 結果として、`.select("is_premium, stripe_customer_id")`のようなクエリが
+  PostgRESTの列不存在エラー（`42703`）で失敗し、`profile`が常に`null`扱いになり、
+  `isPremium`が常にfalseとして扱われていた。Stripe
+  Webhookのサブスクリプション処理（`checkout.session.completed`の非one-time分岐が
+  `is_premium`/`stripe_customer_id`/`premium_expires_at`を含む`profiles`更新を行う）も、
+  存在しない列を含む更新のため失敗する設計になっていた。
+
+**対応**: 影響がPremium/課金に直結する重大な内容だったため、作業を一時中断してオーナーに
+報告し、承認を得た上で対応した。
+1. 安全な追加専用マイグレーション（`ALTER TABLE public.profiles ADD COLUMN IF NOT
+   EXISTS stripe_customer_id text UNIQUE, ADD COLUMN IF NOT EXISTS premium_expires_at
+   timestamptz;` + `CREATE INDEX IF NOT EXISTS profiles_stripe_customer_idx ON
+   public.profiles(stripe_customer_id);`、`supabase/migrations/003_stripe_premium.sql`
+   の内容そのまま）を本番へ適用した。列追加・インデックス追加のみで、既存データの削除・
+   変更は一切ない。
+   - 適用前: `information_schema.columns`に`stripe_customer_id`/`premium_expires_at`
+     無し。
+   - 適用後: 両列が追加されたことを`information_schema.columns`で確認。
+     `/premium`ページのPremium/非Premium表示切り替えが正しく動作するようになった
+     ことをE2Eで確認済み。
+2. 適用後、実際にこの不具合で被害を受けた顧客がいないかを確認するため、Stripe API
+   （読み取り専用、`stripe.subscriptions.list()`）で本番の全サブスクリプションを
+   調査した。結果は**0件**（アクティブ/トライアル中含めて0件）。本番の`profiles`は
+   実ユーザー4件（テストアカウント4件を除く）でPremiumは0件。つまり、この不具合が
+   発生していた期間に実際にStripeで課金完了した顧客は存在せず、実害は発生していな
+   かったことを確認した。
+3. 併せて、`POST /api/stripe/checkout`に「既にPremiumなら409 already_premiumを
+   返す」防御的ガードを追加した（`stripe_customer_id`の再利用ロジックより前、
+   Stripe APIを一切呼び出す前にリターンするため安全）。UI側は`/premium`ページが
+   元々Premiumユーザーにはチェックアウトボタン自体を表示しない設計だったため通常は
+   到達しないが、API単体としての安全策（二重課金防止）として追加した。
+
+**Premium誘導CTA文言の統一**: `/weak`・`/extract`・`/plan`・`/settings`のPremium誘導
+CTAが「プレミアムにアップグレード →」「プレミアムで解放する →」「プレミアムを見る →」
+とバラバラだったため、`/test/typing`が既に採用していた価格明記の
+「月額 ¥480〜 プレミアムを見る →」に統一した。見出し・機能説明文言は各機能の文脈に
+合わせて維持し、無理に画一化していない。ダッシュボードのカード型CTA
+（「月額 ¥480 〜 でアップグレード →」）は文脈が異なるため据え置いた。
+
+**`/plan`の内容確認**: 「AIパーソナル学習プランはプレミアムプランでご利用いただけます」
+という文言・機能説明は現状の実装と一致しており、大きな変更は不要と判断した
+（オーナー指示「すでに十分実装済みなら大きく変えない」に対応）。
+
+**無料/Premium比較表の確認**: `/premium`の比較表（12行）・ランディングページの
+Free/Premiumカードは、いずれも実装済み機能とのズレが無いことを確認した。「広告表示」の
+行も、上記の広告ガード修正により実態と一致するようになった。
+
+**AdSenseとの関係**: 広告非表示は今回の修正で実装済みとなったため、既存の訴求文言は
+そのまま維持した（未実装機能の訴求は無い）。AdSense自体は`/dashboard`のみに表示中で、
+Getting ready状態（変更なし）。
+
+**TOEIC/ビジネス教材・社会人向け教材**: `/materials/toeic`・`/materials/business`・
+`/materials/news`はいずれもPremium限定ではなく無料で閲覧・学習可能であることを確認した
+（教材データ自体は変更していない）。
+
+**発見3（マーケティング判断、オーナー確認待ち）**: `/premium`ページの「3,200+
+登録ユーザー」「4.8★ ユーザー評価」「42万語 学習済み単語」および3件の利用者の声が、
+実データと大きく乖離していることを発見した（本番の実ユーザーは4件・Premium 0件）。
+実データではなくプレースホルダーの可能性が高い。マーケティング方針に関わる判断のため
+オーナーに確認を依頼したが、今回の作業時間内には回答が得られなかったため、変更せず
+残課題として記録するに留めた。
+
+DBスキーマ変更（追加専用マイグレーション、オーナー承認済み）以外は、SRS V2中核ロジック・
+teacher機能・教材データ・AdSense広告枠・reward_tickets仕様への変更なし。既存の
+Premium判定`profiles.is_premium`はそのまま。
+
+**変更ファイル**: `src/app/dashboard/page.tsx`（広告のisPremiumガード追加）、
+`src/app/api/stripe/checkout/route.ts`（409 already_premiumガード追加）、
+`src/app/weak/WeaknessAnalysis.tsx`・`src/app/extract/page.tsx`・
+`src/app/plan/StudyPlanClient.tsx`・`src/app/test/listening/page.tsx`・
+`src/app/settings/page.tsx`（Premium誘導CTA文言統一）、
+`supabase/migrations/003_stripe_premium.sql`（本番へ適用、ファイル自体は
+既存のまま）、`scripts/testing/e2e/premium-conversion.mjs`（新規）、
+`scripts/testing/verify-premium-gating.mjs`（CTA文言変更に伴うアサーション更新）、
+`scripts/testing/e2e/weak-analysis.mjs`（同上）、`scripts/testing/run-e2e.mjs`
+（ステップ21として追加）、`package.json`（`test:premium-conversion`スクリプト追加）、
+`NEXT_IMPROVEMENTS.md`、`PRODUCTION_MONITORING.md`、`WORK_HISTORY.md`。
+
+**追加・更新したテスト**: `scripts/testing/e2e/premium-conversion.mjs`（新規、
+`npm run test:premium-conversion`、13項目）:
+1. 非Premiumで`/premium`の料金比較表・年間/月額チェックアウトボタンが表示されること。
+2. Premiumで「現在プレミアム会員です」「プレミアム会員」表示に切り替わり、
+   チェックアウトボタンが表示されなくなること。
+3. `/weak`・`/extract`・`/plan`のPremium誘導CTAが統一文言になっていること。
+4. `/test/typing`・`/test/listening`の非Premiumペイウォール表示が正しいこと。
+5. `POST /api/stripe/checkout`がPremiumユーザーに対して409 already_premiumを
+   返すこと（Stripe APIを実際には呼び出さない安全な検証）。
+6. `/premium`がモバイル幅(375px)で横スクロールしないこと。
+7. ダッシュボードの広告が`isPremium`ガードでラップされていることをソースコードで
+   確認（テスト環境ではAdSenseスロット未設定のためDOM上に広告要素自体が出ず、
+   実行時の表示比較では検証できないため、ソースコード確認という形にした）。
+既存の`scripts/testing/verify-premium-gating.mjs`・
+`scripts/testing/e2e/weak-analysis.mjs`は、CTA文言統一に伴い旧文言を参照していた
+3+1箇所のアサーションを新文言に更新した（動作自体は無変更）。
+
+**検証結果**: `tsc --noEmit`（エラー無し）/ `build`（成功）/ `test:smoke`（全PASS）/
+`test:premium-gating`（21項目、全PASS）/ `test:premium-conversion`（13項目、全PASS）/
+`test:e2e`（21フロー全PASS、既存回帰なし）/ `verify:prod`（全PASS）/
+`verify:srs-global`（V2グローバルフラグ本番反映を再確認、全PASS）。
+
+**本番DB変更の適用前後の状態**（オーナー承認済み）:
+- 適用前: `profiles`テーブルの列は`id`/`email`/`display_name`/`is_admin`/
+  `is_premium`/`daily_ai_used`/`daily_ai_reset_at`/`created_at`/`updated_at`/
+  `srs_v2`/`role`/`is_test_account`の12列のみ。
+- 適用後: `stripe_customer_id`(text, unique)・`premium_expires_at`
+  (timestamptz)の2列が追加され、`profiles_stripe_customer_idx`インデックスも
+  作成された。既存の行データ・値は一切変更していない（新規列はすべて既存行では
+  NULL）。
+
+**残課題**:
+- `/premium`の利用者数・評価・体験談（3,200+登録ユーザー等）が実データと乖離して
+  おり、マーケティング判断のためオーナー確認待ち（対応する場合は実データへの
+  置き換え、または具体的な数字を出さない訴求への変更を検討）。
+- Stripeサブスクリプションが0件の現状では影響が顕在化していなかったが、今後
+  実際の課金が発生する前に今回の修正（列追加）が入ったことは僥倖だった。
+  Webhookのサブスクリプション更新処理自体は今回変更していないため、今後実際に
+  課金が発生した際に正しく動作するか、最初の実課金時に改めて確認することを推奨する。
+
+---
+
 ## 2026-07-05 AI弱点分析のMVP整理・強化（収益化・Premium転換の観点）
 
 **目的**: 無料ユーザーには「苦手単語の確認」、Premiumユーザーには「詳しい弱点分析」

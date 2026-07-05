@@ -34,7 +34,7 @@ export default async function ExtractPage() {
             <li>✓ 難易度レベルに合わせた抽出フィルタ</li>
           </ul>
           <Link href="/premium" className="mt-5 block w-full py-3 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">
-            プレミアムにアップグレード →
+            月額 ¥480〜 プレミアムを見る →
           </Link>
         </div>
       </AppShell>
