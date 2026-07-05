@@ -87,9 +87,9 @@ async function main() {
   for (const path of ["/materials/toeic", "/materials/business"]) {
     const { text } = await fetchText(path);
     const blocks = extractJsonLdBlocks(text);
-    if (blocks.length === 2) ok(`${path} にJSON-LDスクリプトが2個（Breadcrumb+ItemList）存在する`);
-    else bad(`${path} のJSON-LDスクリプト数が想定(2個)と異なる (実際: ${blocks.length}個)`);
-
+    // 注: layout.tsxがサイト全体にOrganization/WebSiteのJSON-LDを常時出力しているため、
+    // ページ側で追加したBreadcrumbList/ItemListと合わせて4個になるのが正しい状態。
+    // 個数そのものではなく、パース可能性と重複が無いことを見る。
     let allValid = true;
     const types = [];
     for (const block of blocks) {
@@ -100,14 +100,17 @@ async function main() {
         allValid = false;
       }
     }
-    if (allValid) ok(`${path} のJSON-LDはすべて妥当なJSONとしてパースできる (@type: ${types.join(", ")})`);
+    if (allValid) ok(`${path} のJSON-LDはすべて妥当なJSONとしてパースできる (${blocks.length}個、@type: ${types.join(", ")})`);
     else bad(`${path} のJSON-LDにパースできない不正なJSONが含まれている`);
 
-    if (types.includes("BreadcrumbList") && types.includes("ItemList")) {
-      ok(`${path} にBreadcrumbList・ItemListの両方が存在する`);
+    const breadcrumbCount = types.filter((t) => t === "BreadcrumbList").length;
+    const itemListCount = types.filter((t) => t === "ItemList").length;
+    if (breadcrumbCount === 1 && itemListCount === 1) {
+      ok(`${path} はBreadcrumbList・ItemListがそれぞれちょうど1個ずつ（重複無し）`);
     } else {
-      bad(`${path} のJSON-LDの@typeが想定と異なる (実際: ${types.join(", ")})`);
+      bad(`${path} のBreadcrumbList(${breadcrumbCount}個)・ItemList(${itemListCount}個)が想定と異なる（重複の可能性）`);
     }
+
   }
 
   // ---- 5. 既存の/materials/[id]への影響確認 ----
