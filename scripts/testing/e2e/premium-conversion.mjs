@@ -26,6 +26,10 @@
  * 6. `POST /api/stripe/checkout`: Premiumユーザーでは409 already_premiumが返る
  *    （実際のStripe API呼び出しより前でリターンするため安全に検証可能）
  * 7. `/premium`ページがモバイル幅(375px)で横スクロールしない
+ * 8. `/premium`・トップページ(`/`)に実データと乖離した社会的証明・誇張表現
+ *    （「3,200+登録ユーザー」「ユーザーの声」等の固定テストナラティブや、
+ *    schema.orgのJSON-LDの未実証aggregateRatingなど）が残っていないこと
+ *    （2026-07-05 マーケティング文言の棚卸しで撤去。詳細はWORK_HISTORY.md参照）
  *
  * 使い方: node scripts/testing/e2e/premium-conversion.mjs
  */
@@ -112,6 +116,16 @@ async function main() {
     if (realErrors1.length === 0) ok("/premium（非Premium）表示中にconsole error / 5xxなし");
     else fail(`console error / 5xx 発生: ${realErrors1.join(" | ")}`);
 
+    // ================= 1b. 実データと乖離した誇張表現（棚卸し済み）が/premiumに出ていないこと =================
+    console.log("\n--- 1b. /premium: 実データと乖離した社会的証明・誇張表現が出ていないこと ---");
+    const bannedOnPremium = ["3,200", "登録ユーザー", "ユーザー評価", "42万語", "ユーザーの声", "一番人気"];
+    const foundBanned1 = bannedOnPremium.filter((s) => bodyText1.includes(s));
+    if (foundBanned1.length === 0) {
+      ok("/premium: 実データに基づかない誇張・社会的証明の文言は検出されなかった");
+    } else {
+      fail(`/premium: 誇張・未実証の文言が残っている: ${foundBanned1.join(", ")}`);
+    }
+
     // ================= 7. モバイル幅での崩れ確認（非Premium状態のまま） =================
     console.log("\n--- 7. /premium モバイル幅(375px)での崩れ確認 ---");
     await page1.setViewportSize({ width: 375, height: 812 });
@@ -120,6 +134,31 @@ async function main() {
     if (!hasOverflow) ok("/premium はモバイル幅(375px)で横スクロールが発生していない");
     else fail("/premium はモバイル幅(375px)で横スクロールが発生している");
     await page1.close();
+
+    // ================= 8. トップページ(/)にも実データと乖離した誇張表現が出ていないこと =================
+    console.log("\n--- 8. トップページ(/): 実データと乖離した社会的証明・誇張表現が出ていないこと ---");
+    const page4 = await browser.newPage();
+    await suppressOnboardingModal(page4);
+    const errors4 = collectErrors(page4);
+    await gotoReady(page4, baseUrl);
+    const bodyText4 = await page4.locator("body").innerText();
+    const bannedOnLanding = ["3,200人", "学習中のユーザー", "累計学習語数", "選ばれています", "英語が変わった人たちの声"];
+    const foundBanned4 = bannedOnLanding.filter((s) => bodyText4.includes(s));
+    if (foundBanned4.length === 0) {
+      ok("トップページ(/): 実データに基づかない誇張・社会的証明の文言は検出されなかった");
+    } else {
+      fail(`トップページ(/): 誇張・未実証の文言が残っている: ${foundBanned4.join(", ")}`);
+    }
+    const html4 = await page4.content();
+    if (!html4.includes("aggregateRating")) {
+      ok("トップページ(/): schema.orgのJSON-LDに未実証のaggregateRating（レビュー評価）が含まれていない");
+    } else {
+      fail("トップページ(/): JSON-LDに未実証のaggregateRatingが残っている");
+    }
+    const realErrors4 = errors4.filter((e) => !/Failed to load resource/.test(e));
+    if (realErrors4.length === 0) ok("トップページ(/)表示中にconsole error / 5xxなし");
+    else fail(`console error / 5xx 発生: ${realErrors4.join(" | ")}`);
+    await page4.close();
 
     // ================= 3. Premium誘導CTA文言の統一確認 =================
     console.log("\n--- 3. /weak・/extract・/plan のPremium誘導CTA文言が統一されている ---");

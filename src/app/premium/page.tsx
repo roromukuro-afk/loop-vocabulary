@@ -12,12 +12,6 @@ export const metadata: Metadata = {
   description: "広告なし・AI無制限・CSV一括インポート・弱点分析・リスニングテスト。月額¥480から始める英単語学習のアップグレード。",
 };
 
-const TESTIMONIALS = [
-  { name: "大学3年・就活中", text: "TOEIC 650点→810点に上がりました。AI弱点分析で苦手な動詞系を集中的に覚えたのが効いた気がします。広告がないのも集中できてよかったです。" },
-  { name: "高校2年・英検準2級受験中", text: "1日20分の隙間時間に使っています。AIが例文と語源を出してくれるので単語が記憶に残りやすい。先生に習う感覚に近いです。" },
-  { name: "社会人・英会話を始めた30代", text: "英文テキストを貼り付けると知らない単語だけ自動で単語帳に追加してくれるのが革命的でした。もっと早く使えばよかった。" },
-];
-
 const COMPARISON = [
   { label: "単語帳・SRS復習",         free: "✓",       prem: "✓" },
   { label: "4択・入力テスト",          free: "✓",       prem: "✓" },
@@ -110,7 +104,7 @@ export default async function PremiumPage() {
           <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
             {/* 年間プランバナー */}
             <div className="bg-amber-500 text-white text-center py-2 text-xs font-black tracking-wide">
-              🏅 一番人気 — 34% OFF でお得な年間プラン
+              🏅 おすすめ — 34% OFF でお得な年間プラン
             </div>
             <div className="p-6 space-y-3">
               <PremiumCheckout
@@ -130,16 +124,16 @@ export default async function PremiumPage() {
           </div>
         )}
 
-        {/* 利用者数 */}
+        {/* Premiumで増える主な機能（数字の誇張ではなく機能そのもので訴求） */}
         <div className="mt-6 grid grid-cols-3 gap-3">
           {[
-            { num: "3,200+", label: "登録ユーザー" },
-            { num: "4.8★", label: "ユーザー評価" },
-            { num: "42万語", label: "学習済み単語" },
+            { icon: "🚫", label: "広告非表示" },
+            { icon: "🤖", label: "AI利用無制限" },
+            { icon: "📄", label: "PDF出力無制限" },
           ].map((s) => (
             <div key={s.label} className="bg-white rounded-2xl border border-navy-100 p-3 text-center">
-              <div className="font-black text-navy-800 text-base">{s.num}</div>
-              <div className="text-[10px] text-navy-500 mt-0.5">{s.label}</div>
+              <div className="text-xl">{s.icon}</div>
+              <div className="text-[10px] text-navy-500 mt-1 font-semibold">{s.label}</div>
             </div>
           ))}
         </div>
@@ -158,22 +152,6 @@ export default async function PremiumPage() {
                 <div className="text-2xl mb-2">{f.icon}</div>
                 <div className="font-bold text-navy-800 text-sm">{f.title}</div>
                 <p className="text-xs text-navy-500 mt-1 leading-relaxed">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ユーザーの声 */}
-        <div className="mt-8">
-          <h2 className="font-black text-navy-800 text-center mb-4">ユーザーの声</h2>
-          <div className="space-y-3">
-            {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="bg-white rounded-2xl border border-navy-100 p-4">
-                <div className="flex gap-0.5 mb-2">
-                  {"★★★★★".split("").map((s, i) => <span key={i} className="text-amber-400 text-sm">{s}</span>)}
-                </div>
-                <p className="text-xs text-navy-700 leading-relaxed">"{t.text}"</p>
-                <div className="mt-2 text-[10px] text-navy-400 font-semibold">{t.name}</div>
               </div>
             ))}
           </div>

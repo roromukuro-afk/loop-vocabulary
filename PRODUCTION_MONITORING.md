@@ -294,6 +294,20 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
   **残課題**: `/premium`の利用者数・評価・体験談はプレースホルダーの可能性が
   高く（本番実ユーザー4件・Premium 0件と乖離）、マーケティング判断のため
   オーナー確認待ち（詳細はNEXT_IMPROVEMENTS.md参照）。
+  → **2026-07-05、オーナー承認を得て下記項目で対応済み。**
+- **実データと乖離した社会的証明・マーケティング文言の棚卸しと修正**
+  （2026-07-05、NEXT_IMPROVEMENTS.md優先度A項目37）: 上記残課題への対応。
+  `/premium`の「3,200+登録ユーザー」「4.8★ユーザー評価」「42万語学習済み単語」の
+  統計カードと3件の架空testimonials（「ユーザーの声」セクション）を削除し、
+  機能ベースの価値訴求（広告非表示・AI利用無制限・PDF出力無制限）に置換。
+  トップページ(`/`)は`getPublicStats()`の虚偽の下駄履き表示（実データ不足時に
+  「3,200人」等の固定値を出す実装）を撤去して実教材冊数のみを返すよう簡素化し、
+  ヒーローバッジ・「数字で訴求」セクション・見出し「こんな人に選ばれています」を
+  機能ベースの文言に置換、6件の架空testimonialsと「英語が変わった人たちの声」
+  セクションを削除、schema.orgのJSON-LDの未実証`aggregateRating`を削除した。
+  実ユーザー数（4件）は非公開のまま。教材冊数のような「コンテンツ量」の実データは
+  「ユーザー数」ではないため維持。`test:premium-conversion`（週次`test:e2e`）に
+  誇張文言の残存チェックを2ステップ追加。
 - **教材・辞書ページの内部リンク強化**: 2026-07-04実装済み（優先度A項目23）。関連教材
   セクション・教材⇄辞書の相互CTA・カテゴリクイックジャンプ等を追加。`test:internal-links`が
   週次`test:e2e`に含まれているため、新規教材追加時も関連教材表示の退行があれば自動検知される
@@ -327,7 +341,7 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 | `npm run test:reward-ticket-claim` | `/api/gamification/claim-daily-ticket`・`ClaimDailyTicketButton`・`TodayRewardTickets`・`reward_tickets`のDB制約を変更した時 | 未達成時はボタンが押せずAPI直接呼び出しも400 not_eligibleで拒否・達成後はボタンから1枚だけ記録できる・同日2回目は409 already_claimedで拒否され行数が増えない・リロード後も「記録済み」表示と累計「通算◯日分」表示が維持され行数が増えない・0語ユーザーで崩れない・既存の広告視聴チケット(kind=ai_generation等)と混ざらない・モバイル幅での崩れなし・8件同時POSTでもDBの部分ユニークインデックスにより1枚しか作成されない、を実ブラウザ+DB直接確認で検証（23項目） |
 | `npm run test:extra-review-ticket` | `src/lib/native/rewards.ts`(`watchRewardedAndGrant`)・`FlipCardRunner.tsx`・`ChoiceTestRunner.tsx`の広告視聴導線・無料/広告再挑戦の役割分担を変更した時 | FlipCardRunnerで誤答時のみ無料「間違えた◯語だけもう一度」が表示されクリックで実際にその語だけに絞り込まれる・全問正答時は広告ボタンのみ残る・広告ボタンでは元の全語が再出題される、ChoiceTestRunnerで無料「同じ問題をもう一度」が全く同じ問題(`data-word-id`順)を再演習する・広告「別の10問に挑戦」で新しい問題セットが始まる、いずれも`reward_tickets(kind=extra_review)`に新規行が作られない・`ai_generation`/`daily_achievement`等ほかのkindの行数が変化しない・0語ユーザーで`/review`が崩れない、を実ブラウザ+DB直接確認で検証（15項目） |
 | `npm run test:weak-analysis` | `src/app/weak/page.tsx`・`WeaknessAnalysis.tsx`・`api/ai/weakness-analysis/route.ts`を変更した時 | 苦手単語ありユーザーで一覧・品詞/単語帳/習熟度バッジ・「傾向を確認」の集計(品詞別/単語帳別/習熟度低い順)が正しい・「今すぐ復習する」「まず10語だけ復習する」から実際に`/review`へ遷移する・苦手単語なしユーザーで崩れない・非Premiumで控えめな案内・PremiumでAI分析実行結果(成功/失敗いずれもページが壊れない)・`reward_tickets(kind=ai_generation)`に影響なし・ダッシュボードの苦手単語カードからの遷移、を実ブラウザ+DB直接確認で検証（20項目） |
-| `npm run test:premium-conversion` | `/premium`・`PremiumCheckout.tsx`・Stripe checkout/webhookルート・各Premium gatingページのCTA文言・`dashboard/page.tsx`の広告表示を変更した時 | 非Premiumで料金比較表・チェックアウトボタンが表示される・Premiumで「現在プレミアム会員です」表示に切り替わりチェックアウトボタンが消える・`POST /api/stripe/checkout`がPremium時に409 already_premiumを返す（二重課金防止）・`/weak`/`/extract`/`/plan`のPremium誘導CTAが統一文言になっている・`/test/typing`/`/test/listening`のペイウォール表示・`/premium`のモバイル崩れなし・ダッシュボード広告のisPremiumガードをソースコードで確認、を実ブラウザ+API直接確認で検証（13項目） |
+| `npm run test:premium-conversion` | `/premium`・トップページ(`/`)・`PremiumCheckout.tsx`・Stripe checkout/webhookルート・各Premium gatingページのCTA文言・`dashboard/page.tsx`の広告表示・マーケティング文言を変更した時 | 非Premiumで料金比較表・チェックアウトボタンが表示される・Premiumで「現在プレミアム会員です」表示に切り替わりチェックアウトボタンが消える・`POST /api/stripe/checkout`がPremium時に409 already_premiumを返す（二重課金防止）・`/weak`/`/extract`/`/plan`のPremium誘導CTAが統一文言になっている・`/test/typing`/`/test/listening`のペイウォール表示・`/premium`のモバイル崩れなし・ダッシュボード広告のisPremiumガードをソースコードで確認・`/premium`とトップページ(`/`)に実データと乖離した誇張・社会的証明の文言（「3,200+登録ユーザー」「ユーザーの声」等）が残っていないこと・トップページのJSON-LDに未実証`aggregateRating`が含まれていないこと、を実ブラウザ+API直接確認で検証（2026-07-05に2ステップ追加） |
 | `npm run verify:seo-lp-audit` | sitemap.ts・robots.txt・カテゴリLPのmetadataを変更した時／**本番デプロイ後** | 本番の`/sitemap.xml`に主要ページ・3LPが含まれるか・`/robots.txt`が対象パスをブロックしていないか・3LPのcanonicalが自分自身を指すか・JSON-LD(BreadcrumbList/ItemList)が妥当なJSONか・既存`/materials/[id]`への非影響を、HTTPのみ（ブラウザ不要）で検証。`verify:prod`同様デフォルトで本番URLを対象とする |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |

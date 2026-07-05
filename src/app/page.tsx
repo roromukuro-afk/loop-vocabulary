@@ -3,8 +3,6 @@ import { unstable_cache } from "next/cache";
 import { Button } from "@/components/ui/Button";
 
 type PublicStats = {
-  totalStudied: number;
-  totalUsers: number;
   materialCounts: { exam_type: string; count: number }[];
 };
 
@@ -21,25 +19,19 @@ const EXAM_CANON: Record<string, string> = {
   "一般": "一般",
 };
 
+// 実データに基づく教材の冊数のみを集計する（利用者数・学習語数・評価点等の
+// 社会的証明は、実データと乖離した誇張表現になるため一切表示しない方針
+// —2026-07-05 マーケティング文言の棚卸しにより撤去。詳細はWORK_HISTORY.md参照）。
 const getPublicStats = unstable_cache(
   async (): Promise<PublicStats> => {
     try {
       const { createAdminClient } = await import("@/lib/supabase/admin");
       const supabase = createAdminClient();
-      const [{ data: statsData }, { data: materialsData }] = await Promise.all([
-        supabase
-          .from("daily_stats")
-          .select("user_id, studied_count")
-          .gt("studied_count", 0),
-        supabase
-          .from("materials")
-          .select("exam_type")
-          .eq("is_public", true)
-          .in("license_status", ["approved", "original"]),
-      ]);
-      const rows = statsData ?? [];
-      const totalStudied = rows.reduce((s, r) => s + (Number(r.studied_count) || 0), 0);
-      const totalUsers = new Set(rows.map((r) => r.user_id)).size;
+      const { data: materialsData } = await supabase
+        .from("materials")
+        .select("exam_type")
+        .eq("is_public", true)
+        .in("license_status", ["approved", "original"]);
 
       const countByExam: Record<string, number> = {};
       for (const m of materialsData ?? []) {
@@ -51,9 +43,9 @@ const getPublicStats = unstable_cache(
         .map(([exam_type, count]) => ({ exam_type, count }))
         .sort((a, b) => b.count - a.count);
 
-      return { totalStudied, totalUsers, materialCounts };
+      return { materialCounts };
     } catch {
-      return { totalStudied: 0, totalUsers: 0, materialCounts: [] };
+      return { materialCounts: [] };
     }
   },
   ["public-stats"],
@@ -67,20 +59,6 @@ const STATIC_MATERIAL_COUNTS = [
   { exam_type: "TOEIC", count: 2 },
 ];
 
-function fmtStudied(n: number): string {
-  if (n <= 0) return "—";
-  if (n >= 100_000_000) return `${Math.floor(n / 100_000_000)}億+`;
-  if (n >= 10_000) return `${(n / 10_000).toFixed(n >= 100_000 ? 0 : 1)}万+`;
-  return n.toLocaleString("ja-JP");
-}
-
-function fmtUsers(n: number): string {
-  if (n <= 0) return "—";
-  if (n >= 10_000) return `${Math.floor(n / 10_000)}万+`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}千+`;
-  return n.toLocaleString("ja-JP");
-}
-
 const JSON_LD = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
@@ -93,7 +71,6 @@ const JSON_LD = {
     { "@type": "Offer", "price": "0", "priceCurrency": "JPY", "name": "無料プラン" },
     { "@type": "Offer", "price": "480", "priceCurrency": "JPY", "name": "プレミアムプラン（月額）" },
   ],
-  "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "312" },
   "inLanguage": "ja",
 };
 
@@ -149,15 +126,15 @@ export const metadata = {
 };
 
 export default async function LandingPage() {
-  const { totalStudied, totalUsers, materialCounts } = await getPublicStats();
+  const { materialCounts } = await getPublicStats();
+  const displayMaterialCounts = materialCounts.length > 0 ? materialCounts : STATIC_MATERIAL_COUNTS;
 
-  const USER_FLOOR = 3200;
-  const STUDIED_FLOOR = 1_000_000;
+  const totalMaterials = displayMaterialCounts.reduce((sum, m) => sum + m.count, 0);
   const NUMBERS = [
-    { value: totalUsers >= USER_FLOOR ? fmtUsers(totalUsers) : `${USER_FLOOR.toLocaleString()}+`, label: "学習中のユーザー" },
-    { value: totalStudied >= STUDIED_FLOOR ? fmtStudied(totalStudied) : "100万+", label: "累計学習語数" },
-    { value: "4.8", label: "★ 平均評価" },
     { value: "¥0", label: "基本機能が無料" },
+    { value: "SRS", label: "忘却曲線で自動復習" },
+    { value: "AI", label: "語源・例文をその場で解説" },
+    { value: totalMaterials > 0 ? `${totalMaterials}+` : "多数", label: "収録教材・単語帳" },
   ];
 
   return (
@@ -188,7 +165,7 @@ export default async function LandingPage() {
           <div>
             <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full mb-6">
               <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-              3,200人が学習中 · 基本機能ぜんぶ無料
+              登録無料 · 広告なしでも使える基本機能
             </div>
             <h1 className="text-4xl sm:text-5xl font-black text-white leading-[1.1] tracking-tight">
               英単語を、<br />
@@ -513,7 +490,7 @@ export default async function LandingPage() {
         <div className="max-w-5xl mx-auto px-5 py-14">
           <div className="text-center mb-8">
             <span className="text-xs font-black uppercase tracking-widest text-sky-500 mb-2 block">For you</span>
-            <h2 className="text-2xl sm:text-3xl font-black text-navy-900">こんな人に選ばれています</h2>
+            <h2 className="text-2xl sm:text-3xl font-black text-navy-900">こんな人におすすめ</h2>
           </div>
           <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {AUDIENCE.map((a) => (
@@ -526,37 +503,6 @@ export default async function LandingPage() {
               </li>
             ))}
           </ul>
-        </div>
-      </section>
-
-      {/* お客様の声 */}
-      <section className="bg-slate-50">
-        <div className="max-w-5xl mx-auto px-5 py-14">
-          <div className="text-center mb-10">
-            <span className="text-xs font-black uppercase tracking-widest text-sky-500 mb-2 block">Reviews</span>
-            <h2 className="text-2xl sm:text-3xl font-black text-navy-900">英語が変わった人たちの声</h2>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {TESTIMONIALS.map((t, i) => (
-              <div key={i} className="bg-white rounded-2xl border border-navy-100 p-5 flex flex-col">
-                <div className="flex gap-0.5 mb-3">
-                  {Array.from({ length: 5 }).map((_, j) => (
-                    <span key={j} className={`text-sm ${j < t.stars ? "text-amber-400" : "text-navy-200"}`}>★</span>
-                  ))}
-                </div>
-                <p className="text-sm text-navy-700 leading-relaxed flex-1">「{t.body}」</p>
-                <div className="mt-4 pt-4 border-t border-navy-50 flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-full bg-sky-100 flex items-center justify-center text-sky-700 font-black text-sm shrink-0">
-                    {t.name[0]}
-                  </div>
-                  <div>
-                    <div className="text-xs font-black text-navy-900">{t.name}</div>
-                    <div className="text-[10px] text-sky-600 font-semibold mt-0.5">{t.role}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -848,45 +794,6 @@ const PREMIUM_FEATURES = [
   "CSVで単語を一括インポート（5000語）",
   "学習データ CSVエクスポート",
   "Free プランの全機能",
-];
-
-const TESTIMONIALS = [
-  {
-    stars: 5,
-    body: "忘却曲線で自動的に復習タイミングを教えてくれるのが本当に便利。英検2級に向けて毎日使っています。",
-    name: "田中 美咲",
-    role: "大学2年生・英検2級合格",
-  },
-  {
-    stars: 5,
-    body: "TOEIC700点を目指して3ヶ月使いました。苦手単語だけを集中的に出してくれるので効率がいいです。",
-    name: "鈴木 健太",
-    role: "社会人・TOEIC 730点達成",
-  },
-  {
-    stars: 5,
-    body: "PDF小テスト機能を授業で使っています。生徒の単語をまとめてインポートして、すぐにプリントが作れるのが助かる。",
-    name: "山本 先生",
-    role: "中学校英語教諭",
-  },
-  {
-    stars: 4,
-    body: "AI解説が思った以上に詳しくて驚いた。単語の語源や覚え方まで教えてくれるので、丸暗記しなくて済む。",
-    name: "佐藤 涼",
-    role: "高校3年生・大学受験生",
-  },
-  {
-    stars: 5,
-    body: "辞書で調べてそのまま単語帳に追加できるのが最高。他のアプリは別アプリに切り替えが必要で面倒だった。",
-    name: "木村 あおい",
-    role: "英会話スクール通学中",
-  },
-  {
-    stars: 5,
-    body: "連続学習日数のバッジが地味にモチベになってます。30日達成したとき素直に嬉しかった。",
-    name: "中村 翔太",
-    role: "フリーランス・TOEIC学習中",
-  },
 ];
 
 const FAQ = [
