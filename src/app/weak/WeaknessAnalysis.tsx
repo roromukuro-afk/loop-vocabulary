@@ -58,7 +58,11 @@ export function WeaknessAnalysis({ isPremium }: { isPremium: boolean }) {
           <span>🔬</span>
           <span>{loading ? "AIが分析中…" : "AI弱点分析を実行（Premium）"}</span>
         </button>
-        {error && <p className="text-xs text-red-600 mt-1 text-center">{error}</p>}
+        {error && (
+          <p className="text-xs text-red-600 mt-1 text-center">
+            {error}（上の「傾向を確認」もあわせてご覧ください）
+          </p>
+        )}
       </div>
     );
   }

@@ -5,6 +5,112 @@
 
 ---
 
+## 2026-07-05 AI弱点分析のMVP整理・強化（収益化・Premium転換の観点）
+
+**目的**: 無料ユーザーには「苦手単語の確認」、Premiumユーザーには「詳しい弱点分析」
+という自然な価値差を作りたいというオーナー要望に対応する。過剰な煽りではなく、
+「自分の弱点が分かる」「次に何を復習すべきか分かる」「品詞・単語帳・間違え方の
+傾向が分かる」「Premiumにすると分析が深くなる」という方向性で`/weak`ページを整理・
+強化する。
+
+**調査結果**（コード変更前に実施）:
+- `/weak`ページ（`src/app/weak/page.tsx`）・AI弱点分析API
+  （`src/app/api/ai/weakness-analysis/route.ts`）・Premium判定（`profiles.is_premium`）
+  は**いずれもすでに実装済み**だった。2026-07-03のPremium判定バグ修正
+  （`profiles.plan`という存在しないカラムを参照していたバグの修正、
+  `scripts/testing/verify-premium-gating.mjs`で回帰確認）の際に、`/weak`の
+  AI弱点分析機能自体も一緒に整備されていたことが今回の調査で判明した。
+- AI分析（Anthropic、`claude-haiku-4-5-20251001`、最大1024トークン）は
+  `words`の`word/meaning/wrong_count/correct_count/streak/pos`（誤答上位30語）
+  のみを送信し、要約・弱点パターン・改善アドバイス・今日からできることをJSON形式で
+  返す設計で、すでに十分実用的なMVPとして機能していた。
+- 既存のAI利用上限（`api/ai/route.ts`の`DAILY_LIMIT`）・
+  `reward_tickets(kind=ai_generation)`の消費は、この弱点分析ルートからは一切
+  参照されていない（AI生成とは完全に独立した別ルートのため、干渉の可能性は無い）。
+- 一方で、無料ユーザーが`/weak`ページで見られる情報は「単語・意味・正誤回数・
+  正答率」のみで、`mastery`（習熟度）・`pos`（品詞）・`word_book_id`（単語帳）は
+  そもそも取得すらしておらず、`/review`への復習導線も存在しなかった。
+
+**やったこと**:
+1. **`/weak`ページの無料枠拡充**: 取得列に`mastery`/`pos`/`word_book_id`を追加し、
+   `word_books`も軽量に取得（`id, title`のみ、1クエリ追加）。各単語行に品詞バッジ・
+   単語帳名（📘アイコン付き）・習熟度%を追加表示。
+2. **「傾向を確認」セクションの新設**（`data-testid="weak-trend-summary"`）:
+   AIを一切使わず、取得済みの苦手単語リストをその場で決定論的に集計するだけの
+   軽量なロジック（品詞別苦手数トップ5・単語帳別苦手数トップ5・習熟度が低い単語
+   トップ5）。無料・Premium問わず常時表示することで、無料ユーザーでも「品詞・
+   単語帳・間違え方の傾向」が分かるようにした。追加のDBクエリは`word_books`の
+   1件のみ（`words`は元々取得済みのデータを再利用）で、ページ表示速度への影響は
+   無視できる程度。
+3. **復習導線の新設**: 「🔁 今すぐ復習する」（`/review`へ）・「まず10語だけ
+   復習する」（`/review?start=1&mode=recovery&limit=10`）を追加。既存の
+   `/review`のdue取得クエリは`next_review_at.lte.now OR is_weak.eq.true`のため、
+   苦手単語（`is_weak=true`）は元々このプールに含まれる設計。既存のリカバリー
+   モードをそのまま再利用しており、SRS V2の中核ロジック（採点・
+   `ease_factor`/`interval_days`更新等）は一切変更していない。
+4. **Premium向けAI分析の失敗時フォールバック**: `WeaknessAnalysis.tsx`のAI分析
+   ボタン・API呼び出し・レポート表示ロジック自体は変更していない（すでに十分な
+   MVPだったため）。AI呼び出しが失敗した場合のエラーメッセージに
+   「（上の「傾向を確認」もあわせてご覧ください）」という一文を追加し、常時表示の
+   決定論的セクションへ誘導することで、AI失敗時もページが手詰まりに見えないように
+   した。決定論的セクションを`WeaknessAnalysis.tsx`内に複製する設計は、常時表示
+   セクションとの重複になるため避けた。
+5. **非Premiumユーザーへの案内**: 既存の「🔬 AI弱点分析（Premium）」
+   「間違いのパターンをAIが分析し改善策を提案」「プレミアムで解放する →」は
+   元々十分控えめだったため変更していない。
+
+**AIに送るデータ**: 変更なし。既存のまま（上位30語のword/meaning/wrong_count/
+correct_count/posのみ、集計統計を添えた1回のプロンプト）。単語帳別の分析は
+AIには一切送らず、決定論的な集計のみで対応することで、AI入力を増やさずに
+済ませた（オーナー指示の「AIレスポンスに頼りすぎず、入力データは最小限に」に対応）。
+
+**`ai_generation`チケットへの影響**: なし。この分析ルートはそもそも
+`reward_tickets`を一切参照しない設計のため、消費仕様に触れる余地自体が無い。
+E2Eテストで実際にAI分析を実行した前後で`ai_generation`チケットの行数が
+変化しないことも確認した。
+
+DBスキーマ変更・RLS変更・SRS V2中核ロジック変更・teacher機能変更・教材データ変更・
+AdSense広告枠追加なし。
+
+**変更ファイル**: `src/app/weak/page.tsx`（取得列拡張・「傾向を確認」セクション
+追加・復習導線追加・単語行の品詞/単語帳/習熟度表示追加）、
+`src/app/weak/WeaknessAnalysis.tsx`（AI失敗時のエラーメッセージにフォールバック
+誘導の一文を追加のみ）、`scripts/testing/e2e/weak-analysis.mjs`（新規）、
+`scripts/testing/run-e2e.mjs`（ステップ20として追加）、`package.json`
+（`test:weak-analysis`スクリプト追加）、`NEXT_IMPROVEMENTS.md`、
+`PRODUCTION_MONITORING.md`、`WORK_HISTORY.md`。
+
+**追加・更新したテスト**: `scripts/testing/e2e/weak-analysis.mjs`（新規、
+`npm run test:weak-analysis`、20項目）:
+1. 苦手単語ありユーザー（test+srs、専用単語帳・品詞と習熟度にばらつきを持たせた
+   4語）で、苦手リストに品詞バッジ・単語帳名・習熟度%が表示されること・
+   「傾向を確認」セクションの品詞別/単語帳別/習熟度が低い順の集計内容が
+   正しいことを検証。
+2. 「今すぐ復習する」から実際に`/review`へ遷移することを検証。
+3. 苦手単語なしユーザー（test+onboarding、0語）で「苦手単語はまだありません」の
+   表示のみになり、「傾向を確認」セクションが表示されず、崩れないことを検証。
+4. 非Premiumで「AI弱点分析（Premium）」の控えめな案内が表示されることを検証。
+5. Premiumで「AI弱点分析を実行」ボタンから実際にAnthropic APIを呼び出し、
+   成功時はレポートが表示されることを確認（実行時は成功、AI失敗時の
+   フォールバック文言表示も許容するレース条件で検証し、環境に左右されない
+   設計にした）。
+6. `reward_tickets(kind=ai_generation)`の行数が一連の操作前後で変化しないことを
+   検証。
+7. ダッシュボードの苦手単語カード「すべて見る →」から実際に`/weak`へ遷移する
+   ことを検証。
+既存の`scripts/testing/verify-premium-gating.mjs`（`/weak`のPremium判定を含む）にも
+回帰なしを確認。
+
+**検証結果**: `tsc --noEmit`（エラー無し）/ `build`（成功）/ `test:smoke`（全PASS）/
+`test:weak-analysis`（20項目、全PASS）/ `test:e2e`（20フロー全PASS、
+既存回帰なし）/ `verify:prod`（全PASS）/ `verify:srs-global`（V2グローバルフラグ
+本番反映を再確認、全PASS）。
+
+**残課題**: なし。将来的にAI分析へ単語帳別の弱点を含める場合は、AI入力の増加に
+見合う価値があるか慎重に判断すべき（現状は決定論的な集計で十分と判断した）。
+
+---
+
 ## 2026-07-05 無料再挑戦と広告再挑戦の役割分担を整理
 
 **目的**: 前回のextra_review調査で見つかった残課題「広告なしの『もう一度』ボタンが、

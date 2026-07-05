@@ -263,6 +263,17 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
   Premium/無料の差別化ではない）。`extra_review`のreward_tickets非永続化は維持。
   `test:extra-review-ticket`を拡張（15項目）し、無料ボタンのラベル・実際の
   出題件数の絞り込み・広告ボタンでの全語/新問題再開・DB非干渉を検証。
+- **AI弱点分析のMVP整理・強化**: 2026-07-05実装済み（優先度A項目35）。`/weak`と
+  Premium向けAI分析（`/api/ai/weakness-analysis`）はすでに実装済みだったことが
+  調査で判明。無料ユーザーでも品詞別・単語帳別・習熟度別の傾向が分かる決定論的な
+  「傾向を確認」セクション（AI不要、`data-testid="weak-trend-summary"`）を新設し、
+  各単語行にも品詞バッジ・単語帳名・習熟度%を追加表示。「今すぐ復習する」
+  「まず10語だけ復習する」の復習導線も新設（既存の`/review`リカバリーモードを再利用、
+  SRS V2中核ロジックは無変更）。Premium向けAI分析が失敗した場合は、常時表示の
+  「傾向を確認」セクションへ誘導する一文をエラーメッセージに追加し、ページが
+  手詰まりに見えないようにした。AIに送るデータ・`ai_generation`チケットの消費仕様は
+  無変更。`test:weak-analysis`（週次`test:e2e`）で一覧・傾向集計・復習導線・
+  非Premium案内・Premium実行結果・ダッシュボード連携を検証。
 - **教材・辞書ページの内部リンク強化**: 2026-07-04実装済み（優先度A項目23）。関連教材
   セクション・教材⇄辞書の相互CTA・カテゴリクイックジャンプ等を追加。`test:internal-links`が
   週次`test:e2e`に含まれているため、新規教材追加時も関連教材表示の退行があれば自動検知される
@@ -295,6 +306,7 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 | `npm run test:dashboard-insights` | `/dashboard`の習得率カード・苦手単語カード・今日の達成チケットを変更した時 | 0語ユーザーでのカード非表示（習得率/苦手単語）・「今日の達成チケット」の0語表示崩れ無し、通常ユーザーでの習得率内訳・苦手単語表示・「今日の達成チケット」が実際の`daily_stats`と整合していること・`/wordbooks`/`/review`/`/weak`各リンク導線・非Premium向けPremium導線・重複タイル非存在、due単語20件以上での既存リカバリーヒントとの共存（習得率/苦手単語/今日の達成チケットいずれも）、モバイル幅(375px)での横スクロール無し、を実ブラウザで検証 |
 | `npm run test:reward-ticket-claim` | `/api/gamification/claim-daily-ticket`・`ClaimDailyTicketButton`・`TodayRewardTickets`・`reward_tickets`のDB制約を変更した時 | 未達成時はボタンが押せずAPI直接呼び出しも400 not_eligibleで拒否・達成後はボタンから1枚だけ記録できる・同日2回目は409 already_claimedで拒否され行数が増えない・リロード後も「記録済み」表示と累計「通算◯日分」表示が維持され行数が増えない・0語ユーザーで崩れない・既存の広告視聴チケット(kind=ai_generation等)と混ざらない・モバイル幅での崩れなし・8件同時POSTでもDBの部分ユニークインデックスにより1枚しか作成されない、を実ブラウザ+DB直接確認で検証（23項目） |
 | `npm run test:extra-review-ticket` | `src/lib/native/rewards.ts`(`watchRewardedAndGrant`)・`FlipCardRunner.tsx`・`ChoiceTestRunner.tsx`の広告視聴導線・無料/広告再挑戦の役割分担を変更した時 | FlipCardRunnerで誤答時のみ無料「間違えた◯語だけもう一度」が表示されクリックで実際にその語だけに絞り込まれる・全問正答時は広告ボタンのみ残る・広告ボタンでは元の全語が再出題される、ChoiceTestRunnerで無料「同じ問題をもう一度」が全く同じ問題(`data-word-id`順)を再演習する・広告「別の10問に挑戦」で新しい問題セットが始まる、いずれも`reward_tickets(kind=extra_review)`に新規行が作られない・`ai_generation`/`daily_achievement`等ほかのkindの行数が変化しない・0語ユーザーで`/review`が崩れない、を実ブラウザ+DB直接確認で検証（15項目） |
+| `npm run test:weak-analysis` | `src/app/weak/page.tsx`・`WeaknessAnalysis.tsx`・`api/ai/weakness-analysis/route.ts`を変更した時 | 苦手単語ありユーザーで一覧・品詞/単語帳/習熟度バッジ・「傾向を確認」の集計(品詞別/単語帳別/習熟度低い順)が正しい・「今すぐ復習する」「まず10語だけ復習する」から実際に`/review`へ遷移する・苦手単語なしユーザーで崩れない・非Premiumで控えめな案内・PremiumでAI分析実行結果(成功/失敗いずれもページが壊れない)・`reward_tickets(kind=ai_generation)`に影響なし・ダッシュボードの苦手単語カードからの遷移、を実ブラウザ+DB直接確認で検証（20項目） |
 | `npm run verify:seo-lp-audit` | sitemap.ts・robots.txt・カテゴリLPのmetadataを変更した時／**本番デプロイ後** | 本番の`/sitemap.xml`に主要ページ・3LPが含まれるか・`/robots.txt`が対象パスをブロックしていないか・3LPのcanonicalが自分自身を指すか・JSON-LD(BreadcrumbList/ItemList)が妥当なJSONか・既存`/materials/[id]`への非影響を、HTTPのみ（ブラウザ不要）で検証。`verify:prod`同様デフォルトで本番URLを対象とする |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |

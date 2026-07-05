@@ -97,6 +97,9 @@ async function main() {
 
     console.log("\n=== 19. extra_review ticket (広告視聴→追加復習) E2E ===");
     results.extraReviewTicket = runNode("scripts/testing/e2e/extra-review-ticket.mjs");
+
+    console.log("\n=== 20. /weak 弱点分析(傾向を確認・AI分析) E2E ===");
+    results.weakAnalysis = runNode("scripts/testing/e2e/weak-analysis.mjs");
   } finally {
     stopDevServer(dev);
   }

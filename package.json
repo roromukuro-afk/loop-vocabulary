@@ -30,6 +30,7 @@
     "test:dashboard-insights": "node scripts/testing/e2e/dashboard-insights.mjs",
     "test:reward-ticket-claim": "node scripts/testing/e2e/reward-ticket-claim.mjs",
     "test:extra-review-ticket": "node scripts/testing/e2e/extra-review-ticket.mjs",
+    "test:weak-analysis": "node scripts/testing/e2e/weak-analysis.mjs",
     "test:dates": "node scripts/testing/test-date-utils.mjs",
     "test:gamification-rewards": "node scripts/testing/test-gamification-rewards.mjs",
     "test:quiz": "node scripts/testing/test-learning-selection.mjs",
