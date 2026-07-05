@@ -16,9 +16,12 @@ const DAILY_GOAL = 20;
  *   ルート内でユーザー自身のdaily_stats/study_resultsから毎回サーバー側で
  *   再計算する（クライアントから送られた値は一切信用しない）
  * - 同じkind(daily_achievement)で本日すでに付与済みかを直前に確認してから
- *   INSERTする。DB側のユニーク制約は無いため、ごく短い競合ウィンドウ
- *   （同時多重リクエスト）は理論上残る。詳細はWORK_HISTORY.md参照
- *   （必要ならDB制約の追加を別途提案する）
+ *   INSERTする（check-then-insert）。それに加えて reward_tickets には
+ *   (user_id, JST日付) の部分ユニークインデックス（kind='daily_achievement'のみ対象、
+ *   migrations/014_daily_achievement_ticket_unique.sql）がDB側に存在するため、
+ *   同時多重リクエストでこの事前チェックをすり抜けても、2件目以降のINSERTは
+ *   一意制約違反(23505)でDBに拒否される。その場合は下のcatchで
+ *   already_claimedとして扱い、クライアントには通常の「付与済み」と同じ形で返す。
  */
 export async function POST() {
   const supabase = await createClient();
@@ -72,6 +75,9 @@ export async function POST() {
     .from("reward_tickets")
     .insert({ user_id: user.id, kind: DAILY_ACHIEVEMENT_TICKET_KIND, amount: 1 });
   if (error) {
+    if (error.code === "23505") {
+      return NextResponse.json({ claimed: false, reason: "already_claimed" }, { status: 409 });
+    }
     return NextResponse.json({ claimed: false, reason: "db_error" }, { status: 500 });
   }
 

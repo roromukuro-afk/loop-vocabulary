@@ -5,6 +5,108 @@
 
 ---
 
+## 2026-07-05 `daily_achievement`チケットの二重付与防止をDB側で完全化
+
+**目的**: 前回実装した「今日の達成チケット」実付与の残課題として、
+`POST /api/gamification/claim-daily-ticket`のcheck-then-insert方式に残る、
+同時多重リクエストによる二重付与の理論上の競合ウィンドウをDB側でも完全に塞ぐ。
+チケットはAI利用上限バイパス等の収益に関わりうるため、アプリ層だけでなくDB側でも
+1日1枚を保証したいというオーナー要望。
+
+**調査結果**（実装前にDBへ直接クエリして確認）:
+- `reward_tickets`の列は`id`(uuid)/`user_id`(uuid)/`kind`(text)/`amount`(int, default 1)/
+  `used_amount`(int, default 0)/`granted_at`(timestamptz, default now())/
+  `expires_at`(timestamptz, nullable)。`expires_at`はアプリケーションコードのどこからも
+  参照・enforceされていない未使用列であることを確認。
+- 既存インデックスは主キー(`id`)のみ（`pg_indexes`で確認）。他の制約は一切無い、
+  完全にクリーンな状態。
+- 本番の`reward_tickets`の`kind`別件数は`extra_review`が9件、`daily_achievement`が1件
+  （前回ラウンドの検証で実際に付与された`test+srs@loop-vocabulary.app`の1件）のみ。
+  `ai_generation`等ほかのkindは現在0件。
+- **重複チェック**: `kind='daily_achievement'`を`user_id`とJST日付
+  （`(granted_at at time zone 'Asia/Tokyo')::date`）でグルーピングし
+  `HAVING COUNT(*) > 1`で検索した結果、**該当0件**。既存本番データに重複は無いため、
+  データ削除・移行の判断は不要（オーナー指示の「重複があれば報告してから対応方針を決める」
+  というゲートは「重複が存在しない」ことをもって満たされた）。
+
+**採用した二重付与防止方式**: オーナー提案の「案A: `grant_date_jst`列を追加+部分ユニーク
+インデックス」に対し、**新しい列を追加しない部分ユニークインデックスのみ**という軽量な
+代替案を採用（オーナー提案の意図は維持しつつ、スキーマ変更を最小化）。
+`migrations/014_daily_achievement_ticket_unique.sql`:
+```sql
+create unique index if not exists reward_tickets_daily_achievement_one_per_jst_day
+  on public.reward_tickets (user_id, ((granted_at at time zone interval '9:00:00')::date))
+  where kind = 'daily_achievement';
+```
+新しい列・バックフィルが不要な分、既存行への影響が一切ない状態でJST日付の一意性を
+`granted_at`から直接算出できる。
+
+**実装中に判明した技術的な注意点**（案Aを設計時から一段強めた理由）:
+- 当初 `(granted_at + interval '9 hours')::date` という式で作成を試みたところ、
+  Postgresから `42P17: functions in index expression must be marked IMMUTABLE` で
+  拒否された。原因は、`interval`を足した結果が依然`timestamptz`型のままであり、
+  その後の`::date`キャストがセッションの`TimeZone`設定に依存する**STABLE**な変換に
+  なるため（インデックス式は**IMMUTABLE**関数のみ許可される）。
+- `granted_at at time zone 'Asia/Tokyo'`のような**named timezone**変換も、
+  タイムゾーンDB（うるう秒・DST等のルール変更の可能性）に依存するためSTABLE扱いとなり、
+  同様にインデックス式には使えない。
+- 最終的に採用した`granted_at at time zone interval '9:00:00'`（**固定interval**での
+  タイムゾーン変換）は、`timestamptz`から`timestamp`（タイムゾーン情報なし）へ変換する
+  演算で、セッション設定に一切依存しないIMMUTABLEな変換のため、インデックス式として
+  使用できた。この固定+9時間オフセットという基準は、アプリ全体で使われている
+  `src/lib/utils/date.ts`の`JST_OFFSET_MS`固定オフセット計算と同じ考え方であり、
+  DB側の「JSTの日付境界」とアプリ側の「JSTの日付境界」がずれる心配もない。
+
+**既存チケットへの影響**: `WHERE kind = 'daily_achievement'`という部分インデックスの
+述語により、`ai_generation`/`pdf_export`/`extra_review`/`weak_word_test`/
+`analysis_ticket`等ほかのkindの行はこのインデックスの対象外。それらの付与・消費コードは
+一切変更していない。RLSも無変更（既存の`tickets owner all`ポリシーのまま）。
+
+**アプリ層の防御的多重化**: DB制約だけに頼らず、`claim-daily-ticket`ルートのINSERT失敗時、
+Postgresの一意制約違反エラーコード`23505`を検知した場合は、既存のcheck-then-insert経路と
+同じ`409 { claimed: false, reason: "already_claimed" }`を返すよう変更
+（`src/app/api/gamification/claim-daily-ticket/route.ts`）。それ以外のDBエラーは
+従来通り`500 db_error`のまま。クライアント側の`ClaimDailyTicketButton.tsx`は元々
+`reason === "already_claimed"`を正常系（受け取り済み表示）として扱う実装だったため、
+UIコンポーネントは一切変更していない。
+
+**同時リクエスト耐性の確認**: `scripts/testing/e2e/reward-ticket-claim.mjs`に新シナリオ
+（7番目）を追加し、達成済み状態のユーザーに対して**8件のPOSTリクエストを`Promise.all`で
+同時発火**した結果を検証。8件中`claimed:true`はちょうど1件、残り7件は全て
+`409 already_claimed`で穏当に拒否（500エラーやその他の異常応答は0件）、DB側の
+`reward_tickets`(kind=daily_achievement)行数も検証後にちょうど1件のままであることを確認した。
+
+**マイグレーション適用前後の状態**:
+- 適用前: `reward_tickets`のインデックスは`reward_tickets_pkey`のみ。
+- 適用後: `reward_tickets_pkey`に加えて
+  `reward_tickets_daily_achievement_one_per_jst_day`（`CREATE UNIQUE INDEX ... ON
+  public.reward_tickets USING btree (user_id, (((granted_at AT TIME ZONE
+  '09:00:00'::interval))::date)) WHERE (kind = 'daily_achievement'::text)`）が追加された
+  ことを`pg_indexes`への再クエリで確認済み。データの削除・変更は一切行っていない
+  （インデックス追加のみ、行データは無変更）。
+
+**変更ファイル**: `supabase/migrations/014_daily_achievement_ticket_unique.sql`（新規、
+本番へ`apply_migration`で適用済み）、
+`src/app/api/gamification/claim-daily-ticket/route.ts`（23505エラーハンドリング追加）、
+`scripts/testing/e2e/reward-ticket-claim.mjs`（同時POSTシナリオ追加、18項目→22項目）、
+`NEXT_IMPROVEMENTS.md`、`PRODUCTION_MONITORING.md`、`WORK_HISTORY.md`。
+
+**検証結果**: `tsc --noEmit`（エラー無し）/ `build`（成功）/ `test:smoke`（全PASS）/
+`test:reward-ticket-claim`（22項目、全PASS、新シナリオ含む）/ `test:e2e`
+（18フロー全PASS、既存回帰なし）/ `verify:prod`（全PASS）/ `verify:srs-global`
+（V2グローバルフラグ本番反映を再確認、全PASS）。
+
+**変更していないもの**: `reward_tickets`の既存列（列追加なし）、RLSポリシー、
+`ai_generation`等ほかのkindの付与・消費ロジック、`ClaimDailyTicketButton.tsx`等の
+既存UI、SRS V2中核ロジック、teacher機能、教材データ、AdSense広告枠、
+学習中/復習中画面。
+
+**残課題**: なし。`daily_achievement`の1日1枚制限はDB側の部分ユニークインデックスで
+物理的に保証される設計になったため、アプリ層のバグやリトライ処理の変更があっても
+二重付与は起こり得ない。
+
+---
+
 ## 2026-07-05 「今日の達成チケット」の実付与（reward_tickets連携）を実装
 
 **目的**: 前回チケット風UI表示のみに留めた「今日の達成チケット」について、安全に実際の

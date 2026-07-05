@@ -12,6 +12,8 @@
  * 5. 0語ユーザーでもダッシュボード・チケットカードが崩れないこと
  * 6. 既存の広告視聴チケット(kind=ai_generation等)と混ざらない・干渉しないこと
  * 7. モバイル幅(375px)で崩れないこと
+ * 8. 同時に複数のPOSTを送っても reward_tickets(kind=daily_achievement) が1件しか
+ *    作成されないこと（migrations/014の部分ユニークインデックスによる排他制御の確認）
  *
  * 使い方: node scripts/testing/e2e/reward-ticket-claim.mjs
  */
@@ -208,6 +210,59 @@ async function main() {
       fail(`既存チケットとの区別確認が想定と異なる (ai_generation=${(aiTickets ?? []).length}件, daily_achievement=${(achievementTickets ?? []).length}件)`);
     }
     await admin.from("reward_tickets").delete().eq("user_id", onboardingId).eq("kind", "ai_generation");
+
+    // ================= 7. 同時多重POSTでも1枚しか作成されない（DB制約の排他制御確認） =================
+    console.log("\n--- 7. 同時に複数のPOSTを送っても reward_tickets が1件しか作成されない ---");
+    // 今日分のdaily_achievementチケットのみリセットし、daily_statsは達成済み(scenario 2で設定済み)のまま維持する。
+    await admin.from("reward_tickets").delete().eq("user_id", onboardingId).eq("kind", "daily_achievement");
+
+    const page5 = await browser.newPage();
+    await suppressOnboardingModal(page5);
+    const errors5 = collectErrors(page5);
+    await login(page5, baseUrl, TEST_ACCOUNTS.onboarding.email, process.env[TEST_ACCOUNTS.onboarding.passwordEnvKey]);
+
+    const CONCURRENCY = 8;
+    const concurrentResults = await page5.evaluate(async (n) => {
+      const calls = Array.from({ length: n }, () =>
+        fetch("/api/gamification/claim-daily-ticket", { method: "POST" }).then(async (res) => ({
+          status: res.status,
+          body: await res.json().catch(() => null),
+        }))
+      );
+      return Promise.all(calls);
+    }, CONCURRENCY);
+
+    const claimedTrueCount = concurrentResults.filter((r) => r.body?.claimed === true).length;
+    const gracefulLosers = concurrentResults.filter(
+      (r) => r.body?.claimed === false && r.status === 409 && r.body?.reason === "already_claimed"
+    ).length;
+    const ungracefulResults = concurrentResults.filter(
+      (r) => !(r.body?.claimed === true) && !(r.status === 409 && r.body?.reason === "already_claimed")
+    );
+
+    if (claimedTrueCount === 1) {
+      ok(`${CONCURRENCY}件の同時POSTのうち、claimed:trueはちょうど1件だった`);
+    } else {
+      fail(`${CONCURRENCY}件の同時POST中、claimed:trueが${claimedTrueCount}件だった（1件であるべき）: ${JSON.stringify(concurrentResults)}`);
+    }
+
+    if (gracefulLosers === CONCURRENCY - 1) {
+      ok(`残り${CONCURRENCY - 1}件は全て409 already_claimedで穏当に拒否された（DB一意制約またはcheck-then-insertのいずれか一方で捕捉）`);
+    } else {
+      fail(`同時POSTの敗者側の応答が想定外: ${JSON.stringify(ungracefulResults)}`);
+    }
+
+    const rowsAfterConcurrent = await getDailyAchievementTickets(admin, onboardingId);
+    if (rowsAfterConcurrent.length === 1) {
+      ok("同時多重POST後もreward_tickets(kind=daily_achievement)はちょうど1件のまま（DB側の部分ユニークインデックスが競合を防いだ）");
+    } else {
+      fail(`同時多重POST後のreward_tickets行数が想定外: ${rowsAfterConcurrent.length}件`);
+    }
+
+    const realErrors5 = ignoreExpectedApiErrorNoise(errors5);
+    if (realErrors5.length === 0) ok("同時多重POST中にconsole error / 5xxなし（意図的な409応答のノイズは除く）");
+    else fail(`console error / 5xx 発生: ${realErrors5.join(" | ")}`);
+    await page5.close();
   } finally {
     await resetOnboardingUser(admin, onboardingId);
     await admin.from("reward_tickets").delete().eq("user_id", onboardingId);

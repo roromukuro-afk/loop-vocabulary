@@ -560,13 +560,51 @@
     検証: `tsc --noEmit` / `build` / `test:smoke` / `test:reward-ticket-claim`（18項目、
     全PASS） / `test:e2e`（18フロー全PASS、回帰なし） / `verify:prod` /
     `verify:srs-global`、全PASS。
-    **残課題**: DB側のユニーク制約（例:
-    `granted_date_jst date generated always as ((granted_at at time zone
-    'Asia/Tokyo')::date) stored` +
-    `unique index on reward_tickets(user_id, kind, granted_date_jst)`）を追加すれば
-    アプリケーション層のcheck-then-insertに残る短い競合ウィンドウを完全に閉じられる。
-    今回はDBスキーマ変更を避けるという方針のため実装せず、必要性の報告のみに留める。
-    詳細は[WORK_HISTORY.md](WORK_HISTORY.md)参照。
+    **残課題（2026-07-05に解消済み）**: DB側のユニーク制約が無いことに起因する、
+    アプリケーション層check-then-insertの短い競合ウィンドウ。詳細は完了項目31参照。
+
+31. ✅ **完了（2026-07-05）: `daily_achievement`チケットの二重付与防止をDB側で完全化**
+    （優先度A完了項目30の残課題を解消）
+    項目30で残していた「同時多重リクエストによる二重付与の理論上の競合ウィンドウ」を、
+    新しい列を追加せずに閉じた。
+    **調査結果**: `reward_tickets`の既存インデックスは主キー(`id`)のみ。`granted_at`は
+    `timestamptz`、`expires_at`はどのコードからも参照されない未使用列。本番データを
+    調査した結果、`kind="daily_achievement"`は現在1件のみでユーザー×JST日の重複は
+    0件、他に存在する`kind`は`extra_review`のみ（削除・移行が必要な既存重複データなし）。
+    **採用した方式**: 新しい列を追加する案（`grant_date_jst`列＋部分ユニークインデックス）
+    ではなく、`granted_at`から直接JST日付を算出する**部分ユニークインデックス**のみを
+    追加（`migrations/014_daily_achievement_ticket_unique.sql`）。
+    ```sql
+    create unique index if not exists reward_tickets_daily_achievement_one_per_jst_day
+      on public.reward_tickets (user_id, ((granted_at at time zone interval '9:00:00')::date))
+      where kind = 'daily_achievement';
+    ```
+    新しい列やバックフィルが不要になる分スキーマ変更が小さく済むメリットがある。
+    実装中に判明した注意点として、Postgresのインデックス式はIMMUTABLE関数のみ許可されるため、
+    named timezone変換（`at time zone 'Asia/Tokyo'`、STABLE）や、timestamptzのままの
+    `::date`キャスト（セッションのTimeZone設定に依存しSTABLE）はどちらもインデックス式に
+    使えない（42P17エラー）。固定interval(`at time zone interval '9:00:00'`)でtimestamp
+    (tzなし)に変換してから`::date`する形のみがIMMUTABLEでインデックスに使用可能。この
+    固定+9時間オフセットは`src/lib/utils/date.ts`のJST_OFFSET_MS計算と同じ基準。
+    `WHERE kind = 'daily_achievement'`の部分インデックスのため、`ai_generation`/
+    `extra_review`等ほかのkindの付与・消費には一切影響しない。
+    **アプリ層の防御的多重化**: DB制約に加え、`claim-daily-ticket`ルートのINSERTで
+    一意制約違反(Postgresエラーコード`23505`)を検知した場合も、既存のcheck-then-insert
+    パスと同じ`409 { claimed: false, reason: "already_claimed" }`を返すようにした
+    (`src/app/api/gamification/claim-daily-ticket/route.ts`)。クライアント側
+    (`ClaimDailyTicketButton.tsx`)は元々`already_claimed`を正常系として扱う実装だった
+    ため、UI側の変更は一切不要だった。
+    DBスキーマの列追加・RLS変更・SRS V2中核ロジック変更・teacher機能変更・教材データ変更・
+    AdSense広告枠追加・既存チケットUIの変更なし。
+    テスト: `scripts/testing/e2e/reward-ticket-claim.mjs`に同時8件POSTのシナリオ（7番目）を
+    追加（`npm run test:reward-ticket-claim`、22項目に拡張）。8件同時POST中
+    claimed:trueがちょうど1件・残り7件は409 already_claimedで穏当に拒否・DBの行数は1件のまま、
+    を検証。
+    検証: `tsc --noEmit` / `build` / `test:smoke` / `test:reward-ticket-claim`（22項目、
+    全PASS） / `test:e2e`（18フロー全PASS、回帰なし） / `verify:prod` /
+    `verify:srs-global`、全PASS。マイグレーション適用前後の状態は
+    [WORK_HISTORY.md](WORK_HISTORY.md)参照。
+    **残課題**: なし（DBユニーク制約により1日1枚が完全に保証される設計になった）。
 
 ---
 
@@ -872,19 +910,13 @@ descriptionを持ち、構造化データ（BreadcrumbList・FAQPage・Article�
 
 - 上記以外の新機能全般は、まず優先度A・Bの安定運用が回り始めてから検討する
 
-## ゲーミフィケーション×リワードチケットの次の一手（優先度A完了項目30の延長・提案のみ）
+## ゲーミフィケーション×リワードチケットの次の一手（優先度A完了項目30・31の延長・提案のみ）
 
 「今日の達成チケット」は2026-07-05に、`kind="daily_achievement"`での実付与
-（`POST /api/gamification/claim-daily-ticket`、1日1枚まで）まで実装済み（完了項目30参照）。
+（`POST /api/gamification/claim-daily-ticket`、1日1枚まで）と、DB側の部分ユニーク
+インデックスによる二重付与防止の完全化（完了項目31）まで実装済み。
 さらに発展させる場合の設計案（**いずれも実装はせず提案に留める**）:
 
-- **DBユニーク制約による二重付与防止の完全化**（DBスキーマ変更が必要、要オーナー承認）:
-  現状はアプリケーション層のcheck-then-insertのみで、同一ユーザーからの同時多重リクエストに
-  対する理論上の競合ウィンドウが残っている。`reward_tickets`に
-  `granted_date_jst date generated always as ((granted_at at time zone
-  'Asia/Tokyo')::date) stored`のような生成列を追加し、
-  `unique index on (user_id, kind, granted_date_jst)`を張ることで、DB側でも
-  完全に1日1枚を保証できる。実利用開始後、実際に競合が問題になった場合に検討する。
 - **付与条件の段階化**: 現状は4条件のうちどれか1つで1枚だが、達成数に応じて枚数を増やす
   （例: 2条件達成で2枚、全達成で3枚）等の段階化も可能。ただし過剰な無料配布を避けるため
   慎重に検討する。
