@@ -1,17 +1,24 @@
 import { computeTodayTickets, nextTodayTicket, type TodayTicketsInput } from "@/lib/gamification/rewardTickets";
+import { ClaimDailyTicketButton } from "./ClaimDailyTicketButton";
+
+interface Props extends TodayTicketsInput {
+  /** 本日すでにreward_tickets(kind=daily_achievement)を受け取り済みか */
+  alreadyClaimedToday: boolean;
+}
 
 /**
  * 「今日の達成チケット」— 当日の学習で得られるごほうびをチケット風に可視化する。
- * 実際に消費できるリワードチケット(reward_ticketsテーブル)への付与は行わない
- * （SSR描画のたびに書き込むと二重付与のリスクがあるため、表示のみに留めている）。
+ * 4種のうち1つでも達成すれば、下部のボタンから実際に reward_tickets へ1日1枚
+ * 付与を受け取れる（ユーザー操作起点のみ・SSR描画中の自動付与は行わない）。
  * 判定ロジック本体は src/lib/gamification/rewardTickets.ts に切り出し、単体テスト
  * （scripts/testing/test-gamification-rewards.mjs）で検証している。
  */
-export function TodayRewardTickets(input: TodayTicketsInput) {
+export function TodayRewardTickets({ alreadyClaimedToday, ...input }: Props) {
   const tickets = computeTodayTickets(input);
   const doneCount = tickets.filter((t) => t.done).length;
   const allDone = doneCount === tickets.length;
   const nextTicket = nextTodayTicket(tickets);
+  const eligible = doneCount > 0;
 
   return (
     <div className="mt-5 bg-white rounded-2xl border border-navy-100 overflow-hidden" data-testid="today-reward-tickets">
@@ -52,6 +59,9 @@ export function TodayRewardTickets(input: TodayTicketsInput) {
           「{nextTicket.icon} {nextTicket.label}」達成！
         </div>
       ) : null}
+      <div className="border-t border-navy-50">
+        <ClaimDailyTicketButton eligible={eligible} alreadyClaimedToday={alreadyClaimedToday} />
+      </div>
     </div>
   );
 }

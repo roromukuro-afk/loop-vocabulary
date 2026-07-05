@@ -27,6 +27,7 @@ async function main() {
     "/api/teacher/join",
     "/api/teacher/membership",
     "/api/teacher/invite-code",
+    "/api/gamification/claim-daily-ticket",
   ]);
   allPass = printResults("POST-only API routes via GET (expect 405)", apis) && allPass;
 

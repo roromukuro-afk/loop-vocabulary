@@ -91,6 +91,9 @@ async function main() {
 
     console.log("\n=== 17. dashboard insights (mastery/weak-words cards) E2E ===");
     results.dashboardInsights = runNode("scripts/testing/e2e/dashboard-insights.mjs");
+
+    console.log("\n=== 18. reward ticket claim (今日の達成チケット実付与) E2E ===");
+    results.rewardTicketClaim = runNode("scripts/testing/e2e/reward-ticket-claim.mjs");
   } finally {
     stopDevServer(dev);
   }

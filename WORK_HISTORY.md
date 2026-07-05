@@ -5,6 +5,124 @@
 
 ---
 
+## 2026-07-05 「今日の達成チケット」の実付与（reward_tickets連携）を実装
+
+**目的**: 前回チケット風UI表示のみに留めた「今日の達成チケット」について、安全に実際の
+`reward_tickets`へ付与できるかを調査し、可能であれば実装する。
+
+**調査結果**:
+- `reward_tickets`のカラムは`id`/`user_id`/`kind`(text)/`amount`/`used_amount`/
+  `granted_at`/`expires_at`のみ。`source`/`reason`のような区別カラムは無い。
+- RLS（`supabase/rls.sql`）は`for all using (auth.uid() = user_id) with check
+  (auth.uid() = user_id)`という行所有者に対するフルアクセス許可のみ。達成条件そのものを
+  検証する仕組みはDB側に一切無い。
+- 既存の広告視聴チケット付与（`watchRewardedAndGrant()`、`src/lib/native/rewards.ts`）は
+  **クライアント側から直接**`supabase.from("reward_tickets").insert(...)`しており、
+  RLSの「本人であること」以外のサーバー側検証は無い。さらにWeb版では実際の広告再生すら
+  行わず**600msの疑似待機のみ**でチケットが付与される（コメントに明記された既存の意図的な
+  緩い設計:「Web では本番でも「広告再生扱い」にせず、UI で1枚もらえる体験のみ提供」）。
+- チケットの消費先: `src/app/api/ai/route.ts`が、非Premiumユーザーが1日のAI利用上限
+  （`DAILY_LIMIT`）を超えた際に`kind="ai_generation"`のチケットを1枚消費してAI生成を
+  1回追加で許可する仕組みを確認した。つまり`ai_generation`チケットは実質的に「AI利用料の
+  無料バイパス券」であり、無制限に配布すると収益化（Premium/AI利用制限）を弱める。
+  他4種（`pdf_export`/`extra_review`/`weak_word_test`/`analysis_ticket`）も同様に何らかの
+  機能制限をバイパスする設計と推測されるが、今回は`ai_generation`の消費コードのみ実装を確認。
+- 上記を踏まえた判断: **既存の広告視聴チケット付与は、達成チケットより緩い設計
+  （クライアント直接INSERT・Web版は実質フリー）で既に本番稼働している**。今回の達成
+  チケットを、既存より厳格な設計（サーバー側で毎回条件を再検証してからINSERT）で実装すれば、
+  既存システムより安全な形で追加できると判断した。
+
+**実チケット付与が安全かどうか**: 条件付きで安全と判断。
+- 付与条件をSSR描画時ではなく、ユーザー操作起点（ボタン押下）のPOSTリクエストでのみ
+  サーバー側から再検証する設計にすれば、クライアントからの偽装input・SSR多重描画による
+  二重付与のリスクは回避できる。
+- 既存5種のkindとは異なる新しい`kind="daily_achievement"`を採用すれば、AI利用上限
+  バイパス等の収益に関わる消費経路とは完全に独立するため、「無料配布しすぎて収益化を
+  壊す」リスクも回避できる（何にも消費できないチケットとして完全に隔離）。
+- 1日1枚という上限も、既存の広告視聴チケット（Web版は事実上無制限に取得可能）よりも
+  厳格であるため、経済的な追加リスクは極めて小さい。
+
+**実装した付与条件**: 4条件（今日の学習目標達成`studied>=20`・復習10語達成`studied>=10`・
+苦手単語を復習`weakReviewedToday>=1`・7日連続達成`streak>=7`）のうち**いずれか1つ**を
+満たせば、1日1枚まで受け取れる（ユーザー指示通り、4条件それぞれで別々に配らない）。
+
+**1日1回制限の方法**: DBのユニーク制約は追加していない（後述）。
+`POST /api/gamification/claim-daily-ticket`（新規Route Handler）内で、まず
+`reward_tickets`に`kind="daily_achievement"`かつ本日`granted_at`以降の行が存在するかを
+確認し（check）、存在しなければ達成条件を再判定した上でINSERTする（insert）という
+check-then-insert方式。クライアント側でもボタンをクリック直後に即座に無効化し連打を防止。
+同一ユーザーからの真の同時多重リクエスト（極めて稀）に対する理論上の競合ウィンドウは
+残るため、DB側のユニーク制約（生成列+ユニークインデックス）を追加すれば完全に閉じられる
+旨を`NEXT_IMPROVEMENTS.md`に提案として記録した（**マイグレーションは実施していない**）。
+
+**既存広告チケットとの区別**: `kind="daily_achievement"`という新しい値を導入（`kind`は
+自由入力のtext列のためスキーマ変更は不要）。既存5種の消費コード（`api/ai/route.ts`等）は
+特定のkind文字列のみを参照するため、`daily_achievement`は現状どの消費経路からも参照されず、
+完全に独立している。
+
+**UI文言**: 実際に付与するため「今日の達成チケット」の名称・「🎟️」の表現はそのまま維持した
+（誤解を招く表現ではなくなったため、バッジ/スタンプへの変更は不要と判断）。新たに
+「🎟️ 今日の達成チケットを受け取る」ボタン、受け取り後は「✅ 本日の達成チケットは
+受け取り済みです」、未達成時は「条件を1つ達成すると「受け取る」ボタンが押せるようになります」
+の3状態を表示する`ClaimDailyTicketButton`（新規クライアントコンポーネント）を追加した。
+
+**実装内容**:
+- `src/app/api/gamification/claim-daily-ticket/route.ts`（新規）: POST専用。認証チェック→
+  `daily_stats`/`study_results`をユーザー自身の権限で再取得→達成条件を再計算→本日付与済みか
+  確認→未達成/受け取り済みならエラーレスポンス→条件を満たせば`reward_tickets`に1行INSERT。
+- `src/components/dashboard/ClaimDailyTicketButton.tsx`（新規）: 3状態（未達成/受け取り可能/
+  受け取り済み）を管理するクライアントコンポーネント。
+- `src/lib/gamification/rewardTickets.ts`: `DAILY_ACHIEVEMENT_TICKET_KIND`定数と
+  `isEligibleForDailyTicket()`を追加（表示用ロジックと共有）。
+- `src/lib/gamification/streak.ts`（新規）: ダッシュボードのstreak計算ロジックを
+  `computeStreak()`として切り出し、API routeとダッシュボードSSRの両方から同じ実装を使う
+  （ロジックの重複・乖離を防止）。
+- `src/app/dashboard/page.tsx`: 本日すでに`daily_achievement`を受け取り済みかの軽量count
+  クエリを1件追加し、`TodayRewardTickets`に`alreadyClaimedToday`propとして渡すよう変更。
+  streak計算を`computeStreak()`呼び出しに置き換え（動作は完全に同一）。
+- `src/components/dashboard/TodayRewardTickets.tsx`: カード内に`ClaimDailyTicketButton`を
+  追加（既存の4タイル表示・次の達成ヒントはそのまま維持、下部に区切り線で追加）。
+
+DBスキーマ変更・RLS変更・SRS V2中核ロジック変更・teacher機能変更・教材データ変更・
+AdSense広告枠追加・学習中/復習中画面への広告追加なし。ガチャ・射幸性の強い表現は使わず、
+Premium訴求も追加していない。
+
+**新規テスト**: `scripts/testing/e2e/reward-ticket-claim.mjs`（新規、
+`npm run test:reward-ticket-claim`、`run-e2e.mjs`のステップ18として追加、18項目）:
+未達成時にボタンが押せない・APIを直接呼んでも400 not_eligibleで拒否される・
+reward_ticketsに行が作られない、達成後はボタンから1枚だけ受け取れる・DBに正しく1行
+（kind=daily_achievement, amount=1）作成される、同日2回目はボタン/API直接呼び出しとも
+409 already_claimedで拒否され行数が増えない、リロードしても「受け取り済み」表示が維持され
+行数が増えない、0語ユーザーでも崩れない、既存の広告視聴チケット(kind=ai_generation)と
+同じテーブル内でも混ざらない、モバイル幅で崩れない、を実ブラウザ+DB直接確認で検証した。
+`test:smoke`/`verify:prod`のPOST専用APIチェックリストにも新ルートを追加。
+
+**変更ファイル**: `src/app/api/gamification/claim-daily-ticket/route.ts`（新規）、
+`src/components/dashboard/ClaimDailyTicketButton.tsx`（新規）、
+`src/lib/gamification/streak.ts`（新規）、`src/lib/gamification/rewardTickets.ts`、
+`src/app/dashboard/page.tsx`、`src/components/dashboard/TodayRewardTickets.tsx`、
+`scripts/testing/e2e/reward-ticket-claim.mjs`（新規）、`scripts/testing/run-e2e.mjs`、
+`scripts/testing/smoke.mjs`、`scripts/testing/verify-prod.mjs`、`package.json`
+（`test:reward-ticket-claim`スクリプト追加）、`NEXT_IMPROVEMENTS.md`、
+`PRODUCTION_MONITORING.md`、`WORK_HISTORY.md`。
+
+**変更していないもの**: DBスキーマ（マイグレーション無し）、RLS、SRS V2中核ロジック、
+teacher機能、教材データ、AdSense広告枠、既存の広告視聴チケット付与ロジック
+（`src/lib/native/rewards.ts`・`src/components/ads/AppAds.tsx`はそのまま）。
+
+**検証結果（全通過）**: `npx tsc --noEmit` / `npm run build` / `npm run test:smoke`
+（POST専用APIチェックに新ルート追加、全PASS） / `npm run test:reward-ticket-claim`
+（18項目、全PASS） / `npm run test:e2e`（18フロー全PASS、回帰なし） /
+`npm run verify:prod`（デプロイ前は新ルートのみ想定通り404、デプロイ後に再実行して
+全PASSを確認） / `npm run verify:srs-global`、全PASS。
+
+**残課題**: DB側のユニーク制約（`granted_date_jst`生成列+ユニークインデックス）を追加すれば、
+アプリケーション層のcheck-then-insertに残る理論上の競合ウィンドウを完全に閉じられる。
+今回はDBスキーマ変更を避ける方針のため実装せず、`NEXT_IMPROVEMENTS.md`に必要性の報告のみ
+記録した。付与条件の段階化（達成数に応じて枚数を増やす等）も今回はスコープ外。
+
+---
+
 ## 2026-07-05 ゲーミフィケーション×リワードチケット連携「今日の達成チケット」の追加
 
 **目的**: 教材・LP・ダッシュボード可視化・復習リカバリーモードが整ってきたため、次は継続率

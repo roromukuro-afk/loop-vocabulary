@@ -14,6 +14,8 @@ import { EnsureDefaultWordbook } from "@/components/dashboard/EnsureDefaultWordb
 import { DailyMissions } from "@/components/dashboard/DailyMissions";
 import { StreakShareCard } from "@/components/dashboard/StreakShareCard";
 import { TodayRewardTickets } from "@/components/dashboard/TodayRewardTickets";
+import { computeStreak } from "@/lib/gamification/streak";
+import { DAILY_ACHIEVEMENT_TICKET_KIND } from "@/lib/gamification/rewardTickets";
 import { todayJST, daysAgoJST, jstWeekdayIndex, jstHour, jstDayOfMonth, todayStartJstISO } from "@/lib/utils/date";
 
 export const dynamic = "force-dynamic";
@@ -68,6 +70,7 @@ export default async function DashboardPage() {
     { count: weakCount },
     { data: weakWords },
     { count: weakReviewedTodayCount },
+    { data: claimedTodayRows },
   ] = await Promise.all([
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id),
     supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id).lte("next_review_at", new Date().toISOString()),
@@ -96,6 +99,14 @@ export default async function DashboardPage() {
       .eq("user_id", user.id)
       .eq("words.is_weak", true)
       .gte("answered_at", todayStartJstISO()),
+    // 今日の達成チケット用: 本日すでにreward_ticketsへ受け取り済みか（表示のみ・付与はAPIルート側で行う）
+    supabase
+      .from("reward_tickets")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("kind", DAILY_ACHIEVEMENT_TICKET_KIND)
+      .gte("granted_at", todayStartJstISO())
+      .limit(1),
   ]);
 
   const isPremium = profile?.is_premium ?? false;
@@ -107,14 +118,7 @@ export default async function DashboardPage() {
   const wrong   = todayStats?.wrong_count ?? 0;
   const acc     = studied > 0 ? Math.round((correct / (correct + wrong || 1)) * 100) : 0;
 
-  const activeDays = new Set((recentStats ?? []).filter((d) => d.studied_count > 0).map((d) => d.day));
-  let streak = 0;
-  for (let i = 0; i < 31; i++) {
-    const d = daysAgoJST(i);
-    if (activeDays.has(d)) streak++;
-    else if (i === 0) continue;
-    else break;
-  }
+  const streak = computeStreak(recentStats ?? []);
 
   const DAILY_GOAL = 20;
   const goalPct = Math.min(100, Math.round((studied / DAILY_GOAL) * 100));
@@ -357,6 +361,7 @@ export default async function DashboardPage() {
         dailyGoal={DAILY_GOAL}
         streak={streak}
         weakReviewedToday={weakReviewedTodayCount ?? 0}
+        alreadyClaimedToday={(claimedTodayRows ?? []).length > 0}
       />
 
       {/* 実績バッジ */}

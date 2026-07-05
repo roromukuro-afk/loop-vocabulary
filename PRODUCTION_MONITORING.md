@@ -223,9 +223,13 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
   チケット風に表示。判定ロジックは`src/lib/gamification/rewardTickets.ts`に純粋関数として
   切り出し、`test:gamification-rewards`（週次`test:smoke`にも自動組み込み）で閾値・境界値を
   検証。`test:dashboard-insights`（週次`test:e2e`）で実データとの整合性・既存カードとの
-  共存も検証。`reward_tickets`テーブルへの実際の付与は今回未実装（表示のみ、残課題は
-  [NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md)「ゲーミフィケーション×リワードチケットの
-  次の一手」参照）
+  共存も検証。同日中に、安全性を調査した上で`reward_tickets`への実付与（1日1枚まで、
+  `POST /api/gamification/claim-daily-ticket`、既存の広告視聴チケットとは別kind
+  `daily_achievement`）まで実装した（優先度A項目30）。`test:reward-ticket-claim`
+  （週次`test:e2e`）で未達成時の拒否・達成後1枚のみ受取・同日2回目拒否・リロード後も
+  増えないこと・既存チケットとの非干渉を検証。DB側のユニーク制約による二重付与防止の
+  完全化は未実装（残課題は[NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md)
+  「ゲーミフィケーション×リワードチケットの次の一手」参照）
 - **教材・辞書ページの内部リンク強化**: 2026-07-04実装済み（優先度A項目23）。関連教材
   セクション・教材⇄辞書の相互CTA・カテゴリクイックジャンプ等を追加。`test:internal-links`が
   週次`test:e2e`に含まれているため、新規教材追加時も関連教材表示の退行があれば自動検知される
@@ -249,13 +253,14 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 | `npm run test:dates` | 日付/streak/カレンダーに関わるコードを変更した時（`test:smoke`内でも自動実行） | JST日付ユーティリティの単体テスト（サーバ不要・数秒） |
 | `npm run test:gamification-rewards` | `src/lib/gamification/rewardTickets.ts`（今日の達成チケット判定ロジック）を変更した時（`test:smoke`内でも自動実行） | 4種チケットの閾値・境界値・次の達成ヒント選択・全達成時の判定を単体テスト（サーバ不要・数秒、19項目） |
 | `npm run test:smoke` | **コード変更のコミット前**（ローカル） | build成功＋日付ユーティリティ＋主要ページのHTTP健全性を素早く確認 |
-| `npm run test:e2e` | **本番デプロイ前**（大きめの変更時）／**週1定期** | onboarding・SRS V2・teacher・admin・教材インポート・4択出題ロジック・他学習モード出題ロジック・Premium判定回帰・学習モード入口/対象範囲ラベル・単語帳削除・復習リカバリーモード・内部リンク・カテゴリLP・ダッシュボード習得率/苦手単語カードの17フローを実ブラウザで通しで検証 |
+| `npm run test:e2e` | **本番デプロイ前**（大きめの変更時）／**週1定期** | onboarding・SRS V2・teacher・admin・教材インポート・4択出題ロジック・他学習モード出題ロジック・Premium判定回帰・学習モード入口/対象範囲ラベル・単語帳削除・復習リカバリーモード・内部リンク・カテゴリLP・ダッシュボード習得率/苦手単語カード・今日の達成チケット実付与の18フローを実ブラウザで通しで検証 |
 | `npm run test:entry-points:e2e` | `/wordbooks/[id]`の導線・各モードのスコープラベル(`quiz-scope-label`)・PDFの`?book=`プリセレクトを変更した時 | 単語帳詳細ページの7導線(`choice`/`input`/`typing`/`listening`/`attack`/`pdf`/`review`)が`?book=`付きで存在すること・各モードのスコープラベル表示・PDFの対象語数・reviewのbook引き継ぎ・Premium有無の分岐を検証（33項目） |
 | `npm run test:wordbook-delete` | 単語帳削除機能(`/api/wordbook/[id]` DELETE・`DeleteWordbookButton`)を変更した時 | 削除ボタン表示→削除実行→DB上でword_books・words両方が削除される→一覧/dashboard/reviewに残骸が出ない→削除済みIDへの直接アクセスが404、を実ブラウザで検証 |
 | `npm run test:recovery-mode` | `/review`の復習リカバリーモード・FlipCardRunnerを変更した時 | 35語due時のバナー表示→10語モードでちょうど10語出題・DB更新→残り25語でバナー継続→20語モードで20語出題→残り5語でバナー消滅→通常復習は残り全件を出題、をbook指定スコープ隔離も含めて実ブラウザで検証 |
 | `npm run test:internal-links` | 教材詳細の関連教材・辞書⇄教材の相互導線・`/materials`カテゴリクイックジャンプを変更した時 | カテゴリクイックジャンプ表示・関連教材表示（新規教材追加時の自動反映含む）・関連教材リンクの遷移・教材⇄辞書の相互導線・既存インポート導線の非破壊・モバイル幅での横スクロール無し、を実ブラウザで検証 |
 | `npm run test:category-lps` | `/materials/toeic`・`/materials/business`・`/materials/news`・`/materials`のLP導線を変更した時 | 3LPの200表示・教材カード件数と内容（`/materials/news`は主役2件+関連教材3件を区別して検証）・教材詳細への遷移・辞書導線・LP間相互リンク（TOEIC⇄ビジネス英語⇄ニュース英語）・`/materials`からの導線・モバイル幅での崩れなし・既存`/materials/[id]`への非影響、を実ブラウザで検証 |
 | `npm run test:dashboard-insights` | `/dashboard`の習得率カード・苦手単語カード・今日の達成チケットを変更した時 | 0語ユーザーでのカード非表示（習得率/苦手単語）・「今日の達成チケット」の0語表示崩れ無し、通常ユーザーでの習得率内訳・苦手単語表示・「今日の達成チケット」が実際の`daily_stats`と整合していること・`/wordbooks`/`/review`/`/weak`各リンク導線・非Premium向けPremium導線・重複タイル非存在、due単語20件以上での既存リカバリーヒントとの共存（習得率/苦手単語/今日の達成チケットいずれも）、モバイル幅(375px)での横スクロール無し、を実ブラウザで検証 |
+| `npm run test:reward-ticket-claim` | `/api/gamification/claim-daily-ticket`・`ClaimDailyTicketButton`を変更した時 | 未達成時はボタンが押せずAPI直接呼び出しも400 not_eligibleで拒否・達成後はボタンから1枚だけ受け取れる・同日2回目は409 already_claimedで拒否され行数が増えない・リロード後も「受け取り済み」表示が維持され行数が増えない・0語ユーザーで崩れない・既存の広告視聴チケット(kind=ai_generation等)と混ざらない・モバイル幅での崩れなし、を実ブラウザ+DB直接確認で検証（18項目） |
 | `npm run verify:seo-lp-audit` | sitemap.ts・robots.txt・カテゴリLPのmetadataを変更した時／**本番デプロイ後** | 本番の`/sitemap.xml`に主要ページ・3LPが含まれるか・`/robots.txt`が対象パスをブロックしていないか・3LPのcanonicalが自分自身を指すか・JSON-LD(BreadcrumbList/ItemList)が妥当なJSONか・既存`/materials/[id]`への非影響を、HTTPのみ（ブラウザ不要）で検証。`verify:prod`同様デフォルトで本番URLを対象とする |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |

@@ -1,10 +1,22 @@
 /**
- * 「今日の達成チケット」の判定ロジック（ダッシュボードの表示専用・DB書き込みなし）。
+ * 「今日の達成チケット」の判定ロジック。
  *
- * 実際に消費できるリワードチケット(reward_ticketsテーブル、src/lib/native/rewards.ts)への
- * 付与はここでは行わない。SSR描画のたびに書き込むと二重付与のリスクがあるため、今回は
- * 「チケット風UI」「次の達成までの進捗表示」に留めている。
+ * 表示用の4種チケット判定（computeTodayTickets/nextTodayTicket）に加えて、
+ * 実際に`reward_tickets`へ1日1枚まで付与するための判定
+ * （isEligibleForDailyTicket）もここに集約する。付与自体は
+ * `/api/gamification/claim-daily-ticket`（ユーザー操作起点のPOST、サーバー側で
+ * この判定を再実行してから書き込む）が行う。SSR描画中の自動書き込みは行わない。
+ *
+ * `DAILY_ACHIEVEMENT_TICKET_KIND`は既存の広告視聴チケット5種
+ * （ai_generation/pdf_export/extra_review/weak_word_test/analysis_ticket、
+ * src/lib/native/rewards.ts）とは別の新しいkind文字列にすることで、既存の
+ * AI利用上限バイパス等の消費経路と混ざらないようにしている
+ * （reward_tickets.kindは自由入力のtext列のため、新しい値を使うだけでよくDB
+ * スキーマ変更は不要）。
  */
+
+/** 達成チケット（reward_tickets.kind）の値。既存5種のRewardKindとは意図的に別の値にしている */
+export const DAILY_ACHIEVEMENT_TICKET_KIND = "daily_achievement";
 
 export type TodayTicket = {
   key: string;
@@ -72,4 +84,9 @@ export function computeTodayTickets({ studied, dailyGoal, streak, weakReviewedTo
 /** 未達成チケットのうち、表示順で最初のもの（=次に狙うべき達成）を返す。全達成ならnull */
 export function nextTodayTicket(tickets: TodayTicket[]): TodayTicket | null {
   return tickets.find((t) => !t.done) ?? null;
+}
+
+/** 4条件のうち1つでも満たせば、今日の達成チケット（1日1枚）を受け取れる */
+export function isEligibleForDailyTicket(input: TodayTicketsInput): boolean {
+  return computeTodayTickets(input).some((t) => t.done);
 }
