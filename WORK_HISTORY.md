@@ -1,7 +1,145 @@
 # WORK_HISTORY — Loop Vocabulary
 
 > 作業の時系列ログ。新しいものを上に追記する。
-> 最終更新: 2026-07-05
+> 最終更新: 2026-07-06
+
+---
+
+## 2026-07-06 Stripe決済後のPremium反映フローのE2E/監視整備
+
+**目的**: 2026-07-05に発覚した「本番DBに`profiles.stripe_customer_id`/
+`premium_expires_at`列が存在せずStripe連携が壊れていた」重大不具合の再発を早期
+検知できるよう、checkout作成→Stripe webhook受信→`profiles.is_premium=true`反映→
+`stripe_customer_id`/`premium_expires_at`保存→Premium機能解放→二重checkout防止
+までを安全に検証・監視できる状態にした。
+
+**調査結果**: `src/app/api/stripe/checkout/route.ts`・
+`src/app/api/stripe/webhook/route.ts`を精査し、以下を確認した。
+- checkoutルート: 未ログイン401・既にPremiumなら409 already_premium（Stripe API
+  呼び出し前にガード、二重課金防止）・新規顧客作成時の`stripe_customer_id`永続化
+  はいずれも正しく実装されている。
+- webhookルート: `stripe.webhooks.constructEvent()`による署名検証、
+  `checkout.session.completed`（is_premium=true、userId判明時はstripe_customer_id
+  も保存、非one-time決済時のみプレミアム登録メール送信）、
+  `customer.subscription.updated`（active/trialing以外はperiod_endから
+  premium_expires_atを計算）、`customer.subscription.deleted`（即時失効・
+  premium_expires_at=現在時刻）、`invoice.payment_failed`（ログのみ、Premium維持）
+  の5分岐すべてが実装済み。Vercel Runtime Errorsの過去7日間にこれらのルートの
+  エラーは無し。
+
+**発見（重大・運用上の問題）**: Stripe本番アカウントを読み取り専用で確認した
+ところ、`https://loop-vocabulary.app/api/stripe/webhook`
+（Vercelデフォルトドメイン経由を含む）へ向くWebhook endpointが**2本重複登録**
+されていた。
+- `we_1TiSuwIEd2EBa26eUb2n0pTB`（2026-06-15作成）: `checkout.session.completed`・
+  `customer.subscription.updated`・`customer.subscription.deleted`の3イベントを
+  正しく購読
+- `we_1Tm4GYIEd2EBa26eIJSWfLUa`（2026-06-25作成、より新しい）:
+  `checkout.session.completed`・`customer.subscription.deleted`のみ購読
+  （`customer.subscription.updated`が欠落）
+
+両endpointは別々のsigning secretを持つため、Vercel Productionの
+`STRIPE_WEBHOOK_SECRET`と一致しない方のendpointからのイベントは署名検証エラー
+(400)で静かに失敗する構造的リスクがあった。加えて`checkout.session.completed`・
+`customer.subscription.deleted`は両方から重複配信される設定になっており、今後
+実課金者が出た場合にPremium歓迎メールの二重送信・DB更新の二重実行（実害は軽微・
+冪等）が起き得た。発覚時点で実サブスクリプションは0件のため実害はなかった。
+
+Stripeの公開APIは既存webhook endpointのsigning secretを一度と表示できず
+（rollはDashboard操作のみ、公開APIには存在しない）、新規endpoint作成はsecret
+ストア操作としてサンドボックスの安全機構によりブロックされたため、最終的に
+オーナー自身がStripe Dashboardで対応した。
+
+**対応**（すべてオーナー承認済み・オーナー自身が一部実施）:
+1. 正しいイベント構成の`we_1TiSuwIEd2EBa26eUb2n0pTB`を残すendpointに決定。
+2. オーナーがStripe Dashboardでそのsigning secretをroll（再発行）。
+3. オーナーがVercel Production環境変数`STRIPE_WEBHOOK_SECRET`を新secretに更新し、
+   Production redeploy。
+4. `npm run verify:prod`・`npm run verify:srs-global`で回帰なしを確認。
+5. 重複endpoint`we_1Tm4GYIEd2EBa26eIJSWfLUa`は、誤って必要な方を削除する
+   リスクを避けるため、削除ではなくAPIで`disabled: true`に更新（無効化のみ）。
+6. Vercel Runtime Logsで`/api/stripe/webhook`への直近7日間のアクセスを確認した
+   ところ、記録されている400（署名検証エラー）は2件のみで、いずれも本ラウンドの
+   `verify:prod`の意図的なテスト（不正signatureで400を期待するチェック）の実行
+   時刻と一致しており、実際のStripeからの配信失敗によるものではないことを確認した。
+7. secret値自体はチャット・ログ・ドキュメントのいずれにも一切記録していない。
+
+**保留した項目**: 本番live endpointへの疑似テストイベント送信（Stripe Dashboard
+の「Send test webhook」）は、安全に本番へ影響を与えない実施手段が確認できな
+かったため見送った。本番小額決済・本番checkout sessionの作成も行っていない。
+
+**テスト追加**: `scripts/testing/e2e/stripe-premium-webhook.mjs`（新規、
+`npm run test:stripe-premium-webhook`、`run-e2e.mjs`ステップ22として追加、
+20項目）。`Stripe.webhooks.generateTestHeaderString()`で署名付きテストイベントを
+ローカルに生成し（純粋な暗号署名計算のみで実Stripe通信は一切発生しない）、自分の
+devサーバの`/api/stripe/webhook`に直接POSTすることで、実際の
+`stripe.webhooks.constructEvent()`署名検証を含めた実挙動を検証する。使用する
+顧客ID・ユーザーIDはすべて架空の値（`cus_test_e2e_...`等）で実Stripe上には存在
+せず、実Stripe顧客・実サブスクリプションへは一切アクセスしない。
+`checkout.session.completed`の正常系テストは意図的に`metadata.supabase_user_id`
+を含めない形（stripe_customer_idのみでの更新パス）で送ることで、
+「プレミアム登録おめでとうメール」の実送信という外部副作用を回避した。
+「存在しないユーザーIDでも壊れない」ことは、実在しないUUIDをmetadataに載せて
+別途検証する（getUserByIdがnullを返しemail未取得のためメール送信自体が
+スキップされ、安全に検証できる）。
+1. ソースコード確認（8項目）: checkout/webhookルートの主要ガード・分岐の存在確認
+2. 不正signatureは400 invalid_signatureで拒否され、DBが変化しない
+3. 未知のイベントタイプは200 receivedを返し、クラッシュせずDBも変化しない
+4. 存在しない顧客ID・存在しないユーザーIDのイベントでも200 receivedを返し、
+   対象ユーザーのプロフィールに影響しない
+5. checkout.session.completed → is_premium=true, premium_expires_at=null
+6. webhookで付与したis_premiumが実際に/premium表示・Premium機能解放に反映される
+7. Premiumユーザーの二重checkout防止（POST /api/stripe/checkout → 409）
+8. 未ログインでのcheckout → 401 unauthorized
+9. customer.subscription.updated(active) → is_premium=true, premium_expires_at=null
+10. customer.subscription.updated(canceled, 期限あり) → is_premium=false,
+    premium_expires_atに期限が正確に反映される（Unix秒→ISO変換の正確性を検証）
+11. customer.subscription.deleted → is_premium=false, premium_expires_at≈現在時刻
+
+**verify:prod拡張**: `profiles.stripe_customer_id`/`premium_expires_at`列の
+存在確認（service roleでの1行select、DB変更なし。列が存在しない場合は
+PostgRESTが42703エラーを返すことを利用）・`/api/stripe/checkout`/
+`/api/stripe/webhook`が404になっていないか（401/400が返るか）・ダッシュボード
+広告の`isPremium`ガードのソース確認・`/premium`ページの200表示を追加した。
+
+**PRODUCTION_MONITORING.md**に「11. Stripe決済・Premium反映で見るべき異常」章を
+新設し、(1)支払い済みなのにPremiumにならない、(2)Webhookが失敗している、
+(3)is_premium/premium_expires_atが更新されない、(4)Premiumユーザーなのに
+checkout/広告が出てしまう、の4つの障害シナリオごとの確認手順と、今回のWebhook
+endpoint重複問題の詳細（§11-5）を記録した。
+
+DBスキーマ変更・Stripe価格変更・既存ユーザーのis_premium変更・RLS変更・
+AdSense広告枠追加・SRS V2・teacher機能・教材データへの変更なし。コード側で
+複数secretを許容する実装は行っていない（署名検証は単一の`STRIPE_WEBHOOK_SECRET`
+のまま）。
+
+**変更ファイル**: `scripts/testing/e2e/stripe-premium-webhook.mjs`（新規）、
+`scripts/testing/verify-prod.mjs`（Stripeスキーマ/ルート/広告ガードチェック追加）、
+`scripts/testing/lib/httpChecks.mjs`（`checkPostRoutesExpectStatus`ヘルパー追加）、
+`scripts/testing/run-e2e.mjs`（ステップ22追加）、`package.json`
+（`test:stripe-premium-webhook`スクリプト追加）、`PRODUCTION_MONITORING.md`、
+`NEXT_IMPROVEMENTS.md`、`WORK_HISTORY.md`。Stripe/Vercel側の設定変更
+（webhook secretのroll・Vercel環境変数更新・重複endpointの無効化）はStripe
+Dashboard/Vercel Dashboard上の設定であり、リポジトリのコード変更ではない。
+
+**検証結果**: `npx tsc --noEmit`エラーなし。`npm run build`成功。
+`npm run test:stripe-premium-webhook`（新規20項目、全PASS）・
+`npm run test:premium-conversion`・`npm run test:premium-gating`（21項目）・
+`npm run test:smoke`・`npm run test:e2e`（19スイート、`stripePremiumWebhook`含め
+全PASS、回帰なし）・`npm run verify:prod`（Stripe関連4セクション追加、全PASS）・
+`npm run verify:srs-global`（全PASS）。
+
+**本番反映状況**: コード変更（新規テスト・verify:prod拡張・ドキュメント）は
+別途コミット・デプロイして反映する。Stripe/Vercelの設定変更（webhook secret
+roll・Vercel環境変数更新・redeploy・重複endpoint無効化）はオーナーが実施済み。
+
+**既存課金者への影響**: 実サブスクリプションは0件のため、今回のWebhook
+endpoint重複・secret不一致の可能性による実害は発生していない。
+
+**残課題**: 初回の実課金が発生した際に、Stripe Dashboardの配信ログと本番
+`profiles`の`is_premium`/`stripe_customer_id`/`premium_expires_at`が実際に
+正しく反映されるかを実データで確認すること。重複endpoint
+（`we_1Tm4GYIEd2EBa26eIJSWfLUa`）の削除は、無効化後の様子を見てから後日判断する。
 
 ---
 

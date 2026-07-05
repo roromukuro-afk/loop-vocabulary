@@ -32,6 +32,7 @@
     "test:extra-review-ticket": "node scripts/testing/e2e/extra-review-ticket.mjs",
     "test:weak-analysis": "node scripts/testing/e2e/weak-analysis.mjs",
     "test:premium-conversion": "node scripts/testing/e2e/premium-conversion.mjs",
+    "test:stripe-premium-webhook": "node scripts/testing/e2e/stripe-premium-webhook.mjs",
     "test:dates": "node scripts/testing/test-date-utils.mjs",
     "test:gamification-rewards": "node scripts/testing/test-gamification-rewards.mjs",
     "test:quiz": "node scripts/testing/test-learning-selection.mjs",

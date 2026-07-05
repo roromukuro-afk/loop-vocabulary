@@ -7,7 +7,9 @@
 
 ## 1. 毎日確認する項目（5分程度）
 
-- [ ] `npm run verify:prod` — 公開ページ200・認証ページ307・API 405 の回帰がないか
+- [ ] `npm run verify:prod` — 公開ページ200・認証ページ307・API 405の回帰、および
+  Stripe/Premium関連（`profiles.stripe_customer_id`/`premium_expires_at`列の存在・
+  checkout/webhookルートの存在・ダッシュボード広告のisPremiumガード）の回帰がないか
 - [ ] Vercel Dashboard → 直近デプロイが `READY`（`ERROR`/`BUILDING`で止まっていないか）
 - [ ] Vercel → Functions/Logs で直近の 5xx エラーが急増していないか（`get_runtime_errors` / `get_logs` 相当）
 - [ ] Supabase Dashboard → Database の稼働状況（一時停止・容量警告が出ていないか）
@@ -322,6 +324,92 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
   自動検証。Search Consoleでのインデックス登録状況は
   [SEARCH_CONSOLE_SETUP.md](SEARCH_CONSOLE_SETUP.md)§0-1でオーナー確認待ち
 
+## 11. Stripe決済・Premium反映で見るべき異常（2026-07-06整備）
+
+2026-07-05に発覚した「`profiles.stripe_customer_id`/`premium_expires_at`列が
+本番に存在せずStripe連携が壊れていた」重大不具合の再発を早期検知するため、
+checkout作成→webhook受信→Premium反映までの一連のフローを検証・監視できるように
+した。以下は異常が疑われる場合の確認手順。
+
+### 11-1. 「Stripeで支払い済みなのにPremiumにならない」
+
+1. Stripe Dashboard → 該当顧客の Payments/Subscriptions で決済が実際に成功しているか確認
+2. Stripe Dashboard → Developers → Webhooks → 対象endpoint → 直近のイベント配信ログで
+   `checkout.session.completed` が届いているか、ステータスが 200 か確認
+3. 200でない場合は §11-2「Webhookが失敗している」へ
+4. 200なのにPremiumにならない場合は、Vercel Runtime Logs（`get_runtime_errors` /
+   `get_runtime_logs`、`routes=/api/stripe/webhook`）でエラーが出ていないか確認
+5. `npm run verify:prod` の「Stripe/Premium schema columns」セクションで
+   `profiles.stripe_customer_id`/`premium_expires_at`列が存在するかを再確認
+   （2026-07-05と同じ不具合の再発がないか）
+
+### 11-2. 「Webhookが失敗している」
+
+1. Stripe Dashboard → Developers → Webhooks → 対象endpointの配信ログで、
+   400（署名検証エラー）が続いていないか確認
+2. 400が続く場合、**そのendpointのsigning secretとVercel Productionの
+   `STRIPE_WEBHOOK_SECRET`が一致していない可能性が高い**（2026-07-06に発覚した
+   重複endpoint問題と同種の原因。詳細は §11-5）
+3. `npm run verify:prod` の「Stripe routes exist」セクションで
+   `/api/stripe/webhook`が404になっていないか（ルート自体が消えていないか）確認
+4. `npm run test:stripe-premium-webhook` を実行し、署名付きテストイベントが
+   正常に処理されるか（ローカル/プレビュー環境で）確認
+
+### 11-3. 「is_premiumが更新されない」「premium_expires_atが入らない」
+
+1. `npm run test:stripe-premium-webhook` を実行し、
+   checkout.session.completed / customer.subscription.updated /
+   customer.subscription.deleted の3イベントそれぞれで
+   `is_premium`/`premium_expires_at`が正しく更新されるかを確認
+   （テストアカウントのみ操作、実顧客データには触れない）
+2. 失敗する場合は `src/app/api/stripe/webhook/route.ts` の該当`case`分岐と
+   本番Vercel Runtime Logsの`[stripe webhook]`ログ・例外を突き合わせる
+
+### 11-4. 「Premiumユーザーなのにcheckoutに進めてしまう」「Premiumユーザーなのに広告が出る」
+
+1. `npm run test:premium-gating`・`npm run test:premium-conversion`
+   （二重checkout防止の409ガード・ダッシュボード広告のisPremiumガードを検証）を実行
+2. `npm run verify:prod` の「Premium ad-hide guard (source check)」セクションで
+   `dashboard/page.tsx`の`BannerAdPlaceholder`が`isPremium`ガードでラップされたままか確認
+
+### 11-5. Webhook endpointの重複問題（2026-07-06発見）
+
+調査の結果、Stripe本番アカウントに `https://loop-vocabulary.app/api/stripe/webhook`
+（Vercelのデフォルトドメイン経由を含む）へ向くWebhook endpointが**2本**登録されており、
+`checkout.session.completed`・`customer.subscription.deleted`が重複配信される設定に
+なっていたことが判明した（片方は`customer.subscription.updated`を購読しておらず、
+Vercel Productionの`STRIPE_WEBHOOK_SECRET`と一致しない方のendpointからのイベントは
+署名検証エラー(400)で静かに失敗している可能性があった）。発覚時点で実サブスクリプション
+は0件のため実害はなかった。
+
+対応（2026-07-06完了）: `customer.subscription.updated`を含む正しいイベント構成の
+endpoint（`we_1TiSuwIEd2EBa26eUb2n0pTB`）を残し、オーナーがStripe Dashboard上で
+そのsigning secretをroll（再発行。Stripeの公開APIにはroll操作が無くDashboard操作
+でのみ可能なためオーナーが実施）し、新しいsecretをVercel Production
+`STRIPE_WEBHOOK_SECRET`に反映・redeployした（`verify:prod`/`verify:srs-global`で
+回帰なしを確認）。もう片方のendpoint（`we_1Tm4GYIEd2EBa26eIJSWfLUa`、
+`customer.subscription.updated`不足）は、誤って必要な方を消すリスクを避けるため
+**削除ではなくまず無効化**した（`status: "disabled"`。DBスキーマ・Stripe価格・
+既存ユーザーのis_premiumへの変更は無し）。secret値自体はログ・ドキュメントの
+いずれにも記録していない。
+
+無効化後、Vercel Runtime Logsで`/api/stripe/webhook`への直近7日間のアクセスを
+確認したところ、記録されている400（署名検証エラー）は2件のみで、いずれも
+このラウンドの`verify:prod`の意図的なテスト（不正signatureで400を期待する
+チェック）自体によるものと時刻が一致しており、実際のStripeからの配信失敗による
+ものではないことを確認した。実サブスクリプションは0件のため実害はない。
+
+**保留した項目**: 本番live endpointへの疑似テストイベント送信（Stripe Dashboardの
+「Send test webhook」）は、安全に本番へ影響を与えない実施手段が確認できなかったため
+今回は見送った。本番小額決済・本番checkout sessionの作成も行っていない。
+初回の実課金が発生した際に、Stripe Dashboardの配信ログと本番`profiles`の
+`is_premium`/`stripe_customer_id`/`premium_expires_at`が正しく反映されているかを
+実データで確認することを残課題とする。
+
+**今後の注意**: Webhook endpointを新規に追加する際は、既存のendpoint一覧
+（Stripe Dashboard → Developers → Webhooks）を必ず確認し、同一URLへの重複登録を
+避けること。
+
 ---
 
 ## 自動検証コマンドの運用
@@ -342,6 +430,7 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 | `npm run test:extra-review-ticket` | `src/lib/native/rewards.ts`(`watchRewardedAndGrant`)・`FlipCardRunner.tsx`・`ChoiceTestRunner.tsx`の広告視聴導線・無料/広告再挑戦の役割分担を変更した時 | FlipCardRunnerで誤答時のみ無料「間違えた◯語だけもう一度」が表示されクリックで実際にその語だけに絞り込まれる・全問正答時は広告ボタンのみ残る・広告ボタンでは元の全語が再出題される、ChoiceTestRunnerで無料「同じ問題をもう一度」が全く同じ問題(`data-word-id`順)を再演習する・広告「別の10問に挑戦」で新しい問題セットが始まる、いずれも`reward_tickets(kind=extra_review)`に新規行が作られない・`ai_generation`/`daily_achievement`等ほかのkindの行数が変化しない・0語ユーザーで`/review`が崩れない、を実ブラウザ+DB直接確認で検証（15項目） |
 | `npm run test:weak-analysis` | `src/app/weak/page.tsx`・`WeaknessAnalysis.tsx`・`api/ai/weakness-analysis/route.ts`を変更した時 | 苦手単語ありユーザーで一覧・品詞/単語帳/習熟度バッジ・「傾向を確認」の集計(品詞別/単語帳別/習熟度低い順)が正しい・「今すぐ復習する」「まず10語だけ復習する」から実際に`/review`へ遷移する・苦手単語なしユーザーで崩れない・非Premiumで控えめな案内・PremiumでAI分析実行結果(成功/失敗いずれもページが壊れない)・`reward_tickets(kind=ai_generation)`に影響なし・ダッシュボードの苦手単語カードからの遷移、を実ブラウザ+DB直接確認で検証（20項目） |
 | `npm run test:premium-conversion` | `/premium`・トップページ(`/`)・`PremiumCheckout.tsx`・Stripe checkout/webhookルート・各Premium gatingページのCTA文言・`dashboard/page.tsx`の広告表示・マーケティング文言を変更した時 | 非Premiumで料金比較表・チェックアウトボタンが表示される・Premiumで「現在プレミアム会員です」表示に切り替わりチェックアウトボタンが消える・`POST /api/stripe/checkout`がPremium時に409 already_premiumを返す（二重課金防止）・`/weak`/`/extract`/`/plan`のPremium誘導CTAが統一文言になっている・`/test/typing`/`/test/listening`のペイウォール表示・`/premium`のモバイル崩れなし・ダッシュボード広告のisPremiumガードをソースコードで確認・`/premium`とトップページ(`/`)に実データと乖離した誇張・社会的証明の文言（「3,200+登録ユーザー」「ユーザーの声」等）が残っていないこと・トップページのJSON-LDに未実証`aggregateRating`が含まれていないこと、を実ブラウザ+API直接確認で検証（2026-07-05に2ステップ追加） |
+| `npm run test:stripe-premium-webhook` | `src/app/api/stripe/checkout/route.ts`・`src/app/api/stripe/webhook/route.ts`・Premium反映フローを変更した時 | 署名付きテストイベント（`Stripe.webhooks.generateTestHeaderString`、実Stripe通信なし・実課金なし）で、不正signatureの400拒否・未知イベントタイプでの非クラッシュ・存在しない顧客ID/ユーザーIDでの非クラッシュ・`checkout.session.completed`でのis_premium/premium_expires_at反映・webhookで付与したis_premiumが実際に`/premium`のPremium機能解放に反映されること・二重checkout防止(409)・未ログインcheckout(401)・`customer.subscription.updated`(active/canceled期限反映)・`customer.subscription.deleted`(即時失効)を検証（2026-07-06新規、`run-e2e.mjs`ステップ22として追加、20項目）。テスト用アカウントのみ操作し、実Stripe顧客・実メール送信は一切発生しない設計 |
 | `npm run verify:seo-lp-audit` | sitemap.ts・robots.txt・カテゴリLPのmetadataを変更した時／**本番デプロイ後** | 本番の`/sitemap.xml`に主要ページ・3LPが含まれるか・`/robots.txt`が対象パスをブロックしていないか・3LPのcanonicalが自分自身を指すか・JSON-LD(BreadcrumbList/ItemList)が妥当なJSONか・既存`/materials/[id]`への非影響を、HTTPのみ（ブラウザ不要）で検証。`verify:prod`同様デフォルトで本番URLを対象とする |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |
@@ -361,7 +450,7 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 | `npm run audit:materials-pos` | 品詞(pos)未設定の状況を確認したい時（いつでも・読み取り専用） | 未設定件数・教材別内訳・自動補完可否の分類を`MATERIALS_POS_AUDIT.md`に生成 |
 | `npm run materials:pos:dry-run` | 品詞補完計画を確認・更新したい時（いつでも・読み取り専用、DB変更なし） | 補完候補・教材別内訳・ロールバックSQLを`reports/materials-pos-fill-*`に生成 |
 | `npm run materials:pos:apply` | **品詞を実際に補完する時（要ユーザーの事前承認 + `CONFIRM_MATERIALS_POS_FILL=yes`）** | dry-runと同じ計画に基づき高信頼度ルール該当行のみposを補完。承認なしに実行しないこと |
-| `npm run verify:prod` | **本番デプロイ直後 毎回**／毎日の軽い巡回 | 本番URLに対するHTTPのみの回帰確認（ブラウザ不要・数秒で完了） |
+| `npm run verify:prod` | **本番デプロイ直後 毎回**／毎日の軽い巡回 | 本番URLに対するHTTPのみの回帰確認（ブラウザ不要・数秒で完了）。2026-07-06からStripe/Premium関連の読み取り専用チェックも含む: `profiles.stripe_customer_id`/`premium_expires_at`列の存在確認（Supabase service roleでの1行select、DB変更なし）・`/api/stripe/checkout`/`/api/stripe/webhook`が404になっていないか（想定される401/400が返るか）・`dashboard/page.tsx`のBannerAdPlaceholderが`isPremium`ガードされたままか（ソース確認） |
 | `npm run verify:srs-global` | SRS V2のenvフラグを変更した時／週1定期 | グローバルフラグが実際に本番で効いているかを実ログインで確認 |
 
 ### 推奨フロー

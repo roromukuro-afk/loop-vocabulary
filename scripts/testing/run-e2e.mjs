@@ -103,6 +103,9 @@ async function main() {
 
     console.log("\n=== 21. Premium導線・プランページ棚卸し E2E ===");
     results.premiumConversion = runNode("scripts/testing/e2e/premium-conversion.mjs");
+
+    console.log("\n=== 22. Stripe webhook → Premium反映フロー E2E ===");
+    results.stripePremiumWebhook = runNode("scripts/testing/e2e/stripe-premium-webhook.mjs");
   } finally {
     stopDevServer(dev);
   }
