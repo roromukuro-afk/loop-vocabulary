@@ -93,10 +93,11 @@ export function ChoiceTestRunner({
     setIdx(idx + 1);
   };
 
-  const restart = () => {
-    const built = buildQuestions(pool, mode, count, recentIdsRef.current);
-    rememberShown(built);
-    setQs(built);
+  // 無料の再挑戦: 広告なしで「今回と全く同じ問題」をもう一度解く。
+  // 新しい問題を選び直すこと自体に価値があるため、それは広告視聴側(onRewardedExtra)に
+  // 役割を寄せ、無料側は復習目的の「同じ問題の再演習」に限定している
+  // （詳細はNEXT_IMPROVEMENTS.md「無料/広告再挑戦の役割分担」参照）。
+  const retrySameQuestions = () => {
     setIdx(0);
     setResults([]);
     setDone(false);
@@ -162,14 +163,14 @@ export function ChoiceTestRunner({
           <div className="mt-4">
             <AppRewardedAdButton
               kind="extra_review"
-              label="広告を見てもう10問チャレンジ"
+              label="広告を見て別の10問に挑戦"
               onReward={onRewardedExtra}
             />
           </div>
         )}
 
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button fullWidth onClick={restart}>もう一度</Button>
+          <Button fullWidth onClick={retrySameQuestions}>同じ問題をもう一度</Button>
           <Link href="/dashboard"><Button fullWidth variant="secondary">ホームへ</Button></Link>
         </div>
       </div>

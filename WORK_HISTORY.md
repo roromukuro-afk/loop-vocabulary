@@ -5,6 +5,115 @@
 
 ---
 
+## 2026-07-05 無料再挑戦と広告再挑戦の役割分担を整理
+
+**目的**: 前回のextra_review調査で見つかった残課題「広告なしの『もう一度』ボタンが、
+広告ゲート版とほぼ同じ内容を無料・無制限に提供しており、広告視聴の価値が実質的に
+無い」問題に対応する。広告視聴による追加復習の価値を持たせつつ、無料再挑戦の
+学習体験も破綻させない形で役割を分担する。
+
+**調査結果**:
+- **FlipCardRunner.tsx**（復習フラッシュカード完了画面）: 従来の無料`もう一度`
+  ボタンは`restart()`（`setIdx(0)`で最初から元の全語を出題）を呼ぶだけで、
+  広告ボタン「広告を見てもう一周チャレンジ」の`onReward={restart}`と**全く同一の
+  関数**を呼んでいた。広告を見ても見なくても結果は完全に同じだった。
+- **ChoiceTestRunner.tsx**（4択テスト完了画面）: 従来の無料`もう一度`ボタンは
+  `buildQuestions(pool, mode, count, recentIdsRef.current)`で新しい問題を選び直す
+  実装で、広告ボタン「広告を見てもう10問チャレンジ」の`onRewardedExtra`
+  （`buildQuestions(pool, mode, Math.min(10, pool.length), recentIdsRef.current)`）
+  とほぼ同じ内容（`count`が10前後の設定なら実質同一）だった。
+- **Premium/無料の挙動差**: 無し（前回調査時と同様、両ボタンともプラン判定
+  `is_premium`を一切参照していない）。
+- **広告未設定・未配信の場合の挙動**: `ADS_ENABLED`（`NEXT_PUBLIC_ADS_ENABLED`）が
+  `false`の場合、`AppRewardedAdButton`自体が`null`を返し非表示になる
+  （`src/components/ads/AppAds.tsx`）。この場合でも無料ボタンは独立して機能するため、
+  広告未配信時に復習・テストの継続手段が完全に失われることはない。
+- **`watchRewardedAndGrant()`の現在の使われ方**: 前回（2026-07-05、`extra_review`
+  ラウンド）の変更により、`extra_review`は広告視聴（またはWeb版の擬似待機）完了後、
+  `reward_tickets`への書き込みを行わず成否のみを返す設計になっている。今回の変更は
+  この関数自体には手を加えていない（呼び出し元のボタンの役割分担のみを変更）。
+- **参考実装**: `src/app/learn/LearnRunner.tsx`には元々「間違えた単語だけもう一度」
+  （誤答のみに絞った無料再挑戦ボタン）が既に存在しており、今回採用した設計方針
+  （誤答限定の無料復習）の社内前例として踏襲した。
+
+**判断**: オーナー提案の「案A: 無料再挑戦と広告再挑戦の役割を分ける」を採用した。
+
+**採用した方針・実装内容**:
+- **FlipCardRunner.tsx**: 新しく`sessionPool`（現在出題中のキュー）と`wrongPool`
+  （このセッションで「まだ」と答えた語のリスト）という2つのstateを追加。
+  - 無料ボタン「間違えた{n}語だけもう一度」（`wrongPool.length > 0`のときのみ表示）:
+    `sessionPool`を`wrongPool`に絞り込んでリセットする`retryWrongOnly()`を新設。
+  - 広告ボタン「広告を見てもう一周チャレンジ」（文言・関数`restart()`とも無変更）:
+    `sessionPool`を元の`pool`（プロパティ、全語）にリセットする。
+  - 全問正答した場合（`wrongPool.length === 0`）は無料ボタンを非表示にし、広告
+    ボタンのみを継続手段として残す。ただし広告ボタン自体が出ない4語未満のプールでは、
+    代替手段が無くなってしまわないよう、無料の全語再挑戦（従来の`もう一度`相当）を
+    フォールバックとして残した。
+  - ヘッダーの進捗表示（`{idx+1}/{sessionPool.length}`、`data-testid="flip-progress"`
+    を新規付与）・進捗バー・完了判定はすべて`sessionPool`基準に変更。リカバリー
+    モードの残数計算（`recoveryTotalDue ?? pool.length`）は元の`pool`プロパティ基準の
+    ままで変更していない。
+- **ChoiceTestRunner.tsx**: 無料ボタンの関数を`restart()`から`retrySameQuestions()`
+  に変更し、`buildQuestions()`を呼ばず`qs`（直前の問題セット）をそのまま使い回して
+  idx/results/pickedのみリセットするようにした（＝全く同じ問題が再出題される）。
+  広告ボタンの関数`onRewardedExtra`は無変更（新しい問題セットを選び直す）。
+- **修正したUI文言**:
+  - FlipCardRunner: 「もう一度」→ 条件付きで「間違えた{n}語だけもう一度」
+    （誤答が無い場合、4語以上のプールでは非表示、4語未満では「もう一度」のまま）。
+    広告ボタンの文言は無変更。
+  - ChoiceTestRunner: 「もう一度」→「同じ問題をもう一度」。
+    「広告を見てもう10問チャレンジ」→「広告を見て別の10問に挑戦」。
+
+**Premiumユーザーへの影響**: なし。Premium判定は追加していない（無料/広告の役割
+分担であり、Premium/無料の差別化ではない）。
+
+**無料ユーザーへの影響**: 誤答した語だけを無料で再確認する権利は維持・明確化した
+（「間違えた語だけ」という的を絞った復習は、全語を漫然と再演習するより学習効率が
+高いという判断で、意図的に無料のまま残した）。全問正答時や、同じ問題セットを
+もう一度解きたい場合の「まっさらな全語再挑戦」「新しい問題セット」は無料では
+得られなくなったが、4語未満のプールでは引き続き無料の全語再挑戦を提供しており、
+過度な制限感は出していないと判断した。
+
+**extra_review保存停止の維持**: 変更なし。両ボタンとも`AppRewardedAdButton`経由で
+`watchRewardedAndGrant("extra_review")`を呼ぶ構造自体は無変更のため、
+`INSTANT_USE_REWARD_KINDS`による`reward_tickets`非永続化（前回ラウンド）はそのまま
+維持されている。
+
+**変更ファイル**: `src/components/review/FlipCardRunner.tsx`
+（`sessionPool`/`wrongPool`state追加、`retryWrongOnly()`新設、`restart()`修正、
+進捗表示のdata-testid追加）、`src/app/test/choice/ChoiceTestRunner.tsx`
+（`retrySameQuestions()`に変更、ボタン文言変更）、
+`scripts/testing/e2e/extra-review-ticket.mjs`（シナリオ拡張）、
+`NEXT_IMPROVEMENTS.md`、`PRODUCTION_MONITORING.md`、`WORK_HISTORY.md`。
+
+**追加・更新したテスト**: `scripts/testing/e2e/extra-review-ticket.mjs`を拡張
+（12項目→15項目）:
+1. FlipCardRunnerで1語だけ誤答した状態から、無料ボタンが「間違えた1語だけもう一度」
+   に限定されること・広告ボタンも並行して表示されることを確認。
+2. 無料ボタンをクリックすると、実際にセッションが1語だけに絞り込まれること
+   （進捗表示`1 / 1`を確認）。
+3. その1語も正答すると、無料の「間違えた語だけもう一度」ボタンが消えること。
+4. 広告ボタンをクリックすると、元の全4語が再出題されること（進捗表示`1 / 4`を確認）。
+5. ChoiceTestRunnerで無料ボタンが「同じ問題をもう一度」に変わっていること・
+   クリックすると`data-word-id`の順序が完全一致する同一問題が再出題されること。
+6. 広告ボタンが「広告を見て別の10問に挑戦」に変わっており、クリックで実際に
+   4択テストが再開されること。
+7. いずれの操作でも`reward_tickets(kind=extra_review)`に新規行が作られないこと・
+   `ai_generation`/`daily_achievement`等ほかのkindが一切影響を受けないこと。
+8. 0語ユーザーでも`/review`が崩れないこと。
+
+**検証結果**: `tsc --noEmit`（エラー無し）/ `build`（成功）/ `test:smoke`（全PASS）/
+`test:extra-review-ticket`（15項目、全PASS）/ `test:e2e`（19フロー全PASS、
+既存回帰なし）/ `verify:prod`（全PASS）/ `verify:srs-global`（V2グローバルフラグ
+本番反映を再確認、全PASS）。
+
+**残課題**: なし。無料・広告それぞれの役割が明確に分かれ、広告視聴に実質的な価値
+（新しい問題セット・全語の再周回）が生まれた。将来的にChoiceTestRunnerの「別の10問」
+に苦手単語優先などの追加価値を持たせる余地はあるが、現状でも「新しい問題」という
+価値は成立しているため優先度は低い（NEXT_IMPROVEMENTS.md参照）。
+
+---
+
 ## 2026-07-05 extra_reviewの消費コード未整備を解消
 
 **目的**: 前回のreward_tickets調査で見つかった残課題「`extra_review`は広告視聴で

@@ -252,6 +252,17 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
   ほかのkindの付与・消費ロジック、既存の`extra_review`データ（本番9件）は無変更。
   `test:extra-review-ticket`（週次`test:e2e`）で広告視聴後に復習/4択テストが実際に
   再開されること・DBに新規行が作られないこと・ほかのkindへの非干渉を検証。
+  さらに同日、広告なしの「もう一度」ボタンが広告ゲート版とほぼ同じ内容を無料提供して
+  おり広告視聴の価値が実質的に無かった問題を解消（優先度A項目34）。
+  `FlipCardRunner.tsx`は無料=「間違えた◯語だけもう一度」（誤答時のみ表示、
+  `wrongPool`に絞り込んだ`sessionPool`を再出題）・広告=「広告を見てもう一周
+  チャレンジ」（元の全語を再出題、無変更）に役割分担。`ChoiceTestRunner.tsx`は
+  無料=「同じ問題をもう一度」（`qs`を再構築せず全く同じ問題を再演習）・
+  広告=「広告を見て別の10問に挑戦」（新しい問題セットを選び直す、関数は無変更）
+  に役割分担。Premium判定は追加していない（無料/広告の役割分担であり
+  Premium/無料の差別化ではない）。`extra_review`のreward_tickets非永続化は維持。
+  `test:extra-review-ticket`を拡張（15項目）し、無料ボタンのラベル・実際の
+  出題件数の絞り込み・広告ボタンでの全語/新問題再開・DB非干渉を検証。
 - **教材・辞書ページの内部リンク強化**: 2026-07-04実装済み（優先度A項目23）。関連教材
   セクション・教材⇄辞書の相互CTA・カテゴリクイックジャンプ等を追加。`test:internal-links`が
   週次`test:e2e`に含まれているため、新規教材追加時も関連教材表示の退行があれば自動検知される
@@ -283,7 +294,7 @@ DB投入後に `npm run test:materials`（インポート後にSRS/PDFテスト�
 | `npm run test:category-lps` | `/materials/toeic`・`/materials/business`・`/materials/news`・`/materials`のLP導線を変更した時 | 3LPの200表示・教材カード件数と内容（`/materials/news`は主役2件+関連教材3件を区別して検証）・教材詳細への遷移・辞書導線・LP間相互リンク（TOEIC⇄ビジネス英語⇄ニュース英語）・`/materials`からの導線・モバイル幅での崩れなし・既存`/materials/[id]`への非影響、を実ブラウザで検証 |
 | `npm run test:dashboard-insights` | `/dashboard`の習得率カード・苦手単語カード・今日の達成チケットを変更した時 | 0語ユーザーでのカード非表示（習得率/苦手単語）・「今日の達成チケット」の0語表示崩れ無し、通常ユーザーでの習得率内訳・苦手単語表示・「今日の達成チケット」が実際の`daily_stats`と整合していること・`/wordbooks`/`/review`/`/weak`各リンク導線・非Premium向けPremium導線・重複タイル非存在、due単語20件以上での既存リカバリーヒントとの共存（習得率/苦手単語/今日の達成チケットいずれも）、モバイル幅(375px)での横スクロール無し、を実ブラウザで検証 |
 | `npm run test:reward-ticket-claim` | `/api/gamification/claim-daily-ticket`・`ClaimDailyTicketButton`・`TodayRewardTickets`・`reward_tickets`のDB制約を変更した時 | 未達成時はボタンが押せずAPI直接呼び出しも400 not_eligibleで拒否・達成後はボタンから1枚だけ記録できる・同日2回目は409 already_claimedで拒否され行数が増えない・リロード後も「記録済み」表示と累計「通算◯日分」表示が維持され行数が増えない・0語ユーザーで崩れない・既存の広告視聴チケット(kind=ai_generation等)と混ざらない・モバイル幅での崩れなし・8件同時POSTでもDBの部分ユニークインデックスにより1枚しか作成されない、を実ブラウザ+DB直接確認で検証（23項目） |
-| `npm run test:extra-review-ticket` | `src/lib/native/rewards.ts`(`watchRewardedAndGrant`)・`FlipCardRunner.tsx`・`ChoiceTestRunner.tsx`の広告視聴導線を変更した時 | 広告視聴(擬似)後にFlipCardRunner「もう一周チャレンジ」/ChoiceTestRunner「もう10問チャレンジ」が実際に再開される・`reward_tickets(kind=extra_review)`に新規行が作られない・`ai_generation`/`daily_achievement`等ほかのkindの行数が変化しない・0語ユーザーで`/review`が崩れない、を実ブラウザ+DB直接確認で検証（12項目） |
+| `npm run test:extra-review-ticket` | `src/lib/native/rewards.ts`(`watchRewardedAndGrant`)・`FlipCardRunner.tsx`・`ChoiceTestRunner.tsx`の広告視聴導線・無料/広告再挑戦の役割分担を変更した時 | FlipCardRunnerで誤答時のみ無料「間違えた◯語だけもう一度」が表示されクリックで実際にその語だけに絞り込まれる・全問正答時は広告ボタンのみ残る・広告ボタンでは元の全語が再出題される、ChoiceTestRunnerで無料「同じ問題をもう一度」が全く同じ問題(`data-word-id`順)を再演習する・広告「別の10問に挑戦」で新しい問題セットが始まる、いずれも`reward_tickets(kind=extra_review)`に新規行が作られない・`ai_generation`/`daily_achievement`等ほかのkindの行数が変化しない・0語ユーザーで`/review`が崩れない、を実ブラウザ+DB直接確認で検証（15項目） |
 | `npm run verify:seo-lp-audit` | sitemap.ts・robots.txt・カテゴリLPのmetadataを変更した時／**本番デプロイ後** | 本番の`/sitemap.xml`に主要ページ・3LPが含まれるか・`/robots.txt`が対象パスをブロックしていないか・3LPのcanonicalが自分自身を指すか・JSON-LD(BreadcrumbList/ItemList)が妥当なJSONか・既存`/materials/[id]`への非影響を、HTTPのみ（ブラウザ不要）で検証。`verify:prod`同様デフォルトで本番URLを対象とする |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |

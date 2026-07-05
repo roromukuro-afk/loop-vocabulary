@@ -33,9 +33,15 @@ export function FlipCardRunner({
   recoveryTotalDue?: number;
 }) {
   const showInterstitial = useAppInterstitial();
+  // sessionPool: 現在出題中のキュー。通常は`pool`(全語)そのものだが、
+  // 「間違えた語だけもう一度」を選んだ場合はwrongPoolに絞り込んだものに差し替わる。
+  // `pool`プロパティ自体は常に元の全語リストのまま保つ（広告ボタンの「全部もう一周」用）。
+  const [sessionPool, setSessionPool] = useState<W[]>(pool);
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
+  // このセッション中に「まだ」と答えた単語（無料の「間違えた語だけもう一度」用）
+  const [wrongPool, setWrongPool] = useState<W[]>([]);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [swipeMode, setSwipeMode] = useState(() =>
@@ -45,7 +51,7 @@ export function FlipCardRunner({
   const touchStartX = useRef<number | null>(null);
   const [swipeHint, setSwipeHint] = useState<"left" | "right" | null>(null);
 
-  const cur = pool[idx];
+  const cur = sessionPool[idx];
   // V2判定: サーバから渡された実効フラグ（env or ユーザーopt-in）を優先。
   // 未指定時は env のみで判定。ON のとき4段階評価UI、OFFなら従来の2値。
   const v2 = v2Enabled ?? isSrsV2Enabled();
@@ -87,7 +93,8 @@ export function FlipCardRunner({
     await saveStudyResult(cur, isCorrect, undefined, rating);
     const newResults = [...results, { word: cur.word, meaning: cur.meaning, ok: isCorrect }];
     setResults(newResults);
-    if (idx + 1 >= pool.length) {
+    if (!isCorrect) setWrongPool((w) => [...w, cur]);
+    if (idx + 1 >= sessionPool.length) {
       setDone(true);
     } else {
       setFlipped(false);
@@ -119,8 +126,20 @@ export function FlipCardRunner({
     else if (dx < -60) void handleAnswer(false); // 左スワイプ = まだ
   };
 
+  // 広告視聴後（またはpool.length<4で広告ボタン自体が無い場合の無料フォールバック）に、
+  // 元の全語セットをもう一周する。
   const restart = () => {
-    setIdx(0); setFlipped(false); setResults([]); setDone(false); setBusy(false);
+    setSessionPool(pool);
+    setIdx(0); setFlipped(false); setResults([]); setWrongPool([]); setDone(false); setBusy(false);
+  };
+
+  // 無料の再挑戦: このセッションで「まだ」だった語だけに絞ってもう一度復習する。
+  // 全語を無料でもう一周できてしまうと広告視聴の価値が無くなるため、無料側は
+  // 復習目的の「間違えた語の再確認」に役割を限定している
+  // （詳細はNEXT_IMPROVEMENTS.md「無料/広告再挑戦の役割分担」参照）。
+  const retryWrongOnly = () => {
+    setSessionPool(wrongPool);
+    setIdx(0); setFlipped(false); setResults([]); setWrongPool([]); setDone(false); setBusy(false);
   };
 
   const correctCount = results.filter((r) => r.ok).length;
@@ -189,8 +208,13 @@ export function FlipCardRunner({
           </div>
         )}
 
-        <div className="mt-6 grid grid-cols-2 gap-2">
-          <Button fullWidth onClick={restart}>もう一度</Button>
+        <div className={`mt-6 grid gap-2 ${wrongPool.length > 0 || pool.length < 4 ? "grid-cols-2" : "grid-cols-1"}`}>
+          {wrongPool.length > 0 ? (
+            <Button fullWidth onClick={retryWrongOnly}>間違えた{wrongPool.length}語だけもう一度</Button>
+          ) : pool.length < 4 ? (
+            // 4語未満は広告ボタン自体が出ないため、代わりの無料オプションとして全語再挑戦を残す
+            <Button fullWidth onClick={restart}>もう一度</Button>
+          ) : null}
           <Link href="/dashboard"><Button fullWidth variant="secondary">ホームへ</Button></Link>
         </div>
       </div>
@@ -210,7 +234,7 @@ export function FlipCardRunner({
       {/* ヘッダー */}
       <div className="flex items-center justify-between text-xs text-navy-500">
         <Link href="/review">← 中断</Link>
-        <span>{idx + 1} / {pool.length}</span>
+        <span data-testid="flip-progress">{idx + 1} / {sessionPool.length}</span>
         <button
           onClick={toggleSwipe}
           className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
@@ -227,12 +251,12 @@ export function FlipCardRunner({
       )}
       {recoveryMode && (
         <p className="mt-1 text-center text-[11px] text-amber-600 font-semibold" data-testid="recovery-mode-badge">
-          🌱 リカバリーモード（{pool.length}語だけ）
+          🌱 リカバリーモード（{sessionPool.length}語だけ）
         </p>
       )}
 
       <div className="mt-2 h-1.5 bg-navy-100 rounded-full overflow-hidden">
-        <div className="h-full bg-sky-500 transition-all duration-300" style={{ width: `${(idx / pool.length) * 100}%` }} />
+        <div className="h-full bg-sky-500 transition-all duration-300" style={{ width: `${(idx / sessionPool.length) * 100}%` }} />
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center mt-4 gap-6">
