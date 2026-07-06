@@ -497,6 +497,95 @@ delete-request/route.ts`参照）。削除を処理する前に、必ず対象�
 
 ---
 
+## 13. AI利用コスト・濫用対策で見るべき異常（2026-07-06整備）
+
+Premium本格運用前に、全AIルート（`/api/ai`・`/api/ai/study-plan`・
+`/api/ai/lookup`・`/api/ai/extract-words`・`/api/ai/weakness-analysis`・
+`/api/wordbook/[id]/ai-suggest`）のコスト・濫用対策を棚卸しし、以下を修正した。
+
+### 13-1. 発見した不具合（修正済み）
+
+1. **`/api/ai/study-plan`にサーバー側のPremium判定が一切なかった**: `/plan`
+   ページのUI側だけで`isPremium`分岐しており、APIルート自体は`if (!user)`
+   のみだった。ログイン済みの非Premiumユーザーがフォームを経由せず直接
+   `POST /api/ai/study-plan`を叩けば、無制限に実際のClaude API呼び出しが
+   できてしまっていた（最も深刻な穴）。`extract-words`/`weakness-analysis`
+   と同じ`is_premium`403ガードを追加。
+2. **`/api/ai/lookup`（辞書AI補完、`/wordbooks/[id]/add`の「✨ AI補完」）に
+   日次上限が一切なかった**: Premium/無料を問わず、ログイン済みなら無制限に
+   呼べる状態だった。メイン解説API(`/api/ai`)と同じ日次カウンター
+   （無料5回/日+`ai_generation`チケット救済、Premiumは13-2のソフト上限）を
+   共有するよう修正。
+3. **`/api/ai/lookup`・`/api/wordbook/[id]/ai-suggest`でAnthropic
+   API呼び出し本体がtry/catchで保護されていなかった**: JSON解析の失敗のみ
+   捕捉しており、Anthropic側の障害（レート制限・タイムアウト・キー無効等）が
+   未処理の例外として素通りしていた。他3ルートと同じくtry/catchで保護。
+4. **`/api/ai`（メイン解説）・`/api/ai/study-plan`・`/api/ai/lookup`の
+   自由入力（word/meaning/exam/currentLevel）に文字数上限が無かった**:
+   `extract-words`の`text`（3000文字上限）は既に対策済みだったが、他は
+   無制限で、巨大な入力をそのままプロンプトに埋め込みClaude APIの
+   入力トークン課金を膨らませられる状態だった。`word`100文字・`meaning`
+   200文字・`exam`/`currentLevel`100文字の上限を追加。
+5. **`/api/ai/study-plan`の`targetDate`が無検証で`new Date()`に渡され、
+   不正な日付だと`daysLeft`が`NaN`になっていた**: クラッシュはしないが
+   プロンプトに`NaN 日後`という壊れたデータが渡っていた。不正な日付は
+   400で拒否するよう修正。
+
+### 13-2. Premiumユーザー向けソフト上限（新設）
+
+Premiumは「AI利用無制限」を謳っており（`/premium`・`/faq`）、この文言・
+実装は変更していない。ただし`/faq`には元々「過度な自動化利用を除く」という
+留保が既に書かれており、実装側にはその留保を担保する仕組みが無かった
+（真の無制限だった）。これを実装で裏付けるため、通常利用では絶対に到達
+しない高い上限（**1日300回、全AIルート共通**、既存の`profiles.daily_ai_used`/
+`daily_ai_reset_at`を流用・スキーマ変更なし）を`src/lib/ai/premiumDailyCap.ts`
+として新設し、全Premium限定AIルートに適用した。到達時は`429
+premium_daily_limit_reached`を返す。無料ユーザーの5回/日・`ai_generation`
+チケット救済ロジックには一切手を入れていない。
+
+- **300回/日に到達する状況**: 通常の学習利用では発生しない
+  （目安: 1分に1回呼び続けても5時間分）。到達するのはスクリプトによる
+  自動連打等の異常系のみ。到達した場合はPremiumユーザーからの問い合わせ・
+  クレームに繋がりうるため、下記13-3の確認観点で検知すること。
+
+### 13-3. 監視・異常検知の観点
+
+- **`ai_usage_logs`テーブル**（`/api/ai`のみ、ベストエフォートでinsert・
+  失敗しても本処理は継続）: 直近の利用件数・ユーザー別の急増を見る場合は
+  以下のSQLを使う。
+  ```sql
+  -- 直近24時間の利用件数（kind別）
+  select kind, count(*) from ai_usage_logs where used_at > now() - interval '24 hours' group by kind;
+
+  -- 直近24時間で異常に多いユーザー（濫用の兆候）
+  select user_id, count(*) from ai_usage_logs where used_at > now() - interval '24 hours' group by user_id order by count(*) desc limit 10;
+  ```
+- **無料 vs Premiumの利用内訳**: `profiles.daily_ai_used`は「今日時点」の
+  スナップショットのみ保持し履歴は残らないため、日次トレンドを見たい場合は
+  `ai_usage_logs`と`profiles.is_premium`を結合する。
+  ```sql
+  select p.is_premium, count(*) from ai_usage_logs a join profiles p on p.id = a.user_id
+  where a.used_at > now() - interval '24 hours' group by p.is_premium;
+  ```
+- **Premiumソフト上限(300回/日)への到達有無**: 到達したユーザーがいれば
+  異常な自動化利用の可能性が高い。
+  ```sql
+  select id, daily_ai_used from profiles where is_premium = true and daily_ai_reset_at = current_date and daily_ai_used >= 300;
+  ```
+- **Anthropic API障害の検知**: `console.error`で`[AI route]`/`[AI lookup]`/
+  `[ai-suggest]`のプレフィックス付きログを出力するようにした（本ラウンドで
+  `lookup`/`ai-suggest`にも追加）。Vercel Functions Logsでこれらのプレフィックス
+  を検索すれば、Anthropic呼び出し失敗（レート制限・タイムアウト・キー期限切れ等）
+  の急増を確認できる。
+- **緊急停止手順**: Anthropicの障害・想定外のコスト急増が発生した場合、
+  Vercelの環境変数`ANTHROPIC_API_KEY`を一時的に空/無効値に変更し再デプロイ
+  すれば、`/api/ai`はモックテンプレート応答に、`lookup`/`extract-words`/
+  `weakness-analysis`/`study-plan`/`ai-suggest`は`503 AI not configured`
+  にフォールバックする（いずれもクラッシュしない）。これにより本番のAI
+  課金だけを即座に止めつつ、他機能は継続できる。
+
+---
+
 ## 自動検証コマンドの運用
 
 | コマンド | 実行タイミング | 目的 |
@@ -517,6 +606,7 @@ delete-request/route.ts`参照）。削除を処理する前に、必ず対象�
 | `npm run test:premium-conversion` | `/premium`・トップページ(`/`)・`PremiumCheckout.tsx`・Stripe checkout/webhookルート・各Premium gatingページのCTA文言・`dashboard/page.tsx`の広告表示・マーケティング文言を変更した時 | 非Premiumで料金比較表・チェックアウトボタンが表示される・Premiumで「現在プレミアム会員です」表示に切り替わりチェックアウトボタンが消える・`POST /api/stripe/checkout`がPremium時に409 already_premiumを返す（二重課金防止）・`/weak`/`/extract`/`/plan`のPremium誘導CTAが統一文言になっている・`/test/typing`/`/test/listening`のペイウォール表示・`/premium`のモバイル崩れなし・ダッシュボード広告のisPremiumガードをソースコードで確認・`/premium`とトップページ(`/`)に実データと乖離した誇張・社会的証明の文言（「3,200+登録ユーザー」「ユーザーの声」等）が残っていないこと・トップページのJSON-LDに未実証`aggregateRating`が含まれていないこと・reward_ticketsの予約済み・未実装kind(pdf_export/weak_word_test/analysis_ticket)がPremium特典として訴求されていないこと、を実ブラウザ+API直接確認で検証（2026-07-05に2ステップ、2026-07-06に禁止文言4件追加） |
 | `npm run test:stripe-premium-webhook` | `src/app/api/stripe/checkout/route.ts`・`src/app/api/stripe/webhook/route.ts`・Premium反映フローを変更した時 | 署名付きテストイベント（`Stripe.webhooks.generateTestHeaderString`、実Stripe通信なし・実課金なし）で、不正signatureの400拒否・未知イベントタイプでの非クラッシュ・存在しない顧客ID/ユーザーIDでの非クラッシュ・`checkout.session.completed`でのis_premium/premium_expires_at反映・webhookで付与したis_premiumが実際に`/premium`のPremium機能解放に反映されること・二重checkout防止(409)・未ログインcheckout(401)・`customer.subscription.updated`(active/canceled期限反映)・`customer.subscription.deleted`(即時失効)を検証（2026-07-06新規、`run-e2e.mjs`ステップ22として追加、20項目）。テスト用アカウントのみ操作し、実Stripe顧客・実メール送信は一切発生しない設計 |
 | `npm run test:legal-trust-pages` | `/premium`・`/privacy`・`/terms`・`/faq`・`/contact`・`/legal/commercial-transaction`・`/login`の`?next=`リダイレクト・footer導線を変更した時 | `/premium`・`/privacy`・`/terms`・`/faq`・`/contact`の200表示・未ログイン時「ログインして始める」が404にならず`/login?next=/premium`へ遷移しログイン完了後に実際に`/premium`へ戻ること（`/dashboard`固定リダイレクトの回帰確認）・ランディングページfooter及び`/premium`下部リンクの非404・`/privacy`のStripe/Anthropic第三者サービス記載・`/terms`の実際の価格/解約方法記載・モバイル幅での崩れ無し・誇張表現/未実装特典の非復活・`/legal/commercial-transaction`の200表示/確定情報整合/プレースホルダー表示/noindexメタ/robots.txt Disallow/非リンク確認、を実ブラウザで検証（2026-07-05に16項目、2026-07-06に6項目追加、`run-e2e.mjs`ステップ23として追加、計21項目） |
+| `npm run test:ai-usage-guards` | `/api/ai`・`/api/ai/study-plan`・`/api/ai/lookup`・`/api/ai/extract-words`・`/api/ai/weakness-analysis`・`/api/wordbook/[id]/ai-suggest`・`src/lib/ai/premiumDailyCap.ts`を変更した時 | 未ログインで全AIルートが401・無料ユーザーの5回/日上限と`ai_generation`チケット救済（チケット消費後も`daily_ai_used`が変化しないこと含む）・Premium通常利用は成功しソフト上限(300回/日、全AIルート共通)到達時のみ429・巨大入力(word>100文字)の400拒否・空入力の400拒否(非クラッシュ)・`study-plan`のPremium判定(非Premium403/Premium通過)と入力バリデーション(exam超過400・不正targetDate 400)・`/weak`/`/extract`/`/plan`への回帰なし、を実ブラウザ+API直接確認+DB直接操作で検証（2026-07-06新規、`run-e2e.mjs`ステップ24として追加、24項目） |
 | `npm run verify:seo-lp-audit` | sitemap.ts・robots.txt・カテゴリLPのmetadataを変更した時／**本番デプロイ後** | 本番の`/sitemap.xml`に主要ページ・3LPが含まれるか・`/robots.txt`が対象パスをブロックしていないか・3LPのcanonicalが自分自身を指すか・JSON-LD(BreadcrumbList/ItemList)が妥当なJSONか・既存`/materials/[id]`への非影響を、HTTPのみ（ブラウザ不要）で検証。`verify:prod`同様デフォルトで本番URLを対象とする |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { consumePremiumDailyAiUsage } from "@/lib/ai/premiumDailyCap";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,11 @@ export async function POST(_req: NextRequest) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "AI not configured" }, { status: 503 });
+
+  const allowed = await consumePremiumDailyAiUsage(supabase, user.id);
+  if (!allowed) {
+    return NextResponse.json({ error: "premium_daily_limit_reached" }, { status: 429 });
+  }
 
   const wordList = weakWords.slice(0, 30).map((w) =>
     `${w.word}（${w.meaning}）: 誤${w.wrong_count}回/正${w.correct_count}回 [${w.pos ?? "不明"}]`

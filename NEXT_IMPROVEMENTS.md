@@ -1212,6 +1212,59 @@
 
 ---
 
+42. ✅ **完了（2026-07-06）: AI利用コスト・濫用対策の棚卸しと改善**
+    Premium本格運用前の安全対策として、全AIルート（`/api/ai`・
+    `/api/ai/study-plan`・`/api/ai/lookup`・`/api/ai/extract-words`・
+    `/api/ai/weakness-analysis`・`/api/wordbook/[id]/ai-suggest`）を
+    横断的に棚卸しし、以下を修正した（詳細は
+    [PRODUCTION_MONITORING.md](PRODUCTION_MONITORING.md) §13参照）。
+    **最重要の修正**: `/api/ai/study-plan`にサーバー側のPremium判定が
+    一切なく、`/plan`ページのUI側だけで`isPremium`分岐していたため、
+    ログイン済みの非Premiumユーザーがフォームを経由せず直接APIを叩けば
+    無制限にClaude APIを呼べる状態だった。他4つのPremium必須ルートと
+    同じ`is_premium`403ガードを追加。
+    **その他の修正**: (1) `/api/ai/lookup`（辞書AI補完）に日次上限が
+    無かったため、メイン解説APIと同じ日次カウンター（無料5回/日+
+    `ai_generation`チケット救済）を共有するよう修正。(2) `lookup`・
+    `ai-suggest`でAnthropic呼び出し本体がtry/catch未保護だったため保護。
+    (3) `/api/ai`・`/api/ai/study-plan`・`/api/ai/lookup`の自由入力
+    （word/meaning/exam/currentLevel）に文字数上限（100〜200文字）を追加。
+    (4) `study-plan`の`targetDate`未検証によるNaN daysLeftを防止。
+    (5) `ai-suggest`にAPIキー未設定時の503フォールバックを統一。
+    **Premium向けソフト上限を新設**: 「AI利用無制限」の文言・実装は
+    変更していないが、`/faq`に既にあった「過度な自動化利用を除く」という
+    留保を実装で裏付けるため、通常利用では絶対に到達しない上限
+    （1日300回、全AIルート共通・既存`profiles.daily_ai_used`を流用、
+    DBスキーマ変更なし）を`src/lib/ai/premiumDailyCap.ts`として新設し、
+    Premium限定の全AIルートに適用した。無料ユーザーの5回/日・
+    `ai_generation`チケット救済ロジックには一切手を入れていない。
+    **文言変更は行っていない**: 実装（ソフト上限）と既存の`/premium`・
+    `/faq`の文言（「AI利用無制限」＋「過度な自動化利用を除く」の留保）が
+    既に整合していたため、マーケティング文言・規約の変更は不要と判断した。
+    Stripe価格変更・Webhook変更・SRS V2・teacher機能・教材データ・
+    AdSense広告枠への変更なし。既存Premium機能・`ai_generation`チケット
+    消費仕様は壊していない。
+    **テスト追加**: `scripts/testing/e2e/ai-usage-guards.mjs`を新規作成
+    （24項目、`run-e2e.mjs`ステップ24として追加）。未ログイン401・
+    無料上限とチケット救済・Premiumソフト上限・巨大/空入力の拒否・
+    `study-plan`のPremium判定と入力バリデーション・`/weak`/`/extract`/
+    `/plan`への回帰なしを検証。`verify-premium-gating.mjs`にも
+    `study-plan`の非Premium403/Premium通過チェックを追加。
+    検証: `tsc --noEmit` / `build` / `test:premium-gating`（23項目）/
+    `test:weak-analysis`（20項目）/ `test:smoke` / `test:ai-usage-guards`
+    （新規24項目）/ `test:e2e`（24スイート）/ `verify:prod` /
+    `verify:srs-global`、全PASS。
+    **残課題**: Premiumソフト上限(300回/日)は本ラウンドで初めて実運用に
+    投入するため、実際に到達するユーザーが出た場合は誤検知でないか
+    （複数AI機能を組み合わせた正当な集中利用等）個別確認すること。
+    また、`/api/ai`のメイン日次カウンター更新はcheck-then-updateであり
+    厳密なアトミック性はない（同時リクエストでの取りこぼしは軽微、
+    無料5回/日の枠内では実害小さいと判断し今回は変更していない。
+    アトミック化にはPostgres RPC関数の新設等DB側変更が必要になるため、
+    必要であれば別途提案・承認を得てから実施する）。
+
+---
+
 ## 💰 収益化・成長 監査（2026-07-04）
 
 事業・収益・継続率・SEO流入の観点でコード・DB・教材・公開ページを監査した結果。

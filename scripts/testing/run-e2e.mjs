@@ -109,6 +109,9 @@ async function main() {
 
     console.log("\n=== 23. 信頼ページ・規約・決済説明 E2E ===");
     results.legalTrustPages = runNode("scripts/testing/e2e/legal-trust-pages.mjs");
+
+    console.log("\n=== 24. AI利用コスト・濫用対策 E2E ===");
+    results.aiUsageGuards = runNode("scripts/testing/e2e/ai-usage-guards.mjs");
   } finally {
     stopDevServer(dev);
   }

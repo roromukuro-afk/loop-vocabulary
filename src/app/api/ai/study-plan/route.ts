@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { consumePremiumDailyAiUsage } from "@/lib/ai/premiumDailyCap";
 
 export const runtime = "nodejs";
 
@@ -9,23 +10,40 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { exam, targetDate, currentLevel, dailyMinutes } = await req.json() as {
-    exam: string;
-    targetDate: string;
-    currentLevel: string;
-    dailyMinutes: number;
+  const { data: profile } = await supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle();
+  if (!(profile?.is_premium ?? false)) {
+    return NextResponse.json({ error: "Premium required" }, { status: 403 });
+  }
+
+  const { exam, targetDate, currentLevel, dailyMinutes } = await req.json().catch(() => ({})) as {
+    exam?: string;
+    targetDate?: string;
+    currentLevel?: string;
+    dailyMinutes?: number;
   };
 
   if (!exam || !targetDate) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  if (exam.length > 100 || (currentLevel && currentLevel.length > 100)) {
+    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  }
+
+  const now = new Date();
+  const target = new Date(targetDate);
+  if (Number.isNaN(target.getTime())) {
+    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  }
+  const safeDailyMinutes = Math.min(Math.max(Number(dailyMinutes) || 30, 5), 600);
+  const daysLeft = Math.max(1, Math.min(3650, Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))));
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "AI not configured" }, { status: 503 });
   }
 
-  const now = new Date();
-  const target = new Date(targetDate);
-  const daysLeft = Math.max(1, Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+  const allowed = await consumePremiumDailyAiUsage(supabase, user.id);
+  if (!allowed) {
+    return NextResponse.json({ error: "premium_daily_limit_reached" }, { status: 429 });
+  }
 
   const prompt = `あなたは英語学習コーチです。以下の条件で最適な英語学習プランを作成してください。
 
@@ -33,7 +51,7 @@ export async function POST(req: NextRequest) {
 - 目標: ${exam}
 - 試験日/目標達成日: ${targetDate}（今日から ${daysLeft} 日後）
 - 現在のレベル: ${currentLevel}
-- 1日の学習時間: ${dailyMinutes} 分
+- 1日の学習時間: ${safeDailyMinutes} 分
 
 以下のJSON形式で学習プランを出力してください（他の説明は不要）：
 

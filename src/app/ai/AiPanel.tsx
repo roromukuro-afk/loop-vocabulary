@@ -103,10 +103,10 @@ export function AiPanel({ initialWord, initialMeaning }: { initialWord: string; 
       {/* 入力フォーム */}
       <div className="grid grid-cols-2 gap-3">
         <Field label="英単語">
-          <Input value={word} onChange={(e) => setWord(e.target.value)} placeholder="persist" />
+          <Input value={word} onChange={(e) => setWord(e.target.value)} placeholder="persist" maxLength={100} />
         </Field>
         <Field label="意味（任意）">
-          <Input value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder="固執する" />
+          <Input value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder="固執する" maxLength={200} />
         </Field>
       </div>
 

@@ -135,6 +135,17 @@ async function main() {
       if (res.status === 403) ok(`/api/wordbook/[id]/ai-suggest: 非Premiumでは403になる`);
       else bad(`/api/wordbook/[id]/ai-suggest: 非Premium時のステータスが想定外 (${res.status})`);
     }
+    {
+      // 2026-07-06、study-planはサーバー側にPremium判定が一切なくUI経由を回避すれば
+      // 非Premiumでも無制限にClaude APIを呼べていた穴を修正。回帰防止のため検証を追加。
+      const res = await fetch(`${baseUrl}/api/ai/study-plan`, {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ exam: "英検2級", targetDate: "2027-01-01", currentLevel: "中級", dailyMinutes: 30 }),
+      });
+      if (res.status === 403) ok(`/api/ai/study-plan: 非Premiumでは403になる（修正前は誰でも呼べていた）`);
+      else bad(`/api/ai/study-plan: 非Premium時のステータスが想定外 (${res.status})`);
+    }
 
     // ================= Premium状態 =================
     console.log("\n--- Premium状態 ---");
@@ -190,6 +201,15 @@ async function main() {
       });
       if (res.status !== 403) ok(`/api/wordbook/[id]/ai-suggest: Premiumではpremium判定を通過する (status=${res.status})`);
       else bad(`/api/wordbook/[id]/ai-suggest: Premium時も403のまま（修正が効いていない）`);
+    }
+    {
+      const res = await fetch(`${baseUrl}/api/ai/study-plan`, {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ exam: "英検2級", targetDate: "2027-01-01", currentLevel: "中級", dailyMinutes: 30 }),
+      });
+      if (res.status !== 403) ok(`/api/ai/study-plan: Premiumではpremium判定を通過する (status=${res.status})`);
+      else bad(`/api/ai/study-plan: Premium時も403のまま（修正が効いていない）`);
     }
 
     // ================= 回帰確認: choice/input/typing/listening/attack =================

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { consumePremiumDailyAiUsage } from "@/lib/ai/premiumDailyCap";
 
 export const runtime = "nodejs";
 
@@ -18,12 +19,20 @@ export async function POST(req: NextRequest) {
   if (!text || typeof text !== "string" || text.length > 3000) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
+  if (level && (typeof level !== "string" || level.length > 50)) {
+    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  }
 
   const levelHint = level ? `想定レベル: ${level}` : "英検2級〜準1級レベル";
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "AI not configured" }, { status: 503 });
+  }
+
+  const allowed = await consumePremiumDailyAiUsage(supabase, user.id);
+  if (!allowed) {
+    return NextResponse.json({ error: "premium_daily_limit_reached" }, { status: 429 });
   }
 
   const client = new Anthropic({ apiKey });

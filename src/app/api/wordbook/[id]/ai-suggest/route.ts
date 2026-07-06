@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/supabase/requireUser";
 import Anthropic from "@anthropic-ai/sdk";
+import { consumePremiumDailyAiUsage } from "@/lib/ai/premiumDailyCap";
 
 export const runtime = "nodejs";
 
@@ -38,15 +39,26 @@ export async function POST(
     return NextResponse.json({ error: "単語帳に単語が登録されていません" }, { status: 400 });
   }
 
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json({ error: "AI not configured" }, { status: 503 });
+  }
+
+  const allowed = await consumePremiumDailyAiUsage(supabase, user.id);
+  if (!allowed) {
+    return NextResponse.json({ error: "premium_daily_limit_reached" }, { status: 429 });
+  }
+
   const wordList = words.map((w) => `${w.word}（${w.meaning}）`).join("、");
 
-  const message = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 1024,
-    messages: [
-      {
-        role: "user",
-        content: `以下の英単語帳に登録されている単語から学習者の語彙レベルと学習テーマを推測し、関連する英単語を${n}語提案してください。
+  let raw: string;
+  try {
+    const message = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1024,
+      messages: [
+        {
+          role: "user",
+          content: `以下の英単語帳に登録されている単語から学習者の語彙レベルと学習テーマを推測し、関連する英単語を${n}語提案してください。
 
 登録済み単語: ${wordList}
 
@@ -55,11 +67,14 @@ export async function POST(
   { "word": "英単語", "meaning": "日本語の意味（短く）", "pos": "品詞略称（n./v./adj.等）" },
   ...
 ]`,
-      },
-    ],
-  });
-
-  const raw = message.content[0].type === "text" ? message.content[0].text : "";
+        },
+      ],
+    });
+    raw = message.content[0].type === "text" ? message.content[0].text : "";
+  } catch (e) {
+    console.error("[ai-suggest] messages.create failed:", e instanceof Error ? e.message : String(e));
+    return NextResponse.json({ error: "AI応答の取得に失敗しました" }, { status: 500 });
+  }
 
   // JSON部分を抽出
   const match = raw.match(/\[[\s\S]*\]/);

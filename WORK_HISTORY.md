@@ -5,6 +5,115 @@
 
 ---
 
+## 2026-07-06 AI利用コスト・濫用対策の棚卸しと改善
+
+**目的**: Premiumの本格運用前の安全対策として、全AIルートを横断的に棚卸しし、
+コスト濫用の穴を塞ぐ。DBスキーマ変更は行わず、既存のPremiumマーケティング
+文言・`ai_generation`チケット消費仕様・Stripe課金・Webhook・SRS V2・
+teacher機能・教材データには一切手を入れないという制約のもとで作業した。
+
+**調査結果**: 対象6ルート（`/api/ai`・`/api/ai/study-plan`・`/api/ai/lookup`・
+`/api/ai/extract-words`・`/api/ai/weakness-analysis`・
+`/api/wordbook/[id]/ai-suggest`）を精査し、以下の穴を発見した。
+
+1. **`/api/ai/study-plan`にサーバー側のPremium判定が一切なかった（最重要）**:
+   `/plan`ページのUI側（`page.tsx`/`StudyPlanClient.tsx`）だけで`isPremium`
+   分岐しており、APIルート自体は`if (!user) return 401`のみだった。ログイン
+   済みの非Premiumユーザーがフォームを経由せず直接`POST /api/ai/study-plan`
+   を叩けば、無制限に実際のClaude API呼び出し（`max_tokens: 2048`という
+   比較的大きめの応答枠）ができてしまう状態だった。
+2. **`/api/ai/lookup`（`/wordbooks/[id]/add`の「✨ AI補完」）に日次上限が
+   一切なかった**: Premium/無料を問わずログイン済みなら無制限に呼べた。
+3. **`lookup`・`ai-suggest`でAnthropic呼び出し本体がtry/catch未保護**:
+   JSON解析の失敗のみ捕捉しており、Anthropic側の障害（レート制限・
+   タイムアウト・キー無効等）が未処理の例外として素通りしていた。
+4. **`/api/ai`・`/api/ai/study-plan`・`/api/ai/lookup`の自由入力
+   （word/meaning/exam/currentLevel）に文字数上限が無かった**:
+   `extract-words`の`text`（3000文字上限）は既に対策済みだったが、他は
+   無制限で、巨大入力によりClaude APIの入力トークン課金を膨らませられる
+   状態だった。
+5. **`study-plan`の`targetDate`が無検証で`new Date()`に渡され、不正な
+   日付だと`daysLeft`が`NaN`になっていた**（クラッシュはしないが壊れた
+   データがプロンプトに渡っていた）。
+
+**実装内容**:
+1. `src/app/api/ai/study-plan/route.ts`に`is_premium`403ガードを追加
+   （`extract-words`/`weakness-analysis`と同じパターン）。加えて`exam`/
+   `currentLevel`の文字数上限(100文字)・`dailyMinutes`のクランプ(5〜600)・
+   `targetDate`の妥当性検証（不正な日付は400）・`daysLeft`の上限(3650日)
+   を追加。
+2. `src/lib/ai/premiumDailyCap.ts`を新規作成。Premiumユーザー向けに
+   「1日300回、全AIルート共通」のソフト上限（既存の`profiles.daily_ai_used`/
+   `daily_ai_reset_at`を流用、DBスキーマ変更なし）を設け、無料ユーザーの
+   5回/日+`ai_generation`チケット救済ロジックとは完全に独立させた。
+   `/premium`・`/faq`の「AI利用無制限」という文言・実装は変更していないが、
+   `/faq`に既にあった「過度な自動化利用を除く」という留保を実装で裏付ける
+   ための安全網である。通常の学習利用（1分に1回呼び続けても5時間分）では
+   絶対に到達しない値に設定した。
+3. `/api/ai/route.ts`（メイン解説）: `word`(100文字)/`meaning`(200文字)の
+   長さ上限、`kind`の許可値バリデーションを追加。既存の無料5回/日+チケット
+   救済ロジックは1行も変更していない（新設の判定は`else if
+   (profile?.is_premium)`という追加分岐のみ）。
+4. `/api/ai/lookup/route.ts`: メイン解説と同じ日次カウンター・チケット
+   救済・Premiumソフト上限を共有するよう変更（無制限だった状態を解消）。
+   `word`の長さ上限(100文字)追加。Anthropic呼び出しをtry/catchで保護。
+5. `/api/wordbook/[id]/ai-suggest/route.ts`: Anthropic呼び出しを
+   try/catchで保護。Premiumソフト上限を追加。他ルートと統一するため
+   APIキー未設定時の503フォールバックも追加。
+6. `/api/ai/extract-words/route.ts`・`/api/ai/weakness-analysis/route.ts`:
+   Premiumソフト上限を追加（既存のPremium判定・入力長制限はそのまま）。
+   `extract-words`の`level`パラメータにも文字数上限(50文字)を追加。
+7. `src/app/ai/AiPanel.tsx`の`word`/`meaning`入力欄に`maxLength`
+   （サーバー側と同じ100/200文字）を追加。
+
+**文言変更は行っていない**: 実装（新設のソフト上限）と既存の`/premium`・
+`/faq`の文言（「AI利用無制限」＋「過度な自動化利用を除く」の留保）が
+既に整合していると判断したため、マーケティング文言・規約文言の変更は
+不要と判断した。ユーザー提案の代替文言（「Premium範囲内でAI機能を利用可能」
+等）は今回採用していない。
+
+**変更ファイル**: `src/app/api/ai/route.ts`、`src/app/api/ai/study-plan/route.ts`、
+`src/app/api/ai/lookup/route.ts`、`src/app/api/ai/extract-words/route.ts`、
+`src/app/api/ai/weakness-analysis/route.ts`、
+`src/app/api/wordbook/[id]/ai-suggest/route.ts`、
+`src/lib/ai/premiumDailyCap.ts`（新規）、`src/app/ai/AiPanel.tsx`、
+`scripts/testing/e2e/ai-usage-guards.mjs`（新規）、
+`scripts/testing/verify-premium-gating.mjs`、`scripts/testing/run-e2e.mjs`、
+`package.json`、`PRODUCTION_MONITORING.md`、`NEXT_IMPROVEMENTS.md`。
+
+**テスト追加**: `scripts/testing/e2e/ai-usage-guards.mjs`を新規作成
+（24項目）。未ログインでの全AIルート401・無料5回/日上限と
+`ai_generation`チケット救済（チケット消費後も`daily_ai_used`が変化しない
+ことを含む）・Premium通常利用の成功とソフト上限(300回/日)到達時の429・
+巨大入力(word>100文字)の400拒否・空入力の400拒否(非クラッシュ)・
+`study-plan`のPremium判定(非Premium403/Premium通過)と入力バリデーション
+(exam超過400・不正targetDate 400)・`/weak`/`/extract`/`/plan`への回帰なし
+を検証。`verify-premium-gating.mjs`にも`study-plan`の非Premium403/
+Premium通過チェックを追加（新規23項目のうち2項目）。`run-e2e.mjs`に
+ステップ24として追加。
+
+**検証結果**: `tsc --noEmit`エラーなし、`build`成功、`test:premium-gating`
+23項目全PASS、`test:weak-analysis`全項目PASS、`test:smoke`全PASS、
+`test:ai-usage-guards`新規24項目全PASS、`test:e2e`21スイート全PASS、
+`verify:prod`全PASS、`verify:srs-global`PASS。
+
+**本番反映状況**: コミット・push・Vercelデプロイ・本番再検証まで実施
+（詳細は本エントリ末尾のコミットハッシュ参照）。
+
+**残課題**:
+- Premiumソフト上限(300回/日)は本ラウンドで初めて実運用に投入するため、
+  実際に到達するユーザーが出た場合は誤検知でないか（複数AI機能を組み合わせた
+  正当な集中利用等）個別確認すること。監視観点は
+  [PRODUCTION_MONITORING.md](PRODUCTION_MONITORING.md) §13参照。
+- `/api/ai`のメイン日次カウンター更新はcheck-then-update方式であり厳密な
+  アトミック性はない（同時リクエストでのわずかな取りこぼしの可能性）。
+  無料5回/日の枠内では実害は小さいと判断し今回は変更していない。
+  アトミック化にはPostgres RPC関数の新設等DB側の変更が必要になるため、
+  対応する場合は別途提案し承認を得てから実施する（**今回はDBスキーマ変更を
+  一切行っていない**）。
+
+---
+
 ## 2026-07-06 特定商取引法表記に相当する専用ページの準備（案A: 未公開ドラフト）
 
 **目的**: 前回の信頼ページ棚卸しで残課題として記録した「特定商取引法表記に相当する

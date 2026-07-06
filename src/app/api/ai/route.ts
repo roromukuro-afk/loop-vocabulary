@@ -3,10 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import Anthropic from "@anthropic-ai/sdk";
 import { todayJST } from "@/lib/utils/date";
+import { consumePremiumDailyAiUsage } from "@/lib/ai/premiumDailyCap";
 
 const DAILY_LIMIT = 5;
+const MAX_WORD_LENGTH = 100;
+const MAX_MEANING_LENGTH = 200;
 
 type Kind = "example" | "explain" | "etymology" | "mnemonic" | "core";
+const ALLOWED_KINDS: readonly Kind[] = ["example", "explain", "etymology", "mnemonic", "core"];
 
 // Claude APIキーがなければモックにフォールバック
 const MOCK_TEMPLATES: Record<Kind, (w: string, m: string) => string> = {
@@ -128,10 +132,14 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  const kind = (body.kind ?? "example") as Kind;
+  const kindRaw = String(body.kind ?? "example");
+  const kind = (ALLOWED_KINDS.includes(kindRaw as Kind) ? kindRaw : "example") as Kind;
   const word = String(body.word ?? "").trim();
   const meaning = String(body.meaning ?? "").trim();
   if (!word) return NextResponse.json({ error: "word required" }, { status: 400 });
+  if (word.length > MAX_WORD_LENGTH || meaning.length > MAX_MEANING_LENGTH) {
+    return NextResponse.json({ error: "input_too_long" }, { status: 400 });
+  }
 
   // 利用回数チェック（日次リセット、日本時間基準）
   const today = todayJST();
@@ -160,6 +168,13 @@ export async function POST(req: NextRequest) {
     await supabase.from("reward_tickets")
       .update({ used_amount: ticket.used_amount + 1 })
       .eq("id", ticket.id);
+  } else if (profile?.is_premium) {
+    // Premiumは実質無制限だが、自動化スクリプト等による濫用のみを止める安全網として
+    // 通常利用では絶対に到達しない高い上限（全AI機能共通）を設ける。
+    const allowed = await consumePremiumDailyAiUsage(supabase, user.id);
+    if (!allowed) {
+      return NextResponse.json({ error: "premium_daily_limit_reached" }, { status: 429 });
+    }
   } else {
     await supabase.from("profiles").update({
       daily_ai_used: used + 1,
