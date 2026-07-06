@@ -38,6 +38,7 @@
     "test:admin-ai-usage": "node scripts/testing/e2e/admin-ai-usage.mjs",
     "test:ai-usage-events": "node scripts/testing/e2e/ai-usage-events.mjs",
     "test:ai-usage-retention": "node scripts/testing/e2e/ai-usage-retention.mjs",
+    "test:ai-usage-cleanup-cron": "node scripts/testing/e2e/ai-usage-cleanup-cron.mjs",
     "test:dates": "node scripts/testing/test-date-utils.mjs",
     "test:gamification-rewards": "node scripts/testing/test-gamification-rewards.mjs",
     "test:quiz": "node scripts/testing/test-learning-selection.mjs",

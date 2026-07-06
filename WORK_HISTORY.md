@@ -1,7 +1,80 @@
 # WORK_HISTORY — Loop Vocabulary
 
 > 作業の時系列ログ。新しいものを上に追記する。
-> 最終更新: 2026-07-06
+> 最終更新: 2026-07-07
+
+---
+
+## 2026-07-07 `ai_usage_events`の90日超過ログ削除の自動化
+
+**目的**: 前エントリで整備した削除運用は手動実行（`npm run cleanup:ai-usage-events:apply`）
+が前提で、月1回程度の実行忘れリスクが残課題だった。これを安全に自動化する。
+
+**調査結果**: 現状の`cleanup-ai-usage-events.mjs`はdry-run既定・`CONFIRM_AI_USAGE_CLEANUP=yes`
+必須の二重ガードで安全。既存の`src/app/api/cron/daily-push`・`weekly-digest`が
+`CRON_SECRET`（`Authorization: Bearer $CRON_SECRET`方式）で保護されたVercel Cronと
+して既に本番稼働しており、`CRON_SECRET`・`SUPABASE_SERVICE_ROLE_KEY`はどちらも
+Vercel本番環境の環境変数として既に設定済みであることを確認した。
+
+**比較検討**:
+- 案A(GitHub Actions月1回実行): 実現可能だが、`SUPABASE_SERVICE_ROLE_KEY`を
+  GitHub Secretsにも複製する必要があり、露出範囲が増える。
+- **案B(Vercel Cron + 保護されたAPIエンドポイント)**: 既存2ルートと全く同じ
+  `CRON_SECRET`認証パターンを踏襲でき、**新規secretの追加が一切不要**。採用。
+- 案C(Supabase pg_cron): 有効化状況に依存するため無理に前提とせず見送り。
+
+**実装内容**:
+1. `src/lib/ai/aiUsageEventsRetention.ts`（新規）: 保持期間ポリシー
+   (`AI_USAGE_EVENTS_RETENTION_DAYS=90`)・カットオフ計算・削除実行を
+   単一の情報源として集約。
+2. `scripts/ai/cleanup-ai-usage-events.mjs`（手動CLI）をこのヘルパー経由に
+   リファクタリング。`DEFAULT_RETENTION_DAYS`/`cutoffIsoFor`は既存の呼び出し元
+   (`scripts/testing/e2e/ai-usage-retention.mjs`)との互換のためexport名を維持。
+3. `src/app/api/admin/cleanup/ai-usage-events/route.ts`（新規）: Vercel Cron向け
+   GETエンドポイント。`CRON_SECRET`未設定時は常に503`not_configured`で拒否し
+   絶対に実行しない（削除操作のため、既存2ルートより厳格なガードをあえて設けた）。
+   正しい`Authorization: Bearer $CRON_SECRET`の場合のみ、90日超過分を削除し
+   `{ deleted, retentionDays }`のみを返す。
+4. `vercel.json`のcronsに`{ path: "/api/admin/cleanup/ai-usage-events", schedule: "0 19 1 * *" }`
+   （毎月1日19:00 UTC = 日本時間翌2日4:00頃、利用が少ない時間帯）を追加。
+
+**変更していないもの**: 手動実行コマンド(`cleanup:ai-usage-events`・
+`cleanup:ai-usage-events:apply`)、90日の保持期間、AI入力本文・prompt・
+応答本文を保存しない方針、`ai_usage_events`のRLS、AI quota RPC
+(`try_consume_ai_quota`)、`ai_generation`チケット消費仕様、Stripe/Webhook、
+Premium価格、AdSense広告枠、SRS V2、teacher機能、教材データ。
+
+**ローカル環境の対応**: `.env.local`の`CRON_SECRET`がこれまで空欄だったため
+（既存の`daily-push`/`weekly-digest`は`if (secret) {...}`方式のため空欄でも
+無防備実行されており、これまで気づかれていなかった）、ローカル検証用の値を
+`.env.local`（gitignore対象、コミットされない）に生成・設定した。値自体は
+チャット・ログ・ドキュメントのいずれにも出力していない。本番Vercel環境の
+`CRON_SECRET`は変更していない。
+
+**テスト追加**: `scripts/testing/e2e/ai-usage-cleanup-cron.mjs`を新規作成
+（14項目、`run-e2e.mjs`ステップ28として追加）。CRON_SECRET未設定時に503で
+拒否する設計であることのソース確認・認証ヘッダ無し/不正値での401とDB非変化・
+正しいCRON_SECRETでの200と90日超過分のみの削除・手動CLIとの保持日数一致・
+`/admin/ai`への回帰なしを検証。
+
+**変更ファイル**: `src/lib/ai/aiUsageEventsRetention.ts`（新規）、
+`src/app/api/admin/cleanup/ai-usage-events/route.ts`（新規）、
+`scripts/ai/cleanup-ai-usage-events.mjs`、`vercel.json`、
+`scripts/testing/e2e/ai-usage-cleanup-cron.mjs`（新規）、`package.json`、
+`scripts/testing/run-e2e.mjs`、`PRODUCTION_MONITORING.md`、
+`NEXT_IMPROVEMENTS.md`。
+
+**検証結果**: `tsc --noEmit`エラーなし、`build`成功（新ルート
+`/api/admin/cleanup/ai-usage-events`がビルド出力に含まれることを確認）、
+`test:ai-usage-retention`14項目全PASS（リファクタリング後も回帰なし）、
+`test:ai-usage-events`25項目全PASS、`test:admin-ai-usage`全PASS、
+`test:ai-usage-cleanup-cron`新規14項目全PASS、`test:smoke`全PASS。
+
+**DB変更**: なし。
+
+**残課題**: Vercelプロジェクトのプラン(Hobby/Pro)によってはcron数の上限が
+存在する可能性があるため、デプロイ後にVercelダッシュボードの「Cron Jobs」
+設定でこの3つ目のcronが実際に登録されているか確認を推奨する。
 
 ---
 

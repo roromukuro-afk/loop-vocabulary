@@ -762,6 +762,68 @@ AI利用状況メタデータの保存内容（利用日時・機能種別・成
 「6-3. 削除後も保持する情報」にアカウント削除時は保持期間を待たずに
 即時カスケード削除される旨を明記した。
 
+### 13-8. `ai_usage_events`の90日超過ログ削除の自動化（2026-07-07追加ラウンド）
+
+13-7で整備した削除運用は手動実行が前提だったため「運用で忘れると増え続ける」
+という残課題があった。月1回の自動削除を安全に導入した。
+
+**採用方式（案B: Vercel Cron + CRON_SECRET保護のAPIエンドポイント）**:
+`src/app/api/admin/cleanup/ai-usage-events/route.ts`を新設し、`vercel.json`の
+`crons`に月1回のスケジュール(`0 19 1 * *`、毎月1日19:00 UTC = 日本時間翌2日
+4:00頃、利用が少ない時間帯を狙った)を追加した。認証は既存の
+`src/app/api/cron/daily-push`・`weekly-digest`と同じ、Vercelが自動送信する
+`Authorization: Bearer $CRON_SECRET`ヘッダのみで行う（admin JWT/セッションは
+使わない。Vercel Cronからの呼び出しにはログインセッションが存在しないため）。
+
+**案A(GitHub Actions)ではなく案Bを採った理由**: `CRON_SECRET`・
+`SUPABASE_SERVICE_ROLE_KEY`はどちらも既にVercel本番環境の環境変数として
+設定済み（既存の`daily-push`/`weekly-digest`cronが同じ変数で稼働中）だった
+ため、**新規のGitHub Secretsは一切追加不要**でこの方式を実現できた。GitHub
+Actionsに切り替えるとservice role keyを別のシステム(GitHub)にも複製する
+ことになり、露出範囲が余計に増える。案Bはそれが無いため、既存の運用パターン
+に最も自然に沿う。Supabase pg_cronは有効化状況に依存し無理に前提としない
+方針のため今回は採用していない（案Cの検討は見送り）。
+
+**既存cronルートとの差分（安全側への強化）**: `daily-push`/`weekly-digest`は
+`CRON_SECRET`が未設定の場合、無防備なまま実行を許してしまう設計
+（`if (secret) { 検証 }`）。本エンドポイントは削除操作(破壊的)であるため、
+**`CRON_SECRET`が未設定なら常に503 `not_configured`を返し、絶対に削除を
+実行しない**設計にした（`if (!secret) return 503`）。
+
+**削除対象条件**: `scripts/ai/cleanup-ai-usage-events.mjs`（手動CLI）と
+このcronエンドポイントは、保持期間ポリシーの単一の情報源
+`src/lib/ai/aiUsageEventsRetention.ts`（`AI_USAGE_EVENTS_RETENTION_DAYS=90`・
+`deleteStaleAiUsageEvents()`）を共通で参照するようにリファクタリングした。
+これにより2箇所で保持日数が食い違うことを防ぐ。削除対象は既定90日を
+超えた行のみで、90日以内の行・本文データ（そもそも保存していない）には
+一切影響しない。
+
+**実行結果の記録**: レスポンスは`{ deleted: <削除件数>, retentionDays: 90 }`
+のみを返し、サーバーログにも削除件数のみを出力する（個別の行内容・
+user_idは出力しない）。
+
+**手動実行コマンドは維持**: `npm run cleanup:ai-usage-events`（dry-run）・
+`npm run cleanup:ai-usage-events:apply`（`CONFIRM_AI_USAGE_CLEANUP=yes`必須）
+は変更なくそのまま利用できる。自動cronが失敗・スキップした場合の
+フォールバック確認や、保持日数を一時的に変えて試したい場合に使う。
+
+**テスト追加**: `scripts/testing/e2e/ai-usage-cleanup-cron.mjs`
+（`run-e2e.mjs`ステップ28として追加、14項目）。CRON_SECRET未設定時に503で
+拒否する設計であることのソース確認・Authorizationヘッダ無し/不正値での
+401とDB非変化・正しいCRON_SECRETでの200と90日超過分のみの削除・手動CLIと
+自動cronの保持日数が一致していること・`/admin/ai`への回帰なしを検証。
+
+**ローカル開発環境の注意**: `.env.local`の`CRON_SECRET`はこれまで空欄
+だったため（既存の`daily-push`/`weekly-digest`はそれで無防備実行される
+設計のため気づかれていなかった）、本ラウンドでローカル検証用の値を
+`.env.local`（gitignore対象、コミットされない）に設定した。本番Vercel環境
+の`CRON_SECRET`は既存のまま変更していない。
+
+**残課題**: Vercelプロジェクトのプラン（Hobby/Pro）によってはcron数の上限が
+存在する可能性があり、本ラウンドのデプロイでcronが正しく登録されたかは
+Vercelダッシュボードの「Cron Jobs」設定で確認することを推奨する（本文の
+「本番反映状況」に記載）。
+
 ---
 
 ## 自動検証コマンドの運用
@@ -793,7 +855,8 @@ AI利用状況メタデータの保存内容（利用日時・機能種別・成
 | `npm run test:admin-ai-usage` | `/admin/ai`・AI利用状況集計ロジックを変更した時 | admin権限での表示・非admin/未ログイン時のリダイレクト・本日の利用状況/異常検知セクション表示・無料/Premium上限接近ユーザー数等の集計項目表示・個人情報(メールアドレス/user_idラベル)や単語データ非開示・profiles/reward_tickets書き込み無し・テストアカウント(is_test_account=true)が集計から正しく除外されること(daily_ai_usedを4→0に変えても集計値が変化しないことで確認)を検証（2026-07-06新規、`run-e2e.mjs`ステップ25として追加、17項目） |
 | `npm run test:ai-usage-events` | `ai_usage_events`テーブル・`src/lib/ai/logAiUsage.ts`・各AIルートのログ記録箇所・`/admin/ai`の7日トレンド表示を変更した時 | 通常利用でroute='ai'・status='success'・quota_source='free_quota'のログが1件作成される・記録された行のどの列にも入力本文(word/meaning)が含まれない・本文を保存しうる列名(prompt/response等)がスキーマに存在しない・quota拒否(status='quota_denied')とPremium拒否(status='premium_required')が記録される・route='lookup'が正しく記録される・一般ユーザー自身のセッションではai_usage_eventsを一切読み取れない(RLS)・`/admin/ai`に7日集計セクション(route別テーブル・日別推移)が表示されテストアカウント分は除外される・既存の本日の利用状況/異常検知セクションへの回帰なしを検証（2026-07-06新規、`run-e2e.mjs`ステップ26として追加、26項目） |
 | `npm run test:ai-usage-retention` | `scripts/ai/cleanup-ai-usage-events.mjs`・保持期間ポリシー・`ai_usage_events`のFK/カスケード設定を変更した時 | 既定保持期間(90日)とカットオフ計算の妥当性・dry-run実行ではDBへの削除が一切発生しないこと・CONFIRM_AI_USAGE_CLEANUP無しの`--apply`が拒否されDBが変化しないこと・CONFIRM付き`--apply`で90日超過分のみ削除され90日以内の行は残ること・使い捨てのテスト専用authユーザーを作成→`auth.admin.deleteUser()`で削除→`ai_usage_events`行がON DELETE CASCADEで自動削除されることを検証（共有テストアカウントには触れない）。（2026-07-06新規、`run-e2e.mjs`ステップ27として追加、14項目） |
-| `npm run cleanup:ai-usage-events` / `npm run cleanup:ai-usage-events:apply` | 定期運用（週次〜月次の目安、自動cronは未設定）で保持期間超過分を削除する時 | dry-run（既定）で現在の総行数・削除対象件数・保持継続件数を表示。実削除には`CONFIRM_AI_USAGE_CLEANUP=yes`の明示指定が必須。本文・prompt・レスポンスは保存していないためバックアップ生成なし、test/realアカウントの区別もしない（詳細は§13-7） |
+| `npm run test:ai-usage-cleanup-cron` | `src/app/api/admin/cleanup/ai-usage-events/route.ts`・`src/lib/ai/aiUsageEventsRetention.ts`・`vercel.json`のcron設定を変更した時 | CRON_SECRET未設定時は503で拒否し実行しない設計になっていることのソース確認・Authorizationヘッダ無し/不正なBearer値では401になりDBが変化しないこと・正しいCRON_SECRET付きBearerでは200になり90日超過分のテスト行のみ削除され90日以内の行は残ること・手動実行CLIと自動cronで保持日数(90日)の値が一致していること・`/admin/ai`への回帰なしを検証（2026-07-07新規、`run-e2e.mjs`ステップ28として追加、14項目） |
+| `npm run cleanup:ai-usage-events` / `npm run cleanup:ai-usage-events:apply` | 手動で即座に削除したい時、または月1回の自動cron(`/api/admin/cleanup/ai-usage-events`、`vercel.json`で毎月1日19:00 UTC)が失敗・スキップした場合のフォールバック確認 | dry-run（既定）で現在の総行数・削除対象件数・保持継続件数を表示。実削除には`CONFIRM_AI_USAGE_CLEANUP=yes`の明示指定が必須。本文・prompt・レスポンスは保存していないためバックアップ生成なし、test/realアカウントの区別もしない（詳細は§13-7・§13-8） |
 | `npm run test:quiz` (`npm run test:learning-selection`と同一) | `src/lib/learning/wordSelection.ts`を変更した時（DB不要・数秒） | 出題選定(未学習優先/due・weak重み付け/直近除外/出題キュー化)・選択肢生成(重複なし/空欄なし/正解1つ)の単体テスト。4択・input・typing・listening・attack全モード共通ロジックのため、ここでの検証が全モードの正しさを保証する |
 | `npm run test:quiz:e2e` | 4択テスト(`/test/choice`)の出題ロジックを変更した時 | 未学習単語の優先出題・選択肢の健全性・正解後のSRS(correct_count)更新・`/review`/`/pdf`への回帰なしを実ブラウザで検証 |
 | `npm run test:learning-modes:e2e` | input/typing/listening/attackのいずれかを変更した時 | 各モードで未学習単語が1問目に出ること・正解後にSRSフィールドが更新されること・attackの`?book=`単語帳スコープ（指定時は対象単語帳のみ・未指定時は全単語帳横断・対象範囲ラベル表示）・`/test/choice`/`/review`/`/pdf`/`/materials`への回帰なしを実ブラウザで検証（25項目） |

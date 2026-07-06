@@ -23,10 +23,17 @@
  */
 import { getAdminClient } from "../testing/lib/supabaseAdmin.mjs";
 import { loadEnv, requireEnv } from "../testing/lib/env.mjs";
+import {
+  AI_USAGE_EVENTS_RETENTION_DAYS,
+  aiUsageEventsCutoffIso,
+  deleteStaleAiUsageEvents,
+} from "../../src/lib/ai/aiUsageEventsRetention.ts";
 
-// PRODUCTION_MONITORING.md §13-7で運用方針として文書化している既定保持期間。
-// 変更する場合はこの定数とドキュメントの両方を更新すること。
-export const DEFAULT_RETENTION_DAYS = 90;
+// src/lib/ai/aiUsageEventsRetention.ts が保持期間ポリシー(既定90日)の単一の情報源。
+// このCLIとVercel Cron向けAPI(src/app/api/admin/cleanup/ai-usage-events/route.ts)の
+// 両方がここを参照する。DEFAULT_RETENTION_DAYS/cutoffIsoForは既存の呼び出し元
+// (scripts/testing/e2e/ai-usage-retention.mjs)との互換のためexport名を維持している。
+export const DEFAULT_RETENTION_DAYS = AI_USAGE_EVENTS_RETENTION_DAYS;
 
 const APPLY = process.argv.includes("--apply");
 const retentionArg = process.argv.find((a) => a.startsWith("--retention-days="));
@@ -35,7 +42,7 @@ const RETENTION_DAYS = retentionArg
   : DEFAULT_RETENTION_DAYS;
 
 export function cutoffIsoFor(retentionDays, now = new Date()) {
-  return new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+  return aiUsageEventsCutoffIso(retentionDays, now);
 }
 
 async function run() {
@@ -88,16 +95,14 @@ async function run() {
   console.log(`\n削除対象 ${stale.toLocaleString()}件を削除します...`);
   // ai_usage_eventsは現状の規模(数千件オーダー)であれば単一のDELETEで十分安全。
   // 将来テーブルが大規模化した場合は、created_atの範囲を区切った複数回実行に分割すること。
-  const { error, count: deletedCount } = await admin
-    .from("ai_usage_events")
-    .delete({ count: "exact" })
-    .lt("created_at", cutoffIso);
-
-  if (error) {
+  let deletedCount;
+  try {
+    ({ deletedCount } = await deleteStaleAiUsageEvents(admin, RETENTION_DAYS));
+  } catch (error) {
     console.error(`❌ 削除失敗: ${error.message}`);
     process.exit(1);
   }
-  console.log(`削除完了: ${(deletedCount ?? 0).toLocaleString()}件削除`);
+  console.log(`削除完了: ${deletedCount.toLocaleString()}件削除`);
 
   const { count: afterCount } = await admin.from("ai_usage_events").select("*", { count: "exact", head: true });
   console.log(`削除後の総行数: ${(afterCount ?? 0).toLocaleString()}件`);

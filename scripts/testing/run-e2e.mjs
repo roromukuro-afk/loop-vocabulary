@@ -121,6 +121,9 @@ async function main() {
 
     console.log("\n=== 27. ai_usage_events 保持期間・削除運用 E2E ===");
     results.aiUsageRetention = runNode("scripts/testing/e2e/ai-usage-retention.mjs");
+
+    console.log("\n=== 28. ai_usage_events 自動削除cron E2E ===");
+    results.aiUsageCleanupCron = runNode("scripts/testing/e2e/ai-usage-cleanup-cron.mjs");
   } finally {
     stopDevServer(dev);
   }

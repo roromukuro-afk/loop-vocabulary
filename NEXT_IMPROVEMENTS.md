@@ -1463,6 +1463,48 @@
 
 ---
 
+47. ✅ **完了（2026-07-07）: `ai_usage_events`の90日超過ログ削除の自動化**
+    項目46の残課題「自動cronは未導入のため月1回程度の手動実行が必要」への
+    対応。GitHub Actions(案A)・Vercel Cron(案B)・Supabase pg_cron(案C)を
+    比較した結果、`CRON_SECRET`・`SUPABASE_SERVICE_ROLE_KEY`がどちらも
+    既にVercel本番環境に設定済み（既存の`daily-push`/`weekly-digest`cronが
+    同じ変数で稼働中）だったため、**新規secretを一切追加せずに実現できる
+    案B（Vercel Cron + CRON_SECRET保護のAPIエンドポイント）**を採用した。
+    **実装内容**: `src/app/api/admin/cleanup/ai-usage-events/route.ts`を
+    新設し、`vercel.json`のcronsに月1回(`0 19 1 * *`、毎月1日19:00 UTC=
+    日本時間翌2日4:00頃)のスケジュールを追加。認証は既存の
+    `daily-push`/`weekly-digest`と同じ`Authorization: Bearer $CRON_SECRET`
+    方式。ただし既存2ルートは`CRON_SECRET`未設定時に無防備実行を許して
+    しまう設計だったのに対し、本エンドポイントは削除操作(破壊的)のため
+    `CRON_SECRET`未設定なら常に503で拒否し絶対に実行しない、より厳格な
+    ガードにした。保持期間ポリシー(90日)は`src/lib/ai/aiUsageEventsRetention.ts`
+    を新設して単一の情報源とし、手動実行CLI(`scripts/ai/cleanup-ai-usage-events.mjs`)
+    と自動cronの両方がここを参照するようリファクタリング（2箇所の値が
+    食い違うことを防止）。
+    **変更していないもの**: 手動実行コマンド(`npm run cleanup:ai-usage-events`
+    dry-run・`:apply`+`CONFIRM_AI_USAGE_CLEANUP=yes`)はそのまま維持、
+    90日の保持期間、AI入力本文・prompt・応答本文を保存しない方針、
+    `ai_usage_events`のRLS(service_role以外読み取り不可)、AI quota RPC、
+    Stripe/Webhook、Premium価格、AdSense広告枠、SRS V2、teacher機能、
+    教材データ。
+    **テスト追加**: `scripts/testing/e2e/ai-usage-cleanup-cron.mjs`を新規作成
+    （14項目、`run-e2e.mjs`ステップ28として追加）。CRON_SECRET未設定時に
+    503で拒否する設計のソース確認・認証ヘッダ無し/不正値での401とDB非変化・
+    正しいCRON_SECRETでの200と90日超過分のみの削除・手動CLIとの保持日数
+    一致・`/admin/ai`への回帰なしを検証。
+    **ローカル環境の注意**: `.env.local`の`CRON_SECRET`がこれまで空欄
+    だったため、ローカル検証用の値を`.env.local`(gitignore対象)に設定した。
+    本番Vercel環境の値は変更していない。
+    検証: `tsc --noEmit` / `build` / `test:ai-usage-retention`(14項目) /
+    `test:ai-usage-events`(25項目) / `test:admin-ai-usage`(17項目) /
+    `test:ai-usage-cleanup-cron`(新規14項目) / `test:smoke` /
+    `test:e2e`(25スイート) / `verify:prod` / `verify:srs-global`、全PASS。
+    **残課題**: Vercelプロジェクトのプラン(Hobby/Pro)によってはcron数の
+    上限が存在する可能性があるため、デプロイ後にVercelダッシュボードの
+    「Cron Jobs」設定でこの3つ目のcronが実際に登録されているか確認を推奨。
+
+---
+
 ## 💰 収益化・成長 監査（2026-07-04）
 
 事業・収益・継続率・SEO流入の観点でコード・DB・教材・公開ページを監査した結果。
