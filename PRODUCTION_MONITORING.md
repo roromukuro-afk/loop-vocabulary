@@ -473,6 +473,28 @@ delete-request/route.ts`参照）。削除を処理する前に、必ず対象�
 専用ページ新設を検討する。法律要件の該非判断（個人事業主の住所・電話番号の
 代替開示可否等）はオーナー・専門家の判断に委ねる。
 
+### 12-5. `/legal/commercial-transaction`（特定商取引法表記ドラフト、2026-07-06作成）
+
+上記12-4への対応として、`/legal/commercial-transaction`の雛形を作成した。
+**現状は未公開ドラフトのまま**（案A: ページは実装するがfooter等どこからもリンク
+しない）。以下の状態を維持していることを、運営者情報を追記する際にも確認すること。
+
+- 販売事業者名・運営責任者名・所在地・電話番号は「オーナー確認待ち」の
+  プレースホルダーのまま（実在するかのような値に置き換わっていないか確認）
+- ページ上部の「準備中（社内確認用ドラフト）」警告バナーが表示されている
+- `metadata.robots = { index: false, follow: false }`が効いている
+  （`<meta name="robots" content="noindex, nofollow">`がHTMLに出力される）
+- `public/robots.txt`に`Disallow: /legal`がある
+- `/premium`・`/contact`・`/faq`・トップページのfooterのいずれからも
+  リンクされていない（`npm run test:legal-trust-pages`のステップ9で自動検証）
+
+**公開手順（運営者情報が揃った後）**: (1) プレースホルダーを実際の情報に置き換え、
+(2) 上部の「準備中」バナーを削除、(3) `metadata.robots`を通常の索引可能設定に戻す
+（または明示的に削除）、(4) footerに`/legal/commercial-transaction`へのリンクを
+追加、(5) `robots.txt`の`Disallow: /legal`を削除、(6) `test:legal-trust-pages`の
+ステップ9のアサーション（プレースホルダー存在・非リンク前提）を実態に合わせて
+更新する。
+
 ---
 
 ## 自動検証コマンドの運用
@@ -494,7 +516,7 @@ delete-request/route.ts`参照）。削除を処理する前に、必ず対象�
 | `npm run test:weak-analysis` | `src/app/weak/page.tsx`・`WeaknessAnalysis.tsx`・`api/ai/weakness-analysis/route.ts`を変更した時 | 苦手単語ありユーザーで一覧・品詞/単語帳/習熟度バッジ・「傾向を確認」の集計(品詞別/単語帳別/習熟度低い順)が正しい・「今すぐ復習する」「まず10語だけ復習する」から実際に`/review`へ遷移する・苦手単語なしユーザーで崩れない・非Premiumで控えめな案内・PremiumでAI分析実行結果(成功/失敗いずれもページが壊れない)・`reward_tickets(kind=ai_generation)`に影響なし・ダッシュボードの苦手単語カードからの遷移、を実ブラウザ+DB直接確認で検証（20項目） |
 | `npm run test:premium-conversion` | `/premium`・トップページ(`/`)・`PremiumCheckout.tsx`・Stripe checkout/webhookルート・各Premium gatingページのCTA文言・`dashboard/page.tsx`の広告表示・マーケティング文言を変更した時 | 非Premiumで料金比較表・チェックアウトボタンが表示される・Premiumで「現在プレミアム会員です」表示に切り替わりチェックアウトボタンが消える・`POST /api/stripe/checkout`がPremium時に409 already_premiumを返す（二重課金防止）・`/weak`/`/extract`/`/plan`のPremium誘導CTAが統一文言になっている・`/test/typing`/`/test/listening`のペイウォール表示・`/premium`のモバイル崩れなし・ダッシュボード広告のisPremiumガードをソースコードで確認・`/premium`とトップページ(`/`)に実データと乖離した誇張・社会的証明の文言（「3,200+登録ユーザー」「ユーザーの声」等）が残っていないこと・トップページのJSON-LDに未実証`aggregateRating`が含まれていないこと・reward_ticketsの予約済み・未実装kind(pdf_export/weak_word_test/analysis_ticket)がPremium特典として訴求されていないこと、を実ブラウザ+API直接確認で検証（2026-07-05に2ステップ、2026-07-06に禁止文言4件追加） |
 | `npm run test:stripe-premium-webhook` | `src/app/api/stripe/checkout/route.ts`・`src/app/api/stripe/webhook/route.ts`・Premium反映フローを変更した時 | 署名付きテストイベント（`Stripe.webhooks.generateTestHeaderString`、実Stripe通信なし・実課金なし）で、不正signatureの400拒否・未知イベントタイプでの非クラッシュ・存在しない顧客ID/ユーザーIDでの非クラッシュ・`checkout.session.completed`でのis_premium/premium_expires_at反映・webhookで付与したis_premiumが実際に`/premium`のPremium機能解放に反映されること・二重checkout防止(409)・未ログインcheckout(401)・`customer.subscription.updated`(active/canceled期限反映)・`customer.subscription.deleted`(即時失効)を検証（2026-07-06新規、`run-e2e.mjs`ステップ22として追加、20項目）。テスト用アカウントのみ操作し、実Stripe顧客・実メール送信は一切発生しない設計 |
-| `npm run test:legal-trust-pages` | `/premium`・`/privacy`・`/terms`・`/faq`・`/contact`・`/login`の`?next=`リダイレクト・footer導線を変更した時 | `/premium`・`/privacy`・`/terms`・`/faq`・`/contact`の200表示・未ログイン時「ログインして始める」が404にならず`/login?next=/premium`へ遷移しログイン完了後に実際に`/premium`へ戻ること（`/dashboard`固定リダイレクトの回帰確認）・ランディングページfooter及び`/premium`下部リンクの非404・`/privacy`のStripe/Anthropic第三者サービス記載・`/terms`の実際の価格/解約方法記載・モバイル幅での崩れ無し・誇張表現/未実装特典の非復活、を実ブラウザで検証（2026-07-06新規、`run-e2e.mjs`ステップ23として追加、16項目） |
+| `npm run test:legal-trust-pages` | `/premium`・`/privacy`・`/terms`・`/faq`・`/contact`・`/legal/commercial-transaction`・`/login`の`?next=`リダイレクト・footer導線を変更した時 | `/premium`・`/privacy`・`/terms`・`/faq`・`/contact`の200表示・未ログイン時「ログインして始める」が404にならず`/login?next=/premium`へ遷移しログイン完了後に実際に`/premium`へ戻ること（`/dashboard`固定リダイレクトの回帰確認）・ランディングページfooter及び`/premium`下部リンクの非404・`/privacy`のStripe/Anthropic第三者サービス記載・`/terms`の実際の価格/解約方法記載・モバイル幅での崩れ無し・誇張表現/未実装特典の非復活・`/legal/commercial-transaction`の200表示/確定情報整合/プレースホルダー表示/noindexメタ/robots.txt Disallow/非リンク確認、を実ブラウザで検証（2026-07-05に16項目、2026-07-06に6項目追加、`run-e2e.mjs`ステップ23として追加、計21項目） |
 | `npm run verify:seo-lp-audit` | sitemap.ts・robots.txt・カテゴリLPのmetadataを変更した時／**本番デプロイ後** | 本番の`/sitemap.xml`に主要ページ・3LPが含まれるか・`/robots.txt`が対象パスをブロックしていないか・3LPのcanonicalが自分自身を指すか・JSON-LD(BreadcrumbList/ItemList)が妥当なJSONか・既存`/materials/[id]`への非影響を、HTTPのみ（ブラウザ不要）で検証。`verify:prod`同様デフォルトで本番URLを対象とする |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |

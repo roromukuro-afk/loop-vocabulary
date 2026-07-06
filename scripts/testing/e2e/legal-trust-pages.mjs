@@ -32,10 +32,23 @@
  * 7. モバイル幅(375px)で`/premium`・`/privacy`・`/terms`が横スクロールしないこと
  * 8. 誇張表現・未実装特典が/premiumに復活していないこと（既存棚卸しの回帰確認）
  *
+ * 2026-07-06、特定商取引法表記に相当する専用ページ`/legal/commercial-transaction`
+ * の雛形を作成した（案A: ページは実装するがfooter等どこからもリンクしない）。
+ * 販売事業者名・運営責任者名・所在地・電話番号はオーナーから実際の情報が提供される
+ * までプレースホルダー（「オーナー確認待ち」）のまま。以下も検証する。
+ * 9. `/legal/commercial-transaction`が200で表示され、確定済み情報（価格・
+ *    Stripeカスタマーポータルでの解約）が/termsと整合していること・
+ *    未確定項目のプレースホルダー文言が表示されていること・
+ *    `<meta name="robots" content="noindex, nofollow">`が出力されていること・
+ *    `/premium`・`/contact`・`/faq`・ランディングページfooterのいずれからも
+ *    リンクされていないこと・`robots.txt`に`Disallow: /legal`があること
+ *
  * 使い方: node scripts/testing/e2e/legal-trust-pages.mjs
  */
 import { chromium } from "playwright";
-import { loadEnv, requireEnv } from "../lib/env.mjs";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import { loadEnv, requireEnv, REPO_ROOT } from "../lib/env.mjs";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { TEST_ACCOUNTS } from "../lib/testAccounts.mjs";
 import { collectErrors } from "./lib/login.mjs";
@@ -191,6 +204,52 @@ async function main() {
       fail(`/premiumに誇張表現・未実装特典の文言が復活している: ${foundBanned.join(", ")}`);
     }
     await page6.close();
+
+    // ================= 9. /legal/commercial-transaction（特商法表記ドラフト） =================
+    console.log("\n--- 9. /legal/commercial-transaction: 200表示・確定情報の整合・プレースホルダー・noindex・非リンクの確認 ---");
+    const legalRes = await fetch(`${baseUrl}/legal/commercial-transaction`, { redirect: "manual" });
+    if (legalRes.status === 200) ok("/legal/commercial-transaction -> 200");
+    else fail(`/legal/commercial-transaction -> ${legalRes.status}（200を期待）`);
+    const legalHtml = await legalRes.text();
+
+    if (legalHtml.includes("¥480") && legalHtml.includes("¥3,800") && legalHtml.includes("カスタマーポータル")) {
+      ok("/legal/commercial-transactionに/termsと整合する確定済み情報（価格・解約方法）が記載されている");
+    } else {
+      fail("/legal/commercial-transactionの確定済み情報が/termsと整合していない");
+    }
+    if (legalHtml.includes("オーナー確認待ち")) {
+      ok("/legal/commercial-transactionの運営者情報（未確定）がプレースホルダーのまま表示されている（捏造なし）");
+    } else {
+      fail("/legal/commercial-transactionにプレースホルダー文言が見つからない（捏造された値に置き換わっていないか要確認）");
+    }
+    if (/<meta name="robots" content="noindex,\s*nofollow"\s*\/?>/.test(legalHtml)) {
+      ok("/legal/commercial-transactionにnoindex,nofollowのrobots metaが出力されている");
+    } else {
+      fail("/legal/commercial-transactionにrobots noindexメタタグが見つからない");
+    }
+
+    const robotsTxt = readFileSync(resolve(REPO_ROOT, "public/robots.txt"), "utf8");
+    if (/Disallow:\s*\/legal\b/.test(robotsTxt)) {
+      ok("robots.txtに Disallow: /legal がある");
+    } else {
+      fail("robots.txtに Disallow: /legal が見つからない");
+    }
+
+    const page7 = await browser.newPage();
+    const notLinkedFrom = [];
+    for (const p of ["/premium", "/contact", "/faq", "/"]) {
+      await gotoReady(page7, `${baseUrl}${p}`);
+      const html = await page7.content();
+      if (html.includes("/legal/commercial-transaction") || html.includes("特定商取引法に基づく表記")) {
+        notLinkedFrom.push(p);
+      }
+    }
+    if (notLinkedFrom.length === 0) {
+      ok("/premium・/contact・/faq・トップページのいずれからも/legal/commercial-transactionへのリンクは出ていない（案A: 未公開導線を維持）");
+    } else {
+      fail(`/legal/commercial-transactionへのリンクが意図せず公開導線に出ている: ${notLinkedFrom.join(", ")}`);
+    }
+    await page7.close();
   } finally {
     stopDevServer(dev);
   }
