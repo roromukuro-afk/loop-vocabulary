@@ -14,7 +14,12 @@ export default function PrivacyPage() {
         <li>メールアドレス・認証用パスワードハッシュ (Supabase Auth)</li>
         <li>ユーザーが登録・編集した単語・単語帳・例文等の学習データ</li>
         <li>テスト結果、復習進捗、日次学習集計などの学習履歴</li>
-        <li>AI 例文・解説の利用履歴</li>
+        <li>
+          AI機能の利用状況メタデータ（利用日時・機能の種類・成功/失敗・入力/出力の
+          おおよその文字数等）。AIに送信した単語・例文・プロンプト本文やAIの応答内容
+          そのものは、利用履歴としては保存しません。このメタデータは既定で90日間
+          保持し、期間経過後に削除します
+        </li>
         <li>
           プレミアムプラン登録時の決済関連情報（メールアドレス・購読状況・支払い履歴）。
           クレジットカード番号等の決済情報自体は決済代行事業者である Stripe, Inc.
@@ -27,7 +32,7 @@ export default function PrivacyPage() {
       <h2 className="text-lg font-bold text-navy-800 mt-6">2. 利用目的</h2>
       <ul className="list-disc pl-5 text-sm text-navy-700">
         <li>本サービスの提供・改善</li>
-        <li>不正利用の検知</li>
+        <li>不正利用の検知、AI機能の利用状況・コストの監視</li>
         <li>広告配信 (AdMob 等の広告配信事業者を利用)</li>
         <li>お問い合わせ対応</li>
       </ul>
@@ -115,6 +120,10 @@ export default function PrivacyPage() {
 
       <h3 className="text-base font-bold text-navy-800 mt-4">6-3. 削除後も保持する情報</h3>
       <p className="text-sm text-navy-700">
+        AI機能の利用状況メタデータ（1-記載）は、アカウント削除の処理が完了すると
+        同時に自動的に削除されます（保持期間の90日を待たずに削除されます）。
+      </p>
+      <p className="text-sm text-navy-700 mt-2">
         法令上の保持義務があるアクセスログや不正利用検知用のログは、
         ユーザー画面からは参照できなくなりますが、サーバ側で一定期間 (最大 1 年) 保管されます。
         この期間経過後に完全削除されます。

@@ -37,6 +37,7 @@
     "test:ai-usage-guards": "node scripts/testing/e2e/ai-usage-guards.mjs",
     "test:admin-ai-usage": "node scripts/testing/e2e/admin-ai-usage.mjs",
     "test:ai-usage-events": "node scripts/testing/e2e/ai-usage-events.mjs",
+    "test:ai-usage-retention": "node scripts/testing/e2e/ai-usage-retention.mjs",
     "test:dates": "node scripts/testing/test-date-utils.mjs",
     "test:gamification-rewards": "node scripts/testing/test-gamification-rewards.mjs",
     "test:quiz": "node scripts/testing/test-learning-selection.mjs",
@@ -50,6 +51,8 @@
     "audit:materials": "node scripts/materials/audit-existing-materials.mjs",
     "materials:dedupe:dry-run": "node scripts/materials/deduplicate-material-words.mjs",
     "materials:dedupe:apply": "node scripts/materials/deduplicate-material-words.mjs --apply",
+    "cleanup:ai-usage-events": "node scripts/ai/cleanup-ai-usage-events.mjs",
+    "cleanup:ai-usage-events:apply": "node scripts/ai/cleanup-ai-usage-events.mjs --apply",
     "audit:materials-pos": "node scripts/materials/audit-materials-pos.mjs",
     "materials:pos:dry-run": "node scripts/materials/fill-material-pos.mjs",
     "materials:pos:apply": "node scripts/materials/fill-material-pos.mjs --apply"

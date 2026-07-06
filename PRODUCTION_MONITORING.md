@@ -711,6 +711,57 @@ service_roleキーはRLSをバイパスするため、読み書きとも
 既存テーブルへの変更なし）。本番Supabase（`befjjebsrnsfwhtmydiv`）へ
 適用済み（migration名`ai_usage_events`）。
 
+### 13-7. `ai_usage_events`の保持期間・削除運用（2026-07-06追加ラウンド）
+
+13-6で新設した`ai_usage_events`は放置すると増え続けるため、保持期間の方針と
+安全な削除手段を整備した。
+
+**保持期間方針**: **既定90日**。過度に長くせずコスト・濫用の月次〜四半期
+トレンドを追うのに十分な期間としつつ、テーブルの肥大化を抑える。90日を
+超えた行は削除対象になる（本文・prompt・レスポンスはそもそも保存していない
+ため、削除対象は純粋なメタデータのみ）。より長期のトレンドが必要になった
+場合は、日次集計テーブルを別途新設することを推奨する（生ログを長期保持する
+方針には現時点でしない）。
+
+**削除方法（案A: 手動実行スクリプト、自動cronは未設定）**:
+`scripts/ai/cleanup-ai-usage-events.mjs`（`npm run cleanup:ai-usage-events`
+で dry-run、`npm run cleanup:ai-usage-events:apply` で実削除）。
+
+- dry-run（既定）: 現在の総行数・削除対象件数（90日超過分）・保持継続件数を
+  表示するのみで、DBへの削除は一切発生しない。
+- 実削除には環境変数`CONFIRM_AI_USAGE_CLEANUP=yes`の明示指定が必須
+  （`materials:dedupe:apply`等、既存の破壊的操作スクリプトと同じ二重ガード
+  パターン）。
+- test account / real accountの区別はしない（保持期間ポリシーはアカウント
+  種別に関係なく一律に適用する。本文を保存していないためバックアップ・
+  ロールバックSQLも生成しない）。
+- 保持日数は`--retention-days=N`で一時的に変更可能（既定は
+  `scripts/ai/cleanup-ai-usage-events.mjs`の`DEFAULT_RETENTION_DAYS=90`）。
+- **自動cronは今回設定していない**。運用が安定してから、Supabase
+  Cron等での自動実行を検討する（提案のみ、実装は見送り）。
+
+**実行例**:
+```
+npm run cleanup:ai-usage-events              # dry-run（現状把握）
+CONFIRM_AI_USAGE_CLEANUP=yes npm run cleanup:ai-usage-events:apply  # 実削除
+```
+
+**アカウント削除時の扱い**: `ai_usage_events.user_id`は
+`references auth.users(id) on delete cascade`（migration
+016適用時点から設定済み、今回のラウンドで変更はしていない）。このため
+アカウント削除（`auth.users`行の削除）が実行されると、当該ユーザーの
+`ai_usage_events`行は保持期間の90日を待たずに自動的にカスケード削除
+される。`test:ai-usage-retention`で、使い捨てのテスト専用authユーザーを
+作成・削除し、実際にカスケード削除が機能することを確認している
+（共有テストアカウントには一切手を触れていない）。
+
+**プライバシーポリシーとの整合**: `/privacy`の「1. 取得する情報」に
+AI利用状況メタデータの保存内容（利用日時・機能種別・成功/失敗・入出力の
+おおよその文字数等、本文は含まない）と既定90日保持を明記し、
+「2. 利用目的」に「AI機能の利用状況・コストの監視」を追加、
+「6-3. 削除後も保持する情報」にアカウント削除時は保持期間を待たずに
+即時カスケード削除される旨を明記した。
+
 ---
 
 ## 自動検証コマンドの運用
@@ -741,6 +792,8 @@ service_roleキーはRLSをバイパスするため、読み書きとも
 | `npm run test:admin` | `/admin`配下のページを変更した時 | admin権限での表示・非admin/未ログイン時のリダイレクト・個別データ非開示・書き込み無しを検証（`test+admin@loop-vocabulary.app`使用） |
 | `npm run test:admin-ai-usage` | `/admin/ai`・AI利用状況集計ロジックを変更した時 | admin権限での表示・非admin/未ログイン時のリダイレクト・本日の利用状況/異常検知セクション表示・無料/Premium上限接近ユーザー数等の集計項目表示・個人情報(メールアドレス/user_idラベル)や単語データ非開示・profiles/reward_tickets書き込み無し・テストアカウント(is_test_account=true)が集計から正しく除外されること(daily_ai_usedを4→0に変えても集計値が変化しないことで確認)を検証（2026-07-06新規、`run-e2e.mjs`ステップ25として追加、17項目） |
 | `npm run test:ai-usage-events` | `ai_usage_events`テーブル・`src/lib/ai/logAiUsage.ts`・各AIルートのログ記録箇所・`/admin/ai`の7日トレンド表示を変更した時 | 通常利用でroute='ai'・status='success'・quota_source='free_quota'のログが1件作成される・記録された行のどの列にも入力本文(word/meaning)が含まれない・本文を保存しうる列名(prompt/response等)がスキーマに存在しない・quota拒否(status='quota_denied')とPremium拒否(status='premium_required')が記録される・route='lookup'が正しく記録される・一般ユーザー自身のセッションではai_usage_eventsを一切読み取れない(RLS)・`/admin/ai`に7日集計セクション(route別テーブル・日別推移)が表示されテストアカウント分は除外される・既存の本日の利用状況/異常検知セクションへの回帰なしを検証（2026-07-06新規、`run-e2e.mjs`ステップ26として追加、26項目） |
+| `npm run test:ai-usage-retention` | `scripts/ai/cleanup-ai-usage-events.mjs`・保持期間ポリシー・`ai_usage_events`のFK/カスケード設定を変更した時 | 既定保持期間(90日)とカットオフ計算の妥当性・dry-run実行ではDBへの削除が一切発生しないこと・CONFIRM_AI_USAGE_CLEANUP無しの`--apply`が拒否されDBが変化しないこと・CONFIRM付き`--apply`で90日超過分のみ削除され90日以内の行は残ること・使い捨てのテスト専用authユーザーを作成→`auth.admin.deleteUser()`で削除→`ai_usage_events`行がON DELETE CASCADEで自動削除されることを検証（共有テストアカウントには触れない）。（2026-07-06新規、`run-e2e.mjs`ステップ27として追加、14項目） |
+| `npm run cleanup:ai-usage-events` / `npm run cleanup:ai-usage-events:apply` | 定期運用（週次〜月次の目安、自動cronは未設定）で保持期間超過分を削除する時 | dry-run（既定）で現在の総行数・削除対象件数・保持継続件数を表示。実削除には`CONFIRM_AI_USAGE_CLEANUP=yes`の明示指定が必須。本文・prompt・レスポンスは保存していないためバックアップ生成なし、test/realアカウントの区別もしない（詳細は§13-7） |
 | `npm run test:quiz` (`npm run test:learning-selection`と同一) | `src/lib/learning/wordSelection.ts`を変更した時（DB不要・数秒） | 出題選定(未学習優先/due・weak重み付け/直近除外/出題キュー化)・選択肢生成(重複なし/空欄なし/正解1つ)の単体テスト。4択・input・typing・listening・attack全モード共通ロジックのため、ここでの検証が全モードの正しさを保証する |
 | `npm run test:quiz:e2e` | 4択テスト(`/test/choice`)の出題ロジックを変更した時 | 未学習単語の優先出題・選択肢の健全性・正解後のSRS(correct_count)更新・`/review`/`/pdf`への回帰なしを実ブラウザで検証 |
 | `npm run test:learning-modes:e2e` | input/typing/listening/attackのいずれかを変更した時 | 各モードで未学習単語が1問目に出ること・正解後にSRSフィールドが更新されること・attackの`?book=`単語帳スコープ（指定時は対象単語帳のみ・未指定時は全単語帳横断・対象範囲ラベル表示）・`/test/choice`/`/review`/`/pdf`/`/materials`への回帰なしを実ブラウザで検証（25項目） |

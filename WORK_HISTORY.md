@@ -5,6 +5,99 @@
 
 ---
 
+## 2026-07-06 `ai_usage_events`の保持期間・削除運用・プライバシー整合
+
+**目的**: 前エントリで追加した`ai_usage_events`ログテーブルは`user_id`を
+含むため、際限なく増え続けないよう保持期間・削除方法・プライバシー
+ポリシー整合・アカウント削除時の扱いを明確化する。
+
+**現状確認の結果**:
+- `supabase/migrations/016_ai_usage_events.sql`を再確認したところ、
+  `user_id uuid references auth.users(id) on delete cascade`が
+  当初から設定済みであることを確認した（新規マイグレーション不要）。
+- RLSはポリシー未追加のままでservice_role限定のアクセスを維持。
+- `/privacy`にはAI利用履歴に関する記載が簡素だったため拡充が必要と判断。
+
+**保持期間の方針**: 詳細ログの保持期間を**90日**とした。90日を超えた行を
+削除対象とする。入力/出力本文は元々保存していないため、より長期の
+トレンドが必要になった場合は別途「日次集計テーブル」を新設する方針とし、
+今回は生ログの保持期間短縮のみに留めた。
+
+**削除方法（案A: 手動実行の安全な削除スクリプト）**:
+`scripts/ai/cleanup-ai-usage-events.mjs`を新規作成した。
+- `npm run cleanup:ai-usage-events`: 既定でdry-run。削除対象件数
+  （90日超過分）と総件数を表示するのみでDBを書き換えない。
+- `npm run cleanup:ai-usage-events:apply`: 実削除を実行するが、環境変数
+  `CONFIRM_AI_USAGE_CLEANUP=yes`が未設定の場合はexit 1で中断する
+  二重ガード方式を採用（`materials:dedupe`の`CONFIRM_MATERIALS_DEDUPE`と
+  同じパターンで一貫性を持たせた）。
+- テスト/実アカウントの区別は行わない（ユーザー指示どおり。本文データが
+  存在しないためリスクが低い）。
+- バックアップ/ロールバック用ファイルは作成していない（`materials`の
+  重複排除とは異なり、日常的なログハウスキーピングであり復旧を要する
+  種類のデータではないため）。
+- 本番DB（69行、90日超過0件）に対して実行して動作確認済み。
+
+**自動cron**: 導入していない。今回は手動実行スクリプトのみとし、
+自動化はユーザー指示どおり見送った。
+
+**プライバシーポリシー修正**: `src/app/privacy/page.tsx`を3箇所編集。
+1. 「1. 取得する情報」に、AI機能利用状況メタデータ（利用日時・機能種別・
+   成功/失敗・入出力のおおよその文字数等）を保存すること、AI入力/応答の
+   本文は保存しないこと、既定で90日保持し期間経過後に削除することを
+   追記。
+2. 「2. 利用目的」の「不正利用の検知」を「不正利用の検知、AI機能の
+   利用状況・コストの監視」に拡張。
+3. 「6-3. 削除後も保持する情報」に、このメタデータはアカウント削除完了
+   と同時に自動削除される（90日を待たない）ことを追記。
+「過剰に長くしなくてよい」というユーザー指示どおり、3箇所とも簡潔な
+追記に留めた。`test:legal-trust-pages`で既存の記載（Stripe/Anthropicの
+第三者開示等）への回帰がないことを確認済み。
+
+**アカウント削除との関係**: 使い捨てのauthユーザーを
+`admin.auth.admin.createUser()`で作成し、`ai_usage_events`に行を挿入した
+上で`admin.auth.admin.deleteUser()`を実行し、該当行が自動的に削除される
+ことを`test:ai-usage-retention`で実際に検証した（共有の`TEST_ACCOUNTS`
+フィクスチャを一切使わない、安全な自己完結テスト）。
+
+**変更していないもの**: AI入力本文・prompt本文・応答本文を保存しない
+方針、無料5回/日・Premium300回/日の値、`ai_generation`チケット消費仕様、
+AI quota RPC(`try_consume_ai_quota`)、`ai_usage_events`のRLS
+（service_role以外読み取り不可）、Stripe/Webhook、Premium価格、
+AdSense広告枠、SRS V2、teacher機能、教材データ。
+
+**変更ファイル**: `scripts/ai/cleanup-ai-usage-events.mjs`（新規）、
+`scripts/testing/e2e/ai-usage-retention.mjs`（新規）、`package.json`
+（`cleanup:ai-usage-events`・`cleanup:ai-usage-events:apply`・
+`test:ai-usage-retention`の3スクリプト追加）、`scripts/testing/run-e2e.mjs`
+（ステップ27追加）、`src/app/privacy/page.tsx`、`PRODUCTION_MONITORING.md`
+（§13-7追加）、`NEXT_IMPROVEMENTS.md`。
+
+**テスト追加**: `scripts/testing/e2e/ai-usage-retention.mjs`を新規作成
+（14項目）。90日超過/以内の振り分け・dry-runがDBを書き換えないこと・
+`CONFIRM_AI_USAGE_CLEANUP`未設定時に削除が実行されないこと・
+`--apply`+確認env設定時に90日超過行のみ削除され90日以内の行は残ること・
+使い捨てユーザー削除時のカスケード削除、を検証。全14項目PASS。
+
+**検証結果**: `tsc --noEmit`エラーなし、`build`成功、`test:ai-usage-events`
+26項目全PASS、`test:admin-ai-usage`17項目全PASS、`test:ai-usage-guards`
+27項目全PASS、`test:ai-usage-retention`新規14項目全PASS、
+`test:legal-trust-pages`全PASS、`test:smoke`全PASS、`test:e2e`
+24スイート全PASS、`verify:prod`全PASS、`verify:srs-global`PASS。
+
+**DB変更**: なし。新規マイグレーションは作成していない
+（`on delete cascade`は移行016で当初から設定済みだったため）。
+
+**本番反映状況**: アプリ側コードのコミット・push・Vercelデプロイ・
+本番再検証は本エントリ末尾のコミットハッシュ参照。DBスキーマ変更は
+今回なし。
+
+**残課題**: 自動cronは未導入のため、`cleanup:ai-usage-events:apply`は
+今後も手動実行が必要（月1回程度の実行を推奨）。長期トレンドが必要に
+なった場合の日次集計テーブル設計は未着手。
+
+---
+
 ## 2026-07-06 AI route別の利用ログ・過去トレンド監視
 
 **目的**: `/admin/ai`の残課題「どのAI routeが多く使われているか・日別推移・

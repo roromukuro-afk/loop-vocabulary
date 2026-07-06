@@ -1406,6 +1406,63 @@
 
 ---
 
+46. ✅ **完了（2026-07-06）: `ai_usage_events`の保持期間・削除運用・プライバシー整合**
+    項目45で追加した`ai_usage_events`ログテーブルが際限なく増え続けないよう、
+    保持期間・削除方法・プライバシーポリシー整合・アカウント削除時の扱いを
+    明確化した。
+    **保持期間の方針**: 詳細ログの保持期間を**90日**とした。90日を超えた
+    行は削除対象。入力/出力の本文（prompt本文・Claudeの応答本文）はそもそも
+    保存していないため、より長期のトレンドが必要になった場合は別途「日次
+    集計テーブル」を新設する方針とし、今回は生ログの保持期間短縮のみに
+    留めた。
+    **削除方法（案A: 手動実行の安全な削除スクリプト）**:
+    `scripts/ai/cleanup-ai-usage-events.mjs`を新規作成。
+    `npm run cleanup:ai-usage-events`は既定でdry-runのみ（削除対象件数を
+    表示するだけでDBを書き換えない）。実際に削除する場合は
+    `npm run cleanup:ai-usage-events:apply`を実行し、かつ環境変数
+    `CONFIRM_AI_USAGE_CLEANUP=yes`が設定されていない場合は安全のため
+    exit 1で中断する二重ガード方式（`materials:dedupe`と同じパターン）。
+    テスト/実アカウントの区別は行わない（本文データが元々存在しないため
+    区別する必要がない、との方針どおり）。
+    **自動cron**: 導入していない。今回は手動実行スクリプトのみで、
+    自動化は将来の課題とした。
+    **プライバシーポリシー修正**: `/privacy`の「1. 取得する情報」に
+    AI機能利用状況メタデータ（利用日時・機能種別・成功/失敗・入出力の
+    おおよその文字数等）を保存すること、AI入力/応答の本文は保存しない
+    こと、既定で90日保持し期間経過後に削除することを追記。「2. 利用目的」
+    に「AI機能の利用状況・コストの監視」を追加。「6-3. 削除後も保持する
+    情報」に、このメタデータはアカウント削除完了と同時に自動削除される
+    （90日を待たない）ことを追記。
+    **アカウント削除との関係**: `supabase/migrations/016_ai_usage_events.sql`
+    の時点で`user_id uuid references auth.users(id) on delete cascade`が
+    既に設定されていたことを確認済み（新規マイグレーション不要）。
+    使い捨てauthユーザーを作成→`ai_usage_events`に行を挿入→
+    `admin.auth.admin.deleteUser()`で削除→該当行が消えることを
+    `test:ai-usage-retention`で実際に検証した。
+    変更していないもの: AI入力本文・prompt本文・応答本文を保存しない方針、
+    無料5回/日・Premium300回/日の値、`ai_generation`チケット消費仕様、
+    AI quota RPC(`try_consume_ai_quota`)、`ai_usage_events`のRLS
+    （service_role以外読み取り不可）、Stripe/Webhook、Premium価格、
+    AdSense広告枠、SRS V2、teacher機能、教材データ。
+    **テスト追加**: `scripts/testing/e2e/ai-usage-retention.mjs`を新規作成
+    （14項目、`run-e2e.mjs`ステップ27として追加）。90日以内/超過の
+    振り分け・dry-runがDBを書き換えないこと・`CONFIRM_AI_USAGE_CLEANUP`
+    未設定時に削除が実行されないこと・`--apply`+確認env設定時に90日超過
+    行のみ削除され90日以内の行は残ること・使い捨てユーザー削除時の
+    カスケード削除を検証。
+    **DB変更**: なし（新規マイグレーションは作成していない。
+    on delete cascadeは既存のまま）。
+    検証: `tsc --noEmit` / `build` / `test:ai-usage-events`(26項目) /
+    `test:admin-ai-usage`(17項目) / `test:ai-usage-guards`(27項目) /
+    `test:ai-usage-retention`(新規14項目) / `test:legal-trust-pages` /
+    `test:smoke` / `test:e2e`(24スイート) / `verify:prod` /
+    `verify:srs-global`、全PASS。
+    **残課題**: 自動cronは未導入のため、`cleanup:ai-usage-events:apply`は
+    今後も手動実行が必要。長期トレンドが必要になった場合の日次集計
+    テーブル設計は未着手。
+
+---
+
 ## 💰 収益化・成長 監査（2026-07-04）
 
 事業・収益・継続率・SEO流入の観点でコード・DB・教材・公開ページを監査した結果。

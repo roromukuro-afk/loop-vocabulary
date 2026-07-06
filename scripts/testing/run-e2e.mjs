@@ -118,6 +118,9 @@ async function main() {
 
     console.log("\n=== 26. AI route別利用ログ(ai_usage_events) E2E ===");
     results.aiUsageEvents = runNode("scripts/testing/e2e/ai-usage-events.mjs");
+
+    console.log("\n=== 27. ai_usage_events 保持期間・削除運用 E2E ===");
+    results.aiUsageRetention = runNode("scripts/testing/e2e/ai-usage-retention.mjs");
   } finally {
     stopDevServer(dev);
   }
