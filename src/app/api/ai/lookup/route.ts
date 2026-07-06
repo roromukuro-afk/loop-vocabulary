@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { todayJST } from "@/lib/utils/date";
-import { consumePremiumDailyAiUsage } from "@/lib/ai/premiumDailyCap";
+import { consumeAiQuota } from "@/lib/ai/aiQuota";
 
 export const runtime = "nodejs";
 
-const DAILY_LIMIT = 5;
 const MAX_WORD_LENGTH = 100;
 
 export async function POST(req: NextRequest) {
@@ -28,43 +26,11 @@ export async function POST(req: NextRequest) {
   }
 
   // AI辞書ルックアップも「AI利用」の一種として、メイン解説APIと同じ日次カウンター・
-  // ai_generationチケット救済・Premium安全網を共有する（無料5回/日、超過分はチケット消費）。
-  const today = todayJST();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("daily_ai_used, daily_ai_reset_at, is_premium")
-    .eq("id", user.id)
-    .single();
-
-  const reset = profile?.daily_ai_reset_at !== today;
-  const used = reset ? 0 : (profile?.daily_ai_used ?? 0);
-
-  if (!profile?.is_premium && used >= DAILY_LIMIT) {
-    const { data: ticket } = await supabase
-      .from("reward_tickets")
-      .select("id, amount, used_amount")
-      .eq("user_id", user.id)
-      .eq("kind", "ai_generation")
-      .gt("amount", 0)
-      .order("granted_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    if (!ticket || ticket.amount - ticket.used_amount <= 0) {
-      return NextResponse.json({ error: "limit_reached", limit: DAILY_LIMIT }, { status: 429 });
-    }
-    await supabase.from("reward_tickets")
-      .update({ used_amount: ticket.used_amount + 1 })
-      .eq("id", ticket.id);
-  } else if (profile?.is_premium) {
-    const allowed = await consumePremiumDailyAiUsage(supabase, user.id);
-    if (!allowed) {
-      return NextResponse.json({ error: "premium_daily_limit_reached" }, { status: 429 });
-    }
-  } else {
-    await supabase.from("profiles").update({
-      daily_ai_used: used + 1,
-      daily_ai_reset_at: today,
-    }).eq("id", user.id);
+  // ai_generationチケット救済・Premium安全網をDB側RPCでatomicに共有する
+  // （無料5回/日、超過分はチケット消費、Premiumは300回/日ソフト上限）。
+  const quota = await consumeAiQuota(supabase);
+  if (!quota.allowed) {
+    return NextResponse.json({ error: quota.reason }, { status: 429 });
   }
 
   const client = new Anthropic({ apiKey });

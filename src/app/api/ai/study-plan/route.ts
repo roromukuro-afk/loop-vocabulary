@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { consumePremiumDailyAiUsage } from "@/lib/ai/premiumDailyCap";
+import { consumeAiQuota } from "@/lib/ai/aiQuota";
 
 export const runtime = "nodejs";
 
@@ -40,9 +40,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "AI not configured" }, { status: 503 });
   }
 
-  const allowed = await consumePremiumDailyAiUsage(supabase, user.id);
-  if (!allowed) {
-    return NextResponse.json({ error: "premium_daily_limit_reached" }, { status: 429 });
+  const quota = await consumeAiQuota(supabase);
+  if (!quota.allowed) {
+    return NextResponse.json({ error: quota.reason }, { status: 429 });
   }
 
   const prompt = `あなたは英語学習コーチです。以下の条件で最適な英語学習プランを作成してください。

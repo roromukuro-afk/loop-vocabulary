@@ -5,6 +5,121 @@
 
 ---
 
+## 2026-07-06 AI日次カウンターのatomic化
+
+**目的**: 前回ラウンドの残課題「AI日次カウンター(`profiles.daily_ai_used`/
+`daily_ai_reset_at`)の更新がAPI側のcheck-then-update方式（select→JS側で
+判定→update）で、同一ユーザーの同時リクエストではわずかな競合ウィンドウで
+上限を超えて通過し得た」に対応する。AI APIは実コスト（Anthropic課金）に
+直結するため、DB側で単一トランザクション・行ロックにより判定と更新を
+atomicに行うRPC関数を新設した。
+
+**調査結果**:
+- `profiles.daily_ai_used`（integer, not null default 0）・
+  `daily_ai_reset_at`（date, not null default current_date）はスキーマ変更
+  不要でそのまま流用可能と確認。
+- 旧ロジックは`/api/ai/route.ts`と`/api/ai/lookup/route.ts`の2箇所に
+  ほぼ同一のcheck-then-update+チケット救済コードが重複しており、
+  `study-plan`/`extract-words`/`weakness-analysis`/`ai-suggest`の4ルートは
+  前ラウンドで新設した`src/lib/ai/premiumDailyCap.ts`のPremiumソフト上限
+  のみを呼んでいた（無料判定はそもそも通らない設計のため対象外）。
+- `ai_generation`チケットの消費（`reward_tickets.used_amount`更新）も
+  同じくcheck-then-updateで、同時実行時の二重消費の余地があった。
+- 既存RLS（`profiles`/`reward_tickets`とも「本人のみ」select/update可）は
+  そのまま維持可能。SECURITY DEFINER RPCなら`auth.uid()`で本人の行のみを
+  対象にしつつRLSを経由せず安全に判定・更新できると判断（既存の
+  `lookup_class_by_code`/`get_class_progress`/`get_my_memberships`
+  （migration 011）と同じ確立済みパターン）。
+- 同時リクエストで通り得る回数: 理論上は競合ウィンドウ内でリクエストが
+  重なった数だけ超過しうる（DBの読み取り→JS判定→書き込みの間に他の
+  リクエストが同じ古い値を読んでしまうため）。
+
+**採用したatomic化方式**: `supabase/migrations/015_atomic_ai_quota.sql`に
+`public.try_consume_ai_quota()`（引数なし、`returns table (allowed boolean,
+reason text, is_premium boolean, remaining integer)`、`language plpgsql
+security definer set search_path = public`）を新設。
+
+- `auth.uid()`が`null`なら例外（クライアントからuser_id/is_premiumを
+  受け取らず、必ずログインユーザー自身の行のみを対象にする）。
+- 対象ユーザーの`profiles`行を`select ... for update`でロックしてから
+  JST日付でリセット判定・`daily_ai_used`を読む。
+- Premiumなら300回/日ソフト上限、無料なら5回/日を判定し、許可なら
+  同一行を`update`して`daily_ai_used`を+1。
+- 無料ユーザーが5回/日に到達している場合は、`ai_generation`チケットを
+  `where amount > used_amount`（未消費分が残っているかをSQL自体で判定、
+  旧JS実装は`amount > 0`のみで絞り込みJS側後判定だった潜在的な穴を
+  合わせて解消）で検索し`for update`ロックしてから消費。
+- `revoke all ... from public, anon` + `grant execute ... to authenticated`
+  で、未ログインでは呼べず、ログイン済みユーザーのみ呼べるようにした
+  （既存の`get_my_memberships`等と同じ権限パターン）。
+
+**適用時に発見・即修正した不具合**: 最初に適用したバージョンは、
+`RETURNS TABLE`の出力列`is_premium`が暗黙にplpgsql変数として宣言される
+ため、`select daily_ai_used, daily_ai_reset_at, is_premium from
+public.profiles ...`のような無修飾の列参照が「テーブル列」と「OUT変数」の
+どちらを指すか曖昧になり、実行時エラー(42702 column reference "is_premium"
+is ambiguous)になっていた。全AIルートが即500エラーになる状態を本番反映
+直後にE2Eで検知し、テーブルにエイリアス`p`を付けて`p.is_premium`のように
+修飾する修正版を`atomic_ai_quota_fix_ambiguous_column`として即座に
+本番へ再適用し解消した（ローカルの`015_atomic_ai_quota.sql`も修正版に
+更新済み、コミット前に発見したため公開履歴上の不整合は残らない）。
+
+**リファクタ**: `src/lib/ai/aiQuota.ts`（新規）の`consumeAiQuota(supabase)`
+がRPCを呼ぶ薄いラッパー。`route.ts`(メイン解説)・`lookup`・`study-plan`・
+`extract-words`・`weakness-analysis`・`ai-suggest`の6ルート全てが、
+それぞれ独自に持っていたJS側の日次カウンター判定ロジックをやめ、この
+1関数を呼ぶだけになった。旧`src/lib/ai/premiumDailyCap.ts`は削除。
+
+**副次的な正しさの改善**（意図的な仕様変更ではなく、共通化の過程で解消した
+既存の潜在バグ、観測可能な挙動への影響は無いか軽微）:
+1. 上記の`ai_generation`チケット検索の絞り込み強化。
+2. 旧`/api/ai`のPremiumユーザー向け`remaining`計算が無料上限(5)を基準に
+   計算しており、Premium上限(300)に対して常に不正な値（マイナスを
+   0にクランプした値）を返していた。RPCがPremium/無料それぞれの正しい
+   上限を基準に計算するよう修正。
+
+**変更していないもの**: 無料5回/日・Premium300回/日の値、`ai_generation`
+チケットのkind値・消費方法、Premiumマーケティング文言、Stripe/Webhook、
+特商法ページ、AdSense広告枠、SRS V2、teacher機能、教材データ。
+
+**変更ファイル**: `supabase/migrations/015_atomic_ai_quota.sql`（新規、
+本番へ`apply_migration`で適用済み）、`src/lib/ai/aiQuota.ts`（新規、
+`src/lib/ai/premiumDailyCap.ts`を置き換え）、`src/app/api/ai/route.ts`、
+`src/app/api/ai/lookup/route.ts`、`src/app/api/ai/study-plan/route.ts`、
+`src/app/api/ai/extract-words/route.ts`、
+`src/app/api/ai/weakness-analysis/route.ts`、
+`src/app/api/wordbook/[id]/ai-suggest/route.ts`、
+`scripts/testing/e2e/ai-usage-guards.mjs`、`PRODUCTION_MONITORING.md`、
+`NEXT_IMPROVEMENTS.md`。
+
+**テスト追加**: `test:ai-usage-guards`に「2.5. 同時リクエストでも上限を
+超えて通らない」シナリオを追加。無料ユーザーの残り2回の境界で10件の
+`/api/ai`リクエストを`Promise.all`で同時送信し、(1) 許可された件数が
+ちょうど2件（多くも少なくもない）、(2) 全レスポンスが200/429のいずれか
+（予期しないステータスなし）、(3) 最終的な`daily_ai_used`がちょうど5
+（lost updateや二重加算が無い）ことを検証。24項目→27項目に拡張。
+`verify-premium-gating.mjs`は前回ラウンドで追加済みの`study-plan`検証を
+そのまま維持（RPC移行後も403/非403分岐が正しく機能することを再確認）。
+
+**検証結果**: `tsc --noEmit`エラーなし、`build`成功、
+`test:ai-usage-guards`新規27項目全PASS（修正前は同時実行シナリオで
+許可件数0件・全件500エラーという明確な異常を検知→即修正→再検証でPASS）、
+`test:premium-gating`23項目全PASS、`test:weak-analysis`全項目PASS、
+`test:smoke`全PASS、`test:e2e`21スイート全PASS、`verify:prod`全PASS、
+`verify:srs-global`PASS。
+
+**本番反映状況**: 移行は2段階で本番Supabase（`befjjebsrnsfwhtmydiv`）へ
+適用済み（初回適用→曖昧列エラー発見→修正版再適用→advisorで新規の
+セキュリティ懸念が無いことを確認）。アプリ側コードのコミット・push・
+Vercelデプロイ・本番再検証は本エントリ末尾のコミットハッシュ参照。
+
+**残課題**: Premiumソフト上限300回/日の運用状況は引き続き
+[PRODUCTION_MONITORING.md](PRODUCTION_MONITORING.md) §13-3の監視観点で
+確認すること。`ai_usage_logs`ベースの監視SQLは今回変更していない
+（RPCはこのテーブルに触れないため）。
+
+---
+
 ## 2026-07-06 AI利用コスト・濫用対策の棚卸しと改善
 
 **目的**: Premiumの本格運用前の安全対策として、全AIルートを横断的に棚卸しし、

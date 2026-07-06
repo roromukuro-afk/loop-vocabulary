@@ -538,10 +538,11 @@ Premiumは「AI利用無制限」を謳っており（`/premium`・`/faq`）、�
 留保が既に書かれており、実装側にはその留保を担保する仕組みが無かった
 （真の無制限だった）。これを実装で裏付けるため、通常利用では絶対に到達
 しない高い上限（**1日300回、全AIルート共通**、既存の`profiles.daily_ai_used`/
-`daily_ai_reset_at`を流用・スキーマ変更なし）を`src/lib/ai/premiumDailyCap.ts`
-として新設し、全Premium限定AIルートに適用した。到達時は`429
-premium_daily_limit_reached`を返す。無料ユーザーの5回/日・`ai_generation`
-チケット救済ロジックには一切手を入れていない。
+`daily_ai_reset_at`を流用・スキーマ変更なし）を新設し、全Premium限定AIルートに
+適用した。到達時は`429 premium_daily_limit_reached`を返す。無料ユーザーの
+5回/日・`ai_generation`チケット救済ロジックには一切手を入れていない。
+（2026-07-06追加ラウンドで判定ロジック自体はDB側RPCに移設済み。詳細は
+下記13-4参照。以降`src/lib/ai/aiQuota.ts`がこの説明の実装箇所。）
 
 - **300回/日に到達する状況**: 通常の学習利用では発生しない
   （目安: 1分に1回呼び続けても5時間分）。到達するのはスクリプトによる
@@ -584,6 +585,41 @@ premium_daily_limit_reached`を返す。無料ユーザーの5回/日・`ai_gene
   にフォールバックする（いずれもクラッシュしない）。これにより本番のAI
   課金だけを即座に止めつつ、他機能は継続できる。
 
+### 13-4. 日次カウンターのatomic化（2026-07-06追加ラウンド）
+
+13-1〜13-3の対策後も、日次カウンターの判定自体はAPI側の
+check-then-update方式（select→JS側で判定→update）のままだったため、
+同一ユーザーからの同時リクエストではわずかな競合ウィンドウで上限を超えて
+通過する可能性が残っていた（AI APIは実コストに直結するため残課題として
+対応）。
+
+**採用した方式**: DB側RPC関数 `public.try_consume_ai_quota()`
+（`supabase/migrations/015_atomic_ai_quota.sql`、SECURITY DEFINER）を新設し、
+全AIルートがこの1関数を呼ぶだけで判定・消費まで完結するようにした
+（`src/lib/ai/aiQuota.ts`の`consumeAiQuota()`がラッパー）。
+
+- 対象ユーザーの`profiles`行を`select ... for update`でロックしてから
+  判定・更新するため、同一ユーザーの同時リクエストはこの関数呼び出し単位で
+  直列化される（他ユーザーの行には影響しない）。
+- `ai_generation`チケットの消費も同一トランザクション内でチケット行を
+  `for update`ロックしてから行うため、二重消費も同時に防止される。
+- 無料5回/日・Premium300回/日の値、チケットの消費方法(`used_amount`+1)は
+  完全に維持。これ以後この2値を変更する場合は、本関数を書き換える
+  マイグレーションを追加すること（TypeScript側に対応する定数は無くなった）。
+- 旧`src/lib/ai/premiumDailyCap.ts`は削除し、`src/lib/ai/aiQuota.ts`に
+  一本化した。
+- **同時実行での確認方法**: 以下のSQLでPremiumユーザーの`daily_ai_used`が
+  上限を超えて記録されていないか確認できる（超えていれば同時実行不具合の
+  兆候）。
+  ```sql
+  select id, daily_ai_used from profiles where daily_ai_used > 300;
+  ```
+- DBスキーマ変更は無し（新しい列・テーブルは追加していない、関数のみ追加）。
+  既存RLS（profiles/reward_ticketsとも「本人のみ」）は変更していない。
+  RPCはSECURITY DEFINERのためRLSを経由しないが、`auth.uid()`経由で
+  ログインユーザー自身の行のみを対象にする設計（クライアントから
+  `user_id`/`is_premium`を受け取らない）。
+
 ---
 
 ## 自動検証コマンドの運用
@@ -606,7 +642,7 @@ premium_daily_limit_reached`を返す。無料ユーザーの5回/日・`ai_gene
 | `npm run test:premium-conversion` | `/premium`・トップページ(`/`)・`PremiumCheckout.tsx`・Stripe checkout/webhookルート・各Premium gatingページのCTA文言・`dashboard/page.tsx`の広告表示・マーケティング文言を変更した時 | 非Premiumで料金比較表・チェックアウトボタンが表示される・Premiumで「現在プレミアム会員です」表示に切り替わりチェックアウトボタンが消える・`POST /api/stripe/checkout`がPremium時に409 already_premiumを返す（二重課金防止）・`/weak`/`/extract`/`/plan`のPremium誘導CTAが統一文言になっている・`/test/typing`/`/test/listening`のペイウォール表示・`/premium`のモバイル崩れなし・ダッシュボード広告のisPremiumガードをソースコードで確認・`/premium`とトップページ(`/`)に実データと乖離した誇張・社会的証明の文言（「3,200+登録ユーザー」「ユーザーの声」等）が残っていないこと・トップページのJSON-LDに未実証`aggregateRating`が含まれていないこと・reward_ticketsの予約済み・未実装kind(pdf_export/weak_word_test/analysis_ticket)がPremium特典として訴求されていないこと、を実ブラウザ+API直接確認で検証（2026-07-05に2ステップ、2026-07-06に禁止文言4件追加） |
 | `npm run test:stripe-premium-webhook` | `src/app/api/stripe/checkout/route.ts`・`src/app/api/stripe/webhook/route.ts`・Premium反映フローを変更した時 | 署名付きテストイベント（`Stripe.webhooks.generateTestHeaderString`、実Stripe通信なし・実課金なし）で、不正signatureの400拒否・未知イベントタイプでの非クラッシュ・存在しない顧客ID/ユーザーIDでの非クラッシュ・`checkout.session.completed`でのis_premium/premium_expires_at反映・webhookで付与したis_premiumが実際に`/premium`のPremium機能解放に反映されること・二重checkout防止(409)・未ログインcheckout(401)・`customer.subscription.updated`(active/canceled期限反映)・`customer.subscription.deleted`(即時失効)を検証（2026-07-06新規、`run-e2e.mjs`ステップ22として追加、20項目）。テスト用アカウントのみ操作し、実Stripe顧客・実メール送信は一切発生しない設計 |
 | `npm run test:legal-trust-pages` | `/premium`・`/privacy`・`/terms`・`/faq`・`/contact`・`/legal/commercial-transaction`・`/login`の`?next=`リダイレクト・footer導線を変更した時 | `/premium`・`/privacy`・`/terms`・`/faq`・`/contact`の200表示・未ログイン時「ログインして始める」が404にならず`/login?next=/premium`へ遷移しログイン完了後に実際に`/premium`へ戻ること（`/dashboard`固定リダイレクトの回帰確認）・ランディングページfooter及び`/premium`下部リンクの非404・`/privacy`のStripe/Anthropic第三者サービス記載・`/terms`の実際の価格/解約方法記載・モバイル幅での崩れ無し・誇張表現/未実装特典の非復活・`/legal/commercial-transaction`の200表示/確定情報整合/プレースホルダー表示/noindexメタ/robots.txt Disallow/非リンク確認、を実ブラウザで検証（2026-07-05に16項目、2026-07-06に6項目追加、`run-e2e.mjs`ステップ23として追加、計21項目） |
-| `npm run test:ai-usage-guards` | `/api/ai`・`/api/ai/study-plan`・`/api/ai/lookup`・`/api/ai/extract-words`・`/api/ai/weakness-analysis`・`/api/wordbook/[id]/ai-suggest`・`src/lib/ai/premiumDailyCap.ts`を変更した時 | 未ログインで全AIルートが401・無料ユーザーの5回/日上限と`ai_generation`チケット救済（チケット消費後も`daily_ai_used`が変化しないこと含む）・Premium通常利用は成功しソフト上限(300回/日、全AIルート共通)到達時のみ429・巨大入力(word>100文字)の400拒否・空入力の400拒否(非クラッシュ)・`study-plan`のPremium判定(非Premium403/Premium通過)と入力バリデーション(exam超過400・不正targetDate 400)・`/weak`/`/extract`/`/plan`への回帰なし、を実ブラウザ+API直接確認+DB直接操作で検証（2026-07-06新規、`run-e2e.mjs`ステップ24として追加、24項目） |
+| `npm run test:ai-usage-guards` | `/api/ai`・`/api/ai/study-plan`・`/api/ai/lookup`・`/api/ai/extract-words`・`/api/ai/weakness-analysis`・`/api/wordbook/[id]/ai-suggest`・`src/lib/ai/aiQuota.ts`・`supabase/migrations/015_atomic_ai_quota.sql`を変更した時 | 未ログインで全AIルートが401・無料ユーザーの5回/日上限と`ai_generation`チケット救済（チケット消費後も`daily_ai_used`が変化しないこと含む）・**同時10リクエストでも日次上限の境界で許可される件数がちょうど正しい件数に収まりDB上の`daily_ai_used`が超過しないこと（atomic化の検証）**・Premium通常利用は成功しソフト上限(300回/日、全AIルート共通)到達時のみ429・巨大入力(word>100文字)の400拒否・空入力の400拒否(非クラッシュ)・`study-plan`のPremium判定(非Premium403/Premium通過)と入力バリデーション(exam超過400・不正targetDate 400)・`/weak`/`/extract`/`/plan`への回帰なし、を実ブラウザ+API直接確認+DB直接操作で検証（2026-07-06新規、`run-e2e.mjs`ステップ24として追加、2026-07-06追加ラウンドで同時実行シナリオ3項目を追加し計27項目） |
 | `npm run verify:seo-lp-audit` | sitemap.ts・robots.txt・カテゴリLPのmetadataを変更した時／**本番デプロイ後** | 本番の`/sitemap.xml`に主要ページ・3LPが含まれるか・`/robots.txt`が対象パスをブロックしていないか・3LPのcanonicalが自分自身を指すか・JSON-LD(BreadcrumbList/ItemList)が妥当なJSONか・既存`/materials/[id]`への非影響を、HTTPのみ（ブラウザ不要）で検証。`verify:prod`同様デフォルトで本番URLを対象とする |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |
@@ -615,7 +651,7 @@ premium_daily_limit_reached`を返す。無料ユーザーの5回/日・`ai_gene
 | `npm run test:quiz` (`npm run test:learning-selection`と同一) | `src/lib/learning/wordSelection.ts`を変更した時（DB不要・数秒） | 出題選定(未学習優先/due・weak重み付け/直近除外/出題キュー化)・選択肢生成(重複なし/空欄なし/正解1つ)の単体テスト。4択・input・typing・listening・attack全モード共通ロジックのため、ここでの検証が全モードの正しさを保証する |
 | `npm run test:quiz:e2e` | 4択テスト(`/test/choice`)の出題ロジックを変更した時 | 未学習単語の優先出題・選択肢の健全性・正解後のSRS(correct_count)更新・`/review`/`/pdf`への回帰なしを実ブラウザで検証 |
 | `npm run test:learning-modes:e2e` | input/typing/listening/attackのいずれかを変更した時 | 各モードで未学習単語が1問目に出ること・正解後にSRSフィールドが更新されること・attackの`?book=`単語帳スコープ（指定時は対象単語帳のみ・未指定時は全単語帳横断・対象範囲ラベル表示）・`/test/choice`/`/review`/`/pdf`/`/materials`への回帰なしを実ブラウザで検証（25項目） |
-| `npm run test:premium-gating` | Premium判定（`profiles.is_premium`）を参照する箇所を変更した時 | `/wordbooks/[id]`・`/plan`・`/extract`・`/weak`の表示分岐と`/api/ai/weakness-analysis`・`/api/ai/extract-words`・`/api/wordbook/[id]/ai-suggest{,/add}`の403/非403分岐を非Premium/Premium両状態で検証、5学習モードへの回帰なしも確認（21項目） |
+| `npm run test:premium-gating` | Premium判定（`profiles.is_premium`）を参照する箇所を変更した時 | `/wordbooks/[id]`・`/plan`・`/extract`・`/weak`の表示分岐と`/api/ai/weakness-analysis`・`/api/ai/extract-words`・`/api/wordbook/[id]/ai-suggest{,/add}`・`/api/ai/study-plan`の403/非403分岐を非Premium/Premium両状態で検証、5学習モードへの回帰なしも確認（2026-07-06に`study-plan`検証を追加、計23項目） |
 | `npm run validate:materials` | プリセット教材パック（`src/data/presets/*`）を追加・変更した時 | word/meaning空でない・教材内重複なし・pos/難易度が範囲内・タグが想定内かをDB不要で高速チェック。既存教材の監査レポートも非ブロッキングで再生成 |
 | `npm run test:materials` | プリセット教材パックをDBに反映する前 | 静的検証→DB投入(冪等)→語数一致確認→インポート後SRS/PDF互換性確認→既存教材の非破壊確認までを一括実行 |
 | `npm run test:materials:e2e` | 教材インポート導線（`/materials/[id]`・`ImportMaterialButton`・`/pdf`）を変更した時 | 未ログイン時CTA・インポート→単語帳作成→SRS既定値→PDF選択肢反映→再インポート時の重複防止、インポート後（新規・再訪問済み双方）のメインCTA(`/wordbooks/<id>`)・サブCTA(`/test/choice?book=`・`/pdf?book=`)遷移、および1000語超の既存教材(1,500語・2,000語)で総語数がSupabase既定の1000件で頭打ちにならず正しく表示されることを実ブラウザで検証（25項目） |

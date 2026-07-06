@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import Anthropic from "@anthropic-ai/sdk";
-import { todayJST } from "@/lib/utils/date";
-import { consumePremiumDailyAiUsage } from "@/lib/ai/premiumDailyCap";
+import { consumeAiQuota } from "@/lib/ai/aiQuota";
 
-const DAILY_LIMIT = 5;
 const MAX_WORD_LENGTH = 100;
 const MAX_MEANING_LENGTH = 200;
 
@@ -141,45 +139,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "input_too_long" }, { status: 400 });
   }
 
-  // 利用回数チェック（日次リセット、日本時間基準）
-  const today = todayJST();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("daily_ai_used, daily_ai_reset_at, is_premium")
-    .eq("id", user.id)
-    .single();
-
-  const reset = profile?.daily_ai_reset_at !== today;
-  const used = reset ? 0 : (profile?.daily_ai_used ?? 0);
-
-  if (!profile?.is_premium && used >= DAILY_LIMIT) {
-    const { data: ticket } = await supabase
-      .from("reward_tickets")
-      .select("id, amount, used_amount")
-      .eq("user_id", user.id)
-      .eq("kind", "ai_generation")
-      .gt("amount", 0)
-      .order("granted_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    if (!ticket || ticket.amount - ticket.used_amount <= 0) {
-      return NextResponse.json({ error: "limit_reached", limit: DAILY_LIMIT }, { status: 429 });
-    }
-    await supabase.from("reward_tickets")
-      .update({ used_amount: ticket.used_amount + 1 })
-      .eq("id", ticket.id);
-  } else if (profile?.is_premium) {
-    // Premiumは実質無制限だが、自動化スクリプト等による濫用のみを止める安全網として
-    // 通常利用では絶対に到達しない高い上限（全AI機能共通）を設ける。
-    const allowed = await consumePremiumDailyAiUsage(supabase, user.id);
-    if (!allowed) {
-      return NextResponse.json({ error: "premium_daily_limit_reached" }, { status: 429 });
-    }
-  } else {
-    await supabase.from("profiles").update({
-      daily_ai_used: used + 1,
-      daily_ai_reset_at: today,
-    }).eq("id", user.id);
+  // 利用回数チェック（日次リセット、日本時間基準）。DB側RPCでatomicに判定・消費する
+  // （無料5回/日+ai_generationチケット救済、Premium300回/日ソフト上限）。
+  const quota = await consumeAiQuota(supabase);
+  if (!quota.allowed) {
+    return NextResponse.json({ error: quota.reason }, { status: 429 });
   }
 
   let result: string;
@@ -197,5 +161,5 @@ export async function POST(req: NextRequest) {
     });
   } catch { /* ignore logging errors */ }
 
-  return NextResponse.json({ result, remaining: Math.max(0, DAILY_LIMIT - used - 1) });
+  return NextResponse.json({ result, remaining: quota.remaining });
 }

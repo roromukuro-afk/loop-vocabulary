@@ -1,7 +1,7 @@
 /**
  * AI利用コスト・濫用対策の回帰防止テスト（2026-07-06、Premium本番運用前の安全対策ラウンド）。
  *
- * このラウンドで見つかった/api/ai/study-plan の重大な穴（サーバー側でPremium判定が
+ * 初回ラウンドで見つかった/api/ai/study-plan の重大な穴（サーバー側でPremium判定が
  * 一切なく、非Premiumユーザーがフォームを経由せず直接APIを叩けば無制限にClaude API
  * を呼べた）を修正し、他のAIルートにも以下を追加した:
  *  - study-plan: is_premium 403ガード、入力長・targetDate・dailyMinutesのバリデーション
@@ -14,13 +14,24 @@
  *  - extract-words/weakness-analysis: Premiumソフト上限を追加（既存のPremium判定・
  *    入力長制限はそのまま）
  *
+ * 2026-07-06追加ラウンド（atomic化）: 上記の日次カウンター判定がAPI側の
+ * check-then-update方式（select→JS判定→update）だったため、同一ユーザーの同時
+ * リクエストで競合ウィンドウが生じ得た。DB側RPC `try_consume_ai_quota()`
+ * （SECURITY DEFINER、profiles行をfor updateでロックしてから判定・更新、
+ * ai_generationチケット消費も同一トランザクションでロック）に置き換え、
+ * 全AIルートがこのRPC経由でatomicに日次カウンターを消費するようにした
+ * （`supabase/migrations/015_atomic_ai_quota.sql`、`src/lib/ai/aiQuota.ts`）。
+ * 無料5回/日・Premium300回/日の値、ai_generationチケットの消費仕様は変更していない。
+ *
  * 検証内容:
  *  1. 未ログインでは全AIルートが401になる
  *  2. 無料ユーザーは1日5回で制限され、ai_generationチケットがあれば救済される
+ *  2.5. 同時リクエストでも上限を超えて通らない（atomic化の検証、10件同時送信で
+ *      境界の残り2回だけが通過し、DB上のdaily_ai_usedがちょうど5になること）
  *  3. Premiumユーザーは通常利用で制限されず、巨大な日次カウンター(300回)に達すると429になる
  *  4. 巨大入力(word > 100文字)は400で拒否される
  *  5. 空入力は500ではなく400で拒否される（クラッシュしない）
- *  6. study-planは非Premiumで403、Premiumで403にならない（本ラウンドの主目的の修正）
+ *  6. study-planは非Premiumで403、Premiumで403にならない（初回ラウンドの主目的の修正）
  *  7. /weak・/extract・/plan の既存動作に回帰がない
  *
  * 使い方: node scripts/testing/e2e/ai-usage-guards.mjs
@@ -133,6 +144,49 @@ async function main() {
       else bad(`チケット救済経路でdaily_ai_usedが変化した: before=${usedBefore}, after=${usedAfter}`);
     }
     await admin.from("reward_tickets").delete().eq("user_id", userId).eq("kind", "ai_generation");
+
+    // ================= 2.5. 同時リクエストでも上限を超えて通らない（atomic化の検証） =================
+    // 2026-07-06、check-then-update方式(select→JS判定→update)だと同一ユーザーの同時
+    // リクエストで競合ウィンドウが生じ得たため、DB側RPC(try_consume_ai_quota、
+    // profiles行をfor updateでロック)にatomic化した。ここでは実際に日次上限の
+    // 境界(残り2回)で10件を同時に送り、通過数がちょうど2件・DB上のdaily_ai_usedが
+    // ちょうど5(上限)になることを確認する。競合があれば通過数が2件を超えるか、
+    // daily_ai_usedが5を超えて記録される（=lost updateではなく二重増加）はずである。
+    console.log("\n--- 2.5. 同時リクエストでも上限を超えて通らない（atomic化の検証） ---");
+    await admin.from("reward_tickets").delete().eq("user_id", userId).eq("kind", "ai_generation");
+    await admin.from("profiles").update({ is_premium: false, daily_ai_used: 3, daily_ai_reset_at: today }).eq("id", userId);
+    {
+      const CONCURRENCY = 10;
+      const EXPECTED_ALLOWED = 2; // 5(上限) - 3(既存使用量) = 残り2回
+      const results = await Promise.all(
+        Array.from({ length: CONCURRENCY }, (_, i) =>
+          fetch(`${baseUrl}/api/ai`, {
+            method: "POST",
+            headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+            body: JSON.stringify({ word: `concurrent${i}`, meaning: "同時実行検証" }),
+          }).then((res) => res.status)
+        )
+      );
+      const allowedCount = results.filter((s) => s === 200).length;
+      const rejectedCount = results.filter((s) => s === 429).length;
+      const unexpected = results.filter((s) => s !== 200 && s !== 429);
+
+      if (allowedCount === EXPECTED_ALLOWED) {
+        ok(`同時${CONCURRENCY}リクエスト中、許可されたのはちょうど${EXPECTED_ALLOWED}件（競合による超過通過なし）`);
+      } else {
+        bad(`同時リクエストの許可件数が想定外: 期待=${EXPECTED_ALLOWED}, 実際=${allowedCount} (200:${allowedCount} 429:${rejectedCount} その他:${unexpected.length})`);
+      }
+      if (unexpected.length === 0) ok("同時リクエストのレスポンスはすべて200/429のいずれか（予期しないステータスなし）");
+      else bad(`予期しないステータスコードが発生: ${JSON.stringify(unexpected)}`);
+
+      const finalUsed = (await getProfile(admin, userId)).daily_ai_used;
+      if (finalUsed === 5) {
+        ok(`同時実行後もdaily_ai_usedはちょうど5（lost updateや二重加算なし、DB上のatomic性を確認）`);
+      } else {
+        bad(`同時実行後のdaily_ai_usedが想定外: 期待=5, 実際=${finalUsed}`);
+      }
+    }
+    await admin.from("profiles").update({ daily_ai_used: 0, daily_ai_reset_at: today }).eq("id", userId);
 
     // ================= 3. Premiumユーザー: 通常利用は無制限、巨大なソフト上限(300回)のみ機能 =================
     console.log("\n--- 3. Premiumユーザー: 通常利用は無制限、ソフト上限(300回/日)のみ機能 ---");

@@ -1265,6 +1265,52 @@
 
 ---
 
+43. ✅ **完了（2026-07-06）: AI日次カウンターのatomic化**
+    項目42の残課題（`/api/ai`のメイン日次カウンター更新がcheck-then-update
+    方式で厳密なアトミック性がない）への対応。DB側RPC関数
+    `public.try_consume_ai_quota()`（`supabase/migrations/015_atomic_ai_quota.sql`、
+    SECURITY DEFINER）を新設し、対象ユーザーの`profiles`行を`select ... for
+    update`でロックしてから判定・更新する設計に置き換えた。同一ユーザーの
+    同時リクエストはこの関数呼び出し単位で直列化されるため、上限を超えて
+    通過することがなくなった。`ai_generation`チケットの消費も同一
+    トランザクション内でチケット行をロックしてから行うため、二重消費も
+    同時に解消した。
+    無料5回/日・Premium300回/日の値、チケットの消費方法(`used_amount`+1)は
+    完全に維持。`is_premium`はクライアントから受け取らず、RPC内部で
+    `auth.uid()`経由のログインユーザー自身の行のみを対象にする
+    （クライアントの権限主張を一切信用しない設計）。
+    **DB変更**: 新しい列・テーブルは追加していない（関数のみ追加）。
+    既存RLS（profiles/reward_ticketsとも「本人のみ」）は変更していない。
+    本番Supabase（`befjjebsrnsfwhtmydiv`）へ適用済み。適用直後に
+    `RETURNS TABLE`の出力列`is_premium`と`profiles.is_premium`列名が
+    衝突し曖昧列参照エラー(42702)になる不具合を発見・即座に修正（列を
+    テーブルエイリアスで修飾）し、修正版を再適用して解消した。
+    **リファクタ**: `route.ts`(メイン解説)・`lookup`・`study-plan`・
+    `extract-words`・`weakness-analysis`・`ai-suggest`の6ルート全てが
+    JS側の重複した判定ロジックをやめ、`src/lib/ai/aiQuota.ts`の
+    `consumeAiQuota()`経由でこの1つのRPCを呼ぶだけになった。旧
+    `src/lib/ai/premiumDailyCap.ts`は削除。
+    **副次的な正しさの改善**（意図的な仕様変更ではなく、共通化の過程で
+    解消した既存の潜在バグ）: (1) 旧`ai_generation`チケット検索は
+    `amount > 0`のみで絞り込んでおり「未消費分が残っているか」はJS側の
+    後判定だったため、複数チケットが存在し先頭のものが使い切られている
+    場合に後続の未消費チケットで救済されない可能性があった → SQLの
+    絞り込み自体に`amount > used_amount`を含めて解消。(2) 旧
+    `/api/ai`のPremiumユーザー向け`remaining`計算が無料上限(5)を基準に
+    しており、Premium上限(300)に対して常に不正な値を返していた →
+    RPCがPremium/無料それぞれの正しい上限を基準に計算するよう修正。
+    **テスト追加**: `test:ai-usage-guards`に同時POSTシナリオ（残り2回の
+    境界で10件を同時送信し、許可されたのがちょうど2件・DB上の
+    `daily_ai_used`がちょうど5であることを検証）を追加（24→27項目）。
+    検証: `tsc --noEmit` / `build` / `test:ai-usage-guards`（新規27項目）/
+    `test:premium-gating`（23項目）/ `test:weak-analysis` / `test:smoke` /
+    `test:e2e` / `verify:prod` / `verify:srs-global`、全PASS。
+    **残課題**: Premiumソフト上限300回/日の運用状況は引き続き
+    [PRODUCTION_MONITORING.md](PRODUCTION_MONITORING.md) §13-3の監視観点で
+    確認すること。
+
+---
+
 ## 💰 収益化・成長 監査（2026-07-04）
 
 事業・収益・継続率・SEO流入の観点でコード・DB・教材・公開ページを監査した結果。

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/supabase/requireUser";
 import Anthropic from "@anthropic-ai/sdk";
-import { consumePremiumDailyAiUsage } from "@/lib/ai/premiumDailyCap";
+import { consumeAiQuota } from "@/lib/ai/aiQuota";
 
 export const runtime = "nodejs";
 
@@ -43,9 +43,9 @@ export async function POST(
     return NextResponse.json({ error: "AI not configured" }, { status: 503 });
   }
 
-  const allowed = await consumePremiumDailyAiUsage(supabase, user.id);
-  if (!allowed) {
-    return NextResponse.json({ error: "premium_daily_limit_reached" }, { status: 429 });
+  const quota = await consumeAiQuota(supabase);
+  if (!quota.allowed) {
+    return NextResponse.json({ error: quota.reason }, { status: 429 });
   }
 
   const wordList = words.map((w) => `${w.word}（${w.meaning}）`).join("、");
