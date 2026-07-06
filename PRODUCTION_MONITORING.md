@@ -20,6 +20,7 @@
 - [ ] `npm run test:e2e`（フルE2E一式）を実行し、17フロー（onboarding/dictionary・SRS V2・teacher・admin・教材インポート・4択出題ロジック・他学習モード出題ロジック・Premium判定回帰・学習モード入口/対象範囲ラベル・単語帳削除・復習リカバリーモード・内部リンク・カテゴリLP・ダッシュボード習得率/苦手単語カード）が全PASSか
 - [ ] `npm run verify:srs-global` — SRS V2のグローバル有効化が維持されているか
 - [ ] [`/admin/srs`](https://loop-vocabulary.app/admin/srs) — 異常値検知セクションに⚠が出ていないか目視確認（詳細は§3。ページ自体が正しく表示されること・認可が効いていることは`test:e2e`/`test:admin`で自動検証済みなので、ここでは「値」の異常有無だけ見ればよい）
+- [ ] [`/admin/ai`](https://loop-vocabulary.app/admin/ai) — AI利用状況（本日の利用回数・無料/Premium上限接近ユーザー数・異常検知）に⚠が出ていないか目視確認（詳細は§13-5。ページ表示・認可は`test:admin-ai-usage`で自動検証済み）
 - [ ] Supabase → Database → 使用量（行数・DBサイズ・API呼び出し数）が想定内か
 - [ ] Vercel → Usage（Function実行時間・帯域）が想定内か
 - [ ] Google Search Console → インデックス状況・検索パフォーマンスの週次トレンド（詳細は [SEARCH_CONSOLE_SETUP.md](SEARCH_CONSOLE_SETUP.md) §3）
@@ -551,6 +552,16 @@ Premiumは「AI利用無制限」を謳っており（`/premium`・`/faq`）、�
 
 ### 13-3. 監視・異常検知の観点
 
+**通常はこのSQLを直接叩く必要はない。`/admin`にログイン後
+[`/admin/ai`](https://loop-vocabulary.app/admin/ai)（2026-07-06新設）で
+同じ観点を読み取り専用ダッシュボードとして確認できる**（本日AIを使った
+ユーザー数・利用回数合計・無料/Premium別合計・無料上限/Premiumソフト上限に
+近いユーザー数・`ai_generation`チケット残高があるユーザー数・
+本日のdaily_ai_used上位5件(順位と回数のみ)・構造的異常の簡易警告を表示。
+テストアカウント(`is_test_account=true`)は集計から自動的に除外される）。
+DBを直接見たい場合や、ダッシュボードでは出ない詳細（`ai_usage_logs`の
+ユーザー別急増等）を確認したい場合のみ以下のSQLを使う。
+
 - **`ai_usage_logs`テーブル**（`/api/ai`のみ、ベストエフォートでinsert・
   失敗しても本処理は継続）: 直近の利用件数・ユーザー別の急増を見る場合は
   以下のSQLを使う。
@@ -620,6 +631,38 @@ check-then-update方式（select→JS側で判定→update）のままだった�
   ログインユーザー自身の行のみを対象にする設計（クライアントから
   `user_id`/`is_premium`を受け取らない）。
 
+### 13-5. AI利用状況モニタリング画面（`/admin/ai`、2026-07-06新設）
+
+atomic化後の残課題「実運用でAIコスト・濫用に気づけるようにする」への対応。
+`requireAdmin()`（既存パターン、`profiles.is_admin`をサーバー側で確認、
+非adminは`/dashboard`へ・未ログインは`/login`へリダイレクト）で保護された
+管理者専用・読み取り専用ページを新設した。
+
+- **使用データ**: `profiles`（`daily_ai_used`/`daily_ai_reset_at`/
+  `is_premium`/`is_test_account`）と`reward_tickets`（`kind='ai_generation'`
+  の`amount`/`used_amount`）のみ。新しいログテーブルは作成していない
+  （AI route別の詳細ログが必要な場合は下記残課題を参照、今回は提案のみ）。
+- **個人情報・AI入力内容を表示しない**: メールアドレス・display_name・
+  単語/英文/AIへの入力内容は一切取得・表示しない。日次カウンター上位5件も
+  「何位が何回か」のみで、どのユーザーかは特定できない表示にしている。
+  `test:admin-ai-usage`でメールアドレス様文字列(`@`)・`user_id`ラベル・
+  既知の単語データが本文に含まれないことを自動検証している。
+- **テストアカウントの除外**: `is_test_account=true`の行は全ての集計から
+  除外される。E2E実行のたびに監視対象の数値が汚染されるのを防ぐため。
+- **書き込み一切なし**: このページはPremium状態・`daily_ai_used`・
+  チケット残高のいずれも変更しない（読み取りのみ）。`test:admin-ai-usage`
+  でページ表示前後にDBの値が変化しないことを自動検証している。
+- **異常検知**: 統計的な閾値ではなく、atomic RPC上は理論上発生し得ない
+  状態（無料ユーザーが5回超・Premiumユーザーが300回超・
+  ai_generationチケットの`used_amount > amount`）のみを検知する設計。
+  これらが1件でもあればRPCの不具合かDBへの直接操作を疑う。
+- **DBスキーマ変更なし**: 既存カラムのみで実装、RLSも変更していない。
+
+**残課題**: AI route別（`/api/ai`本体・`lookup`・`study-plan`・
+`extract-words`・`weakness-analysis`・`ai-suggest`）の詳細な利用内訳や、
+日次を超えた過去トレンドが必要になった場合は、専用ログテーブルの新設を
+検討する（本ラウンドではDBスキーマ変更を避けるため見送り、提案のみ）。
+
 ---
 
 ## 自動検証コマンドの運用
@@ -648,6 +691,7 @@ check-then-update方式（select→JS側で判定→update）のままだった�
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |
 | `npm run test:teacher` | 先生機能・RLS・RPCを変更した時 | ロスター集計のみ表示・同意撤回/再同意・招待コードの再発行/無効化/期限管理を検証 |
 | `npm run test:admin` | `/admin`配下のページを変更した時 | admin権限での表示・非admin/未ログイン時のリダイレクト・個別データ非開示・書き込み無しを検証（`test+admin@loop-vocabulary.app`使用） |
+| `npm run test:admin-ai-usage` | `/admin/ai`・AI利用状況集計ロジックを変更した時 | admin権限での表示・非admin/未ログイン時のリダイレクト・本日の利用状況/異常検知セクション表示・無料/Premium上限接近ユーザー数等の集計項目表示・個人情報(メールアドレス/user_idラベル)や単語データ非開示・profiles/reward_tickets書き込み無し・テストアカウント(is_test_account=true)が集計から正しく除外されること(daily_ai_usedを4→0に変えても集計値が変化しないことで確認)を検証（2026-07-06新規、`run-e2e.mjs`ステップ25として追加、17項目） |
 | `npm run test:quiz` (`npm run test:learning-selection`と同一) | `src/lib/learning/wordSelection.ts`を変更した時（DB不要・数秒） | 出題選定(未学習優先/due・weak重み付け/直近除外/出題キュー化)・選択肢生成(重複なし/空欄なし/正解1つ)の単体テスト。4択・input・typing・listening・attack全モード共通ロジックのため、ここでの検証が全モードの正しさを保証する |
 | `npm run test:quiz:e2e` | 4択テスト(`/test/choice`)の出題ロジックを変更した時 | 未学習単語の優先出題・選択肢の健全性・正解後のSRS(correct_count)更新・`/review`/`/pdf`への回帰なしを実ブラウザで検証 |
 | `npm run test:learning-modes:e2e` | input/typing/listening/attackのいずれかを変更した時 | 各モードで未学習単語が1問目に出ること・正解後にSRSフィールドが更新されること・attackの`?book=`単語帳スコープ（指定時は対象単語帳のみ・未指定時は全単語帳横断・対象範囲ラベル表示）・`/test/choice`/`/review`/`/pdf`/`/materials`への回帰なしを実ブラウザで検証（25項目） |

@@ -1311,6 +1311,51 @@
 
 ---
 
+44. ✅ **完了（2026-07-06）: AI利用状況の運用監視（`/admin/ai`新設）**
+    項目43の残課題「実運用でAIコスト・濫用に気づけるようにする」への対応。
+    既存の`/admin/srs`と同じ設計思想（`requireAdmin()`で保護・読み取り専用・
+    個人情報や学習内容は非表示）を踏襲した管理者専用ページ
+    `/admin/ai`（AI利用状況モニタリング）を新設した。
+    **表示内容**: 本日(JST)AIを使ったユーザー数・利用回数合計・無料/Premium
+    別の利用回数合計・無料上限(5回)に近いユーザー数(4回以上)・Premiumソフト
+    上限(300回)に近いユーザー数(250回以上)・`ai_generation`チケット残高
+    (`amount>used_amount`)があるユーザー数・本日のdaily_ai_used上位5件
+    (順位と回数のみ、個人は特定不可)・異常利用の簡易警告(無料ユーザーが
+    5回超/Premiumユーザーが300回超/チケットのused_amountがamountを超えている
+    、のいずれもatomic RPC上は理論上あり得ない状態のみを検知)。
+    **使用データ**: `profiles`(`daily_ai_used`/`daily_ai_reset_at`/
+    `is_premium`/`is_test_account`)と`reward_tickets`(kind='ai_generation'
+    の`amount`/`used_amount`)のみ。新しいログテーブルは作成していない。
+    **個人情報・AI入力内容は非表示**: メールアドレス・display_name・単語/
+    英文/AIへの入力内容は一切取得・表示しない。テストアカウント
+    (`is_test_account=true`)は全ての集計から除外し、E2E実行のたびに監視数値が
+    汚染されるのを防いでいる。
+    **admin以外は拒否**: 既存の`requireAdmin()`パターンをそのまま使用
+    （未ログイン→`/login`、非admin→`/dashboard`）。RLSの変更は無し。
+    **書き込み一切なし**: ページ表示でPremium状態・`daily_ai_used`・
+    チケット残高のいずれも変更しない。
+    **DBスキーマ変更なし**: 既存カラムのみで実装。
+    変更していないもの: 無料5回/日・Premium300回/日の値、`ai_generation`
+    チケット消費仕様、AI quota RPC、Stripe/Webhook、特商法ページ、AdSense
+    広告枠、SRS V2、teacher機能、教材データ。`/admin`配下は既存の
+    `robots.txt`の`Disallow: /admin`で引き続きクロール対象外。
+    **テスト追加**: `scripts/testing/e2e/admin-ai-usage.mjs`を新規作成
+    （17項目、`run-e2e.mjs`ステップ25として追加）。admin権限での表示・
+    非admin/未ログイン時のリダイレクト・集計項目の表示・個人情報/単語データ
+    非開示・書き込み無し・テストアカウントが集計から正しく除外されること
+    (daily_ai_usedを4→0に変えても「無料上限に近いユーザー」の値が変化しない
+    ことで確認)を検証。
+    検証: `tsc --noEmit` / `build` / `test:admin`(既存回帰、10項目) /
+    `test:admin-ai-usage`(新規17項目) / `test:ai-usage-guards`(27項目) /
+    `test:smoke` / `test:e2e`(22スイート) / `verify:prod` /
+    `verify:srs-global`、全PASS。
+    **残課題**: AI route別（`/api/ai`本体・`lookup`・`study-plan`・
+    `extract-words`・`weakness-analysis`・`ai-suggest`）の詳細な利用内訳や
+    日次を超えた過去トレンドが必要になった場合は、専用ログテーブルの新設を
+    検討する（本ラウンドではDBスキーマ変更を避けるため見送り、提案のみ）。
+
+---
+
 ## 💰 収益化・成長 監査（2026-07-04）
 
 事業・収益・継続率・SEO流入の観点でコード・DB・教材・公開ページを監査した結果。

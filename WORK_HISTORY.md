@@ -5,6 +5,95 @@
 
 ---
 
+## 2026-07-06 AI利用状況の運用監視（`/admin/ai`新設）
+
+**目的**: AI日次カウンターのatomic化（前エントリ）で残課題として記録した
+「実運用でAIコストや濫用に気づけるようにする」への対応。管理者向けの
+読み取り専用モニタリングページを新設する。
+
+**調査結果**: 既存の`/admin/srs`（SRS V2モニタリング）が同じ目的の先例として
+既に存在しており、以下の設計パターンが確立されていた。
+- `requireAdmin()`（`src/lib/supabase/requireUser.ts`）: `requireUser()`で
+  未ログインを`/login`へ、続けて`profiles.is_admin`をサーバー側で確認し
+  非adminを`/dashboard`へリダイレクトする。クライアントのis_adminは信用せず、
+  サーバー側で毎回`profiles`を引き直す設計。
+- `createAdminClient()`（`src/lib/supabase/admin.ts`）: service_roleキーで
+  RLSを経由せず集計に必要な列だけを取得し、個別ユーザーの識別情報
+  （メール・display_name・user_id等）は一切選択・表示しない。
+- `/admin/srs`のテスト（`scripts/testing/e2e/admin.mjs`）: admin/非admin/
+  未ログインの3パターンのリダイレクト確認、個人情報非開示の防御的チェック、
+  ページ表示前後でのDB無変更確認、という4点セットが既に確立済み。
+- `test+admin@loop-vocabulary.app`（`profiles.is_admin=true`）が既存の
+  管理画面検証専用テストアカウントとして使える状態だった。
+
+**実装内容**: `src/app/admin/ai/page.tsx`を新規作成し、`/admin`のトップページに
+リンクを追加。`profiles`（`daily_ai_used`/`daily_ai_reset_at`/`is_premium`/
+`is_test_account`）と`reward_tickets`（`kind='ai_generation'`の`amount`/
+`used_amount`）のみを使い、以下を表示する。
+
+1. 本日(JST)AIを使ったユーザー数・利用回数合計・無料/Premium別の利用回数合計
+2. 無料上限(5回)に近いユーザー数（4回以上、上限まで残り1回の意味）
+3. Premiumソフト上限(300回)に近いユーザー数（250回以上、上限まで残り50回）
+4. `ai_generation`チケット残高（`amount>used_amount`）があるユーザー数
+5. 本日のdaily_ai_used上位5件（「何位が何回か」のみ、個人は特定不可）
+6. 異常利用の簡易警告: atomic RPC（`try_consume_ai_quota`）上は理論上
+   発生し得ない状態のみを検知する設計にした。無料ユーザーが日次上限(5回)を
+   超えて記録されている・Premiumユーザーがソフト上限(300回)を超えて
+   記録されている・`reward_tickets.used_amount`が`amount`を超えている、の
+   3種。統計的な閾値ではなく仕様上の理論値との矛盾を検知することで、RPCの
+   不具合やDBへの直接操作を早期に発見できる設計にした。
+
+**テストアカウントの除外**: `is_test_account=true`の行は全ての集計から
+除外した。理由は、`test:ai-usage-guards`等の既存E2Eが日常的にテスト
+アカウントへ大量のAI呼び出しを行っており、除外しないと監視対象の数値が
+E2E実行のたびに汚染され、実際のユーザー動向を見誤る恐れがあったため。
+
+**個人情報・AI入力内容の非表示を徹底**: メールアドレス・display_name・
+単語/英文/AIへの入力内容は一切取得していない（selectする列自体に含めていない）。
+`profiles.id`（UUID）はサーバー側の`reward_tickets`とのテストアカウント除外
+の突合にのみ使用し、画面には一切表示していない。日次カウンター上位5件も
+「順位・回数・無料orPremiumの別」のみで、どのユーザーかは分からない表示に
+した。
+
+**書き込みは一切なし**: このページはPremium状態・`daily_ai_used`・
+チケット残高のいずれも変更しない（select系クエリのみ）。
+
+**DBスキーマ変更なし**: 既存カラムのみで実装。RLSも変更していない。
+AI route別の詳細ログが必要な場合は新しいログテーブルの新設が要るが、今回は
+提案に留めた（[NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md)項目44参照）。
+
+**変更ファイル**: `src/app/admin/ai/page.tsx`（新規）、
+`src/app/admin/page.tsx`（リンク追加）、
+`scripts/testing/e2e/admin-ai-usage.mjs`（新規）、`package.json`、
+`scripts/testing/run-e2e.mjs`、`PRODUCTION_MONITORING.md`、
+`NEXT_IMPROVEMENTS.md`。
+
+**テスト追加**: `scripts/testing/e2e/admin-ai-usage.mjs`を新規作成
+（17項目、`run-e2e.mjs`ステップ25として追加）。admin権限での`/admin/ai`
+表示・非admin(test+srs)アクセス時の`/dashboard`リダイレクト・未ログイン時の
+`/login`リダイレクト・本日の利用状況/異常検知セクション表示・各集計項目
+（無料上限接近/Premiumソフト上限接近/チケット残高/JST基準日）の表示・
+ページ本文にメールアドレス様文字列・`user_id`ラベル・既知の単語データが
+含まれないこと・ページ表示前後で`profiles`/`reward_tickets`が変化しない
+こと・テストアカウント(test+srs)のdaily_ai_usedを4/5回→0回に変えても
+「無料上限に近いユーザー」の値が変化しないこと（テストアカウントが集計から
+正しく除外される設計の確認）を検証。
+
+**検証結果**: `tsc --noEmit`エラーなし、`build`成功、`test:admin`10項目
+全PASS（既存`/admin/srs`への回帰なし）、`test:admin-ai-usage`新規17項目
+全PASS、`test:ai-usage-guards`27項目全PASS、`test:smoke`全PASS、
+`test:e2e`22スイート全PASS、`verify:prod`全PASS、`verify:srs-global`PASS。
+
+**本番反映状況**: コミット・push・Vercelデプロイ・本番再検証まで実施
+（詳細は本エントリ末尾のコミットハッシュ参照）。
+
+**残課題**: AI route別（`/api/ai`本体・`lookup`・`study-plan`・
+`extract-words`・`weakness-analysis`・`ai-suggest`）の詳細な利用内訳や
+日次を超えた過去トレンドを見たい場合は、専用ログテーブルの新設が必要になる
+（DBスキーマ変更を避けるため今回は見送り、提案のみ）。
+
+---
+
 ## 2026-07-06 AI日次カウンターのatomic化
 
 **目的**: 前回ラウンドの残課題「AI日次カウンター(`profiles.daily_ai_used`/
