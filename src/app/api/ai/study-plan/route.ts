@@ -2,16 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { consumeAiQuota } from "@/lib/ai/aiQuota";
+import { logAiUsageEvent, quotaSourceFromReason } from "@/lib/ai/logAiUsage";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) {
+    await logAiUsageEvent({ userId: null, route: "study-plan", isPremium: false, status: "unauthorized" });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { data: profile } = await supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle();
   if (!(profile?.is_premium ?? false)) {
+    await logAiUsageEvent({ userId: user.id, route: "study-plan", isPremium: false, status: "premium_required" });
     return NextResponse.json({ error: "Premium required" }, { status: 403 });
   }
 
@@ -22,14 +27,19 @@ export async function POST(req: NextRequest) {
     dailyMinutes?: number;
   };
 
-  if (!exam || !targetDate) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  if (!exam || !targetDate) {
+    await logAiUsageEvent({ userId: user.id, route: "study-plan", isPremium: true, status: "validation_error", errorType: "missing_required_field" });
+    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  }
   if (exam.length > 100 || (currentLevel && currentLevel.length > 100)) {
+    await logAiUsageEvent({ userId: user.id, route: "study-plan", isPremium: true, status: "validation_error", errorType: "input_too_long" });
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 
   const now = new Date();
   const target = new Date(targetDate);
   if (Number.isNaN(target.getTime())) {
+    await logAiUsageEvent({ userId: user.id, route: "study-plan", isPremium: true, status: "validation_error", errorType: "invalid_target_date" });
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
   const safeDailyMinutes = Math.min(Math.max(Number(dailyMinutes) || 30, 5), 600);
@@ -42,8 +52,12 @@ export async function POST(req: NextRequest) {
 
   const quota = await consumeAiQuota(supabase);
   if (!quota.allowed) {
+    await logAiUsageEvent({ userId: user.id, route: "study-plan", isPremium: quota.isPremium, status: "quota_denied", quotaSource: "blocked" });
     return NextResponse.json({ error: quota.reason }, { status: 429 });
   }
+  const quotaSource = quotaSourceFromReason(quota.reason, quota.isPremium);
+  const inputSize = exam.length + (currentLevel?.length ?? 0);
+  const startedAt = Date.now();
 
   const prompt = `あなたは英語学習コーチです。以下の条件で最適な英語学習プランを作成してください。
 
@@ -83,11 +97,25 @@ export async function POST(req: NextRequest) {
 
     const raw = message.content[0].type === "text" ? message.content[0].text.trim() : "";
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return NextResponse.json({ error: "AI parse error" }, { status: 500 });
+    if (!jsonMatch) {
+      await logAiUsageEvent({
+        userId: user.id, route: "study-plan", isPremium: quota.isPremium, status: "ai_error",
+        quotaSource, errorType: "parse_error", durationMs: Date.now() - startedAt, inputSize,
+      });
+      return NextResponse.json({ error: "AI parse error" }, { status: 500 });
+    }
 
     const plan = JSON.parse(jsonMatch[0]);
+    await logAiUsageEvent({
+      userId: user.id, route: "study-plan", isPremium: quota.isPremium, status: "success",
+      quotaSource, durationMs: Date.now() - startedAt, inputSize, outputSize: raw.length,
+    });
     return NextResponse.json({ plan, daysLeft });
   } catch {
+    await logAiUsageEvent({
+      userId: user.id, route: "study-plan", isPremium: quota.isPremium, status: "ai_error",
+      quotaSource, errorType: "anthropic_call_failed", durationMs: Date.now() - startedAt, inputSize,
+    });
     return NextResponse.json({ error: "AI error" }, { status: 500 });
   }
 }

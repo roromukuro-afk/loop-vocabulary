@@ -2,16 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { consumeAiQuota } from "@/lib/ai/aiQuota";
+import { logAiUsageEvent, quotaSourceFromReason } from "@/lib/ai/logAiUsage";
 
 export const runtime = "nodejs";
 
 export async function POST(_req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) {
+    await logAiUsageEvent({ userId: null, route: "weakness-analysis", isPremium: false, status: "unauthorized" });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { data: profile } = await supabase.from("profiles").select("is_premium").eq("id", user.id).maybeSingle();
   if (!(profile?.is_premium ?? false)) {
+    await logAiUsageEvent({ userId: user.id, route: "weakness-analysis", isPremium: false, status: "premium_required" });
     return NextResponse.json({ error: "Premium required" }, { status: 403 });
   }
 
@@ -40,8 +45,11 @@ export async function POST(_req: NextRequest) {
 
   const quota = await consumeAiQuota(supabase);
   if (!quota.allowed) {
+    await logAiUsageEvent({ userId: user.id, route: "weakness-analysis", isPremium: quota.isPremium, status: "quota_denied", quotaSource: "blocked" });
     return NextResponse.json({ error: quota.reason }, { status: 429 });
   }
+  const quotaSource = quotaSourceFromReason(quota.reason, quota.isPremium);
+  const startedAt = Date.now();
 
   const wordList = weakWords.slice(0, 30).map((w) =>
     `${w.word}（${w.meaning}）: 誤${w.wrong_count}回/正${w.correct_count}回 [${w.pos ?? "不明"}]`
@@ -74,6 +82,7 @@ ${wordList}
   "nextSteps": ["今日からできる学習アクション1", "アクション2"]
 }`;
 
+  const inputSize = wordList.length;
   const client = new Anthropic({ apiKey });
   try {
     const message = await client.messages.create({
@@ -83,11 +92,25 @@ ${wordList}
     });
     const raw = message.content[0].type === "text" ? message.content[0].text.trim() : "";
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return NextResponse.json({ error: "AI parse error" }, { status: 500 });
+    if (!jsonMatch) {
+      await logAiUsageEvent({
+        userId: user.id, route: "weakness-analysis", isPremium: quota.isPremium, status: "ai_error",
+        quotaSource, errorType: "parse_error", durationMs: Date.now() - startedAt, inputSize,
+      });
+      return NextResponse.json({ error: "AI parse error" }, { status: 500 });
+    }
 
     const analysis = JSON.parse(jsonMatch[0]);
+    await logAiUsageEvent({
+      userId: user.id, route: "weakness-analysis", isPremium: quota.isPremium, status: "success",
+      quotaSource, durationMs: Date.now() - startedAt, inputSize, outputSize: raw.length,
+    });
     return NextResponse.json({ analysis, weakCount: totalWords });
   } catch {
+    await logAiUsageEvent({
+      userId: user.id, route: "weakness-analysis", isPremium: quota.isPremium, status: "ai_error",
+      quotaSource, errorType: "anthropic_call_failed", durationMs: Date.now() - startedAt, inputSize,
+    });
     return NextResponse.json({ error: "AI error" }, { status: 500 });
   }
 }

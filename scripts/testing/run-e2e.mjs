@@ -115,6 +115,9 @@ async function main() {
 
     console.log("\n=== 25. 管理画面 AI利用状況モニタリング E2E ===");
     results.adminAiUsage = runNode("scripts/testing/e2e/admin-ai-usage.mjs");
+
+    console.log("\n=== 26. AI route別利用ログ(ai_usage_events) E2E ===");
+    results.aiUsageEvents = runNode("scripts/testing/e2e/ai-usage-events.mjs");
   } finally {
     stopDevServer(dev);
   }

@@ -640,8 +640,8 @@ atomic化後の残課題「実運用でAIコスト・濫用に気づけるよう
 
 - **使用データ**: `profiles`（`daily_ai_used`/`daily_ai_reset_at`/
   `is_premium`/`is_test_account`）と`reward_tickets`（`kind='ai_generation'`
-  の`amount`/`used_amount`）のみ。新しいログテーブルは作成していない
-  （AI route別の詳細ログが必要な場合は下記残課題を参照、今回は提案のみ）。
+  の`amount`/`used_amount`）のみ。route別・過去7日分の詳細トレンドは
+  下記13-6の`ai_usage_events`を参照（2026-07-06追加ラウンドで新設）。
 - **個人情報・AI入力内容を表示しない**: メールアドレス・display_name・
   単語/英文/AIへの入力内容は一切取得・表示しない。日次カウンター上位5件も
   「何位が何回か」のみで、どのユーザーかは特定できない表示にしている。
@@ -658,10 +658,58 @@ atomic化後の残課題「実運用でAIコスト・濫用に気づけるよう
   これらが1件でもあればRPCの不具合かDBへの直接操作を疑う。
 - **DBスキーマ変更なし**: 既存カラムのみで実装、RLSも変更していない。
 
-**残課題**: AI route別（`/api/ai`本体・`lookup`・`study-plan`・
-`extract-words`・`weakness-analysis`・`ai-suggest`）の詳細な利用内訳や、
-日次を超えた過去トレンドが必要になった場合は、専用ログテーブルの新設を
-検討する（本ラウンドではDBスキーマ変更を避けるため見送り、提案のみ）。
+### 13-6. AI route別の軽量利用ログ・7日トレンド（`ai_usage_events`、2026-07-06追加ラウンド）
+
+13-5の残課題「AI route別の詳細な利用内訳・日次を超えた過去トレンドが見えない」
+への対応。追加専用の軽量ログテーブル`public.ai_usage_events`
+（`supabase/migrations/016_ai_usage_events.sql`）を新設し、`/admin/ai`に
+直近7日間のroute別・日別集計セクションを追加した。
+
+**保存する項目（メタデータのみ）**: `user_id`（nullable、未認証時はnull）・
+`route`・`is_premium`・`status`（`success`/`quota_denied`/`unauthorized`/
+`premium_required`/`ai_error`/`validation_error`）・`quota_source`
+（`free_quota`/`premium_quota`/`ai_generation_ticket`/`blocked`）・
+`error_type`・`input_size`/`output_size`（文字数、数値のみ）・
+`duration_ms`・`created_at`。
+
+**絶対に保存しないもの**: AIへの入力本文（word/meaning/text/exam等）・
+Claudeへのprompt全文・Claudeの生レスポンス本文・メールアドレス等の
+個人情報。これらを保存する列自体がテーブルに存在しない
+（`test:ai-usage-events`でスキーマにprompt/response/word/meaning等の
+列名が存在しないこと、記録された行のどの値にもテスト入力文字列が
+含まれないことを自動検証している）。
+
+**RLS方式**: RLS有効・ポリシーを一切追加していない。Supabaseの
+service_roleキーはRLSをバイパスするため、読み書きとも
+`createAdminClient()`(service_role)経由のみに限定される
+（anon/authenticatedロールからはselect/insertとも一切不可）。
+`test:ai-usage-events`で、一般ユーザー自身のセッション（authenticated
+ロール）から`select`しても0件になることを実際に確認している。
+
+**ログ記録位置**: 全6ルート（`/api/ai`・`lookup`・`study-plan`・
+`extract-words`・`weakness-analysis`・`ai-suggest`）それぞれで、
+成功・quota上限拒否・認証拒否（`/api/wordbook/[id]/ai-suggest`は
+`requireUser()`がredirectするため対象外）・Premium拒否・Anthropic API
+失敗・入力検証エラーの各分岐でログを記録する。ログ記録自体は
+`src/lib/ai/logAiUsage.ts`の`logAiUsageEvent()`がtry/catchで例外を
+握りつぶすため、ログ記録の失敗がAI機能自体を止めることはない
+（失敗時は`console.error`にのみ残る）。
+
+**`/admin/ai`への追加表示**:
+- 直近7日間のAI利用合計・無料/Premium別の利用・チケット救済利用数・
+  上限拒否数・未ログイン/Premium拒否件数
+- route別の利用回数・失敗数（6ルート全てを常に表示、0件のrouteも含む）
+- 直近7日間の日別推移（JST基準）
+- 異常検知に「直近7日間で他の日の平均の3倍以上・10件以上を記録した日」の
+  簡易スパイク検知を追加
+
+いずれもテストアカウント(`is_test_account=true`)の行は集計から除外される
+（13-5と同じ設計）。上位ユーザー表示等の個人特定につながる表示は
+今回も追加していない。
+
+**DBスキーマ変更**: `ai_usage_events`テーブルを新規追加（追加専用、
+既存テーブルへの変更なし）。本番Supabase（`befjjebsrnsfwhtmydiv`）へ
+適用済み（migration名`ai_usage_events`）。
 
 ---
 
@@ -692,6 +740,7 @@ atomic化後の残課題「実運用でAIコスト・濫用に気づけるよう
 | `npm run test:teacher` | 先生機能・RLS・RPCを変更した時 | ロスター集計のみ表示・同意撤回/再同意・招待コードの再発行/無効化/期限管理を検証 |
 | `npm run test:admin` | `/admin`配下のページを変更した時 | admin権限での表示・非admin/未ログイン時のリダイレクト・個別データ非開示・書き込み無しを検証（`test+admin@loop-vocabulary.app`使用） |
 | `npm run test:admin-ai-usage` | `/admin/ai`・AI利用状況集計ロジックを変更した時 | admin権限での表示・非admin/未ログイン時のリダイレクト・本日の利用状況/異常検知セクション表示・無料/Premium上限接近ユーザー数等の集計項目表示・個人情報(メールアドレス/user_idラベル)や単語データ非開示・profiles/reward_tickets書き込み無し・テストアカウント(is_test_account=true)が集計から正しく除外されること(daily_ai_usedを4→0に変えても集計値が変化しないことで確認)を検証（2026-07-06新規、`run-e2e.mjs`ステップ25として追加、17項目） |
+| `npm run test:ai-usage-events` | `ai_usage_events`テーブル・`src/lib/ai/logAiUsage.ts`・各AIルートのログ記録箇所・`/admin/ai`の7日トレンド表示を変更した時 | 通常利用でroute='ai'・status='success'・quota_source='free_quota'のログが1件作成される・記録された行のどの列にも入力本文(word/meaning)が含まれない・本文を保存しうる列名(prompt/response等)がスキーマに存在しない・quota拒否(status='quota_denied')とPremium拒否(status='premium_required')が記録される・route='lookup'が正しく記録される・一般ユーザー自身のセッションではai_usage_eventsを一切読み取れない(RLS)・`/admin/ai`に7日集計セクション(route別テーブル・日別推移)が表示されテストアカウント分は除外される・既存の本日の利用状況/異常検知セクションへの回帰なしを検証（2026-07-06新規、`run-e2e.mjs`ステップ26として追加、26項目） |
 | `npm run test:quiz` (`npm run test:learning-selection`と同一) | `src/lib/learning/wordSelection.ts`を変更した時（DB不要・数秒） | 出題選定(未学習優先/due・weak重み付け/直近除外/出題キュー化)・選択肢生成(重複なし/空欄なし/正解1つ)の単体テスト。4択・input・typing・listening・attack全モード共通ロジックのため、ここでの検証が全モードの正しさを保証する |
 | `npm run test:quiz:e2e` | 4択テスト(`/test/choice`)の出題ロジックを変更した時 | 未学習単語の優先出題・選択肢の健全性・正解後のSRS(correct_count)更新・`/review`/`/pdf`への回帰なしを実ブラウザで検証 |
 | `npm run test:learning-modes:e2e` | input/typing/listening/attackのいずれかを変更した時 | 各モードで未学習単語が1問目に出ること・正解後にSRSフィールドが更新されること・attackの`?book=`単語帳スコープ（指定時は対象単語帳のみ・未指定時は全単語帳横断・対象範囲ラベル表示）・`/test/choice`/`/review`/`/pdf`/`/materials`への回帰なしを実ブラウザで検証（25項目） |

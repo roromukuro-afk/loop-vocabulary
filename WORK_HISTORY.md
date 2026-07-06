@@ -5,6 +5,100 @@
 
 ---
 
+## 2026-07-06 AI route別の利用ログ・過去トレンド監視
+
+**目的**: `/admin/ai`の残課題「どのAI routeが多く使われているか・日別推移・
+失敗率・上限拒否/チケット救済の内訳が見えない」への対応。個人情報や
+AI入力本文を一切保存しない前提で、route別・日別の最低限のログを追加する。
+
+**設計判断**:
+- **保存するのはメタデータのみ**: `user_id`(nullable)・`route`・
+  `is_premium`・`status`・`quota_source`・`error_type`・`input_size`/
+  `output_size`(文字数、数値のみ)・`duration_ms`・`created_at`。
+  AIへの入力本文・prompt全文・Claudeの生レスポンス・メールアドレス等の
+  個人情報を保存する列は、テーブル自体に存在しない設計にした。
+- **RLS方式**: RLSを有効化した上でポリシーを一切追加しない、という
+  最も単純な設計を採用した。Supabaseのservice_roleキーはRLSを
+  バイパスするため、この設計だけで「読み書きともservice_role
+  （＝サーバー側の信頼できるコードのみ）に限定され、anon/authenticated
+  ロールからは一切アクセスできない」を保証できる。個別ユーザー向けの
+  自己insertポリシー等を設計する必要が無く、未認証(401)リクエストの
+  ログ（user_id=null）も同じ経路で一貫して記録できる利点もある。
+  advisorでも`rls_enabled_no_policy`（INFO、意図した設計であることを
+  示す情報レベルの指摘）のみで、新規のセキュリティ警告(WARN以上)は
+  発生していないことを確認した。
+- **ログ記録失敗が本体機能を壊さない設計**: `src/lib/ai/logAiUsage.ts`の
+  `logAiUsageEvent()`は内部でtry/catchし、失敗時は`console.error`にのみ
+  残す（呼び出し元には例外を伝播させない）。
+
+**実装内容**:
+1. `supabase/migrations/016_ai_usage_events.sql`で`public.ai_usage_events`
+   テーブルを新設。`(created_at)`・`(route, created_at)`・
+   `(user_id, created_at)`のインデックスを追加。
+2. `src/lib/ai/logAiUsage.ts`（新規）: `logAiUsageEvent()`と、
+   `consumeAiQuota()`の判定結果(`reason`/`isPremium`)から
+   `quota_source`（free_quota/premium_quota/ai_generation_ticket/blocked）
+   を導出する`quotaSourceFromReason()`。
+3. 全6つのAIルート（`/api/ai`・`lookup`・`study-plan`・`extract-words`・
+   `weakness-analysis`・`ai-suggest`）に、成功・quota上限拒否・認証拒否・
+   Premium拒否・Anthropic API失敗・入力検証エラーの各分岐でログ記録を
+   追加。`/api/wordbook/[id]/ai-suggest`のみ、`requireUser()`が
+   未ログイン時にNext.jsの`redirect()`で`/login`へ遷移させる設計のため、
+   認証拒否ログの記録箇所が無い（他ルートは`createClient()`ベースで
+   401 JSONを返す設計のため記録できる）。
+4. `/admin/ai`に直近7日間のセクションを追加: AI利用合計・無料/Premium別の
+   利用・チケット救済利用数・上限拒否数・未ログイン/Premium拒否件数・
+   route別の利用回数/失敗数の表（6ルート全て常に表示）・日別推移（JST）・
+   簡易スパイク検知（他の日の平均の3倍以上かつ10件以上を記録した日を
+   異常として警告）。テストアカウント(is_test_account=true)は既存の
+   本日分集計と同様にすべて除外される。
+
+**個人情報・AI入力本文が保存されていないことの確認**: `test:ai-usage-events`
+で、実際に記録された行を取得し(1)どの列の値にもテスト用のword/meaning
+文字列が含まれないこと、(2)`prompt`/`response`/`word`/`meaning`等の
+本文を保存しうる列名がスキーマに存在しないこと、の両方を自動検証した。
+
+**admin以外は読めないことの確認**: `test:ai-usage-events`で、一般ユーザー
+（test+srs）自身のセッション（`NEXT_PUBLIC_SUPABASE_ANON_KEY`+
+`signInWithPassword`で取得したセッション、service_role不使用）から
+`ai_usage_events`を`select`しても0件になることを実際に確認した。
+
+**変更していないもの**: 無料5回/日・Premium300回/日の値、`ai_generation`
+チケット消費仕様、AI quota RPC(`try_consume_ai_quota`)、既存の
+profiles/reward_tickets RLS、Stripe/Webhook、Premium価格、特商法ページ、
+AdSense広告枠、SRS V2、teacher機能、教材データ。
+
+**変更ファイル**: `supabase/migrations/016_ai_usage_events.sql`（新規、
+本番へ`apply_migration`で適用済み）、`src/lib/ai/logAiUsage.ts`（新規）、
+AI6ルート全ファイル、`src/app/admin/ai/page.tsx`、
+`scripts/testing/e2e/ai-usage-events.mjs`（新規）、`package.json`、
+`scripts/testing/run-e2e.mjs`、`PRODUCTION_MONITORING.md`、
+`NEXT_IMPROVEMENTS.md`。
+
+**テスト追加**: `scripts/testing/e2e/ai-usage-events.mjs`を新規作成
+（26項目、`run-e2e.mjs`ステップ26として追加）。通常利用でのログ1件作成・
+route名の正しさ(ai/lookup)・入力本文が保存されないこと（値・列名の両面）・
+quota拒否(status='quota_denied')とPremium拒否(status='premium_required')の
+記録・一般ユーザーセッションからの読み取り不可(RLS)・`/admin/ai`の7日集計
+セクション表示とテストアカウント除外・既存の本日の利用状況/異常検知
+セクションへの回帰なしを検証。
+
+**検証結果**: `tsc --noEmit`エラーなし、`build`成功、`test:admin-ai-usage`
+17項目全PASS（既存`/admin/ai`表示への回帰なし）、`test:ai-usage-guards`
+27項目全PASS、`test:premium-gating`23項目全PASS、`test:ai-usage-events`
+新規26項目全PASS、`test:smoke`全PASS、`test:e2e`23スイート全PASS、
+`verify:prod`全PASS、`verify:srs-global`PASS。
+
+**本番反映状況**: `ai_usage_events`テーブルは本番Supabase
+（`befjjebsrnsfwhtmydiv`）へ適用済み（migration名`ai_usage_events`）。
+アプリ側コードのコミット・push・Vercelデプロイ・本番再検証は本エントリ
+末尾のコミットハッシュ参照。
+
+**残課題**: 現状は直近7日間の単純集計のみ。より長期のトレンド分析や
+グラフ表示等のダッシュボード的な可視化が必要になった場合は別途検討する。
+
+---
+
 ## 2026-07-06 AI利用状況の運用監視（`/admin/ai`新設）
 
 **目的**: AI日次カウンターのatomic化（前エントリ）で残課題として記録した

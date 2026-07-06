@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import Anthropic from "@anthropic-ai/sdk";
 import { consumeAiQuota } from "@/lib/ai/aiQuota";
+import { logAiUsageEvent, quotaSourceFromReason } from "@/lib/ai/logAiUsage";
 
 const MAX_WORD_LENGTH = 100;
 const MAX_MEANING_LENGTH = 200;
@@ -127,15 +128,22 @@ export async function POST(req: NextRequest) {
   }
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) {
+    await logAiUsageEvent({ userId: null, route: "ai", isPremium: false, status: "unauthorized" });
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
 
   const body = await req.json().catch(() => ({}));
   const kindRaw = String(body.kind ?? "example");
   const kind = (ALLOWED_KINDS.includes(kindRaw as Kind) ? kindRaw : "example") as Kind;
   const word = String(body.word ?? "").trim();
   const meaning = String(body.meaning ?? "").trim();
-  if (!word) return NextResponse.json({ error: "word required" }, { status: 400 });
+  if (!word) {
+    await logAiUsageEvent({ userId: user.id, route: "ai", isPremium: false, status: "validation_error", errorType: "word_required" });
+    return NextResponse.json({ error: "word required" }, { status: 400 });
+  }
   if (word.length > MAX_WORD_LENGTH || meaning.length > MAX_MEANING_LENGTH) {
+    await logAiUsageEvent({ userId: user.id, route: "ai", isPremium: false, status: "validation_error", errorType: "input_too_long" });
     return NextResponse.json({ error: "input_too_long" }, { status: 400 });
   }
 
@@ -143,15 +151,26 @@ export async function POST(req: NextRequest) {
   // （無料5回/日+ai_generationチケット救済、Premium300回/日ソフト上限）。
   const quota = await consumeAiQuota(supabase);
   if (!quota.allowed) {
+    await logAiUsageEvent({
+      userId: user.id, route: "ai", isPremium: quota.isPremium, status: "quota_denied",
+      quotaSource: "blocked",
+    });
     return NextResponse.json({ error: quota.reason }, { status: 429 });
   }
+  const quotaSource = quotaSourceFromReason(quota.reason, quota.isPremium);
 
+  const inputSize = word.length + meaning.length;
+  const startedAt = Date.now();
   let result: string;
   try {
     result = await callClaude(kind, word, meaning);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[AI route] callClaude failed:", msg);
+    await logAiUsageEvent({
+      userId: user.id, route: "ai", isPremium: quota.isPremium, status: "ai_error",
+      quotaSource, errorType: "anthropic_call_failed", durationMs: Date.now() - startedAt, inputSize,
+    });
     return NextResponse.json({ error: `AI生成に失敗しました: ${msg}` }, { status: 500 });
   }
 
@@ -160,6 +179,11 @@ export async function POST(req: NextRequest) {
       user_id: user.id, kind, prompt: `${word} / ${meaning}`, result,
     });
   } catch { /* ignore logging errors */ }
+
+  await logAiUsageEvent({
+    userId: user.id, route: "ai", isPremium: quota.isPremium, status: "success",
+    quotaSource, durationMs: Date.now() - startedAt, inputSize, outputSize: result.length,
+  });
 
   return NextResponse.json({ result, remaining: quota.remaining });
 }

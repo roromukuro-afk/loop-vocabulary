@@ -3,9 +3,22 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/Card";
 import { requireAdmin } from "@/lib/supabase/requireUser";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { todayJST } from "@/lib/utils/date";
+import { todayJST, lastNDaysJST, toJstDateString } from "@/lib/utils/date";
+import type { AiRoute } from "@/lib/ai/logAiUsage";
 
 export const dynamic = "force-dynamic";
+
+const ROUTE_LABELS: Record<AiRoute, string> = {
+  "ai": "メイン解説 (/api/ai)",
+  "lookup": "辞書AI補完 (/api/ai/lookup)",
+  "study-plan": "学習プラン (/api/ai/study-plan)",
+  "extract-words": "英文抽出 (/api/ai/extract-words)",
+  "weakness-analysis": "弱点分析 (/api/ai/weakness-analysis)",
+  "ai-suggest": "単語提案 (/api/wordbook/[id]/ai-suggest)",
+};
+const ALL_ROUTES = Object.keys(ROUTE_LABELS) as AiRoute[];
+
+const EVENTS_FETCH_LIMIT = 50000;
 
 // 無料5回/日・Premium300回/日は supabase/migrations/015_atomic_ai_quota.sql の
 // try_consume_ai_quota() が唯一の判定基準（このページは表示のみ、判定ロジックは持たない）。
@@ -93,13 +106,26 @@ type TicketRow = {
   used_amount: number;
 };
 
+type EventRow = {
+  user_id: string | null;
+  route: string;
+  is_premium: boolean;
+  status: string;
+  quota_source: string | null;
+  created_at: string;
+};
+
 export default async function AdminAiUsagePage() {
   await requireAdmin();
   const admin = createAdminClient();
 
+  const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
   // profiles: 集計に必要な列だけ取得（メールアドレス・display_name・単語データ等は一切含めない）。
   // reward_tickets: ai_generation チケットの残高判定に必要な列のみ（他kindは対象外）。
-  const [{ data: profileRows }, { data: ticketRows }] = await Promise.all([
+  // ai_usage_events: route別ログ。単語・英文・AI入力本文・prompt・レスポンス本文は
+  // このテーブル自体に一切保存されていない（メタデータのみ、supabase/migrations/016参照）。
+  const [{ data: profileRows }, { data: ticketRows }, { data: eventRows }] = await Promise.all([
     admin
       .from("profiles")
       .select("id, daily_ai_used, daily_ai_reset_at, is_premium, is_test_account")
@@ -109,16 +135,26 @@ export default async function AdminAiUsagePage() {
       .select("user_id, amount, used_amount")
       .eq("kind", "ai_generation")
       .limit(FETCH_LIMIT),
+    admin
+      .from("ai_usage_events")
+      .select("user_id, route, is_premium, status, quota_source, created_at")
+      .gte("created_at", sevenDaysAgoIso)
+      .limit(EVENTS_FETCH_LIMIT),
   ]);
 
   const profiles = (profileRows ?? []) as ProfileRow[];
   const tickets = (ticketRows ?? []) as TicketRow[];
+  const allEvents = (eventRows ?? []) as EventRow[];
   const today = todayJST();
 
   const testAccountCount = profiles.filter((p) => p.is_test_account).length;
   // 以降の集計はE2E/検証で使うテストアカウント（is_test_account=true）を除外し、
   // 実ユーザーの利用実態のみを反映する（テスト実行のたびに数値がぶれるのを防ぐ）。
   const realProfiles = profiles.filter((p) => !p.is_test_account);
+  // reward_tickets/ai_usage_eventsにis_test_account列は無いため、profiles.idと
+  // user_idを突合してテストアカウント分を除外する（両テーブル共通で使う）。
+  const testAccountIds = new Set(profiles.filter((p) => p.is_test_account).map((p) => p.id));
+  const events = allEvents.filter((e) => !e.user_id || !testAccountIds.has(e.user_id));
 
   // daily_ai_reset_at が「今日(JST)」のユーザーのみが本日の利用実績を持つ
   // （リセットされていない = 今日はまだAIを使っていない、を意味する）。
@@ -148,9 +184,6 @@ export default async function AdminAiUsagePage() {
   ).length;
 
   // ai_generationチケットの残高（amount > used_amount）があるユーザー数。
-  // reward_ticketsにis_test_account列は無いため、profiles.idとuser_idを突合して
-  // テストアカウントのチケットを除外する。
-  const testAccountIds = new Set(profiles.filter((p) => p.is_test_account).map((p) => p.id));
   const nonTestTickets = tickets.filter((t) => !testAccountIds.has(t.user_id));
   const ticketBalanceUserCount = new Set(
     nonTestTickets.filter((t) => t.amount > t.used_amount).map((t) => t.user_id)
@@ -166,6 +199,38 @@ export default async function AdminAiUsagePage() {
     (p) => p.is_premium && (p.daily_ai_used ?? 0) > PREMIUM_DAILY_LIMIT
   ).length;
   const ticketOverconsumedCount = tickets.filter((t) => t.used_amount > t.amount).length;
+
+  // ── 直近7日間のroute別・日別トレンド（ai_usage_events、テストアカウント除外済み）──
+  const totalEvents7d = events.length;
+  const routeStats = ALL_ROUTES.map((route) => {
+    const routeEvents = events.filter((e) => e.route === route);
+    return {
+      route,
+      label: ROUTE_LABELS[route],
+      count: routeEvents.length,
+      failures: routeEvents.filter((e) => e.status === "ai_error").length,
+    };
+  }).sort((a, b) => b.count - a.count);
+  const freeEvents7d = events.filter((e) => !e.is_premium).length;
+  const premiumEvents7d = events.filter((e) => e.is_premium).length;
+  const ticketRescueCount7d = events.filter((e) => e.quota_source === "ai_generation_ticket").length;
+  const quotaDeniedCount7d = events.filter((e) => e.status === "quota_denied").length;
+  const unauthorizedCount7d = events.filter((e) => e.status === "unauthorized").length;
+  const premiumRequiredCount7d = events.filter((e) => e.status === "premium_required").length;
+
+  // 直近7日間(JST)の日別イベント件数。lastNDaysJSTは古い→新しい順。
+  const days7 = lastNDaysJST(7);
+  const dailyTrend = days7.map((date) => ({
+    date,
+    count: events.filter((e) => toJstDateString(new Date(e.created_at)) === date).length,
+  }));
+  // 簡易スパイク検知: その日以外の6日間の平均に対して3倍以上、かつ最低10件以上の日を異常とみなす
+  // （小さい数字同士の変動(例: 0→1件)を誤検知しないための下限）。
+  const spikeDays = dailyTrend.filter((d, i) => {
+    const others = dailyTrend.filter((_, j) => j !== i).map((o) => o.count);
+    const avgOthers = others.reduce((s, c) => s + c, 0) / others.length;
+    return d.count >= 10 && avgOthers > 0 && d.count > avgOthers * 3;
+  });
 
   return (
     <AppShell>
@@ -218,6 +283,57 @@ export default async function AdminAiUsagePage() {
         </div>
       </section>
 
+      {/* ── 直近7日間のroute別・過去トレンド（ai_usage_events、メタデータのみ） ── */}
+      <section data-testid="admin-ai-events-section">
+        <h2 className="text-xs font-black uppercase tracking-widest text-navy-400 mt-5 mb-2">
+          直近7日間のAI利用状況（route別、単語・英文・AI入力本文は記録していません）
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <StatBox label="直近7日間のAI利用合計" value={totalEvents7d} sub="全route・全ステータス合計" testId="admin-ai-events-total" color="sky" />
+          <StatBox label="無料ユーザーの利用" value={freeEvents7d} sub="直近7日間" />
+          <StatBox label="Premiumユーザーの利用" value={premiumEvents7d} sub="直近7日間" color="emerald" />
+          <StatBox label="チケット救済利用数" value={ticketRescueCount7d} sub="ai_generationチケットで許可された回数" />
+          <StatBox label="上限拒否数" value={quotaDeniedCount7d} sub="quota_denied（無料/Premiumいずれも含む）" color={quotaDeniedCount7d > 0 ? "amber" : "navy"} />
+          <StatBox label="未ログイン/Premium拒否" value={unauthorizedCount7d + premiumRequiredCount7d} sub={`未ログイン${unauthorizedCount7d}件 / Premium必要${premiumRequiredCount7d}件`} />
+        </div>
+
+        <h3 className="text-[10px] font-bold text-navy-400 mt-4 mb-1.5">route別 利用回数・失敗数</h3>
+        <Card>
+          <table className="w-full text-sm" data-testid="admin-ai-route-table">
+            <thead>
+              <tr className="text-[10px] text-navy-400 text-left">
+                <th className="font-medium pb-1">route</th>
+                <th className="font-medium pb-1 text-right">利用回数</th>
+                <th className="font-medium pb-1 text-right">失敗数</th>
+              </tr>
+            </thead>
+            <tbody>
+              {routeStats.map((r) => (
+                <tr key={r.route} className="border-t border-navy-50">
+                  <td className="py-1.5 text-navy-700">{r.label}</td>
+                  <td className="py-1.5 text-right font-bold text-navy-800">{r.count.toLocaleString("ja-JP")}</td>
+                  <td className={`py-1.5 text-right font-bold ${r.failures > 0 ? "text-red-600" : "text-navy-400"}`}>
+                    {r.failures.toLocaleString("ja-JP")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+
+        <h3 className="text-[10px] font-bold text-navy-400 mt-4 mb-1.5">日別推移（JST、直近7日間）</h3>
+        <Card>
+          <ol className="space-y-1.5" data-testid="admin-ai-daily-trend">
+            {dailyTrend.map((d) => (
+              <li key={d.date} className="flex items-center justify-between text-sm">
+                <span className="text-navy-500">{d.date}</span>
+                <span className="font-black text-navy-800">{d.count.toLocaleString("ja-JP")}件</span>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      </section>
+
       {/* ── 分布（個人を特定できる情報は表示しない） ── */}
       <section>
         <h2 className="text-xs font-black uppercase tracking-widest text-navy-400 mt-5 mb-2">
@@ -264,6 +380,16 @@ export default async function AdminAiUsagePage() {
               count={ticketOverconsumedCount}
               detail="reward_tickets.used_amount > amount のチケット行数。本来あり得ない不整合"
               isAnomaly={ticketOverconsumedCount > 0}
+            />
+            <AnomalyRow
+              label="直近7日間で利用回数が急増した日"
+              count={spikeDays.length}
+              detail={
+                spikeDays.length > 0
+                  ? `他の日の平均の3倍以上かつ10件以上を記録した日: ${spikeDays.map((d) => d.date).join(", ")}`
+                  : "他の日の平均の3倍以上かつ10件以上を記録した日は無し"
+              }
+              isAnomaly={spikeDays.length > 0}
             />
           </ul>
         </Card>

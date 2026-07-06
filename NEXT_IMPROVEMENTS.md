@@ -1356,6 +1356,56 @@
 
 ---
 
+45. ✅ **完了（2026-07-06）: AI route別の利用ログ・過去トレンド監視**
+    項目44の残課題「AI route別の詳細な利用内訳・日次を超えた過去トレンドが
+    見えない」への対応。追加専用の軽量ログテーブル`ai_usage_events`
+    （`supabase/migrations/016_ai_usage_events.sql`）を新設し、`/admin/ai`に
+    直近7日間のroute別・日別トレンドセクションを追加した。
+    **保存する項目**: `user_id`(nullable)・`route`・`is_premium`・`status`
+    （success/quota_denied/unauthorized/premium_required/ai_error/
+    validation_error）・`quota_source`（free_quota/premium_quota/
+    ai_generation_ticket/blocked）・`error_type`・`input_size`/
+    `output_size`（文字数、数値のみ）・`duration_ms`・`created_at`。
+    **絶対に保存しないもの**: AIへの入力本文・prompt全文・Claudeの
+    生レスポンス本文・メールアドレス等の個人情報。これらを保存する列自体が
+    テーブルに存在しない設計。
+    **RLS**: 有効化した上でポリシーを一切追加していない。service_role
+    キーのみがRLSをバイパスして読み書きできるため、読み書きとも
+    `createAdminClient()`経由のみに限定される（一般ユーザー自身のセッション
+    からも一切読み取れないことを`test:ai-usage-events`で実際に確認）。
+    **ログ記録位置**: 全6ルート（`/api/ai`・`lookup`・`study-plan`・
+    `extract-words`・`weakness-analysis`・`ai-suggest`）の成功・quota上限
+    拒否・認証拒否・Premium拒否・Anthropic API失敗・入力検証エラーの各
+    分岐に追加。ログ記録は`src/lib/ai/logAiUsage.ts`の
+    `logAiUsageEvent()`がtry/catchで例外を握りつぶすため、ログ記録の失敗が
+    AI機能自体を止めることはない。
+    **`/admin/ai`への追加表示**: 直近7日間のAI利用合計・無料/Premium別の
+    利用・チケット救済利用数・上限拒否数・未ログイン/Premium拒否件数・
+    route別の利用回数/失敗数（6ルート全て常に表示）・直近7日間の日別推移
+    （JST）・簡易スパイク検知（他の日の平均の3倍以上かつ10件以上を記録した
+    日を異常として警告）。いずれもテストアカウント(is_test_account=true)は
+    集計から除外され、個人を特定できる表示（IDやメール）は追加していない。
+    **DBスキーマ変更**: `ai_usage_events`テーブルを新規追加（追加専用）。
+    本番Supabase（`befjjebsrnsfwhtmydiv`）へ適用済み。
+    変更していないもの: 無料5回/日・Premium300回/日の値、`ai_generation`
+    チケット消費仕様、AI quota RPC(`try_consume_ai_quota`)、既存の
+    profiles/reward_tickets RLS、Stripe/Webhook、Premium価格、特商法
+    ページ、AdSense広告枠、SRS V2、teacher機能、教材データ。
+    **テスト追加**: `scripts/testing/e2e/ai-usage-events.mjs`を新規作成
+    （26項目、`run-e2e.mjs`ステップ26として追加）。通常利用でのログ記録・
+    記録された行に入力本文が含まれないこと・スキーマに本文保存用の列名が
+    存在しないこと・quota拒否/Premium拒否のログ記録・route名の正しさ・
+    一般ユーザーセッションからの読み取り不可（RLS）・`/admin/ai`の7日集計
+    表示とテストアカウント除外・既存セクションへの回帰なしを検証。
+    検証: `tsc --noEmit` / `build` / `test:admin-ai-usage`(17項目) /
+    `test:ai-usage-guards`(27項目) / `test:premium-gating`(23項目) /
+    `test:ai-usage-events`(新規26項目) / `test:smoke` /
+    `test:e2e`(23スイート) / `verify:prod` / `verify:srs-global`、全PASS。
+    **残課題**: 現状は直近7日間の単純集計のみ。より長期のトレンド分析や
+    ダッシュボード的な可視化（グラフ表示等）が必要になった場合は別途検討する。
+
+---
+
 ## 💰 収益化・成長 監査（2026-07-04）
 
 事業・収益・継続率・SEO流入の観点でコード・DB・教材・公開ページを監査した結果。
