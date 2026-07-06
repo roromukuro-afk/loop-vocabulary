@@ -6,7 +6,7 @@ export default function TermsPage() {
     <div className="max-w-3xl mx-auto px-5 py-10 prose prose-sm">
       <Link href="/" className="text-xs text-navy-500">← トップへ</Link>
       <h1 className="text-2xl font-bold text-navy-800 mt-3">利用規約</h1>
-      <p className="text-sm text-navy-500">最終更新日: 2026-05-23</p>
+      <p className="text-sm text-navy-500">最終更新日: 2026-07-06</p>
 
       <h2 className="text-lg font-bold text-navy-800 mt-6">1. 適用</h2>
       <p>本規約は Loop Vocabulary (以下「本サービス」) の利用条件を定めるものです。利用者は本規約に同意したうえで本サービスを利用するものとします。</p>
@@ -32,9 +32,22 @@ export default function TermsPage() {
 
       <h2 className="text-lg font-bold text-navy-800 mt-6">5. 広告・課金</h2>
       <p>
-        本サービスは Android / iOS アプリ版で広告 (Google AdMob) を表示します。
-        広告非表示プラン (有料) を提供する場合があります。
-        将来的にデジタル商品の販売は、Android では Google Play Billing、iOS では Apple In-App Purchase を経由して行います。
+        本サービスは無料プランで広告を表示します（Web 版は Google AdSense、Android / iOS
+        アプリ版は Google AdMob）。プレミアムプラン（有料、月額 ¥480 または年額 ¥3,800）に
+        登録すると広告が非表示になり、AI 解説の利用回数無制限、CSV 一括インポート等の
+        追加機能が利用できます。
+      </p>
+      <p className="mt-2">
+        Web 版のプレミアムプランは <b>Stripe</b> を通じたクレジットカード等の決済により、
+        月額または年額で自動更新されるサブスクリプション形式です。解約は
+        「設定」ページの Stripe カスタマーポータルからいつでも行え、解約後も
+        その時点の請求期間の終了まで全機能をご利用いただけます。日割りでの返金には
+        対応しておりません。支払い方法・請求内容の詳細確認・解約も同ポータルから行えます。
+      </p>
+      <p className="mt-2">
+        将来的に Android / iOS アプリ版でもデジタル商品を販売する場合は、
+        Android では Google Play Billing、iOS では Apple In-App Purchase を経由して行います
+        （現時点では未提供です）。
       </p>
 
       <h2 className="text-lg font-bold text-navy-800 mt-6">6. アカウントの削除 (ユーザー側)</h2>

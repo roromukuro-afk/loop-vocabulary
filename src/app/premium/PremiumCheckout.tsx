@@ -57,7 +57,7 @@ export function PremiumCheckout(props: Props) {
       <div className="space-y-3 text-center">
         <p className="text-sm text-navy-600">プレミアムに登録するにはログインが必要です</p>
         <Link
-          href="/auth/login?next=/premium"
+          href="/login?next=/premium"
           className="block w-full py-4 rounded-2xl bg-navy-800 text-white font-black text-base hover:bg-navy-700 transition-colors"
         >
           ログインして始める

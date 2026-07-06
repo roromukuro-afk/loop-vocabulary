@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseNotConfigured } from "@/lib/supabase/env";
@@ -11,7 +11,17 @@ import { trackLoginComplete } from "@/lib/analytics/events";
 type Mode = "password" | "magic";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next") || "/dashboard";
   const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,7 +40,7 @@ export default function LoginPage() {
       setBusy(false);
       if (error) { setError(error.message); return; }
       trackLoginComplete("email");
-      router.replace("/dashboard");
+      router.replace(next);
       router.refresh();
     } catch (e) {
       setBusy(false);
@@ -49,7 +59,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         },
       });
       setBusy(false);
@@ -67,7 +77,7 @@ export default function LoginPage() {
     setGoogleBusy(true);
     try {
       const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback?next=/dashboard`;
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo },

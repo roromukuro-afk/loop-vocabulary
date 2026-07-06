@@ -686,7 +686,7 @@ export default async function LandingPage() {
                 <Link href="/privacy" className="hover:text-navy-700">プライバシーポリシー</Link>
                 <Link href="/terms" className="hover:text-navy-700">利用規約</Link>
                 <Link href="/contact" className="hover:text-navy-700">お問い合わせ</Link>
-                <Link href="/premium" className="hover:text-navy-700">広告非表示プラン</Link>
+                <Link href="/premium" className="hover:text-navy-700">プレミアムプラン</Link>
                 <Link href="/faq" className="hover:text-navy-700">FAQ</Link>
               </div>
             </div>

@@ -150,7 +150,7 @@ export default async function SettingsPage() {
       <Card className="mt-4">
         <CardTitle>サポート・規約</CardTitle>
         <ul className="text-sm text-navy-700 space-y-2">
-          <li><Link href="/premium" className="underline">広告非表示プラン</Link></li>
+          <li><Link href="/premium" className="underline">プレミアムプラン</Link></li>
           <li><Link href="/contact" className="underline">お問い合わせ</Link></li>
           <li><Link href="/privacy" className="underline">プライバシーポリシー</Link></li>
           <li><Link href="/terms" className="underline">利用規約</Link></li>
@@ -165,6 +165,12 @@ export default async function SettingsPage() {
           ユーザーに紐づくデータがすべて削除対象となります。
           削除完了までに数営業日かかる場合があります。
         </p>
+        {profile?.is_premium && (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+            ⚠️ アカウント削除はサブスクリプションを自動的には解約しません。
+            上の「サブスクリプションを管理」から先に解約してください。
+          </p>
+        )}
         <DeleteAccountPanel supportEmail={SUPPORT_EMAIL} />
         <p className="text-xs text-navy-500 mt-3">
           Web からも削除リクエストできます: <Link href="/account/delete" className="underline">/account/delete</Link>

@@ -106,6 +106,9 @@ async function main() {
 
     console.log("\n=== 22. Stripe webhook → Premium反映フロー E2E ===");
     results.stripePremiumWebhook = runNode("scripts/testing/e2e/stripe-premium-webhook.mjs");
+
+    console.log("\n=== 23. 信頼ページ・規約・決済説明 E2E ===");
+    results.legalTrustPages = runNode("scripts/testing/e2e/legal-trust-pages.mjs");
   } finally {
     stopDevServer(dev);
   }

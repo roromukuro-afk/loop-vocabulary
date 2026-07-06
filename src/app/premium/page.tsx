@@ -219,7 +219,9 @@ export default async function PremiumPage() {
 
         <div className="mt-6 text-center text-xs text-navy-400 space-y-1">
           <p>決済は <a href="https://stripe.com/jp" target="_blank" rel="noopener noreferrer" className="underline">Stripe</a> が安全に処理します</p>
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-4 justify-center flex-wrap">
+            <Link href="/faq" className="underline">よくある質問</Link>
+            <Link href="/contact" className="underline">お問い合わせ</Link>
             <Link href="/privacy" className="underline">プライバシーポリシー</Link>
             <Link href="/terms" className="underline">利用規約</Link>
             <Link href="/dashboard" className="underline">ダッシュボードへ</Link>

@@ -1088,6 +1088,74 @@
 
 ---
 
+40. ✅ **完了（2026-07-06）: 信頼ページ・規約・決済説明まわりの棚卸しと改善**
+    Premium課金導線を本格運用する前に、`/premium`・`/privacy`・`/terms`・`/faq`・
+    `/contact`・`/settings`・`/account/delete`・footer導線・ログイン後リダイレクトを
+    棚卸しし、実際の不具合と実装とのズレを発見・修正した。
+    **発見した実際の不具合（2件）**:
+    1. `PremiumCheckout.tsx`の未ログイン時「ログインして始める」が
+       `/auth/login?next=/premium`という**存在しないルート**を指しており、本番で
+       404になっていた（正しくは`/login`）。Premium課金導線の入口が壊れていた。
+    2. `/login`ページが`?next=`クエリパラメータを一切読んでおらず、パスワード
+       ログイン・マジックリンク・Googleログインのいずれも常に`/dashboard`へ
+       固定リダイレクトしていた。これにより`/premium`だけでなく`/account/delete`
+       等、他ページの`?next=`導線もすべて無効化されていた
+       （`/auth/callback/route.ts`自体は`next`を正しく転送する実装だったが、
+       `/login`側がその`next`を組み立てる際に常に`/dashboard`を埋め込んでいたため）。
+       `useSearchParams()`で実際の`next`を読み取り、3方式すべてで尊重するよう修正
+       （`useSearchParams`使用に伴い、`/login`を`LoginForm`+`Suspense`構成に分離）。
+    **発見した実装とのズレ（ドキュメント・表記）**:
+    - `/terms`「5. 広告・課金」が、実際には既に本番稼働しているStripe Web課金を
+      「将来的に」導入予定の未実装機能であるかのように記載し続けており、価格・
+      更新周期・解約方法・返金方針が一切書かれていなかった。実際の内容
+      （月額¥480・年額¥3,800、Stripeカスタマーポータルでの解約、期間終了までは
+      利用可、日割り返金なし）に全面更新し、Android/iOSアプリ版の将来のネイティブ
+      課金（Play Billing/StoreKit）は別項目として維持した。
+    - `/privacy`に、実際に利用している第三者サービス（決済のStripe、AI解説の
+      Anthropic/Claude API）の記載が無かった。新設した「4. 決済・AI機能における
+      外部サービスの利用」に追記し、以降のセクション番号を採番し直した。
+    - アカウント削除は`account_deletion_requests`への登録のみを行う手動処理で、
+      Stripeサブスクリプションを自動解約しない設計だが、その注意書きがどこにも
+      無かった。`/privacy`・`/account/delete`・`/settings`（Premiumユーザー表示時
+      のみ）に警告文を追加し、`PRODUCTION_MONITORING.md`の手動削除処理チェック
+      リストにも同様の確認手順を追記した。
+    - `/premium`の下部リンクにプライバシー・利用規約・ダッシュボードしか無く、
+      決済ページとして問い合わせ導線が弱かったため「よくある質問」「お問い合わせ」
+      を追加した。
+    - フッター等で使われていた「広告非表示プラン」という狭いPremiumの呼び方を、
+      実態（AI無制限・CSV一括インポート等も含む）に合わせて「プレミアムプラン」に
+      統一した（`page.tsx`・`/contact`・`/settings`）。
+    - `README.md`のロードマップに「Stripeによる Premium課金」「AI を
+      OpenAI/Anthropicに実接続」「AdMob Web SDK/AdSense連携」が未実装`[ ]`のまま
+      残っていたが、いずれも実装済みのため`[x]`に更新し、§14-9「将来の課金」も
+      「現状は案内のみ」という誤った記述から、Web版は実装済み・ネイティブアプリ版は
+      未実装、という正確な内容に書き換えた。
+    **特定商取引法表記に相当する情報の不足**: 販売価格・支払方法・支払時期・
+    キャンセル方法等は`/premium`・`/faq`・`/terms`に既に記載済みだが、
+    販売事業者名・所在地・電話番号は未記載（コード内に既存の`TODO(運営者)`
+    コメントあり、`HANDOFF.md`にも既知の未決事項として記録済み）。
+    **個人情報を推測・捏造せず、今回もページは作成していない**。必要な項目の
+    一覧と対応方針はWORK_HISTORY.mdに記録し、オーナー確認待ちとした。
+    DBスキーマ変更・Stripe価格変更・Stripe env変更・Premium機能自体の変更・
+    Webhook変更・AdSense広告枠追加・SRS V2・teacher機能・教材データへの変更なし。
+    誇張表現の復活・未実装機能のPremium特典化はしていない。
+    **テスト追加**: `scripts/testing/e2e/legal-trust-pages.mjs`（新規、
+    `npm run test:legal-trust-pages`、`run-e2e.mjs`ステップ23として追加、16項目）。
+    `/premium`・`/privacy`・`/terms`・`/faq`・`/contact`の200表示、ログイン前
+    「ログインして始める」→`/login?next=/premium`への遷移（404にならない）→
+    ログイン完了後に`/dashboard`ではなく`/premium`へ実際に戻ること（`next=`修正の
+    回帰確認）、ランディングページfooter・`/premium`下部リンクの非404確認、
+    `/privacy`のStripe/Anthropic記載、`/terms`の実際の価格・解約方法記載、
+    モバイル幅での崩れ無し、誇張表現・未実装特典の非復活を検証。
+    検証: `tsc --noEmit` / `build` / `test:legal-trust-pages`（新規16項目）/
+    `test:premium-conversion` / `test:premium-gating`（21項目）/ `test:smoke` /
+    `test:e2e`（20スイート）/ `verify:prod` / `verify:srs-global`、全PASS。
+    **残課題**: 特定商取引法表記に相当する販売事業者名・所在地・電話番号は
+    オーナーからの提供待ち。提供され次第、専用ページ（例:
+    `/legal/commercial-transaction`）の新設をあらためて提案する。
+
+---
+
 ## 💰 収益化・成長 監査（2026-07-04）
 
 事業・収益・継続率・SEO流入の観点でコード・DB・教材・公開ページを監査した結果。

@@ -80,6 +80,15 @@ export default async function AccountDeletePage() {
           )}
         </Card>
 
+        <Card className="mt-4 border-amber-200">
+          <CardTitle className="text-amber-800">プレミアムプランご利用中の方へ</CardTitle>
+          <p className="text-sm text-navy-700">
+            アカウント削除は Stripe のサブスクリプションを自動的には解約しません。
+            削除前に「設定」ページまたは Stripe カスタマーポータルからサブスクリプションを
+            解約してください。解約せずに削除すると、削除後も課金が継続するおそれがあります。
+          </p>
+        </Card>
+
         <Card className="mt-4">
           <CardTitle>削除されるデータ</CardTitle>
           <ul className="text-sm text-navy-700 list-disc pl-5 space-y-1">

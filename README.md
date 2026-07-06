@@ -383,12 +383,12 @@ loop_vocabulary/
 
 ### 中期
 
-- [ ] AI を OpenAI / Anthropic に実接続 (`AI_PROVIDER` で切替)
+- [x] AI を Anthropic (Claude API) に実接続済み（`src/app/api/ai/*`）
 - [ ] 辞書検索を外部 API (Wiktionary / 自前辞書 DB) に拡張
 - [ ] PDF を `jsPDF + 日本語フォント埋め込み` で直接生成 (現状はブラウザ印刷経由)
-- [ ] AdMob Web SDK / AdSense 連携
-- [ ] Stripe による Premium 課金
-- [ ] バックアップ機能 (CSV エクスポート)
+- [x] Google AdSense 連携済み（Web版、`src/components/ads/AdSense.tsx`）。AdMob (Android/iOS) は§14参照
+- [x] Stripe による Premium 課金実装済み（Web版、月額¥480・年額¥3,800。checkout/webhook/Customer Portal完備。詳細は§14-9参照）
+- [x] バックアップ機能 (CSV エクスポート、プレミアム限定)
 
 ### 長期
 
@@ -725,12 +725,17 @@ Xcode が起動したら:
 - ATT 拒否時も非パーソナライズ広告は配信される設計
 - ユーザーが入力した個人データ (メール / 単語 / 学習履歴) は Supabase で暗号化保存、第三者提供なし (詳細は `/privacy`)
 
-### 14-9. 将来の課金 (Premium プラン)
+### 14-9. 課金 (Premium プラン)
 
-現状は `/premium` ページで案内のみ。実装時:
+**Web版は実装済み**: `/premium`ページからStripe Checkoutで月額¥480・年額¥3,800の
+サブスクリプションに登録できる。`src/app/api/stripe/{checkout,webhook,portal}/route.ts`が
+checkout作成・webhook受信によるPremium反映・Stripe Customer Portalでの解約を処理する
+（詳細はWORK_HISTORY.md 2026-07-05・2026-07-06のStripe関連エントリ参照）。
+
+**Android / iOSアプリ版は未実装**。ネイティブアプリ化する場合:
 - **Android**: Google Play Billing 必須 (デジタル商品)。Capacitor プラグイン `@capacitor-community/in-app-purchases` 等
 - **iOS**: StoreKit 2 / IAP 必須。同上
-- Stripe 等の外部決済はデジタル商品では両ストアで禁止
+- Stripe 等の外部決済はデジタル商品では両ストアで禁止のため、Web版とは別に実装が必要
 
 ---
 

@@ -5,6 +5,132 @@
 
 ---
 
+## 2026-07-06 信頼ページ・規約・決済説明まわりの棚卸しと改善
+
+**目的**: Stripe/Premium/Webhook/誇張表現/reward_ticketsの整理が一段落したため、
+Premium課金導線を本格運用する前に、決済前後の説明・規約・問い合わせ導線を
+ユーザーが安心して進められる状態に整えた。
+
+**調査対象**: `/premium`・`/privacy`・`/terms`・`/legal`（存在確認）・`/faq`・
+`/contact`・`/settings`・footerリンク・Stripe checkout前後の説明・checkout
+success/cancel URL・Premium解約導線・問い合わせ導線・README/docsの公開向け説明。
+
+**発見した実際の不具合（2件、Premium課金導線を直接壊していた）**:
+1. `src/app/premium/PremiumCheckout.tsx`の未ログイン時「ログインして始める」
+   リンクが`/auth/login?next=/premium`という**存在しないルート**を指しており、
+   本番で確認したところ実際に404を返していた（`curl -o /dev/null -w
+   "%{http_code}"`で確認）。正しいログインルートは`/login`。未ログインの見込み
+   客がPremium登録しようとするとログインページにすら到達できない状態だった。
+2. `src/app/login/page.tsx`が`?next=`クエリパラメータを一切読んでおらず、
+   パスワードログイン（`router.replace("/dashboard")`固定）・マジックリンク・
+   Googleログイン（いずれも`emailRedirectTo`/`redirectTo`に`next=/dashboard`を
+   ハードコード）のすべてが常に`/dashboard`へリダイレクトしていた。
+   `src/app/auth/callback/route.ts`自体は`url.searchParams.get("next") ??
+   "/dashboard"`で正しく`next`を転送する実装だったが、`/login`側がその`next`を
+   常に`/dashboard`で上書きして`/auth/callback`に渡していたため、結果的に
+   `?next=`を使う全ての導線（`/premium`だけでなく`/account/delete`等も）が
+   無効化されていた。`useSearchParams()`で実際の`next`パラメータを読み取り、
+   3方式すべてで尊重するよう修正した（`useSearchParams`使用に伴い、デフォルト
+   エクスポートを`Suspense`でラップした`LoginForm`に分離。`next build`で
+   `/login`が引き続き静的プリレンダリングされ、警告が出ないことを確認）。
+
+**発見した実装とのズレ（規約・プライバシー・ドキュメント）**:
+- `src/app/terms/page.tsx`の「5. 広告・課金」セクションが、既に本番稼働中の
+  Stripe Web課金を「将来的にデジタル商品の販売は...経由して行います」という
+  未来形・未実装であるかのような文言のまま放置しており、価格・更新周期・
+  解約方法・返金方針が一切記載されていなかった。実際の内容（月額¥480・
+  年額¥3,800、Stripeカスタマーポータルでの解約、期間終了までは全機能利用可、
+  日割り返金なし）に全面更新し、Android/iOSアプリ版の将来のネイティブ課金
+  （Google Play Billing/Apple In-App Purchase）は「現時点では未提供」と明記した
+  別項目として維持した。
+- `src/app/privacy/page.tsx`に、実際に本番で利用している第三者サービス
+  （決済のStripe, Inc.、AI解説のAnthropic, PBC / Claude API）の記載が一切
+  無かった。新設した「4. 決済・AI機能における外部サービスの利用」に、
+  各サービスが何のデータを処理するか（決済情報はStripeが処理・保管し本サービス
+  のサーバーには保存しない、AI解説機能では該当テキストをAnthropicのAPIに送信、
+  等）を具体的に追記し、これに伴い以降のセクション番号（第三者提供・データ削除・
+  先生向け機能の共有・13歳以上の利用・お問い合わせ）を4→5〜8に採番し直した。
+- アカウント削除は`account_deletion_requests`への登録のみを行う手動処理
+  （`api/account/delete-request/route.ts`のコメントに明記）で、Stripe
+  サブスクリプションを自動解約しない設計だが、その注意書きがユーザー向けにも
+  運用ドキュメントにも一切無かった。`/privacy`（データ削除セクション）・
+  `/account/delete`・`/settings`（`profile?.is_premium`時のみ表示）に警告文を
+  追加し、`PRODUCTION_MONITORING.md`の`account_deletion_requests`監視項目にも、
+  手動削除処理前にStripeサブスクリプションの有無を確認・解約する運用ルールを
+  追記した。
+- `/premium`の下部リンクがプライバシーポリシー・利用規約・ダッシュボードのみで、
+  決済ページとして問い合わせ導線が弱かったため「よくある質問」「お問い合わせ」
+  へのリンクを追加した。
+- footer（`src/app/page.tsx`）・`/contact`・`/settings`で使われていた
+  「広告非表示プラン」という狭いPremiumの呼び方を、実態（AI利用無制限・CSV
+  一括インポート・PDF出力無制限等も含む）に合わせて「プレミアムプラン」に統一
+  した（`/premium`・`/faq`は元々この呼び方だったため、表記を揃えた形）。
+- `README.md`のロードマップ（§10 中期）に「Stripeによる Premium課金」「AI を
+  OpenAI/Anthropicに実接続」「AdMob Web SDK/AdSense連携」が未実装`[ ]`のまま
+  残っていたが、いずれも実装・本番稼働済みのため`[x]`に更新し、§14-9
+  「将来の課金」も「現状は`/premium`ページで案内のみ」という誤った記述から、
+  Web版はStripeで実装済み・Android/iOSネイティブアプリ版は別途未実装という
+  正確な内容に書き換えた。
+
+**特定商取引法表記に相当する情報の不足（法律判断は断定せず、不足項目のみ整理）**:
+日本向けにサブスクリプション課金を行う場合に一般的に必要となる開示項目のうち、
+販売価格・支払方法・支払時期・解約条件は既に`/premium`・`/faq`・`/terms`に
+記載済みであることを確認した。一方で、**販売事業者名・所在地・電話番号は
+未記載**である（`src/app/page.tsx`のfooterに既存の`TODO(運営者)`コメントが
+あり、`HANDOFF.md`「2.5. Phase 1 実装状況」にも同じ未決事項が2026-07-01時点で
+既に記録されていたことを確認した）。個人情報を推測・捏造しないという方針の
+とおり、今回も専用ページ（`/legal/commercial-transaction`等）は作成していない
+（`curl`で`/legal`・`/legal/commercial-transaction`・
+`/legal/specified-commercial-transaction`・`/commerce-disclosure`がいずれも
+404であることを確認済み）。オーナーから運営者名・所在地・電話番号（または
+個人事業主における代替開示の可否についての判断）の提供があり次第、専用ページの
+新設をあらためて提案する。
+
+DBスキーマ変更・Stripe価格変更・Stripe env変更・Premium機能自体の変更・
+Webhook（`api/stripe/webhook`）変更・AdSense広告枠追加・SRS V2・teacher機能・
+教材データへの変更なし。誇張表現の復活・未実装機能のPremium特典化はしていない。
+
+**変更ファイル**: `src/app/premium/PremiumCheckout.tsx`（ログインリンク修正）、
+`src/app/login/page.tsx`（`?next=`対応、`Suspense`分離）、
+`src/app/premium/page.tsx`（下部リンクに`/contact`・`/faq`追加）、
+`src/app/terms/page.tsx`（課金セクション全面更新）、
+`src/app/privacy/page.tsx`（第三者サービス・アカウント削除注意書き追加、
+セクション再採番）、`src/app/account/delete/page.tsx`（Premium解約注意書き
+追加）、`src/app/settings/page.tsx`（Premium解約注意書き・ラベル更新）、
+`src/app/contact/page.tsx`（ラベル更新）、`src/app/page.tsx`（footerラベル
+更新）、`scripts/testing/e2e/legal-trust-pages.mjs`（新規）、
+`scripts/testing/run-e2e.mjs`（ステップ23追加）、`package.json`
+（`test:legal-trust-pages`スクリプト追加）、`README.md`、
+`PRODUCTION_MONITORING.md`、`NEXT_IMPROVEMENTS.md`、`WORK_HISTORY.md`。
+
+**追加・更新したテスト**: `scripts/testing/e2e/legal-trust-pages.mjs`
+（新規、`npm run test:legal-trust-pages`、`run-e2e.mjs`ステップ23、16項目）。
+`/premium`・`/privacy`・`/terms`・`/faq`・`/contact`の200表示、未ログイン時
+「ログインして始める」→`/login?next=/premium`への遷移（404にならないこと）→
+実際にログインを完了して`/dashboard`ではなく`/premium`へ戻ること（今回の
+`?next=`修正の回帰確認、最も重要な検証項目）、ランディングページfooter・
+`/premium`下部リンクの非404、`/privacy`のStripe/Anthropic記載、`/terms`の
+実際の価格・解約方法記載、モバイル幅(375px)での崩れ無し、誇張表現・未実装
+特典（reward_tickets予約済みkind含む）の非復活を検証。
+
+**検証結果**: `npx tsc --noEmit`エラーなし。`npm run build`成功（`/login`は
+`useSearchParams`導入後も引き続き静的プリレンダリング、警告なし）。
+`npm run test:legal-trust-pages`（新規16項目、全PASS）・
+`npm run test:premium-conversion`・`npm run test:premium-gating`（21項目）・
+`npm run test:smoke`・`npm run test:e2e`（20スイート、回帰なし）・
+`npm run verify:prod`・`npm run verify:srs-global`、全PASS。
+
+**本番反映状況**: 別記。
+
+**既存課金者への影響**: 実サブスクリプションは引き続き0件のため、今回の
+`/auth/login`404・`?next=`無効化バグによる実害（見込み客の離脱可能性はあった
+ものの、既存Premium契約者への影響ではない）は発生していない。
+
+**残課題**: 特定商取引法表記に相当する販売事業者名・所在地・電話番号は
+オーナーからの提供待ち。提供され次第、専用ページ新設をあらためて提案する。
+
+---
+
 ## 2026-07-06 reward_tickets未実装kind（pdf_export/weak_word_test/analysis_ticket）の整理
 
 **目的**: 過去のラウンド（項目67〜74）で調査済みだった`reward_tickets`のkind別実装

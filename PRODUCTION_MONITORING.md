@@ -105,7 +105,7 @@ DBを直接見たい場合や、ダッシュボードでは出ない個別行を
 | `materials` / `material_words` | 公開教材数・語数（`is_public`/`license_status`の整合性） |
 | `classes` / `class_members` | 先生機能の利用状況・同意状態 |
 | `pdf_exports` | PDF出力の利用状況・無料枠上限の妥当性 |
-| `account_deletion_requests` | 削除リクエストの滞留がないか |
+| `account_deletion_requests` | 削除リクエストの滞留がないか。**2026-07-06追記**: 削除リクエストの物理削除は現状手動処理（`api/account/delete-request/route.ts`のコメント参照）のため、処理前に必ず該当ユーザーの`profiles.is_premium`/`stripe_customer_id`を確認し、有効なStripeサブスクリプションがあればStripe側で解約してからアカウントを削除すること（削除がStripe解約を自動的に行うわけではないため、解約し忘れると削除後も課金が継続してしまう） |
 | Auth → Users | テストアカウント（`test+*@loop-vocabulary.app`）以外の異常な大量作成がないか |
 
 **テストデータの混入チェック**（月次で十分）:
@@ -422,6 +422,59 @@ endpoint（`we_1TiSuwIEd2EBa26eUb2n0pTB`）を残し、オーナーがStripe Das
 
 ---
 
+## 12. 信頼ページ・規約・ログイン導線で見るべき異常（2026-07-06整備）
+
+Premium課金導線を本格運用する前に、`/premium`・`/privacy`・`/terms`・`/faq`・
+`/contact`・`/settings`・`/account/delete`・footer導線・ログイン後リダイレクトを
+棚卸しした結果、以下の実際の不具合を発見・修正した。
+
+### 12-1. 発見した不具合
+
+1. **`/premium`の「ログインして始める」が404だった**: `PremiumCheckout.tsx`が
+   存在しない`/auth/login`ルートを指しており、未ログインユーザーがPremium登録
+   しようとするとログインページにすら到達できなかった。`/login`に修正。
+2. **`?next=`リダイレクトが全ページで無効だった**: `/login`ページが`?next=`
+   クエリパラメータを一切読んでおらず、パスワード/マジックリンク/Googleログイン
+   いずれも常に`/dashboard`へ固定リダイレクトしていた。`/premium`だけでなく
+   `/account/delete`等、`?next=`を使う全ての導線に影響していた。
+   `useSearchParams()`で`next`を読み取るよう修正（`test:legal-trust-pages`で
+   実際にログイン後`/premium`へ戻ることを検証）。
+
+### 12-2. 実装とドキュメント・規約のズレを修正
+
+- `/terms`の課金セクションが、既に本番稼働中のStripe Web課金を「将来的に」導入
+  予定であるかのように記載し続け、価格・解約方法・返金方針が皆無だった → 実際の
+  内容に全面更新。
+- `/privacy`に、実際に使用している第三者サービス（決済のStripe、AI解説の
+  Anthropic）の記載が無かった → 追記。
+- アカウント削除がStripeサブスクリプションを自動解約しない設計であるにも
+  かかわらず、その注意書きがどこにも無かった → `/privacy`・`/account/delete`・
+  `/settings`に追加（下記12-3も参照）。
+- `README.md`のロードマップが「Stripe課金」「AI実接続」「AdSense連携」を
+  未実装のまま記載していた → 実装済みに更新。
+
+### 12-3. 「支払い済みなのにアカウント削除後も課金が続く」を防ぐ運用ルール
+
+`account_deletion_requests`の物理削除は現状**手動処理**（`api/account/
+delete-request/route.ts`参照）。削除を処理する前に、必ず対象ユーザーの
+`profiles.is_premium`/`stripe_customer_id`を確認し、有効なStripeサブスクリプション
+があればStripe側で解約してからアカウントを削除すること。ユーザー向けにも
+`/privacy`・`/account/delete`・`/settings`（Premium表示時）で同様の注意を促す
+文言を追加済みだが、運用側の最終防波堤として上記確認を徹底する。
+
+### 12-4. 特定商取引法表記に相当する情報の不足（オーナー確認待ち）
+
+日本向けにサブスクリプション課金を行う場合、以下の情報開示が一般的に必要となる。
+価格・支払方法・支払時期・解約条件は既に`/premium`・`/faq`・`/terms`に記載済みだが、
+**販売事業者名・所在地・電話番号は未記載**（`src/app/page.tsx`のfooterに既存の
+`TODO(運営者)`コメントあり、`HANDOFF.md`にも同じ未決事項が記録済み）。
+個人情報を推測・捏造しないため、今回もページは作成していない。
+オーナーから運営者情報の提供があり次第、`/legal/commercial-transaction`等の
+専用ページ新設を検討する。法律要件の該非判断（個人事業主の住所・電話番号の
+代替開示可否等）はオーナー・専門家の判断に委ねる。
+
+---
+
 ## 自動検証コマンドの運用
 
 | コマンド | 実行タイミング | 目的 |
@@ -441,6 +494,7 @@ endpoint（`we_1TiSuwIEd2EBa26eUb2n0pTB`）を残し、オーナーがStripe Das
 | `npm run test:weak-analysis` | `src/app/weak/page.tsx`・`WeaknessAnalysis.tsx`・`api/ai/weakness-analysis/route.ts`を変更した時 | 苦手単語ありユーザーで一覧・品詞/単語帳/習熟度バッジ・「傾向を確認」の集計(品詞別/単語帳別/習熟度低い順)が正しい・「今すぐ復習する」「まず10語だけ復習する」から実際に`/review`へ遷移する・苦手単語なしユーザーで崩れない・非Premiumで控えめな案内・PremiumでAI分析実行結果(成功/失敗いずれもページが壊れない)・`reward_tickets(kind=ai_generation)`に影響なし・ダッシュボードの苦手単語カードからの遷移、を実ブラウザ+DB直接確認で検証（20項目） |
 | `npm run test:premium-conversion` | `/premium`・トップページ(`/`)・`PremiumCheckout.tsx`・Stripe checkout/webhookルート・各Premium gatingページのCTA文言・`dashboard/page.tsx`の広告表示・マーケティング文言を変更した時 | 非Premiumで料金比較表・チェックアウトボタンが表示される・Premiumで「現在プレミアム会員です」表示に切り替わりチェックアウトボタンが消える・`POST /api/stripe/checkout`がPremium時に409 already_premiumを返す（二重課金防止）・`/weak`/`/extract`/`/plan`のPremium誘導CTAが統一文言になっている・`/test/typing`/`/test/listening`のペイウォール表示・`/premium`のモバイル崩れなし・ダッシュボード広告のisPremiumガードをソースコードで確認・`/premium`とトップページ(`/`)に実データと乖離した誇張・社会的証明の文言（「3,200+登録ユーザー」「ユーザーの声」等）が残っていないこと・トップページのJSON-LDに未実証`aggregateRating`が含まれていないこと・reward_ticketsの予約済み・未実装kind(pdf_export/weak_word_test/analysis_ticket)がPremium特典として訴求されていないこと、を実ブラウザ+API直接確認で検証（2026-07-05に2ステップ、2026-07-06に禁止文言4件追加） |
 | `npm run test:stripe-premium-webhook` | `src/app/api/stripe/checkout/route.ts`・`src/app/api/stripe/webhook/route.ts`・Premium反映フローを変更した時 | 署名付きテストイベント（`Stripe.webhooks.generateTestHeaderString`、実Stripe通信なし・実課金なし）で、不正signatureの400拒否・未知イベントタイプでの非クラッシュ・存在しない顧客ID/ユーザーIDでの非クラッシュ・`checkout.session.completed`でのis_premium/premium_expires_at反映・webhookで付与したis_premiumが実際に`/premium`のPremium機能解放に反映されること・二重checkout防止(409)・未ログインcheckout(401)・`customer.subscription.updated`(active/canceled期限反映)・`customer.subscription.deleted`(即時失効)を検証（2026-07-06新規、`run-e2e.mjs`ステップ22として追加、20項目）。テスト用アカウントのみ操作し、実Stripe顧客・実メール送信は一切発生しない設計 |
+| `npm run test:legal-trust-pages` | `/premium`・`/privacy`・`/terms`・`/faq`・`/contact`・`/login`の`?next=`リダイレクト・footer導線を変更した時 | `/premium`・`/privacy`・`/terms`・`/faq`・`/contact`の200表示・未ログイン時「ログインして始める」が404にならず`/login?next=/premium`へ遷移しログイン完了後に実際に`/premium`へ戻ること（`/dashboard`固定リダイレクトの回帰確認）・ランディングページfooter及び`/premium`下部リンクの非404・`/privacy`のStripe/Anthropic第三者サービス記載・`/terms`の実際の価格/解約方法記載・モバイル幅での崩れ無し・誇張表現/未実装特典の非復活、を実ブラウザで検証（2026-07-06新規、`run-e2e.mjs`ステップ23として追加、16項目） |
 | `npm run verify:seo-lp-audit` | sitemap.ts・robots.txt・カテゴリLPのmetadataを変更した時／**本番デプロイ後** | 本番の`/sitemap.xml`に主要ページ・3LPが含まれるか・`/robots.txt`が対象パスをブロックしていないか・3LPのcanonicalが自分自身を指すか・JSON-LD(BreadcrumbList/ItemList)が妥当なJSONか・既存`/materials/[id]`への非影響を、HTTPのみ（ブラウザ不要）で検証。`verify:prod`同様デフォルトで本番URLを対象とする |
 | `npm run test:onboarding` | オンボーディング/辞書/ダッシュボード導線を変更した時 | 該当フローだけ素早く再検証 |
 | `npm run test:srs` | SRSロジック・復習UIを変更した時 | 4段階評価とDB反映（ease/interval/streak/is_weak/correct/wrong）を検証 |
