@@ -1047,6 +1047,47 @@
 
 ---
 
+39. ✅ **完了（2026-07-06）: reward_tickets未実装kind（pdf_export/weak_word_test/
+    analysis_ticket）の整理**
+    項目67〜74で調査済みだった「`reward_tickets`のkind別実装状況」のうち、
+    未実装のまま残っていた3種について、誤ってUIやPremium訴求に出てしまうリスクを
+    今のうちに塞ぐため、オーナー承認のもと**案A（将来用として残すが、予約済み・
+    非表示であることを明記）**で整理した。
+    **調査結果**: 3種（`pdf_export`/`weak_word_test`/`analysis_ticket`）は
+    `src/lib/native/rewards.ts`の`RewardKind`型定義にのみ存在し、付与コード・
+    消費コードとも一切無い。`AppRewardedAdButton`/`useTicketBalance`（いずれも
+    `kind: RewardKind`を受け取る汎用コンポーネント）の実際の呼び出し箇所を
+    全文検索した結果、`kind="ai_generation"`（`/ai`）・`kind="extra_review"`
+    （`FlipCardRunner`/`ChoiceTestRunner`）の2種のみが配線されており、3種は
+    どこからも呼ばれていないことを確認（`useTicketBalance`自体も未使用の
+    デッドコード）。本番`reward_tickets`にもこの3種の行は0件（既存行は
+    `daily_achievement`2件・`extra_review`9件のみ）。README.md・WORK_HISTORY.md
+    はすでに「未実装」と正確に記述済みで、誤解を招く記述は無かった。
+    `pdf_export`という文字列自体は`PdfTestBuilder.tsx`（GA4イベント名）・
+    `pdf_exports`テーブル（実際のPDF出力ログ、無関係の別物）にも出現するが、
+    これは`reward_tickets.kind`とは無関係の同名の別概念であり、誤検知として除外。
+    **対応**: `src/lib/native/rewards.ts`の`RewardKind`型に「実働中」と
+    「予約済み・未実装 (reserved / not active)」の見出しコメントを追加し、
+    実装するまでUI・Premium訴求に出してはならない旨を明記。`AppAds.tsx`の
+    `useTicketBalance`（未使用）にも同様の注意コメントを追加。
+    DBスキーマ変更・既存`reward_tickets`行の削除は行っていない
+    （`ai_generation`/`daily_achievement`/`extra_review`の仕様・データは無変更）。
+    **テスト追加**: `scripts/testing/e2e/reward-ticket-claim.mjs`にステップ0
+    （新規）を追加。`src/app`・`src/components`配下を静的スキャンし、3種が
+    `kind="..."`の形でどこにも配線されていないことを確認するとともに、
+    ダッシュボード表示（実レンダリング）にも予約済みkindの残高・特典表示が
+    出ていないことを確認。`scripts/testing/e2e/premium-conversion.mjs`の
+    既存の誇張表現チェック（ステップ1b）にも、3種を特典として訴求する
+    日本語フレーズ（「PDF出力チケット」等）を禁止文言として追加。
+    検証: `tsc --noEmit` / `build` / `test:reward-ticket-claim`（新ステップ0含め
+    全PASS）/ `test:premium-conversion` / `test:extra-review-ticket` /
+    `test:smoke` / `test:e2e`（19スイート、回帰なし）/ `verify:prod` /
+    `verify:srs-global`、全PASS。
+    **残課題**: 将来これら3種を実装する場合は、消費先（AI利用上限バイパスに
+    直結させない等）をオーナー承認の上で個別設計すること。
+
+---
+
 ## 💰 収益化・成長 監査（2026-07-04）
 
 事業・収益・継続率・SEO流入の観点でコード・DB・教材・公開ページを監査した結果。

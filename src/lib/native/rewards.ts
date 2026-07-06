@@ -14,9 +14,15 @@ import { isNative } from "./platform";
 import { showRewardedAd } from "./admob";
 
 export type RewardKind =
-  | "ai_generation"
+  // ── 実働中のkind ──
+  | "ai_generation" // AI例文・解説の利用上限バイパス。reward_tickets永続化・api/ai/*が消費
+  | "extra_review"  // 復習/テストの即時再挑戦。2026-07-05以降reward_ticketsへ永続化しない
+  // ── 予約済み・未実装 (reserved / not active) ──
+  // 型定義のみで、付与コード・消費コードとも一切実装しておらず、
+  // AppRewardedAdButton/useTicketBalanceの呼び出し箇所も存在しない
+  // （2026-07-06「reward_tickets未実装kind整理」で確認、WORK_HISTORY.md参照）。
+  // 実装するまでUI・Premium訴求のいずれにも出してはならない。
   | "pdf_export"
-  | "extra_review"
   | "weak_word_test"
   | "analysis_ticket";
 

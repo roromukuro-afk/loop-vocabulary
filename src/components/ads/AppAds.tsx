@@ -149,6 +149,10 @@ export function useAppInterstitial() {
 
 // ============================================================
 // チケット残数表示用フック (任意利用)
+// 2026-07-06時点でどのページからも呼び出されていない（未使用）。
+// pdf_export/weak_word_test/analysis_ticketは予約済み・未実装のkindのため、
+// これらのkindで呼び出して残高表示を実装しないこと（常に0を返すだけで、
+// 実際に貯める手段が無い残高を見せることになる）。
 // ============================================================
 export function useTicketBalance(kind: RewardKind, deps: unknown[] = []) {
   const [n, setN] = useState<number | null>(null);

@@ -5,6 +5,86 @@
 
 ---
 
+## 2026-07-06 reward_tickets未実装kind（pdf_export/weak_word_test/analysis_ticket）の整理
+
+**目的**: 過去のラウンド（項目67〜74）で調査済みだった`reward_tickets`のkind別実装
+状況のうち、`pdf_export`/`weak_word_test`/`analysis_ticket`の3種が未実装のまま
+コードに残っており、将来誤ってUIやPremium訴求に出してしまうリスクがあるため、
+今のうちに扱いを整理した。
+
+**調査結果**: `src/lib/native/rewards.ts`の`RewardKind`型に5種
+（`ai_generation`/`pdf_export`/`extra_review`/`weak_word_test`/`analysis_ticket`）
+が定義されているが、`AppRewardedAdButton`（広告視聴ボタン）・`useTicketBalance`
+（残高表示フック、いずれも`kind: RewardKind`を受け取る汎用コンポーネント）の実際の
+呼び出し箇所を全文検索した結果、`kind="ai_generation"`（`src/app/ai/AiPanel.tsx`）・
+`kind="extra_review"`（`FlipCardRunner.tsx`/`ChoiceTestRunner.tsx`）の2種のみが
+配線されており、残る3種はどこからも呼ばれていないことを確認した。
+`useTicketBalance`自体もアプリ内のどのページからも呼ばれていない未使用コードだった。
+本番`reward_tickets`テーブルにもこの3種の行は0件（既存行は`daily_achievement`2件・
+`extra_review`9件のみ、読み取り専用で確認）。README.md・WORK_HISTORY.mdは
+すでに「未実装」「付与・消費コードとも無し」と正確に記述済みで、実装済みであるかの
+ような誤解を招く記述は無かった。
+
+`"pdf_export"`という文字列自体は`src/app/pdf/PdfTestBuilder.tsx`
+（`trackFeatureUsed("pdf_export")`というGA4イベント名）・`pdf_exports`テーブル
+（実際のPDF出力ログ、無料枠1日3回の判定に使う別物のテーブル）にも出現するが、
+これは`reward_tickets.kind`とは無関係の同名の別概念であり、誤検知として除外した
+（末尾がsで終わる実テーブル名`pdf_exports`と、reward_tickets.kindの値
+`"pdf_export"`（単数形）は別物）。`/premium`・`/settings`・ダッシュボードの
+いずれのソースにも、この3種を示す文字列・関連する日本語の特典説明フレーズは
+一切存在しないことも確認した。
+
+**採用した方針**: オーナー承認のもと**案A（将来用として残すが、予約済み・
+非表示であることを明記）**を採用した。DBスキーマ変更・既存`reward_tickets`行の
+削除は行っていない。
+
+**対応**:
+1. `src/lib/native/rewards.ts`の`RewardKind`型定義に「実働中のkind」
+   （`ai_generation`/`extra_review`）と「予約済み・未実装 (reserved / not active)」
+   （`pdf_export`/`weak_word_test`/`analysis_ticket`）の見出しコメントを追加し、
+   後者は実装するまでUI・Premium訴求のいずれにも出してはならない旨を明記した。
+2. `src/components/ads/AppAds.tsx`の`useTicketBalance`（未使用フック）にも、
+   現状どこからも呼ばれていないこと・予約済みkindで呼び出して残高表示を実装
+   しないことの注意コメントを追加した。
+3. `README.md`の「リワード広告のチケット種別」を「実働中」「予約済み・未実装」の
+   2グループに再構成し、コードコメントと表現を揃えた。
+
+**UIやPremium訴求への影響**: 無し。もともとこの3種はどこにも表示されておらず、
+今回の変更はコードコメントとテストの追加のみで、実際の挙動・表示・DB内容は
+一切変更していない（`ai_generation`の消費仕様・`daily_achievement`スタンプ・
+`extra_review`のDB非保存方針はいずれも無変更）。
+
+**テスト追加**: `scripts/testing/e2e/reward-ticket-claim.mjs`に新規ステップ0を
+追加。`src/app`・`src/components`配下の`.ts`/`.tsx`ファイルを静的スキャンし、
+3種が`kind="..."`（または`kind: "..."`）の形でどこにも配線されていないことを
+確認する（DB接続不要、読み取り専用）。加えて、既存の未達成状態チェック（ステップ1）
+実行時に、ダッシュボードの実際のレンダリング結果にも予約済みkindの残高・特典表示が
+出ていないことを確認する新しいアサーションを追加した。
+`scripts/testing/e2e/premium-conversion.mjs`の既存の誇張表現チェック
+（ステップ1b、`/premium`本文スキャン）にも、この3種をPremium特典として訴求する
+日本語フレーズ（「PDF出力チケット」「詳細分析ロック解除」「苦手単語テスト追加」
+「分析チケット」）を禁止文言として追加した。
+
+**変更ファイル**: `src/lib/native/rewards.ts`、`src/components/ads/AppAds.tsx`、
+`scripts/testing/e2e/reward-ticket-claim.mjs`、
+`scripts/testing/e2e/premium-conversion.mjs`、`README.md`、
+`NEXT_IMPROVEMENTS.md`、`PRODUCTION_MONITORING.md`、`WORK_HISTORY.md`。
+
+**検証結果**: `npx tsc --noEmit`エラーなし。`npm run build`成功。
+`npm run test:reward-ticket-claim`（新規ステップ0含め全24項目、全PASS）・
+`npm run test:premium-conversion`（全PASS）・`npm run test:extra-review-ticket`
+（15項目、`extra_review`非保存・`ai_generation`非干渉ともに回帰なし）・
+`npm run test:smoke`（全PASS）・`npm run test:e2e`（19スイート、回帰なし）・
+`npm run verify:prod`・`npm run verify:srs-global`（全PASS）。
+
+**本番反映状況**: 別記。
+
+**残課題**: 将来この3種（特に`analysis_ticket`＝詳細分析ロック解除）を実装する
+場合は、`ai_generation`のAI利用上限バイパスに直結させない等、消費先を慎重に選定し、
+オーナー承認の上で個別に設計すること。
+
+---
+
 ## 2026-07-06 Stripe決済後のPremium反映フローのE2E/監視整備
 
 **目的**: 2026-07-05に発覚した「本番DBに`profiles.stripe_customer_id`/

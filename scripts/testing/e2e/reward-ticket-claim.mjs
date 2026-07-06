@@ -7,6 +7,9 @@
  * (daily_achievement)・APIの`reason`文字列(already_claimed等)は変更していないため、
  * このファイル内のテスト名やdata-testidも「daily-ticket」のまま維持している。
  *
+ * 0. 予約済み・未実装kind(pdf_export/weak_word_test/analysis_ticket)が
+ *    src/app・src/componentsのどこにもUI配線されておらず、ダッシュボードにも
+ *    残高/特典として表示されていないこと（2026-07-06「reward_tickets未実装kind整理」）
  * 1. 未達成状態: ボタンが押せない（ロック表示）・APIを直接叩いても400 not_eligible・
  *    reward_ticketsに行が作られないこと
  * 2. 達成状態（今日の学習目標達成）: ボタンから1枚だけ記録できる・DBに正しく1行
@@ -23,7 +26,9 @@
  * 使い方: node scripts/testing/e2e/reward-ticket-claim.mjs
  */
 import { chromium } from "playwright";
-import { loadEnv, requireEnv } from "../lib/env.mjs";
+import { readFileSync, readdirSync, statSync } from "fs";
+import { resolve, join, extname } from "path";
+import { loadEnv, requireEnv, REPO_ROOT } from "../lib/env.mjs";
 import { getAdminClient } from "../lib/supabaseAdmin.mjs";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { TEST_ACCOUNTS } from "../lib/testAccounts.mjs";
@@ -31,6 +36,37 @@ import { resetOnboardingUser, resolveUserId } from "../seed-test-data.mjs";
 import { login, collectErrors } from "./lib/login.mjs";
 import { gotoReady } from "./lib/nav.mjs";
 import { todayJST } from "../../../src/lib/utils/date.ts";
+
+// 2026-07-06「reward_tickets未実装kind整理」: pdf_export/weak_word_test/analysis_ticketは
+// 型定義のみの予約済み(reserved)kindで、付与・消費コードが一切無い（src/lib/native/rewards.ts
+// 参照）。誤ってUIに配線されていないかを、実際のソースを静的スキャンして確認する
+// （読み取り専用、DB接続不要）。
+const RESERVED_REWARD_KINDS = ["pdf_export", "weak_word_test", "analysis_ticket"];
+
+function listSourceFiles(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    const st = statSync(full);
+    if (st.isDirectory()) out.push(...listSourceFiles(full));
+    else if ([".ts", ".tsx"].includes(extname(full))) out.push(full);
+  }
+  return out;
+}
+
+function checkReservedKindsNotWiredIntoUi() {
+  const dirs = ["src/app", "src/components"].map((d) => resolve(REPO_ROOT, d));
+  const files = dirs.flatMap((d) => listSourceFiles(d));
+  const offenders = [];
+  for (const file of files) {
+    const text = readFileSync(file, "utf8");
+    for (const kind of RESERVED_REWARD_KINDS) {
+      const re = new RegExp(`kind\\s*[:=]\\s*["']${kind}["']`);
+      if (re.test(text)) offenders.push(`${file}: kind="${kind}"`);
+    }
+  }
+  return offenders;
+}
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 
@@ -60,6 +96,15 @@ async function getDailyAchievementTickets(admin, userId) {
 async function main() {
   loadEnv();
   requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", TEST_ACCOUNTS.onboarding.passwordEnvKey]);
+
+  // ================= 0. 予約済みkindがUIに配線されていないこと（ソース静的確認） =================
+  console.log("\n--- 0. pdf_export/weak_word_test/analysis_ticket(予約済み・未実装)がUIに配線されていないこと ---");
+  const offenders = checkReservedKindsNotWiredIntoUi();
+  if (offenders.length === 0) {
+    ok("予約済みkind(pdf_export/weak_word_test/analysis_ticket)はsrc/app・src/componentsのどこにも配線されていない");
+  } else {
+    fail(`予約済みkindがUIに配線されている: ${offenders.join(", ")}`);
+  }
   const admin = getAdminClient();
   const onboardingId = await resolveUserId(admin, TEST_ACCOUNTS.onboarding.email);
 
@@ -86,6 +131,17 @@ async function main() {
       ok("未達成時は「記録する」ボタンが表示されず、ロック表示になる");
     } else {
       fail(`未達成時の表示が想定と異なる (locked=${lockedVisible}, button=${buttonVisibleWhenLocked})`);
+    }
+
+    // 予約済み・未実装kind(pdf_export/weak_word_test/analysis_ticket)がダッシュボードに
+    // 残高・特典として出ていないこと（静的ソース確認(0番)に加えて実レンダリングでも確認）
+    const dashboardBodyText = await page1.locator("body").innerText();
+    const bannedOnDashboard = ["PDF出力チケット", "詳細分析ロック解除", "苦手単語テスト追加", "分析チケット"];
+    const foundBannedOnDashboard = bannedOnDashboard.filter((s) => dashboardBodyText.includes(s));
+    if (foundBannedOnDashboard.length === 0) {
+      ok("ダッシュボードに予約済み・未実装kindの残高/特典表示は無い");
+    } else {
+      fail(`ダッシュボードに予約済み・未実装kindの表示が出ている: ${foundBannedOnDashboard.join(", ")}`);
     }
 
     const directCallResult1 = await page1.evaluate(async () => {

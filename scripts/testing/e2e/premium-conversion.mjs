@@ -29,7 +29,10 @@
  * 8. `/premium`・トップページ(`/`)に実データと乖離した社会的証明・誇張表現
  *    （「3,200+登録ユーザー」「ユーザーの声」等の固定テストナラティブや、
  *    schema.orgのJSON-LDの未実証aggregateRatingなど）が残っていないこと
- *    （2026-07-05 マーケティング文言の棚卸しで撤去。詳細はWORK_HISTORY.md参照）
+ *    （2026-07-05 マーケティング文言の棚卸しで撤去。詳細はWORK_HISTORY.md参照）。
+ *    あわせて、reward_ticketsの予約済み・未実装kind（pdf_export/weak_word_test/
+ *    analysis_ticket）がPremium特典として`/premium`に出ていないことも同じ手順で確認
+ *    （2026-07-06「reward_tickets未実装kind整理」、詳細はWORK_HISTORY.md参照）
  *
  * 使い方: node scripts/testing/e2e/premium-conversion.mjs
  */
@@ -118,7 +121,13 @@ async function main() {
 
     // ================= 1b. 実データと乖離した誇張表現（棚卸し済み）が/premiumに出ていないこと =================
     console.log("\n--- 1b. /premium: 実データと乖離した社会的証明・誇張表現が出ていないこと ---");
-    const bannedOnPremium = ["3,200", "登録ユーザー", "ユーザー評価", "42万語", "ユーザーの声", "一番人気"];
+    // pdf_export/weak_word_test/analysis_ticket(reward_tickets、予約済み・未実装kind)が
+    // Premium特典として誤って訴求されていないことも合わせて確認する
+    // （2026-07-06「reward_tickets未実装kind整理」、詳細はsrc/lib/native/rewards.ts参照）
+    const bannedOnPremium = [
+      "3,200", "登録ユーザー", "ユーザー評価", "42万語", "ユーザーの声", "一番人気",
+      "PDF出力チケット", "詳細分析ロック解除", "苦手単語テスト追加", "分析チケット",
+    ];
     const foundBanned1 = bannedOnPremium.filter((s) => bodyText1.includes(s));
     if (foundBanned1.length === 0) {
       ok("/premium: 実データに基づかない誇張・社会的証明の文言は検出されなかった");
