@@ -7,7 +7,6 @@ Disallow: /dashboard
 Disallow: /extract
 Disallow: /join/
 Disallow: /learn
-Disallow: /legal
 Disallow: /pdf
 Disallow: /plan
 Disallow: /ranking

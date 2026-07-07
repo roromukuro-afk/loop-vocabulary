@@ -5,6 +5,64 @@
 
 ---
 
+## 2026-07-07 `/legal/commercial-transaction`を正式公開
+
+**目的**: 直前の作業で運営者情報（実名・所在地/電話番号の請求時開示方針）を
+反映済みだった特商法ページについて、オーナーから正式公開の承認があったため、
+noindex解除・robots.txt解除・footer等へのリンク追加・sitemap追加を実施する。
+
+**方針（オーナー指定、変更なし）**: 所在地・電話番号は実値を公開せず、
+「所在地および電話番号については、請求があった場合、法令に基づき遅滞なく
+開示します。開示を希望される場合は、お問い合わせフォームよりご連絡ください。」
+という文言のみ表示。販売事業者名・運営責任者名は実名（佐藤 慶音）のまま。
+
+**実装内容**:
+- `src/app/legal/commercial-transaction/page.tsx`: `metadata`から`robots`
+  （noindex,nofollow）フィールドを削除、ページ上部の「最終確認中です
+  （社内確認用ドラフト）」警告バナーを削除、ファイル冒頭コメントを
+  正式公開の経緯・リンク元・法律判断非断定の注記に更新
+- `public/robots.txt`: `Disallow: /legal`行を削除
+- `src/app/sitemap.ts`: `/legal/commercial-transaction`のエントリを追加
+  （`changeFrequency: "yearly"`, `priority: 0.3`）
+- `src/app/page.tsx`（トップページfooter「運営情報」欄）: 特商法表記への
+  リンクを追加。あわせて古いTODOコメントを削除
+- `src/app/premium/page.tsx`（下部リンクバー）: 特商法表記へのリンクを追加
+- `src/app/contact/page.tsx`（「その他のリンク」カード）: 特商法表記への
+  リンクを追加
+- `src/app/terms/page.tsx`（5. 広告・課金）: 特商法表記への一文導線を追加
+
+**テスト更新**: `scripts/testing/e2e/legal-trust-pages.mjs`のステップ9を
+全面更新。200表示・`/terms`との価格/解約方法整合・運営者実名記載・開示方針
+文言に加え、以下を新たに検証する内容にした。
+- noindexのrobots metaが出力されていないこと
+- `robots.txt`に`Disallow: /legal`が無いこと
+- `/sitemap.xml`に`/legal/commercial-transaction`が含まれること
+- footer（トップページ）・`/premium`・`/contact`・`/terms`のいずれからも
+  当該ページへのリンクがあること
+
+**変更していないもの**: 所在地・電話番号の実値（引き続き非掲載）、価格・
+支払方法・解約方法等の既存記載、Stripe/Premium仕様、AdSense広告枠、SRS V2、
+teacher機能、教材データ。`/faq`には特商法ページへのリンクを追加していない
+（既存の「関連リンク」的な区画が無く、不自然な変更になるため）。
+
+**変更ファイル**: `src/app/legal/commercial-transaction/page.tsx`、
+`public/robots.txt`、`src/app/sitemap.ts`、`src/app/page.tsx`、
+`src/app/premium/page.tsx`、`src/app/contact/page.tsx`、`src/app/terms/page.tsx`、
+`scripts/testing/e2e/legal-trust-pages.mjs`、`LAUNCH_STATUS.md`、
+`LAUNCH_READINESS_CHECKLIST.md`、`NEXT_IMPROVEMENTS.md`。
+
+**検証結果**: `tsc --noEmit`エラーなし、`build`成功、`test:legal-trust-pages`・
+`test:premium-conversion`・`test:smoke`全PASS、`test:e2e`全PASS、`verify:prod`・
+`verify:srs-global`全PASS（本番デプロイ前後で実施）。
+
+**DB変更**: なし。
+
+**残課題**: 特商法ページの請求時開示方式（住所・電話番号を常時公開せず
+請求時開示とする扱い）について、特定商取引法上の適法性の専門家（行政書士・
+弁護士等）確認は未実施のまま。必要と判断される場合は任意で対応する。
+
+---
+
 ## 2026-07-07 `/legal/commercial-transaction`に運営者情報を反映（引き続き未公開）
 
 **目的**: 特商法ページ（`/legal/commercial-transaction`）の正式公開に必要な

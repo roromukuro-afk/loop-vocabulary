@@ -224,6 +224,7 @@ export default async function PremiumPage() {
             <Link href="/contact" className="underline">お問い合わせ</Link>
             <Link href="/privacy" className="underline">プライバシーポリシー</Link>
             <Link href="/terms" className="underline">利用規約</Link>
+            <Link href="/legal/commercial-transaction" className="underline">特定商取引法に基づく表記</Link>
             <Link href="/dashboard" className="underline">ダッシュボードへ</Link>
           </div>
         </div>

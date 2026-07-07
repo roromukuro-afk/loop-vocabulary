@@ -662,8 +662,6 @@ export default async function LandingPage() {
                   https://loop-vocabulary.app
                 </a>
               </p>
-              {/* TODO(運営者): 特定商取引法・運営者情報は実際の運営者名／連絡先に置き換えること。
-                  現状は問い合わせ窓口(/contact)のみ掲載。詳細は HANDOFF.md 参照。 */}
               <p className="mt-1">
                 お問い合わせ:{" "}
                 <Link href="/contact" className="text-sky-600 hover:underline font-medium">
@@ -685,6 +683,7 @@ export default async function LandingPage() {
                 <span className="font-bold text-navy-700">運営情報</span>
                 <Link href="/privacy" className="hover:text-navy-700">プライバシーポリシー</Link>
                 <Link href="/terms" className="hover:text-navy-700">利用規約</Link>
+                <Link href="/legal/commercial-transaction" className="hover:text-navy-700">特定商取引法に基づく表記</Link>
                 <Link href="/contact" className="hover:text-navy-700">お問い合わせ</Link>
                 <Link href="/premium" className="hover:text-navy-700">プレミアムプラン</Link>
                 <Link href="/faq" className="hover:text-navy-700">FAQ</Link>

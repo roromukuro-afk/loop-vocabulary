@@ -1633,6 +1633,43 @@
     noindex解除・robots.txt解除）はオーナーの最終承認待ち。公開時の法律要件
     確認（専門家判断が必要な場合）も未実施のまま。
 
+52. ✅ **完了（2026-07-07）: `/legal/commercial-transaction`の正式公開**
+    項目51の残課題「正式公開」に対応。オーナーから正式公開の承認があり、
+    以下を実施した。
+    - `metadata.robots`（noindex,nofollow）を削除し、インデックス許可状態にした
+    - `public/robots.txt`から`Disallow: /legal`行を削除し、クロール許可にした
+    - ページ上部の「最終確認中です（社内確認用ドラフト）」警告バナーを削除
+    - footer（トップページ`src/app/page.tsx`の運営情報欄）・`/premium`（下部リンク
+      バー）・`/contact`（その他のリンクカード）・`/terms`（5. 広告・課金への
+      一文追記）の4箇所から`/legal/commercial-transaction`へのリンクを追加
+    - `src/app/sitemap.ts`に`/legal/commercial-transaction`のエントリを追加
+      （`changeFrequency: "yearly"`, `priority: 0.3`、他の信頼ページと同水準）
+    **所在地・電話番号の扱い**: 引き続き実値は掲載せず、オーナー指定どおりの
+    請求時開示文言（「所在地および電話番号については、請求があった場合、
+    法令に基づき遅滞なく開示します。開示を希望される場合は、お問い合わせ
+    フォームよりご連絡ください。」）のみを表示。個人情報の推測・捏造は行っていない。
+    **法律判断の扱い**: この開示方式が特定商取引法上どこまで認められるかに
+    ついて、本ラウンドでも法的な断定は行っていない。ファイル冒頭コメントに
+    正式公開後も専門家（行政書士・弁護士等）への確認を推奨する旨を残している。
+    **変更していないもの**: 価格・支払方法・解約方法等の既存記載、Stripe/Premium
+    仕様、AdSense広告枠、SRS V2、teacher機能、教材データ。
+    **変更ファイル**: `src/app/legal/commercial-transaction/page.tsx`、
+    `public/robots.txt`、`src/app/sitemap.ts`、`src/app/page.tsx`、
+    `src/app/premium/page.tsx`、`src/app/contact/page.tsx`、`src/app/terms/page.tsx`、
+    `scripts/testing/e2e/legal-trust-pages.mjs`、`LAUNCH_STATUS.md`、
+    `LAUNCH_READINESS_CHECKLIST.md`、`NEXT_IMPROVEMENTS.md`、`WORK_HISTORY.md`。
+    **テスト更新**: `test:legal-trust-pages`のステップ9を全面更新。200表示・
+    価格/解約方法の`/terms`との整合・運営者実名記載・開示方針文言に加え、
+    noindexメタが出力されていないこと、`robots.txt`に`Disallow: /legal`が
+    無いこと、`sitemap.xml`に含まれること、footer/`/premium`/`/contact`/`/terms`
+    のいずれからもリンクがあることを検証する内容に更新。全項目PASS確認済み。
+    検証: `tsc --noEmit`エラーなし、`build`成功、`test:legal-trust-pages`・
+    `test:premium-conversion`・`test:smoke`全PASS、`verify:prod`・
+    `verify:srs-global`全PASS（本番デプロイ後再実行）。
+    **DB変更**: なし。
+    **残課題**: 特商法ページの請求時開示方式について、専門家（行政書士・
+    弁護士等）への確認は未実施のまま（法律判断が必要な場合の任意対応として残る）。
+
 ---
 
 ## 💰 収益化・成長 監査（2026-07-04）

@@ -3,31 +3,28 @@ import type { Metadata } from "next";
 import { SUPPORT_EMAIL } from "@/lib/support";
 
 // ============================================================
-// /legal/commercial-transaction — 特定商取引法に基づく表記（最終確認中ドラフト）
+// /legal/commercial-transaction — 特定商取引法に基づく表記
 // ------------------------------------------------------------
 // 2026-07-06に雛形を作成、2026-07-07にオーナーから運営者情報の提供を受けて
-// 内容を更新した。販売事業者名・運営責任者名はオーナーから提供された実名を
-// 記載。所在地・電話番号は、オーナーの方針により直接掲載せず、
-// 「請求があった場合に遅滞なく開示する」旨を明記する形にしている
-// （個人情報を推測・捏造して埋めたものではない）。
+// 内容を更新し、同日オーナー承認のもと正式公開した。販売事業者名・
+// 運営責任者名はオーナーから提供された実名を記載。所在地・電話番号は、
+// オーナーの方針により直接掲載せず、「請求があった場合、法令に基づき
+// 遅滞なく開示する」旨を明記する形にしている（個人情報を推測・捏造して
+// 埋めたものではない）。
 //
 // この開示方式（個人事業主が住所・電話番号を常時公開せず、請求時開示とする
 // 扱い）が特定商取引法上どこまで認められるかについて、本ファイルは法的な
-// 断定を行わない。正式公開前に必要であれば専門家（行政書士・弁護士等）に
-// 確認することを推奨する（詳細: PRODUCTION_MONITORING.md §12-4、
-// LAUNCH_READINESS_CHECKLIST.md §4）。
+// 断定を行わない。必要であれば専門家（行政書士・弁護士等）への確認を推奨する
+// （詳細: PRODUCTION_MONITORING.md §12-4、LAUNCH_READINESS_CHECKLIST.md §4）。
 //
-// 公開方針（2026-07-07時点、引き続き未公開ドラフト）: ページ内容は更新したが、
-// 最終確認のため、footer・/contact・/premium等どこからもリンクしない状態を
-// 維持している（このファイルへの直接URLアクセスでのみ到達可能）。
-// sitemap.xmlにも含めず、robots meta (noindex,nofollow) と robots.txt の
-// 両方でクロールを防止したまま。正式公開（footerリンク追加・noindex解除・
-// robots.txt解除）は、オーナーの最終承認を得てから別途実施する。
+// 公開方針（2026-07-07正式公開）: footer（トップページ）・/premium・/contact・
+// /terms からリンクしている。sitemap.xmlにも追加し、noindex/robots.txtの
+// クロールブロックも解除済み（通常のページと同じくインデックス対象）。
 // ============================================================
 
 export const metadata: Metadata = {
-  title: "特定商取引法に基づく表記（最終確認中） | Loop Vocabulary",
-  robots: { index: false, follow: false },
+  title: "特定商取引法に基づく表記 | Loop Vocabulary",
+  description: "Loop Vocabulary（英単語学習アプリ）の特定商取引法に基づく表記。運営者情報・価格・支払方法・解約方法について。",
 };
 
 function Row({ label, value, pending }: { label: string; value: React.ReactNode; pending?: boolean }) {
@@ -48,22 +45,8 @@ export default function CommercialTransactionPage() {
     <div className="max-w-3xl mx-auto px-5 py-10 prose prose-sm">
       <Link href="/" className="text-xs text-navy-500">← トップへ</Link>
 
-      <div className="mt-4 bg-amber-50 border-2 border-amber-300 rounded-xl px-4 py-3 not-prose">
-        <p className="text-sm font-bold text-amber-900">
-          ⚠️ このページは最終確認中です（社内確認用ドラフト・引き続き未公開）
-        </p>
-        <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-          運営者情報（販売事業者名・運営責任者名）はオーナーから提供された情報を
-          記載しました。所在地・電話番号は、オーナーの方針により常時公開はせず、
-          請求があった場合に開示する取り扱いとしています。このページはサイト内の
-          どこからもリンクされておらず、検索エンジンにもインデックスされません
-          (robots: noindex, nofollow)。最終確認・承認が完了するまで、
-          本ページを正式な特定商取引法に基づく表記として公開・案内しないでください。
-        </p>
-      </div>
-
       <h1 className="text-2xl font-bold text-navy-800 mt-4">特定商取引法に基づく表記</h1>
-      <p className="text-sm text-navy-500">最終更新日: 2026-07-07（最終確認中ドラフト）</p>
+      <p className="text-sm text-navy-500">最終更新日: 2026-07-07</p>
 
       <table className="w-full mt-4 not-prose">
         <tbody>

@@ -53,6 +53,7 @@ export default function ContactPage() {
             <li><Link href="/faq" className="underline">よくある質問（FAQ）</Link></li>
             <li><Link href="/privacy" className="underline">プライバシーポリシー</Link></li>
             <li><Link href="/terms" className="underline">利用規約</Link></li>
+            <li><Link href="/legal/commercial-transaction" className="underline">特定商取引法に基づく表記</Link></li>
             <li><Link href="/account/delete" className="underline">アカウント削除</Link></li>
             <li><Link href="/premium" className="underline">プレミアムプランの案内</Link></li>
           </ul>

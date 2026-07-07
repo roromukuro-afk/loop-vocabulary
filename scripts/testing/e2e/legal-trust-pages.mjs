@@ -36,14 +36,17 @@
  * の雛形を作成した（案A: ページは実装するがfooter等どこからもリンクしない）。
  * 2026-07-07、オーナーから運営者情報の提供を受け、販売事業者名・運営責任者名を
  * 実名に更新。所在地・電話番号はオーナーの方針により常時公開せず、「請求があった
- * 場合、法令に基づき遅滞なく開示する」旨と`/contact`への導線を表示する形にした
- * （最終確認のため、公開方針(noindex・非リンク)自体は変更していない）。以下を検証する。
+ * 場合、法令に基づき遅滞なく開示する」旨と`/contact`への導線を表示する形にした。
+ * 同日、オーナー承認のもと正式公開（noindex解除・robots.txt解除・footer/
+ * /premium/`/contact`/`/terms`へのリンク追加・sitemap.xml追加）に切り替えた。
+ * 以下を検証する。
  * 9. `/legal/commercial-transaction`が200で表示され、確定済み情報（価格・
  *    Stripeカスタマーポータルでの解約）が/termsと整合していること・
  *    運営者情報（実名）と所在地/電話番号の開示方針文言が表示されていること・
- *    `<meta name="robots" content="noindex, nofollow">`が出力されていること・
- *    `/premium`・`/contact`・`/faq`・ランディングページfooterのいずれからも
- *    リンクされていないこと・`robots.txt`に`Disallow: /legal`があること
+ *    `noindex`のrobots metaが出力されていない（インデックス許可）こと・
+ *    `/premium`・`/contact`・ランディングページfooter・`/terms`のいずれからも
+ *    リンクされていること・`robots.txt`に`Disallow: /legal`が無いこと・
+ *    `/sitemap.xml`に含まれていること
  *
  * 使い方: node scripts/testing/e2e/legal-trust-pages.mjs
  */
@@ -207,8 +210,8 @@ async function main() {
     }
     await page6.close();
 
-    // ================= 9. /legal/commercial-transaction（特商法表記ドラフト） =================
-    console.log("\n--- 9. /legal/commercial-transaction: 200表示・確定情報の整合・プレースホルダー・noindex・非リンクの確認 ---");
+    // ================= 9. /legal/commercial-transaction（特商法表記、2026-07-07正式公開） =================
+    console.log("\n--- 9. /legal/commercial-transaction: 200表示・確定情報の整合・運営者情報・index許可・footer等からのリンク・sitemap収録の確認 ---");
     const legalRes = await fetch(`${baseUrl}/legal/commercial-transaction`, { redirect: "manual" });
     if (legalRes.status === 200) ok("/legal/commercial-transaction -> 200");
     else fail(`/legal/commercial-transaction -> ${legalRes.status}（200を期待）`);
@@ -229,32 +232,40 @@ async function main() {
     } else {
       fail("/legal/commercial-transactionに所在地・電話番号の開示方針文言が見つからない");
     }
-    if (/<meta name="robots" content="noindex,\s*nofollow"\s*\/?>/.test(legalHtml)) {
-      ok("/legal/commercial-transactionにnoindex,nofollowのrobots metaが出力されている");
+    if (/<meta name="robots" content="noindex/.test(legalHtml)) {
+      fail("/legal/commercial-transactionに正式公開後も noindex のrobots metaが残っている");
     } else {
-      fail("/legal/commercial-transactionにrobots noindexメタタグが見つからない");
+      ok("/legal/commercial-transactionにnoindexのrobots metaが出力されていない（インデックス許可、正式公開の状態）");
     }
 
     const robotsTxt = readFileSync(resolve(REPO_ROOT, "public/robots.txt"), "utf8");
     if (/Disallow:\s*\/legal\b/.test(robotsTxt)) {
-      ok("robots.txtに Disallow: /legal がある");
+      fail("robots.txtに正式公開後も Disallow: /legal が残っている");
     } else {
-      fail("robots.txtに Disallow: /legal が見つからない");
+      ok("robots.txtに Disallow: /legal が無い（クロール許可、正式公開の状態）");
+    }
+
+    const sitemapRes = await fetch(`${baseUrl}/sitemap.xml`);
+    const sitemapXml = await sitemapRes.text();
+    if (sitemapXml.includes("/legal/commercial-transaction")) {
+      ok("/sitemap.xmlに/legal/commercial-transactionが含まれている");
+    } else {
+      fail("/sitemap.xmlに/legal/commercial-transactionが含まれていない");
     }
 
     const page7 = await browser.newPage();
     const notLinkedFrom = [];
-    for (const p of ["/premium", "/contact", "/faq", "/"]) {
+    for (const p of ["/premium", "/contact", "/terms", "/"]) {
       await gotoReady(page7, `${baseUrl}${p}`);
       const html = await page7.content();
-      if (html.includes("/legal/commercial-transaction") || html.includes("特定商取引法に基づく表記")) {
+      if (!html.includes("/legal/commercial-transaction") && !html.includes("特定商取引法に基づく表記")) {
         notLinkedFrom.push(p);
       }
     }
     if (notLinkedFrom.length === 0) {
-      ok("/premium・/contact・/faq・トップページのいずれからも/legal/commercial-transactionへのリンクは出ていない（案A: 未公開導線を維持）");
+      ok("/premium・/contact・/terms・トップページ(footer)のいずれからも/legal/commercial-transactionへのリンクがある（正式公開の導線を確認）");
     } else {
-      fail(`/legal/commercial-transactionへのリンクが意図せず公開導線に出ている: ${notLinkedFrom.join(", ")}`);
+      fail(`/legal/commercial-transactionへのリンクが見つからないページがある: ${notLinkedFrom.join(", ")}`);
     }
     await page7.close();
   } finally {

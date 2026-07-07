@@ -49,6 +49,11 @@ export default function TermsPage() {
         Android では Google Play Billing、iOS では Apple In-App Purchase を経由して行います
         （現時点では未提供です）。
       </p>
+      <p className="mt-2">
+        事業者名・支払時期・解約方法等の詳細は{" "}
+        <Link href="/legal/commercial-transaction" className="underline">特定商取引法に基づく表記</Link>
+        をご確認ください。
+      </p>
 
       <h2 className="text-lg font-bold text-navy-800 mt-6">6. アカウントの削除 (ユーザー側)</h2>
       <p>
