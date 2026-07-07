@@ -5,6 +5,63 @@
 
 ---
 
+## 2026-07-07 `/premium`に高校生・英検・大学受験向けセクションを追加
+
+**目的**: 高校生向け収益化導線の第4段階として、`/materials/highschool`・
+`/materials/eiken`・`/materials/university-exam`から`/premium`に来た
+ユーザーが、Premiumにする理由（自分に関係あるか・英検/大学受験にどう
+使えるか・無料版との違い・保護者が課金しても安心か）を理解できるように
+するオーナー指示に対応。
+
+**調査**: `/premium`・3つの目的別LP・`/weak`・`/plan`・`/extract`・
+`/test/typing`・`/test/listening`・`/pdf`の現状、既存の無料/Premium比較表
+（`COMPARISON`定数）・価格表示（月額¥480・年額34%OFF）・解約/特商法/利用規約
+導線、`test:premium-conversion`・`test:legal-trust-pages`の既存テスト
+パターンを確認。3つの目的別LPのPremium誘導CTAはいずれも既に「月額 ¥480〜
+プレミアムを見る →」という統一された控えめな文言だったため、変更不要と判断した。
+
+**実装内容**: `src/app/premium/page.tsx`のAI機能ショーケースと機能比較表の
+間に新規セクションを追加。
+- 見出し「高校生・英検・大学受験にも使えるPremium」＋「無料でも基本学習は
+  できる、Premiumで効率化できる」というトーンの導入文
+- 📝英検対策・🎓大学受験・📚定期テストの3カード（オーナー指定どおりの
+  Premium機能タグと自然な訴求文、それぞれ`/materials/eiken`・`/materials/
+  university-exam`・`/materials/highschool`へのリンク付き）
+- 「無料でできること／Premiumで効率化できること」の要約2列リスト
+- 「保護者の方へ」ボックス（無料でも基本学習可能・Premium加入は任意・
+  料金明記・解約方法は`/terms`・特商法ページへの導線・成績/合格を保証しない
+  旨・学習データをもとに復習を支援する旨の7点。前々回・前回ラウンドの教訓を
+  踏まえ、禁止フレーズを直接引用しない言い回しで記載）
+
+**テスト更新**: `scripts/testing/e2e/premium-conversion.mjs`にステップ「1c」
+を追加し、新セクションの見出し・3カードの内容とタグ・無料/Premium要約・
+保護者ボックス・各教材LPへの導線・架空の合格実績や成績保証表現が無いこと・
+既存の料金表示（34% OFF・¥480）/特定商取引法/利用規約への導線が壊れていない
+ことを検証。全項目、初回実行からPASS。
+
+**変更していないもの**: Stripe価格・checkout処理・Premium機能自体、既存の
+料金比較表・FAQ・年間/月額チェックアウトボタン、特商法ページ自体の内容、
+AdSense広告枠、SRS V2、teacher機能、教材データ、既存3LPのCTA文言（確認の上
+変更不要と判断）。
+
+**変更ファイル**: `src/app/premium/page.tsx`、
+`scripts/testing/e2e/premium-conversion.mjs`、`NEXT_IMPROVEMENTS.md`、
+`WORK_HISTORY.md`。
+
+**検証結果**: `tsc --noEmit`エラーなし、`build`成功、`test:premium-
+conversion`・`test:category-lps`・`test:legal-trust-pages`・`test:smoke`・
+`test:e2e`（全スイート）・`verify:prod`・`verify:srs-global`全PASS。
+（`test:category-lps`と`test:legal-trust-pages`を並行実行した際、共有
+dev-serverの競合で`test:legal-trust-pages`が一時的にクラッシュしたが、
+単独で再実行したところ全PASSを確認 — 本ラウンドの変更による実際の不具合
+ではない）
+
+**DB変更**: なし。
+
+**残課題**: 特になし。
+
+---
+
 ## 2026-07-07 大学受験英単語LP（`/materials/university-exam`）の新設
 
 **目的**: 高校生向け収益化導線の第3段階として、目的別（大学受験対策）の

@@ -157,6 +157,96 @@ export default async function PremiumPage() {
           </div>
         </div>
 
+        {/* 高校生・英検・大学受験向け */}
+        <div className="mt-8">
+          <h2 className="font-black text-navy-800 text-center mb-1">高校生・英検・大学受験にも使えるPremium</h2>
+          <p className="text-xs text-navy-500 text-center mb-4 leading-relaxed">
+            無料でも単語帳・SRS復習・4択/入力/PDFテストなど基本の学習はできます。
+            Premiumなら、目的に合わせて復習をもう少し効率化できます。
+          </p>
+          <div className="space-y-3">
+            <div className="bg-white rounded-2xl border border-navy-100 p-4">
+              <div className="font-bold text-navy-800 text-sm mb-1">📝 英検対策</div>
+              <p className="text-xs text-navy-500 mb-2 leading-relaxed">
+                苦手な品詞や単語の傾向を確認し、試験前の復習範囲を整理。音とスペルも確認できます。
+              </p>
+              <div className="flex flex-wrap gap-1.5 text-[10px]">
+                {["AI弱点分析", "AI学習プラン", "リスニング練習", "タイピング練習", "広告非表示"].map((f) => (
+                  <span key={f} className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">{f}</span>
+                ))}
+              </div>
+              <Link href="/materials/eiken" className="inline-block mt-2 text-[11px] text-sky-700 hover:underline">
+                英検対策教材を見る →
+              </Link>
+            </div>
+            <div className="bg-white rounded-2xl border border-navy-100 p-4">
+              <div className="font-bold text-navy-800 text-sm mb-1">🎓 大学受験</div>
+              <p className="text-xs text-navy-500 mb-2 leading-relaxed">
+                模試前・入試前に復習範囲を整理し、長文や問題集から覚えるべき単語を抽出。入力テストでスペルまで確認できます。
+              </p>
+              <div className="flex flex-wrap gap-1.5 text-[10px]">
+                {["AI弱点分析", "AI学習プラン", "AI単語抽出", "タイピング練習", "リスニング練習"].map((f) => (
+                  <span key={f} className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">{f}</span>
+                ))}
+              </div>
+              <Link href="/materials/university-exam" className="inline-block mt-2 text-[11px] text-sky-700 hover:underline">
+                大学受験対策教材を見る →
+              </Link>
+            </div>
+            <div className="bg-white rounded-2xl border border-navy-100 p-4">
+              <div className="font-bold text-navy-800 text-sm mb-1">📚 定期テスト</div>
+              <p className="text-xs text-navy-500 mb-2 leading-relaxed">
+                テスト前に覚える範囲を整理し、学校教材やプリントの英文から単語を抽出。広告なしで短時間学習に集中できます。
+              </p>
+              <div className="flex flex-wrap gap-1.5 text-[10px]">
+                {["AI学習プラン", "AI単語抽出", "広告非表示", "タイピング練習"].map((f) => (
+                  <span key={f} className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">{f}</span>
+                ))}
+              </div>
+              <Link href="/materials/highschool" className="inline-block mt-2 text-[11px] text-sky-700 hover:underline">
+                高校生向けページへ →
+              </Link>
+            </div>
+          </div>
+
+          {/* 無料/Premiumの違い（要約） */}
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-white rounded-xl border border-navy-100 p-4">
+              <div className="text-xs font-bold text-navy-800 mb-2">無料でできること</div>
+              <ul className="text-[11px] text-navy-600 space-y-1 list-disc pl-4">
+                <li>教材のインポート・単語帳の作成</li>
+                <li>SRS（忘却曲線）による自動復習</li>
+                <li>4択テスト・入力テスト</li>
+                <li>PDFテストの作成</li>
+                <li>達成スタンプでの学習記録</li>
+              </ul>
+            </div>
+            <div className="bg-white rounded-xl border border-navy-100 p-4">
+              <div className="text-xs font-bold text-navy-800 mb-2">Premiumで効率化できること</div>
+              <ul className="text-[11px] text-navy-600 space-y-1 list-disc pl-4">
+                <li>AI弱点分析・AI学習プラン</li>
+                <li>AI単語抽出</li>
+                <li>タイピング・リスニング練習</li>
+                <li>広告非表示</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* 保護者の方へ */}
+          <div className="mt-4 bg-navy-50 rounded-2xl p-4">
+            <div className="text-sm font-bold text-navy-700 mb-2">保護者の方へ</div>
+            <ul className="text-xs text-navy-600 space-y-1 list-disc pl-4">
+              <li>無料の範囲でも、単語帳・SRS復習・4択/入力/PDFテストなど基本的な学習が可能です</li>
+              <li>Premiumへの加入は任意です</li>
+              <li>月額・年額の料金はこのページ内に明記しています</li>
+              <li>解約方法は<Link href="/terms" className="underline">利用規約</Link>に記載しています</li>
+              <li>販売事業者情報などは<Link href="/legal/commercial-transaction" className="underline">特定商取引法に基づく表記</Link>をご確認ください</li>
+              <li>テストの点数上昇や合格を確約するような表現、誇張した実績の記載は行っていません</li>
+              <li>学習データ（正誤・復習状況）をもとに、無理なく復習を続けられるよう支援するアプリです</li>
+            </ul>
+          </div>
+        </div>
+
         {/* 機能比較表 */}
         <div className="mt-8">
           <h2 className="font-black text-navy-800 text-center mb-3">無料 vs Premium</h2>

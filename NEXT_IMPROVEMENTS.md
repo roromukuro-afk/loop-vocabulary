@@ -1812,6 +1812,46 @@
     university-exam）の3LPが揃ったため、次のステップは実際の流入・転換状況を
     Search Console等で観察するフェーズに移行するのが自然と考えられる。
 
+56. ✅ **完了（2026-07-07）: `/premium`に高校生・英検・大学受験向けセクションを追加**
+    高校生向け収益化導線の第4段階として、`/materials/highschool`・
+    `/materials/eiken`・`/materials/university-exam`から`/premium`に来た
+    ユーザーが「自分に関係あるのか」「無料版との違い」を理解できるように
+    するオーナー指示に対応。既存の料金カード・比較表・FAQ・Stripe checkout
+    導線には一切手を加えず、AI機能ショーケースと機能比較表の間に新規セクション
+    を挿入する形で実装した。
+    **追加したセクション**: 見出し「高校生・英検・大学受験にも使えるPremium」
+    ＋導入文（無料でも基本学習は可能、Premiumで効率化できる、というトーン）。
+    - 📝 英検対策カード（AI弱点分析・AI学習プラン・リスニング練習・タイピング
+      練習・広告非表示、`/materials/eiken`へのリンク付き）
+    - 🎓 大学受験カード（AI弱点分析・AI学習プラン・AI単語抽出・タイピング
+      練習・リスニング練習、`/materials/university-exam`へのリンク付き）
+    - 📚 定期テストカード（AI学習プラン・AI単語抽出・広告非表示・タイピング
+      練習、`/materials/highschool`へのリンク付き）
+    - 「無料でできること／Premiumで効率化できること」の要約2列リスト
+    - 「保護者の方へ」ボックス（無料でも基本学習可能・Premium加入は任意・
+      料金明記・解約方法は`/terms`・特商法ページへの導線・成績/合格を保証
+      しない旨・学習データをもとに復習を支援する旨の7点）
+    **既存LPからの導線確認**: `/materials/highschool`・`/materials/eiken`・
+    `/materials/university-exam`のPremium誘導CTAはいずれも既に「月額 ¥480〜
+    プレミアムを見る →」という控えめな文言で統一されていたため、変更不要と
+    判断した（強すぎる課金誘導ではないことを確認済み）。
+    **変更していないもの**: Stripe価格・checkout処理・Premium機能自体、
+    既存の料金比較表・FAQ・年間/月額チェックアウトボタン、特商法ページ
+    自体の内容、AdSense広告枠、SRS V2、teacher機能、教材データ。
+    **テスト更新**: `scripts/testing/e2e/premium-conversion.mjs`にステップ
+    「1c」を追加し、新セクションの見出し・3カードの内容とタグ・無料/Premium
+    要約・保護者ボックス・各教材LPへの導線・架空の合格実績や成績保証表現が
+    無いこと・既存の料金表示（34% OFF・¥480）/特定商取引法/利用規約への導線が
+    壊れていないことを検証。`test:category-lps`・`test:legal-trust-pages`にも
+    回帰がないことを確認した（並行実行による共有dev-server競合で一時的に
+    `test:legal-trust-pages`がクラッシュしたが、単独再実行で全PASSを確認 —
+    本ラウンドの変更による実際の不具合ではない）。
+    検証: `tsc --noEmit`エラーなし、`build`成功、`test:premium-conversion`・
+    `test:category-lps`・`test:legal-trust-pages`・`test:smoke`・
+    `test:e2e`（全スイート）・`verify:prod`・`verify:srs-global`全PASS。
+    **DB変更**: なし。
+    **残課題**: 特になし。
+
 ---
 
 ## 💰 収益化・成長 監査（2026-07-04）

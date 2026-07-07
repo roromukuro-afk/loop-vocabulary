@@ -33,6 +33,12 @@
  *    あわせて、reward_ticketsの予約済み・未実装kind（pdf_export/weak_word_test/
  *    analysis_ticket）がPremium特典として`/premium`に出ていないことも同じ手順で確認
  *    （2026-07-06「reward_tickets未実装kind整理」、詳細はWORK_HISTORY.md参照）
+ * 1c. `/premium`に高校生・英検・大学受験向けセクション（2026-07-07追加）が正しく
+ *     表示される。見出し・英検対策/大学受験/定期テストの3カード・各カードの
+ *     Premium機能タグ・無料/Premium違いの要約・保護者向け安心ボックス・
+ *     /materials/eiken・/materials/university-exam・/materials/highschoolへの
+ *     導線・架空の合格実績や成績保証表現が無いこと・既存の料金表示（34% OFF・
+ *     ¥480）/特定商取引法/利用規約への導線が壊れていないことを確認する
  *
  * 使い方: node scripts/testing/e2e/premium-conversion.mjs
  */
@@ -133,6 +139,101 @@ async function main() {
       ok("/premium: 実データに基づかない誇張・社会的証明の文言は検出されなかった");
     } else {
       fail(`/premium: 誇張・未実証の文言が残っている: ${foundBanned1.join(", ")}`);
+    }
+
+    // ================= 1c. 高校生・英検・大学受験向けセクション（2026-07-07追加） =================
+    console.log("\n--- 1c. /premium: 高校生・英検・大学受験向けセクションが正しく表示される ---");
+    if (bodyText1.includes("高校生・英検・大学受験にも使えるPremium")) {
+      ok("/premium: 高校生・英検・大学受験向けセクションの見出しが表示される");
+    } else {
+      fail("/premium: 高校生・英検・大学受験向けセクションの見出しが見つからない");
+    }
+    if (
+      bodyText1.includes("📝 英検対策") &&
+      bodyText1.includes("苦手な品詞や単語の傾向を確認") &&
+      bodyText1.includes("試験前の復習範囲を整理") &&
+      bodyText1.includes("音とスペルも確認")
+    ) {
+      ok("/premium: 英検対策カードが正しく表示される");
+    } else {
+      fail("/premium: 英検対策カードの表示が想定と異なる");
+    }
+    if (
+      bodyText1.includes("🎓 大学受験") &&
+      bodyText1.includes("模試前・入試前に復習範囲を整理") &&
+      bodyText1.includes("長文や問題集から覚えるべき単語を抽出") &&
+      bodyText1.includes("入力テストでスペルまで確認")
+    ) {
+      ok("/premium: 大学受験カードが正しく表示される");
+    } else {
+      fail("/premium: 大学受験カードの表示が想定と異なる");
+    }
+    if (
+      bodyText1.includes("📚 定期テスト") &&
+      bodyText1.includes("テスト前に覚える範囲を整理") &&
+      bodyText1.includes("学校教材やプリントの英文から単語を抽出") &&
+      bodyText1.includes("広告なしで短時間学習に集中")
+    ) {
+      ok("/premium: 定期テストカードが正しく表示される");
+    } else {
+      fail("/premium: 定期テストカードの表示が想定と異なる");
+    }
+    if (bodyText1.includes("無料でできること") && bodyText1.includes("Premiumで効率化できること")) {
+      ok("/premium: 無料/Premiumの違いの要約（高校生向けセクション内）が表示される");
+    } else {
+      fail("/premium: 無料/Premiumの違いの要約が見つからない");
+    }
+    if (
+      bodyText1.includes("保護者の方へ") &&
+      bodyText1.includes("Premiumへの加入は任意です") &&
+      bodyText1.includes("学習データ")
+    ) {
+      ok("/premium: 保護者向け安心要素（保護者の方へボックス）が表示される");
+    } else {
+      fail("/premium: 保護者向け安心要素が見つからない");
+    }
+    if (
+      !bodyText1.includes("合格実績") &&
+      !bodyText1.includes("必ず成績が上がる") &&
+      !bodyText1.includes("合格を保証") &&
+      !bodyText1.includes("合格できる") &&
+      !bodyText1.includes("必ず伸びる")
+    ) {
+      ok("/premium: 高校生向けセクションに架空の合格実績・成績保証表現が無い");
+    } else {
+      fail("/premium: 高校生向けセクションに禁止すべき誇張・保証表現が含まれている");
+    }
+
+    const eikenCardLink = page1.locator('a[href="/materials/eiken"]');
+    const uniCardLink = page1.locator('a[href="/materials/university-exam"]');
+    const highschoolCardLink = page1.locator('a[href="/materials/highschool"]');
+    if (
+      (await eikenCardLink.count()) > 0 &&
+      (await uniCardLink.count()) > 0 &&
+      (await highschoolCardLink.count()) > 0
+    ) {
+      ok("/premium: 高校生向けセクションの各カードから/materials/eiken・university-exam・highschoolへの導線がある");
+    } else {
+      fail("/premium: 高校生向けセクションのカードから各教材LPへの導線が見つからない");
+    }
+
+    // 既存の価格表示・特商法・利用規約導線・チェックアウト訴求が壊れていないことも確認
+    if (bodyText1.includes("34% OFF") && bodyText1.includes("¥480")) {
+      ok("/premium: 月額・年額の料金表示が維持されている");
+    } else {
+      fail("/premium: 料金表示が想定と異なる（高校生向けセクション追加による回帰の可能性）");
+    }
+    const tokushohoLink = page1.locator('a[href="/legal/commercial-transaction"]');
+    if ((await tokushohoLink.count()) > 0) {
+      ok("/premium: 特定商取引法に基づく表記への導線が維持されている");
+    } else {
+      fail("/premium: 特定商取引法に基づく表記への導線が見つからない");
+    }
+    const termsLinkOnPremium = page1.locator('a[href="/terms"]');
+    if ((await termsLinkOnPremium.count()) > 0) {
+      ok("/premium: 利用規約への導線が維持されている");
+    } else {
+      fail("/premium: 利用規約への導線が見つからない");
     }
 
     // ================= 7. モバイル幅での崩れ確認（非Premium状態のまま） =================
