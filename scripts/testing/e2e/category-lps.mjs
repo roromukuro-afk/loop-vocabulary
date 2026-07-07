@@ -18,6 +18,11 @@
  *     正しく表示される。metadata（description/canonical）・JSON-LD（Breadcrumb+ItemList）・
  *     /materials⇄/materials/highschoolの相互導線、モバイル幅での崩れなし、
  *     /materials/[id]とのルーティング非競合も確認する
+ * 11. /materials/eiken が200で表示され、英検4・5級〜1級の教材10件が級別に正しく
+ *     表示される。metadata（description/canonical）・JSON-LD（Breadcrumb+ItemList）・
+ *     /materials⇄/materials/eiken・/materials/highschool⇄/materials/eikenの
+ *     相互導線、未実証の合格保証表現が無いこと、モバイル幅での崩れなし、
+ *     /materials/[id]とのルーティング非競合も確認する
  *
  * 使い方: node scripts/testing/e2e/category-lps.mjs
  */
@@ -369,6 +374,145 @@ async function main() {
       ok("/materials/highschool追加後も既存の/materials/[id]が正常に動作する（ルーティング競合なし）");
     } else {
       fail(`/materials/highschool追加後、/materials/${TOEIC_BASIC_100_ID} の表示が想定と異なる: "${stillOkAfterHighschool}"`);
+    }
+
+    // ---- 11. /materials/eiken ----
+    const eikenRes = await page.goto(`${baseUrl}/materials/eiken`, { waitUntil: "load" });
+    await page.waitForLoadState("networkidle");
+    if (eikenRes && eikenRes.status() === 200) ok("/materials/eiken が200で表示される");
+    else fail(`/materials/eiken のステータスが200ではない (${eikenRes?.status()})`);
+
+    const eikenH1 = await page.locator("h1").textContent();
+    if (eikenH1?.includes("英検")) ok(`/materials/eiken のH1に「英検」を含む: "${eikenH1}"`);
+    else fail(`/materials/eiken のH1が想定と異なる: "${eikenH1}"`);
+
+    const eikenCards = page.locator('[data-testid="category-lp-materials"] a');
+    const eikenCardCount = await eikenCards.count();
+    if (eikenCardCount === 10) ok(`/materials/eiken に教材カードが10件（英検4・5級〜1級）表示される`);
+    else fail(`/materials/eiken の教材カード数が想定(10件)と異なる (実際: ${eikenCardCount}件)`);
+
+    const eikenBodyText = await page.locator("body").innerText();
+    if (
+      eikenBodyText.includes("英検5・4級 基礎単語") &&
+      eikenBodyText.includes("英検3級 重要単語") &&
+      eikenBodyText.includes("英検3級 基礎100【スターターパック】") &&
+      eikenBodyText.includes("英検準2級 重要単語") &&
+      eikenBodyText.includes("英検準2級 基礎100【スターターパック】") &&
+      eikenBodyText.includes("英検2級 重要単語") &&
+      eikenBodyText.includes("英検2級 必須単語800") &&
+      eikenBodyText.includes("英検準1級 重要単語") &&
+      eikenBodyText.includes("英検準1級 必須単語600") &&
+      eikenBodyText.includes("英検1級 必須単語")
+    ) {
+      ok("/materials/eiken に英検4・5級〜1級の全教材タイトルが表示される");
+    } else {
+      fail("/materials/eiken に想定の教材タイトルが表示されていない");
+    }
+
+    if (
+      !eikenBodyText.includes("合格実績") &&
+      !eikenBodyText.includes("必ず成績が上がる") &&
+      !eikenBodyText.includes("合格を保証") &&
+      !eikenBodyText.includes("合格できる")
+    ) {
+      ok("/materials/eiken に架空の合格実績・成績保証表現が無い");
+    } else {
+      fail("/materials/eiken に禁止すべき誇張・保証表現が含まれている");
+    }
+
+    const eikenCanonical = await page
+      .locator('link[rel="canonical"]')
+      .getAttribute("href")
+      .catch(() => null);
+    if (eikenCanonical === "https://loop-vocabulary.app/materials/eiken") {
+      ok("/materials/eiken のcanonicalが正しい");
+    } else {
+      fail(`/materials/eiken のcanonicalが想定と異なる: "${eikenCanonical}"`);
+    }
+
+    const eikenMetaDesc = await page
+      .locator('meta[name="description"]')
+      .getAttribute("content")
+      .catch(() => null);
+    if (eikenMetaDesc?.includes("英検")) {
+      ok("/materials/eiken のmeta descriptionに「英検」を含む");
+    } else {
+      fail(`/materials/eiken のmeta descriptionが想定と異なる: "${eikenMetaDesc}"`);
+    }
+
+    const eikenLdJsonCount = await page.locator('script[type="application/ld+json"]').count();
+    const eikenHtml = await page.content();
+    if (
+      eikenLdJsonCount >= 2 &&
+      eikenHtml.includes('"@type":"BreadcrumbList"') &&
+      eikenHtml.includes('"@type":"ItemList"') &&
+      eikenHtml.includes("英検対策の英単語教材")
+    ) {
+      ok("/materials/eiken にBreadcrumbList・ItemListのJSON-LDが正しく出力されている");
+    } else {
+      fail("/materials/eiken のJSON-LD（Breadcrumb/ItemList）が想定と異なる");
+    }
+
+    const eikenDictLink = page.locator('a[href="/dictionary"]');
+    if (await eikenDictLink.first().isVisible().catch(() => false)) ok("/materials/eiken に/dictionaryへの導線がある");
+    else fail("/materials/eiken に/dictionaryへの導線が見つからない");
+
+    const eikenPremiumLink = page.locator('a[href="/premium"]');
+    if (await eikenPremiumLink.first().isVisible().catch(() => false)) ok("/materials/eiken に/premiumへの控えめな導線がある");
+    else fail("/materials/eiken に/premiumへの導線が見つからない");
+
+    // ---- 11b. /materials/eiken ⇄ /materials/highschool ----
+    const eikenToHighschoolLink = page.locator('a[href="/materials/highschool"]');
+    if (await eikenToHighschoolLink.first().isVisible().catch(() => false)) {
+      await Promise.all([
+        page.waitForURL((u) => u.pathname === "/materials/highschool", { timeout: 10000 }),
+        eikenToHighschoolLink.first().click(),
+      ]);
+      ok("/materials/eiken から/materials/highschoolへ遷移できる");
+    } else {
+      fail("/materials/eiken に/materials/highschoolへの導線が見つからない");
+    }
+    const highschoolToEikenLink = page.locator('a[href="/materials/eiken"]');
+    if (await highschoolToEikenLink.first().isVisible().catch(() => false)) {
+      ok("/materials/highschool から/materials/eikenへの導線がある");
+    } else {
+      fail("/materials/highschool に/materials/eikenへの導線が見つからない");
+    }
+
+    // ---- 11c. /materials ⇄ /materials/eiken ----
+    await gotoReady(page, `${baseUrl}/materials`);
+    const eikenLpLink = page.locator('a[href="/materials/eiken"]');
+    if ((await eikenLpLink.count()) > 0) {
+      await Promise.all([
+        page.waitForURL((u) => u.pathname === "/materials/eiken", { timeout: 10000 }),
+        eikenLpLink.first().click(),
+      ]);
+      ok("/materials から/materials/eikenへ遷移できる");
+    } else {
+      fail("/materials に/materials/eikenへの導線が見つからない");
+    }
+    const backToMaterialsLinkEiken = page.locator('a[href="/materials"]');
+    if (await backToMaterialsLinkEiken.first().isVisible().catch(() => false)) {
+      ok("/materials/eiken に/materials（教材一覧）への戻りリンクがある");
+    } else {
+      fail("/materials/eiken に/materialsへの戻りリンクが見つからない");
+    }
+
+    // ---- 11d. モバイル幅での表示崩れ確認 ----
+    await page.setViewportSize({ width: 375, height: 812 });
+    await gotoReady(page, `${baseUrl}/materials/eiken`);
+    const hasOverflowEiken = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
+    if (!hasOverflowEiken) ok("/materials/eiken: モバイル幅(375px)で横スクロールが発生していない");
+    else fail("/materials/eiken: モバイル幅(375px)で横スクロールが発生している");
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // ---- 11e. /materials/[id]とのルーティング非競合 ----
+    await gotoReady(page, `${baseUrl}/materials/${TOEIC_BASIC_100_ID}`);
+    const stillOkAfterEiken = await page.locator('[data-testid="material-title"]').textContent().catch(() => null);
+    if (stillOkAfterEiken?.includes("TOEIC 基礎100")) {
+      ok("/materials/eiken追加後も既存の/materials/[id]が正常に動作する（ルーティング競合なし）");
+    } else {
+      fail(`/materials/eiken追加後、/materials/${TOEIC_BASIC_100_ID} の表示が想定と異なる: "${stillOkAfterEiken}"`);
     }
 
     if (errors.length === 0) ok("操作中に console error / 5xx なし");

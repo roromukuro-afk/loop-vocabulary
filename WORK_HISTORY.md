@@ -5,6 +5,72 @@
 
 ---
 
+## 2026-07-07 英検対策LP（`/materials/eiken`）の新設
+
+**目的**: 高校生向け収益化導線の第2段階として、目的別（英検対策）の入口を
+新設し、英検対策からPremium導線につなげるオーナー指示に対応。
+
+**調査**: `/materials/highschool`・`/materials`・既存カテゴリLP
+（toeic/business/news）の実装パターン、`/premium`・`/weak`・`/plan`・
+`/extract`・`/test/listening`・`/test/typing`・`/pdf`のPremiumゲーティング状況、
+`test:category-lps`の既存テストパターンを確認。加えてSupabase上の`materials`
+テーブルを`exam_type = '英検'`で直接照会したところ、英検4・5級〜1級まで
+計10件の公開教材（既存31教材のうち8件＋新スターターパック2件）が既に
+存在することを確認した（英検2級相当も2件あり）。
+
+**実装内容**: 新規ページ`src/app/materials/eiken/page.tsx`を追加。
+- `/materials/toeic`・`/materials/business`と同じ「`exam_type`で動的取得」
+  パターンを採用（IDのハードコードなし、新規教材追加もなし）。取得した
+  10件を級別（4・5級→3級→準2級→2級→準1級→1級）にグループ化して表示し、
+  「級別に教材を選べる導線」とした
+- 「英検対策で使える理由」として、級別に選べる・SRSで自動復習・PDFテストで
+  最終確認の3点を軽いカード形式で紹介
+- 「無料でできること／Premiumでさらに効率化」を、オーナー指定どおりの
+  区分で記載。Premium訴求は英検対策と相性の良い言い回し（AI弱点分析で
+  苦手な品詞・単語の傾向を確認、AI学習プランで試験前の復習範囲を整理、
+  長文・問題集からAIで単語を抽出、リスニング対策の一部として音声練習）
+  にした
+- 「保護者の方へ」を、高校生向けLPと同じ5点構成で追加。前回ラウンドで
+  誇張表現ガードのテストが自己矛盾的に失敗した教訓を踏まえ、最初から
+  禁止フレーズを直接引用しない言い回し（「合格や点数を保証するような
+  表現、誇張した実績の記載は行っていません」）で記載した
+- Breadcrumb+ItemListのJSON-LD、metadata（title/description/OGP/canonical）を
+  既存カテゴリLPと同じ形式で設定
+
+**導線整理**: `src/app/materials/page.tsx`のCATEGORY_GROUPS「英検対策」
+グループ（既存）に`landingPages: [{ href: "/materials/eiken", label: "英検
+対策ページへ" }]`を追加。`/materials/highschool`の内部リンク行に「📝 英検
+対策教材を見る」を追加し、`/materials/eiken`側にも「🎓 高校生向けページへ」
+を追加して双方向の相互導線とした。`src/app/sitemap.ts`に`/materials/eiken`
+（`changeFrequency: "weekly"`, `priority: 0.85`）を追加。
+
+**テスト追加**: `scripts/testing/e2e/category-lps.mjs`に新規セクション
+（11〜11e）を追加し、200表示・H1・級別グループ化された教材10件の表示・
+架空の合格実績や成績保証表現が無いこと・canonical・meta description・
+BreadcrumbList/ItemListのJSON-LD・`/dictionary`/`/premium`への導線・
+`/materials`⇄`/materials/eiken`・`/materials/highschool`⇄`/materials/eiken`
+の相互導線・モバイル幅崩れ無し・`/materials/[id]`とのルーティング非競合を
+検証。前回ラウンドの教訓を活かし、今回は初回実行から全項目PASSを確認した。
+
+**変更していないもの**: Stripe価格・Premium機能自体、AdSense広告枠、
+SRS V2、teacher機能、既存教材データ（新規追加なし）、既存の
+TOEIC/Business/News/Highschool LP。
+
+**変更ファイル**: `src/app/materials/eiken/page.tsx`（新規）、
+`src/app/materials/highschool/page.tsx`、`src/app/materials/page.tsx`、
+`src/app/sitemap.ts`、`scripts/testing/e2e/category-lps.mjs`、
+`NEXT_IMPROVEMENTS.md`、`WORK_HISTORY.md`。
+
+**検証結果**: `tsc --noEmit`エラーなし、`build`成功、`test:category-lps`・
+`test:premium-conversion`・`test:smoke`・`test:e2e`（全スイート）・
+`verify:prod`・`verify:srs-global`全PASS。
+
+**DB変更**: なし。
+
+**残課題**: 特になし。
+
+---
+
 ## 2026-07-07 高校生向けLP（`/materials/highschool`）の新設
 
 **目的**: 収益化の本命として、Loop Vocabularyを高校生・大学受験生・英検

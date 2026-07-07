@@ -88,6 +88,7 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
       ["英検2級", "英検準1級", "英検1級", "英検準2級", "英検3級"].some((p) =>
         (m.level ?? "").startsWith(p),
       ),
+    landingPages: [{ href: "/materials/eiken", label: "英検対策ページへ" }],
   },
   {
     id: "toeic",
