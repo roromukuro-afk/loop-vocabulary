@@ -3,23 +3,30 @@ import type { Metadata } from "next";
 import { SUPPORT_EMAIL } from "@/lib/support";
 
 // ============================================================
-// /legal/commercial-transaction — 特定商取引法に基づく表記（準備中）
+// /legal/commercial-transaction — 特定商取引法に基づく表記（最終確認中ドラフト）
 // ------------------------------------------------------------
-// 2026-07-06、Premium課金導線の信頼性整備の一環として雛形を作成した。
-// 販売事業者名・運営責任者名・所在地・電話番号は、オーナーから実際の情報が
-// 提供されるまでプレースホルダーのまま。個人情報を推測・捏造して埋めることは
-// 一切していない。
+// 2026-07-06に雛形を作成、2026-07-07にオーナーから運営者情報の提供を受けて
+// 内容を更新した。販売事業者名・運営責任者名はオーナーから提供された実名を
+// 記載。所在地・電話番号は、オーナーの方針により直接掲載せず、
+// 「請求があった場合に遅滞なく開示する」旨を明記する形にしている
+// （個人情報を推測・捏造して埋めたものではない）。
 //
-// 公開方針（案A、詳細はWORK_HISTORY.md参照）: ページ自体は実装するが、
-// footer・/contact・/premium等、どこからもリンクしない（このファイルへの
-// 直接URLアクセスでのみ到達可能）。sitemap.xmlにも含めず、
-// robots meta (noindex,nofollow) と robots.txt の両方でクロールを防止する。
-// オーナーが運営者情報を提供し、内容を確認・承認した後に、
-// footerへのリンク追加を別途検討する。
+// この開示方式（個人事業主が住所・電話番号を常時公開せず、請求時開示とする
+// 扱い）が特定商取引法上どこまで認められるかについて、本ファイルは法的な
+// 断定を行わない。正式公開前に必要であれば専門家（行政書士・弁護士等）に
+// 確認することを推奨する（詳細: PRODUCTION_MONITORING.md §12-4、
+// LAUNCH_READINESS_CHECKLIST.md §4）。
+//
+// 公開方針（2026-07-07時点、引き続き未公開ドラフト）: ページ内容は更新したが、
+// 最終確認のため、footer・/contact・/premium等どこからもリンクしない状態を
+// 維持している（このファイルへの直接URLアクセスでのみ到達可能）。
+// sitemap.xmlにも含めず、robots meta (noindex,nofollow) と robots.txt の
+// 両方でクロールを防止したまま。正式公開（footerリンク追加・noindex解除・
+// robots.txt解除）は、オーナーの最終承認を得てから別途実施する。
 // ============================================================
 
 export const metadata: Metadata = {
-  title: "特定商取引法に基づく表記（準備中） | Loop Vocabulary",
+  title: "特定商取引法に基づく表記（最終確認中） | Loop Vocabulary",
   robots: { index: false, follow: false },
 };
 
@@ -43,26 +50,47 @@ export default function CommercialTransactionPage() {
 
       <div className="mt-4 bg-amber-50 border-2 border-amber-300 rounded-xl px-4 py-3 not-prose">
         <p className="text-sm font-bold text-amber-900">
-          ⚠️ このページは準備中です（社内確認用ドラフト）
+          ⚠️ このページは最終確認中です（社内確認用ドラフト・引き続き未公開）
         </p>
         <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-          運営者情報（販売事業者名・運営責任者名・所在地・電話番号）は未確定のため、
-          プレースホルダーのまま表示しています。このページはサイト内のどこからも
-          リンクされておらず、検索エンジンにもインデックスされません
-          (robots: noindex, nofollow)。運営者情報の確認・入力が完了するまで、
+          運営者情報（販売事業者名・運営責任者名）はオーナーから提供された情報を
+          記載しました。所在地・電話番号は、オーナーの方針により常時公開はせず、
+          請求があった場合に開示する取り扱いとしています。このページはサイト内の
+          どこからもリンクされておらず、検索エンジンにもインデックスされません
+          (robots: noindex, nofollow)。最終確認・承認が完了するまで、
           本ページを正式な特定商取引法に基づく表記として公開・案内しないでください。
         </p>
       </div>
 
       <h1 className="text-2xl font-bold text-navy-800 mt-4">特定商取引法に基づく表記</h1>
-      <p className="text-sm text-navy-500">最終更新日: 2026-07-06（準備中ドラフト）</p>
+      <p className="text-sm text-navy-500">最終更新日: 2026-07-07（最終確認中ドラフト）</p>
 
       <table className="w-full mt-4 not-prose">
         <tbody>
-          <Row label="販売事業者名" value="オーナー確認待ち" pending />
-          <Row label="運営責任者" value="オーナー確認待ち" pending />
-          <Row label="所在地" value="オーナー確認待ち（個人事業主の場合、請求があれば遅滞なく開示する取り扱いも選択可）" pending />
-          <Row label="電話番号" value="オーナー確認待ち（個人事業主の場合、請求があれば遅滞なく開示する取り扱いも選択可）" pending />
+          <Row label="販売事業者名" value="佐藤 慶音" />
+          <Row label="運営責任者" value="佐藤 慶音" />
+          <Row
+            label="所在地"
+            value={
+              <>
+                所在地および電話番号については、請求があった場合、法令に基づき
+                遅滞なく開示します。開示を希望される場合は、
+                <Link href="/contact" className="underline">お問い合わせフォーム</Link>
+                よりご連絡ください。
+              </>
+            }
+          />
+          <Row
+            label="電話番号"
+            value={
+              <>
+                所在地および電話番号については、請求があった場合、法令に基づき
+                遅滞なく開示します。開示を希望される場合は、
+                <Link href="/contact" className="underline">お問い合わせフォーム</Link>
+                よりご連絡ください。
+              </>
+            }
+          />
           <Row
             label="メールアドレス"
             value={<a className="underline" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>}

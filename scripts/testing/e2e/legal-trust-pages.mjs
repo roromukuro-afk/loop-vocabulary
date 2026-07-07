@@ -34,11 +34,13 @@
  *
  * 2026-07-06、特定商取引法表記に相当する専用ページ`/legal/commercial-transaction`
  * の雛形を作成した（案A: ページは実装するがfooter等どこからもリンクしない）。
- * 販売事業者名・運営責任者名・所在地・電話番号はオーナーから実際の情報が提供される
- * までプレースホルダー（「オーナー確認待ち」）のまま。以下も検証する。
+ * 2026-07-07、オーナーから運営者情報の提供を受け、販売事業者名・運営責任者名を
+ * 実名に更新。所在地・電話番号はオーナーの方針により常時公開せず、「請求があった
+ * 場合、法令に基づき遅滞なく開示する」旨と`/contact`への導線を表示する形にした
+ * （最終確認のため、公開方針(noindex・非リンク)自体は変更していない）。以下を検証する。
  * 9. `/legal/commercial-transaction`が200で表示され、確定済み情報（価格・
  *    Stripeカスタマーポータルでの解約）が/termsと整合していること・
- *    未確定項目のプレースホルダー文言が表示されていること・
+ *    運営者情報（実名）と所在地/電話番号の開示方針文言が表示されていること・
  *    `<meta name="robots" content="noindex, nofollow">`が出力されていること・
  *    `/premium`・`/contact`・`/faq`・ランディングページfooterのいずれからも
  *    リンクされていないこと・`robots.txt`に`Disallow: /legal`があること
@@ -217,10 +219,15 @@ async function main() {
     } else {
       fail("/legal/commercial-transactionの確定済み情報が/termsと整合していない");
     }
-    if (legalHtml.includes("オーナー確認待ち")) {
-      ok("/legal/commercial-transactionの運営者情報（未確定）がプレースホルダーのまま表示されている（捏造なし）");
+    if (legalHtml.includes("佐藤") && legalHtml.includes("慶音")) {
+      ok("/legal/commercial-transactionに運営者情報（販売事業者名・運営責任者）が記載されている");
     } else {
-      fail("/legal/commercial-transactionにプレースホルダー文言が見つからない（捏造された値に置き換わっていないか要確認）");
+      fail("/legal/commercial-transactionに運営者情報（実名）が見つからない");
+    }
+    if (legalHtml.includes("遅滞なく開示") && legalHtml.includes("お問い合わせフォーム")) {
+      ok("/legal/commercial-transactionに所在地・電話番号の開示方針（請求時開示・お問い合わせ導線）が記載されている");
+    } else {
+      fail("/legal/commercial-transactionに所在地・電話番号の開示方針文言が見つからない");
     }
     if (/<meta name="robots" content="noindex,\s*nofollow"\s*\/?>/.test(legalHtml)) {
       ok("/legal/commercial-transactionにnoindex,nofollowのrobots metaが出力されている");

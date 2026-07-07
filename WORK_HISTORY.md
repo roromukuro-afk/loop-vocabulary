@@ -5,6 +5,67 @@
 
 ---
 
+## 2026-07-07 `/legal/commercial-transaction`に運営者情報を反映（引き続き未公開）
+
+**目的**: 特商法ページ（`/legal/commercial-transaction`）の正式公開に必要な
+運営者情報について、オーナーから以下の方針提示があったため反映する。
+
+- 販売事業者名・運営責任者名: 実名（佐藤 慶音）
+- 所在地・電話番号: 常時公開はせず、「請求があった場合、法令に基づき遅滞なく
+  開示する」旨を明記し、`/contact`への導線を表示する
+- メールアドレス: 既存の`SUPPORT_EMAIL`のまま
+- 正式公開の可否（footerリンク追加・noindex解除・robots.txt解除）は今回は
+  実施せず、最終確認のため引き続き非公開ドラフトのまま維持する
+
+**実装内容**: `src/app/legal/commercial-transaction/page.tsx`を更新。
+- 「販売事業者名」「運営責任者」の値を「オーナー確認待ち」から実名に変更
+- 「所在地」「電話番号」の値を、ユーザー指定どおりの文言
+  「所在地および電話番号については、請求があった場合、法令に基づき遅滞なく
+  開示します。開示を希望される場合は、お問い合わせフォームよりご連絡ください。」
+  （`/contact`へのリンク付き）に変更。amber「pending」スタイルは、未確定の
+  placeholderではなく確定した開示方針であるため解除した
+- ページ上部の警告バナーを「準備中（社内確認用ドラフト）」から
+  「最終確認中です（社内確認用ドラフト・引き続き未公開）」に更新し、
+  文言も運営者情報が確定したことを反映しつつ「正式公開にはオーナーの
+  最終確認・承認が必要」であることを明記
+- ファイル冒頭のコメントに、この開示方式（個人事業主が住所・電話番号を
+  常時公開せず請求時開示とする扱い）が特定商取引法上どこまで認められるかは
+  断定しない旨、正式公開前に必要であれば専門家確認を推奨する旨を明記
+- `metadata.robots`（noindex,nofollow）・`public/robots.txt`の
+  `Disallow: /legal`・footer等への非リンクは**一切変更していない**
+  （内容更新と公開方針変更を明確に分離した）
+
+**テスト更新**: `scripts/testing/e2e/legal-trust-pages.mjs`のステップ9を更新。
+従来の「`オーナー確認待ち`という文字列が残っている（捏造なし）」という
+アサーションは、運営者情報を実名に更新したことで意味を持たなくなったため、
+以下に置き換えた。
+- ページ本文に運営者情報の実名（「佐藤」「慶音」）が含まれること
+- ページ本文に開示方針文言（「遅滞なく開示」「お問い合わせフォーム」）が
+  含まれること
+非リンク・noindexの検証ロジックは変更していない。
+
+**変更していないもの**: 価格・支払方法・解約方法等の既存記載、Stripe/Premium
+仕様、`/terms`・`/privacy`・`/premium`の内容（整合性を再確認したのみ）、
+noindex・robots.txt Disallow・footer未リンクの公開方針。
+
+**変更ファイル**: `src/app/legal/commercial-transaction/page.tsx`、
+`scripts/testing/e2e/legal-trust-pages.mjs`、`LAUNCH_STATUS.md`、
+`LAUNCH_READINESS_CHECKLIST.md`、`NEXT_IMPROVEMENTS.md`。
+
+**検証結果**: `tsc --noEmit`エラーなし、`build`成功、`test:legal-trust-pages`
+全PASS（更新後のステップ9アサーション含む）、`verify:prod`・
+`verify:srs-global`全PASS。
+
+**DB変更**: なし。
+
+**本番反映状況**: 本エントリ末尾のコミットハッシュ参照。
+
+**残課題**: `/legal/commercial-transaction`の正式公開（footerリンク追加・
+noindex解除・robots.txt解除）はオーナーの最終承認待ち。進める場合は実施前に
+必ず提案する。公開時の法律要件確認（専門家判断が必要な場合）も未実施のまま。
+
+---
+
 ## 2026-07-07 オーナー確認結果を`LAUNCH_STATUS.md`/`LAUNCH_READINESS_CHECKLIST.md`に反映
 
 **目的**: 前エントリで整理したオーナー対応待ち6項目のうち、Vercel Cron・AdSense・
