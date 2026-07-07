@@ -47,6 +47,9 @@
   - [ ] **⚠️ オーナー確認待ち**: Stripe Dashboard → Developers → Webhooks で、
     有効なendpointが1本だけになっているか（無効化した方を誤って再有効化していないか）を
     定期的に確認する。
+  - [x] **無効化済み重複endpointの削除要否（2026-07-07オーナー方針確定）**: 現時点では
+    削除せず無効化のまま様子見する。正規endpointで初回実課金のWebhook delivery・
+    Premium反映が確認できた後に、削除するかどうかを判断する。
 - [x] **`STRIPE_WEBHOOK_SECRET`**: Vercel Production環境変数に設定済み（値はここには
   記載しない）。`npm run verify:prod` で `/api/stripe/webhook` が404になっていないこと
   （＝ルート自体は生きていること）のみHTTPレベルで確認できる。signing secretが
@@ -122,10 +125,10 @@
   を `vercel.json` の `crons`（`0 19 1 * *`、毎月1日19:00 UTC）から呼び出す。
   `CRON_SECRET` 保護、未設定時は503で拒否し絶対に実行しない設計。詳細:
   [PRODUCTION_MONITORING.md §13-8](PRODUCTION_MONITORING.md)。
-  - [ ] **⚠️ オーナー確認待ち**: Vercel Dashboard → Cron Jobs で
-    `/api/admin/cleanup/ai-usage-events` が登録され、既存2件（`daily-push` /
-    `weekly-digest`）と合わせて上限エラーが出ていないかを確認中（ユーザー確認中の
-    タスク。結果共有待ち）。
+  - [x] **オーナー確認済み（2026-07-07）**: Vercel Dashboard → Cron Jobsで
+    `/api/admin/cleanup/ai-usage-events`の登録を確認。schedule `0 19 1 * *`
+    （月1回）、既存2件（`daily-push` / `weekly-digest`）と合わせて合計3件、
+    上限エラーなし、Production環境で有効、Cron Jobs機能トグルはEnabled。
 - [x] **手動cleanupコマンド**: `npm run cleanup:ai-usage-events`（dry-run、既定）・
   `npm run cleanup:ai-usage-events:apply`（実削除、`CONFIRM_AI_USAGE_CLEANUP=yes`
   必須）。自動cronが失敗・スキップした場合のフォールバックとして引き続き利用可能。
@@ -147,11 +150,11 @@
 
 ## 3. AdSense / 広告
 
-- [ ] **⚠️ オーナー確認待ち: AdSense審査ステータス**。本書作成時点で把握している最新値は
-  「`Getting ready`」（2026-07-04確認）だが、その後変わっている可能性が高い。
-  AdSense管理画面「サイト」で現在のステータス（`準備完了` / `取得中` / `要確認` /
-  `不承認`）を確認すること。手順・見るべき項目は
-  [ADSENSE_SETUP.md §2](ADSENSE_SETUP.md) 参照。
+- [x] **AdSense審査ステータス（2026-07-07オーナー再確認、審査待ち継続）**:
+  `loop-vocabulary.app`のステータスは引き続き`Getting ready`。ads.txt: Authorized、
+  Policy Center: No current issues、Auto ads: ON、Auto optimize: ON。
+  **現時点で追加対応は不要。Readyになるまでは広告増設もしない方針を継続する**。
+  次回確認時に見るべき項目は [ADSENSE_SETUP.md §2](ADSENSE_SETUP.md) 参照。
 - [x] **`ads.txt`**: `public/ads.txt` に `google.com, pub-5148247638505100, DIRECT,
   f08c47fec0942fa0` を公開済み。`layout.tsx` のPublisher IDと一致（矛盾なし）。
 - [x] **dashboard手動広告**: `/dashboard` の1ページのみに広告ユニット
@@ -242,13 +245,12 @@ AdSense自体の審査状況はコマンドでは分からずAdSense管理画面
   実行する設計（通知・メール送信という性質上、既存の挙動を維持）。
 - [x] AIログcleanup cronは削除操作のため、上記2件より厳格に「`CRON_SECRET`が
   無ければ絶対に実行しない」設計にしている。
-- [ ] **⚠️ オーナー確認中**: Vercel Dashboard → プロジェクト → 「Cron Jobs」設定で
-  以下を確認する（現在ユーザーが確認作業中、結果共有待ち）。
-  - [ ] `/api/admin/cleanup/ai-usage-events` がCron Jobsに登録されているか
-  - [ ] 既存cronと合わせて（3件）上限エラーが出ていないか（Vercelのプラン
-    （Hobby/Pro）によってはcron数・頻度に制限がある）
-  - [ ] scheduleが月1回（`0 19 1 * *`）になっているか
-  - [ ] 対象endpointがProduction環境で有効になっているか
+- [x] **オーナー確認済み（2026-07-07）**: Vercel Dashboard → プロジェクト →
+  「Cron Jobs」設定で以下をすべて確認済み。
+  - [x] `/api/admin/cleanup/ai-usage-events` がCron Jobsに登録されている
+  - [x] 既存cronと合わせて合計3件、上限エラーは出ていない
+  - [x] scheduleが月1回（`0 19 1 * *`）になっている
+  - [x] 対象endpointがProduction環境で有効になっている（Cron Jobs機能トグルもEnabled）
 
 ### cron失敗時の手動対応
 
@@ -297,13 +299,17 @@ Vercel Dashboardでの確認が必須）
   JSON-LDの妥当性）で本番デプロイ後に自動検証している。
 - [x] **Search Console indexing request済み**: 3URLとも、オーナーがURL検査ツールで
   ライブURLテストを実施し、noindex・robots.txtブロック・canonicalの問題は無いことを
-  確認済み。インデックス登録リクエストも実施済み（結果待ち、2026-07-05時点）。
+  確認済み。インデックス登録リクエストも実施済み（2026-07-05）。
   詳細: [SEARCH_CONSOLE_SETUP.md §0-1](SEARCH_CONSOLE_SETUP.md)。
-- [ ] **⚠️ 1〜2週間後に確認すること**: リクエストから1〜2週間後を目安に、3URLが
-  実際にインデックスされたかを「ページ」タブ・URL検査ツールで再確認する
-  （§0-2のスケジュール参照）。インデックスされた後は、検索パフォーマンスタブで
-  TOEIC/ビジネス英語/ニュース英語関連クエリの表示回数・クリック数が出始めているかも
-  確認する。
+- [x] **`/materials/toeic`: インデックス登録済み（2026-07-07オーナー確認）**。
+  Page is indexed、最終クロール 7/5 10:17 AM、crawl allowed: Yes、
+  indexing allowed: Yes、canonicalは自己参照で一致。検索パフォーマンスの
+  表示回数・クリック数はまだ0件（今後の定点観測対象）。
+- [ ] **⚠️ 1〜2週間ほど様子見: `/materials/business` ・ `/materials/news`**
+  （2026-07-07オーナー確認、いずれも未検出）。両URLとも「URL is unknown to
+  Google」でクロール未実施の状態だが、noindex・robots.txtブロック・canonical
+  エラーは該当なし（技術的な問題は無い）。1〜2週間ほど様子見し、それでも
+  未検出なら「ページ」タブ・URL検査ツールで再確認する。
 - [x] **sitemap / robots / canonical**: 2026-07-01の登録前チェックで、認証必須ページの
   sitemap混入・robots.txtの不整合（`/test/`末尾スラッシュ問題等）を発見・修正済み。
   以降、新規ルート追加時は`verify:seo-lp-audit`・`test:legal-trust-pages`等で
@@ -333,15 +339,28 @@ Vercel Dashboardでの確認が必須）
 
 ## まとめ: ⚠️ オーナー確認待ちの項目一覧
 
+**2026-07-07更新**: Vercel Cron・AdSense審査状況・Search Consoleの3項目はオーナーが
+確認済み（完了、または「審査待ち継続」として現状追加対応不要と判明）。以下は
+引き続き残っている項目。
+
+- [x] ~~Vercel Cron Jobs設定で3件目（AIログcleanup）が正しく登録され上限エラーが
+  出ていないか~~ → **2026-07-07確認済み、完了**（登録あり・schedule月1回・合計3件・
+  上限エラーなし・Production有効）
+- [x] ~~AdSense審査ステータスの最新値確認~~ → **2026-07-07確認済み**。`Getting ready`の
+  まま審査待ち継続。現時点で追加対応不要、Readyになるまで広告増設もしない
+- [x] ~~Search Consoleでの3カテゴリLPインデックス登録状況~~ →
+  **2026-07-07確認済み**。`/materials/toeic`はインデックス登録済み。
+  `/materials/business`・`/materials/news`は未検出のため、以下に持ち越し
 - [ ] Stripe Webhook endpointが1本だけ有効になっているかの定期確認
 - [ ] 初回実課金時の実データ確認（Stripe Dashboard・`profiles`・`/premium`表示）
-- [ ] Vercel Cron Jobs設定で3件目（AIログcleanup）が正しく登録され上限エラーが
-  出ていないか（**確認作業中、結果共有待ち**）
-- [ ] AdSense審査ステータスの最新値確認（`Getting ready`から変化しているか）
-- [ ] AdSense Ready後の初回確認（広告配信・Auto Adsの挙動）
-- [ ] `/legal/commercial-transaction`公開に必要な運営者情報（事業者名・所在地・
-  電話番号）の提供、および公開時の法律要件確認（専門家判断が必要な場合）
-- [ ] Search Consoleでの3カテゴリLPインデックス登録状況（1〜2週間後に再確認）
+- [ ] 無効化済みStripe重複Webhook endpointの削除要否判断（方針は確定済み:
+  当面は削除せず様子見、正規endpointでの初回実課金確認後に判断）
+- [ ] `/legal/commercial-transaction`公開に必要な運営者情報（販売事業者名・
+  運営責任者名・所在地・電話番号・メールアドレス・住所/電話番号の公開方針・
+  footer公開タイミング）の提供、および公開時の法律要件確認（専門家判断が必要な場合）
+- [ ] `/materials/business`・`/materials/news`のインデックス状況を1〜2週間後に再確認
+  （2026-07-07時点で未検出、技術的エラーは該当なし）
+- [ ] AdSense Ready後の初回確認（広告配信・Auto Adsの挙動。審査待ち継続中は該当なし）
 
 ---
 

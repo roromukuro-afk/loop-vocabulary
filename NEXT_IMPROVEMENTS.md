@@ -1567,6 +1567,38 @@
 
 ---
 
+50. ✅ **完了（2026-07-07）: オーナー確認結果を`LAUNCH_STATUS.md`/`LAUNCH_READINESS_CHECKLIST.md`に反映**
+    項目49で整理したオーナー対応待ち6項目のうち、Vercel Cron・AdSense・Search Console
+    の3項目についてオーナーから確認結果の共有があったため、両ドキュメントに反映した。
+    コード変更は無し、ドキュメントのみ。
+    **反映内容**:
+    - **Vercel Cron → ✅完了**: `/api/admin/cleanup/ai-usage-events`の登録あり、
+      schedule`0 19 1 * *`（月1回）、既存2件と合わせて合計3件、上限エラーなし、
+      Production環境で有効、Cron Jobs機能トグルEnabledを確認。
+    - **AdSense → 🕒審査待ち継続（後日確認）**: `Getting ready`のまま、ads.txt
+      Authorized・Policy Center問題なし・Auto ads/Auto optimizeともON。現時点で
+      追加対応不要、Readyになるまで広告増設もしない方針を維持。
+    - **Search Console → URL別に更新**: `/materials/toeic`は✅インデックス登録済み
+      （Page is indexed、crawl/indexing allowed:Yes、canonical一致）。
+      `/materials/business`・`/materials/news`は🕒未検出・様子見（技術的エラーは
+      該当なしのため1〜2週間後に再確認）。
+    - **無効化済みStripe重複Webhook endpoint**: オーナーが方針確定
+      「現時点では削除せず無効化のまま様子見。正規endpointでの初回実課金の
+      Webhook delivery・Premium反映確認後に削除するか判断する」を反映。
+    - 特商法ページの運営者情報提供・初回実課金確認の2項目は、引き続き
+      オーナー対応待ちのまま変更なし。
+    **変更ファイル**: `LAUNCH_STATUS.md`（総合ステータス・カテゴリ別ステータス表・
+    オーナー対応待ち一覧・優先順位を更新）、`LAUNCH_READINESS_CHECKLIST.md`
+    （該当チェックボックスと「まとめ」セクションを更新）、`NEXT_IMPROVEMENTS.md`。
+    検証: ドキュメントのみの変更のため`verify:prod`・`verify:srs-global`を実行、
+    両方PASS。
+    **DB変更**: なし。
+    **残課題**: 特商法ページの運営者情報提供・初回実課金時のStripe確認・
+    無効化済みendpoint削除判断（初回課金確認後）・Search Console business/news
+    の再確認（1〜2週間後）は引き続きオーナー対応待ち。
+
+---
+
 ## 💰 収益化・成長 監査（2026-07-04）
 
 事業・収益・継続率・SEO流入の観点でコード・DB・教材・公開ページを監査した結果。

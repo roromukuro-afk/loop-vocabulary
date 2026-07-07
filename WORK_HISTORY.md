@@ -5,6 +5,76 @@
 
 ---
 
+## 2026-07-07 オーナー確認結果を`LAUNCH_STATUS.md`/`LAUNCH_READINESS_CHECKLIST.md`に反映
+
+**目的**: 前エントリで整理したオーナー対応待ち6項目のうち、Vercel Cron・AdSense・
+Search Consoleの3項目についてオーナーから確認結果の共有があったため、両ドキュメントに
+反映する。コード変更は行わず、ドキュメントの更新のみ。
+
+**反映した確認結果**:
+
+1. **Vercel Cron → 完了**: `/api/admin/cleanup/ai-usage-events`の登録あり、
+   schedule`0 19 1 * *`（月1回）、既存の`daily-push`/`weekly-digest`と合わせて
+   合計3件、上限エラーなし、Production環境で有効、Cron Jobs機能トグルはEnabled。
+   `LAUNCH_STATUS.md`のステータス表・オーナー対応待ち一覧、
+   `LAUNCH_READINESS_CHECKLIST.md`の該当チェックボックス・「まとめ」セクションを
+   ✅完了に更新。
+
+2. **AdSense → 審査待ち継続（後日確認）**: `loop-vocabulary.app`のステータスは
+   引き続き`Getting ready`。ads.txt: Authorized、Policy Center: No current
+   issues、Auto ads/Auto optimizeともON。現時点で追加対応は不要と判断し、
+   Readyになるまでは広告増設もしない方針を維持することを明記。ステータスは
+   🟡オーナー対応待ちから🕒後日確認に変更（「対応が必要」ではなく「監視継続のみ」
+   であることを明確化）。
+
+3. **Search Console → URL別に更新**:
+   - `/materials/toeic`: **インデックス登録済み**（Page is indexed、最終クロール
+     7/5 10:17 AM、crawl/indexing allowed: Yes、canonicalは自己参照で一致）。
+     表示回数・クリック数はまだ0件のため今後の定点観測対象として明記。
+   - `/materials/business`・`/materials/news`: **未検出**（URL is unknown to
+     Google、クロール未実施）。noindex/robots/canonicalの技術的エラーは該当
+     なしのため、1〜2週間ほど様子見し、それでも未検出なら再確認する扱いとした。
+
+4. **無効化済みStripe重複Webhook endpointの取り扱い**: オーナーが方針を確定
+   「現時点では削除せず無効化のまま様子見。正規endpointで初回実課金のWebhook
+   deliveryとPremium反映が確認できた後に、削除するかどうかを判断する」を
+   両ドキュメントに反映。
+
+5. **特商法ページの運営者情報提供・初回実課金確認**: 提供・発生がまだ無いため、
+   引き続きオーナー対応待ち・後日確認のまま変更なし。
+
+**`LAUNCH_STATUS.md`の更新箇所**: 総合ステータスの文言（Vercel Cron完了・AdSense
+審査待ち継続・Search Console一部完了を反映）、カテゴリ別ステータス表（Stripe/Premium・
+AIログ保持・削除・AdSense/広告・cron/scheduled jobs・SEO/Search Consoleの各表）、
+オーナー対応待ち一覧（「3-1. 対応が必要な項目」と「3-2. 後日確認予定の項目」に
+再分類）、次にやるべき優先順位（完了した3項目を除外し5項目に再構成）。
+
+**`LAUNCH_READINESS_CHECKLIST.md`の更新箇所**: セクション1（Stripe/Premium、
+webhook endpoint削除判断のチェックボックス追加）・セクション2（cleanup cron
+オーナー確認済みチェック）・セクション3（AdSense審査ステータスの現状反映）・
+セクション5（cron全チェックボックス完了）・セクション7（URL別インデックス状況）・
+末尾「まとめ」セクション（取り消し線で完了項目を明示し、残る項目を整理）。
+
+**注意点の遵守**: secret値・未実証数字は書いていない。個人の住所・電話番号は
+一切推測していない。特定商取引法の該非判断は断定していない。未実装項目を実装済み
+であるかのようには書いていない。
+
+**変更ファイル**: `LAUNCH_STATUS.md`、`LAUNCH_READINESS_CHECKLIST.md`、
+`NEXT_IMPROVEMENTS.md`。
+
+**検証結果**: コード変更を伴わないドキュメントのみの変更のため、
+`npm run verify:prod`・`npm run verify:srs-global`を実行し、両方PASS。
+
+**DB変更**: なし。
+
+**本番反映状況**: 本エントリ末尾のコミットハッシュ参照。
+
+**残課題**: 特商法ページの運営者情報提供・初回実課金時のStripe確認・無効化済み
+endpoint削除判断（初回課金確認後）・`/materials/business`/`/materials/news`の
+インデックス再確認（1〜2週間後）は引き続きオーナー対応待ち。
+
+---
+
 ## 2026-07-07 `LAUNCH_STATUS.md`の新設（リリース可否ダッシュボード）
 
 **目的**: `LAUNCH_READINESS_CHECKLIST.md`は各項目を網羅的に確認できるが、
