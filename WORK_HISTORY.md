@@ -5,6 +5,81 @@
 
 ---
 
+## 2026-07-07 `LAUNCH_READINESS_CHECKLIST.md`の新設（本番運用前チェックリスト）
+
+**目的**: Premium・Stripe・AI・AdSense・法務・cron・監視がこれまでのラウンドで
+かなり整ってきたため、実際に運用する前に「課金が安全に動くか」「Premium反映が
+正常か」「AIコスト・濫用対策があるか」「AIログの保持・削除があるか」「AdSense
+審査/広告表示が問題ないか」「特商法/規約/プライバシーが整っているか」
+「cron/監視が動くか」「緊急時に何を見ればよいか」を一箇所で確認できる
+チェックリストを作成する。コード変更は行わず、ドキュメントの新設・更新のみ。
+
+**作成物**: `LAUNCH_READINESS_CHECKLIST.md`を新規作成。冒頭に「運用者専用・
+公開向けではない」ことを明記し、各項目は既存ドキュメント
+（`PRODUCTION_MONITORING.md`・`ADSENSE_SETUP.md`・`SEARCH_CONSOLE_SETUP.md`）の
+該当セクションへのリンクを添えることで、詳細調査結果の二重管理を避けた。
+
+**含めた8カテゴリ**:
+1. **Stripe/Premium**: checkout/webhook route・webhook endpoint重複解消済み
+   （2026-07-06対応、有効1本+無効化1本の状態）・`STRIPE_WEBHOOK_SECRET`・
+   `stripe_customer_id`/`premium_expires_at`/`is_premium`・Customer Portal
+   （`/api/stripe/portal`）・二重checkout防止(409)・初回実課金時に確認すべき
+   5項目（Stripeの決済成功・Webhook配信ログ・`profiles`反映・`/premium`表示・
+   異常時の調査手順）
+2. **AI利用・コスト対策**: 無料5回/日・Premium300回/日ソフト上限・atomic RPC
+   (`try_consume_ai_quota`)・`ai_generation`チケット・route別ログ
+   (`ai_usage_events`)・`/admin/ai`・90日保持・cleanup cron・手動cleanupコマンド・
+   異常利用時の確認場所（`/admin/ai`→Vercel Functions Logs→
+   `ANTHROPIC_API_KEY`緊急停止の3段階）
+3. **AdSense/広告**: 審査ステータス（本書作成時点の最終確認値`Getting ready`は
+   古くなっている可能性がある旨を明記し、オーナーに最新確認を促す）・ads.txt・
+   dashboard手動広告（1ページのみ）・Premium広告非表示・学習中画面への非表示
+   方針・Ready後に確認すべき3項目
+4. **法務・信頼ページ**: `/terms`・`/privacy`・`/contact`・`/faq`・
+   `/legal/commercial-transaction`（現状ドラフト・noindex・footer未リンクの
+   状態を維持していることのチェック項目）・オーナー情報待ちの明記・
+   footer公開前に必要な6手順
+5. **cron/scheduled jobs**: 既存2件(`daily-push`/`weekly-digest`)+AIログ
+   cleanup cronの一覧表（path/schedule/認証方式/用途）・Vercel Dashboardで
+   確認すべき4項目・cron失敗時の手動対応
+6. **管理画面**: `/admin`・`/admin/srs`・`/admin/ai`（`/admin/stats`も含めて
+   一覧）・admin権限(`requireAdmin()`)・個人情報非表示設計・test account除外
+7. **SEO/Search Console**: `/materials/toeic`・`/materials/business`・
+   `/materials/news`・Search Consoleインデックス登録リクエスト済み（結果待ち）・
+   1〜2週間後に確認すべき項目・sitemap/robots/canonical
+8. **緊急時チェック**: 支払い済みなのにPremiumにならない・AIコスト急増・
+   AdSense警告・cron失敗・AIログcleanup未動作・Premiumユーザーへの広告誤表示・
+   Webhook署名エラー・特商法ページ公開前の問い合わせ、の8シナリオごとに
+   「まず見る場所」を表形式で整理。
+
+**注意点の遵守（ユーザー指示どおり）**: secret値は一切記載していない。
+実ユーザー数等の未実証数字（マーケティング的な数字）は書かず、既存の
+社内向け監視ドキュメントで使っている「確認方法」の記述に統一した。
+未実装機能（cron登録有無・AdSense審査状況等）は「確認済み」ではなく
+「⚠️オーナー確認待ち」として明示し、実装済みであるかのようには書いていない。
+特定商取引法の該非判断は断定せず、必要なら専門家確認を推奨する一文を添えた。
+個人の住所・電話番号は一切推測・記載していない（プレースホルダーのままである
+ことの確認項目としてのみ言及）。
+
+**変更ファイル**: `LAUNCH_READINESS_CHECKLIST.md`（新規）、`README.md`
+（運用ドキュメント一覧の先頭に、運用者専用である旨を明記した上でリンクを追加）、
+`NEXT_IMPROVEMENTS.md`。
+
+**検証結果**: コード変更を伴わないドキュメントのみの変更のため、
+`npm run verify:prod`・`npm run verify:srs-global`を実行し、両方PASS。
+
+**DB変更**: なし。
+
+**本番反映状況**: ドキュメントのみのためVercelへの新規デプロイは本エントリの
+コミット時点では未実施（コード変更が無いためビルド出力に影響しない）。
+コミットハッシュは本エントリ末尾を参照。
+
+**残課題**: チェックリスト内の「⚠️オーナー確認待ち」項目（Cron Jobs登録状況・
+AdSense審査ステータス・特商法ページの運営者情報・Search Consoleインデックス
+状況）はすべて運用者側の確認・入力待ち。
+
+---
+
 ## 2026-07-07 `ai_usage_events`の90日超過ログ削除の自動化
 
 **目的**: 前エントリで整備した削除運用は手動実行（`npm run cleanup:ai-usage-events:apply`）

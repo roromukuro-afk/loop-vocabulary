@@ -1505,6 +1505,38 @@
 
 ---
 
+48. ✅ **完了（2026-07-07）: `LAUNCH_READINESS_CHECKLIST.md`の新設（本番運用前チェックリスト）**
+    Premium・Stripe・AI・AdSense・法務・cron・監視がこれまでのラウンドで
+    かなり整ってきたため、実際に運用する前に一箇所で確認できるチェックリストを
+    新設した。コード変更は無し、ドキュメントのみの棚卸し。
+    **含めた8カテゴリ**: (1)Stripe/Premium — checkout/webhook route・
+    webhook endpoint重複解消済み・STRIPE_WEBHOOK_SECRET・
+    stripe_customer_id/premium_expires_at/is_premium・Customer Portal・
+    二重checkout防止・初回実課金時の確認項目、(2)AI利用・コスト対策 —
+    無料5回/日・Premium300回/日ソフト上限・atomic RPC・ai_generationチケット・
+    route別ログ・/admin/ai・90日保持・cleanup cron・手動cleanupコマンド・
+    異常利用時の確認場所、(3)AdSense/広告 — 審査ステータス(要オーナー再確認)・
+    ads.txt・dashboard手動広告・Premium広告非表示・学習中非表示方針・
+    Ready後の確認項目、(4)法務・信頼ページ — /terms・/privacy・/contact・
+    /faq・/legal/commercial-transaction(ドラフト/noindex/オーナー情報待ち)・
+    footer公開前の作業手順、(5)cron/scheduled jobs — 既存2件+AIログcleanup
+    cronの一覧表・Vercel Dashboardで確認すべき項目・cron失敗時の手動対応、
+    (6)管理画面 — /admin・/admin/srs・/admin/ai・admin権限・個人情報非表示・
+    test account除外、(7)SEO/Search Console — 3カテゴリLP・インデックス
+    登録リクエスト済み・1〜2週間後の確認予定・sitemap/robots/canonical、
+    (8)緊急時チェック — 8種のトラブルシナリオごとの確認先一覧。
+    **注意点の遵守**: secret値・実ユーザー数等の未実証数字は書かず、
+    未実装機能を実装済みのように書かず、特定商取引法の法律判断は断定せず
+    専門家確認を推奨する形にとどめ、個人住所・電話番号は一切推測していない。
+    **変更ファイル**: `LAUNCH_READINESS_CHECKLIST.md`（新規）、`README.md`
+    （運用ドキュメント一覧に運用者専用である旨を明記して追加）。
+    検証: ドキュメントのみの変更のため`verify:prod`・`verify:srs-global`を
+    実行、両方PASS。
+    **残課題**: cron登録状況・AdSense審査ステータス・特商法ページの運営者
+    情報など、オーナー確認待ちの項目はチェックリスト内に明記済み。
+
+---
+
 ## 💰 収益化・成長 監査（2026-07-04）
 
 事業・収益・継続率・SEO流入の観点でコード・DB・教材・公開ページを監査した結果。

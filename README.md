@@ -11,6 +11,10 @@
 
 ### 運用ドキュメント
 
+> 以下は開発・運用者向けの内部ドキュメントです（ユーザー向け公開ページではありません）。
+
+- [LAUNCH_READINESS_CHECKLIST.md](LAUNCH_READINESS_CHECKLIST.md) — **運用者専用**。本番運用前に
+  Stripe/Premium・AI・AdSense・法務・cron・管理画面・SEOの状態を1箇所で確認するチェックリスト
 - [RELEASE_NOTES.md](RELEASE_NOTES.md) — 直近リリースのまとめ・本番確認済み項目・ロールバック方法
 - [PRODUCTION_MONITORING.md](PRODUCTION_MONITORING.md) — 日次/週次の監視項目、自動検証コマンド（`npm run test:e2e` 等）の運用タイミング
 - [SEARCH_CONSOLE_SETUP.md](SEARCH_CONSOLE_SETUP.md) — Google Search Console 登録手順・sitemap送信・週次の見方
