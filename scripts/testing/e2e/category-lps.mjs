@@ -29,6 +29,13 @@
  *     /materials/highschool⇄/materials/university-exam・/materials/eiken⇄
  *     /materials/university-examの相互導線、未実証の合格保証表現が無いこと、
  *     モバイル幅での崩れなし、/materials/[id]とのルーティング非競合も確認する
+ * 13. /materials/school-test が200で表示され、高校英単語・高校基礎・大学受験基礎・
+ *     英検3級/準2級系の既存教材9件がレベル別に正しく表示される。metadata・
+ *     JSON-LD（Breadcrumb+ItemList）・/materials⇄/materials/school-test・
+ *     /materials/highschool⇄/materials/school-test・/materials/eiken⇄
+ *     /materials/school-test・/materials/university-exam⇄/materials/school-test
+ *     の相互導線、未実証の点数保証表現が無いこと、モバイル幅での崩れなし、
+ *     /materials/[id]とのルーティング非競合も確認する
  *
  * 使い方: node scripts/testing/e2e/category-lps.mjs
  */
@@ -679,6 +686,164 @@ async function main() {
       ok("/materials/university-exam追加後も既存の/materials/[id]が正常に動作する（ルーティング競合なし）");
     } else {
       fail(`/materials/university-exam追加後、/materials/${TOEIC_BASIC_100_ID} の表示が想定と異なる: "${stillOkAfterUni}"`);
+    }
+
+    // ---- 13. /materials/school-test ----
+    const schoolTestRes = await page.goto(`${baseUrl}/materials/school-test`, { waitUntil: "load" });
+    await page.waitForLoadState("networkidle");
+    if (schoolTestRes && schoolTestRes.status() === 200) ok("/materials/school-test が200で表示される");
+    else fail(`/materials/school-test のステータスが200ではない (${schoolTestRes?.status()})`);
+
+    const schoolTestH1 = await page.locator("h1").textContent();
+    if (schoolTestH1?.includes("定期テスト")) ok(`/materials/school-test のH1に「定期テスト」を含む: "${schoolTestH1}"`);
+    else fail(`/materials/school-test のH1が想定と異なる: "${schoolTestH1}"`);
+
+    const schoolTestCards = page.locator('[data-testid="category-lp-materials"] a');
+    const schoolTestCardCount = await schoolTestCards.count();
+    if (schoolTestCardCount === 9) ok(`/materials/school-test に教材カードが9件表示される`);
+    else fail(`/materials/school-test の教材カード数が想定(9件)と異なる (実際: ${schoolTestCardCount}件)`);
+
+    const schoolTestBodyText = await page.locator("body").innerText();
+    if (
+      schoolTestBodyText.includes("高校英単語 基礎100【スターターパック】") &&
+      schoolTestBodyText.includes("高校英単語 基礎100 Part2【スターターパック】") &&
+      schoolTestBodyText.includes("loop受験英単語③【高校基礎】") &&
+      schoolTestBodyText.includes("大学受験 基礎動詞100【スターターパック】") &&
+      schoolTestBodyText.includes("大学受験 基礎名詞100【スターターパック】") &&
+      schoolTestBodyText.includes("英検3級 基礎100【スターターパック】") &&
+      schoolTestBodyText.includes("英検3級 重要単語") &&
+      schoolTestBodyText.includes("英検準2級 基礎100【スターターパック】") &&
+      schoolTestBodyText.includes("英検準2級 重要単語")
+    ) {
+      ok("/materials/school-test に高校英単語・高校基礎・大学受験基礎・英検3級/準2級系の全教材タイトルが表示される");
+    } else {
+      fail("/materials/school-test に想定の教材タイトルが表示されていない");
+    }
+
+    if (
+      !schoolTestBodyText.includes("合格実績") &&
+      !schoolTestBodyText.includes("必ず成績が上がる") &&
+      !schoolTestBodyText.includes("点数を保証") &&
+      !schoolTestBodyText.includes("必ず伸びる")
+    ) {
+      ok("/materials/school-test に架空の実績・点数保証表現が無い");
+    } else {
+      fail("/materials/school-test に禁止すべき誇張・保証表現が含まれている");
+    }
+
+    const schoolTestCanonical = await page
+      .locator('link[rel="canonical"]')
+      .getAttribute("href")
+      .catch(() => null);
+    if (schoolTestCanonical === "https://loop-vocabulary.app/materials/school-test") {
+      ok("/materials/school-test のcanonicalが正しい");
+    } else {
+      fail(`/materials/school-test のcanonicalが想定と異なる: "${schoolTestCanonical}"`);
+    }
+
+    const schoolTestMetaDesc = await page
+      .locator('meta[name="description"]')
+      .getAttribute("content")
+      .catch(() => null);
+    if (schoolTestMetaDesc?.includes("定期テスト")) {
+      ok("/materials/school-test のmeta descriptionに「定期テスト」を含む");
+    } else {
+      fail(`/materials/school-test のmeta descriptionが想定と異なる: "${schoolTestMetaDesc}"`);
+    }
+
+    const schoolTestLdJsonCount = await page.locator('script[type="application/ld+json"]').count();
+    const schoolTestHtml = await page.content();
+    if (
+      schoolTestLdJsonCount >= 2 &&
+      schoolTestHtml.includes('"@type":"BreadcrumbList"') &&
+      schoolTestHtml.includes('"@type":"ItemList"') &&
+      schoolTestHtml.includes("定期テスト対策の英単語教材")
+    ) {
+      ok("/materials/school-test にBreadcrumbList・ItemListのJSON-LDが正しく出力されている");
+    } else {
+      fail("/materials/school-test のJSON-LD（Breadcrumb/ItemList）が想定と異なる");
+    }
+
+    const schoolTestDictLink = page.locator('a[href="/dictionary"]');
+    if (await schoolTestDictLink.first().isVisible().catch(() => false)) ok("/materials/school-test に/dictionaryへの導線がある");
+    else fail("/materials/school-test に/dictionaryへの導線が見つからない");
+
+    const schoolTestPremiumLink = page.locator('a[href="/premium"]');
+    if (await schoolTestPremiumLink.first().isVisible().catch(() => false)) ok("/materials/school-test に/premiumへの控えめな導線がある");
+    else fail("/materials/school-test に/premiumへの導線が見つからない");
+
+    // ---- 13b. /materials/school-test ⇄ /materials/highschool・/materials/eiken・/materials/university-exam ----
+    const schoolTestToHighschool = page.locator('a[href="/materials/highschool"]');
+    const schoolTestToEiken = page.locator('a[href="/materials/eiken"]');
+    const schoolTestToUni = page.locator('a[href="/materials/university-exam"]');
+    if (
+      (await schoolTestToHighschool.count()) > 0 &&
+      (await schoolTestToEiken.count()) > 0 &&
+      (await schoolTestToUni.count()) > 0
+    ) {
+      ok("/materials/school-test から/materials/highschool・/materials/eiken・/materials/university-examへの導線がある");
+    } else {
+      fail("/materials/school-test に他の目的別LPへの導線が見つからない");
+    }
+
+    await gotoReady(page, `${baseUrl}/materials/highschool`);
+    const highschoolToSchoolTest = page.locator('a[href="/materials/school-test"]');
+    if (await highschoolToSchoolTest.first().isVisible().catch(() => false)) {
+      ok("/materials/highschool から/materials/school-testへの導線がある");
+    } else {
+      fail("/materials/highschool に/materials/school-testへの導線が見つからない");
+    }
+
+    await gotoReady(page, `${baseUrl}/materials/eiken`);
+    const eikenToSchoolTest = page.locator('a[href="/materials/school-test"]');
+    if (await eikenToSchoolTest.first().isVisible().catch(() => false)) {
+      ok("/materials/eiken から/materials/school-testへの導線がある");
+    } else {
+      fail("/materials/eiken に/materials/school-testへの導線が見つからない");
+    }
+
+    await gotoReady(page, `${baseUrl}/materials/university-exam`);
+    const uniToSchoolTest = page.locator('a[href="/materials/school-test"]');
+    if (await uniToSchoolTest.first().isVisible().catch(() => false)) {
+      ok("/materials/university-exam から/materials/school-testへの導線がある");
+    } else {
+      fail("/materials/university-exam に/materials/school-testへの導線が見つからない");
+    }
+
+    // ---- 13c. /materials ⇄ /materials/school-test ----
+    await gotoReady(page, `${baseUrl}/materials`);
+    const schoolTestLpLink = page.locator('a[href="/materials/school-test"]');
+    if ((await schoolTestLpLink.count()) > 0) {
+      await Promise.all([
+        page.waitForURL((u) => u.pathname === "/materials/school-test", { timeout: 10000 }),
+        schoolTestLpLink.first().click(),
+      ]);
+      ok("/materials から/materials/school-testへ遷移できる");
+    } else {
+      fail("/materials に/materials/school-testへの導線が見つからない");
+    }
+    const backToMaterialsLinkSchoolTest = page.locator('a[href="/materials"]');
+    if (await backToMaterialsLinkSchoolTest.first().isVisible().catch(() => false)) {
+      ok("/materials/school-test に/materials（教材一覧）への戻りリンクがある");
+    } else {
+      fail("/materials/school-test に/materialsへの戻りリンクが見つからない");
+    }
+
+    // ---- 13d. モバイル幅での表示崩れ確認 ----
+    await page.setViewportSize({ width: 375, height: 812 });
+    await gotoReady(page, `${baseUrl}/materials/school-test`);
+    const hasOverflowSchoolTest = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
+    if (!hasOverflowSchoolTest) ok("/materials/school-test: モバイル幅(375px)で横スクロールが発生していない");
+    else fail("/materials/school-test: モバイル幅(375px)で横スクロールが発生している");
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // ---- 13e. /materials/[id]とのルーティング非競合 ----
+    await gotoReady(page, `${baseUrl}/materials/${TOEIC_BASIC_100_ID}`);
+    const stillOkAfterSchoolTest = await page.locator('[data-testid="material-title"]').textContent().catch(() => null);
+    if (stillOkAfterSchoolTest?.includes("TOEIC 基礎100")) {
+      ok("/materials/school-test追加後も既存の/materials/[id]が正常に動作する（ルーティング競合なし）");
+    } else {
+      fail(`/materials/school-test追加後、/materials/${TOEIC_BASIC_100_ID} の表示が想定と異なる: "${stillOkAfterSchoolTest}"`);
     }
 
     if (errors.length === 0) ok("操作中に console error / 5xx なし");

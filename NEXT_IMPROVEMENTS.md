@@ -1852,6 +1852,51 @@
     **DB変更**: なし。
     **残課題**: 特になし。
 
+57. ✅ **完了（2026-07-07）: 定期テスト対策LP（`/materials/school-test`）の新設**
+    高校生向け収益化導線の第5段階として、定期テスト前に使える英単語学習導線を
+    新設するオーナー指示に対応。高校英単語・高校基礎・大学受験基礎・英検3級/
+    準2級系の既存公開教材9件（新規教材追加なし）を、`/materials/news`と同じ
+    「IDを直接指定して取得」パターン（複数exam_typeにまたがるため）でレベル別
+    にグループ化して表示した。
+    **表示教材（既存データのみ）**: 高校基礎（高校英単語基礎100・Part2）、
+    高校基礎〜標準（loop受験英単語③【高校基礎】）、大学受験標準（大学受験
+    基礎動詞100・基礎名詞100）、英検3級（基礎100・重要単語）、英検準2級
+    （基礎100・重要単語）の計5レベル9件。
+    **無料/Premiumの訴求内容**: オーナー指定に沿い、無料＝教材インポート・
+    単語帳・SRS復習・4択/入力テスト・PDFテスト・達成スタンプ、Premium＝
+    AI学習プランでテスト前の復習範囲を整理・学校教材やプリントからAIで単語を
+    抽出・広告非表示で短時間学習に集中・タイピング練習、という定期テストと
+    相性の良い言い回しで記載。
+    **保護者向け安心要素**: 高校生向けLPと同じ5点構成（無料でも基本学習が
+    可能・料金は`/premium`に明記・解約方法は`/terms`に記載・点数上昇を確約
+    する表現や誇張実績は記載しない・学習履歴をもとに復習を支援する）。
+    **導線整理**: `src/app/materials/page.tsx`のCATEGORY_GROUPS「中学・高校
+    基礎」グループ（既存の🌱アイコン、102/106の高校基礎教材が属する）に
+    `landingPages: [{ href: "/materials/school-test", label: "定期テスト
+    対策ページへ" }]`を追加。`/materials/highschool`・`/materials/eiken`・
+    `/materials/university-exam`の内部リンク行にもそれぞれ「📖 定期テスト
+    対策教材を見る」を追加し、4LP間の相互導線とした。`src/app/sitemap.ts`に
+    `/materials/school-test`（weekly, priority 0.85）を追加。
+    **変更していないもの**: Stripe価格・checkout処理・Premium機能自体、
+    `/premium`ページ（前回ラウンドで完了済みのため今回は一切触っていない）、
+    AdSense広告枠、SRS V2、teacher機能、既存教材データ（新規追加なし）、
+    既存のTOEIC/Business/News/Highschool/Eiken/University-exam LP。
+    **テスト追加**: `scripts/testing/e2e/category-lps.mjs`に新規セクション
+    （13〜13e）を追加。200表示・H1・レベル別グループ化された教材9件の表示・
+    架空の実績や点数保証表現が無いこと・canonical・meta description・
+    BreadcrumbList/ItemListのJSON-LD・`/dictionary`/`/premium`への導線・
+    `/materials`⇄`/materials/school-test`・他の3つの目的別LPとの相互導線・
+    モバイル幅崩れ無し・`/materials/[id]`とのルーティング非競合を検証。
+    全項目、初回実行からPASS。
+    検証: `tsc --noEmit`エラーなし、`build`成功、`test:category-lps`・
+    `test:premium-conversion`・`test:legal-trust-pages`・`test:smoke`・
+    `test:e2e`（全スイート）・`verify:prod`・`verify:srs-global`全PASS。
+    **DB変更**: なし。
+    **残課題**: 特になし。高校生向け収益化導線（highschool/eiken/
+    university-exam/school-test）の4目的別LP＋`/premium`のセクションが
+    揃ったため、次のステップは実際の流入・転換状況をSearch Console等で
+    観察するフェーズに移行するのが自然と考えられる。
+
 ---
 
 ## 💰 収益化・成長 監査（2026-07-04）

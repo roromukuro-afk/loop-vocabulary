@@ -5,6 +5,69 @@
 
 ---
 
+## 2026-07-07 定期テスト対策LP（`/materials/school-test`）の新設
+
+**目的**: 高校生向け収益化導線の第5段階として、高校生が定期テスト前に使える
+英単語学習導線を新設するオーナー指示に対応。前回ラウンドで依頼された内容を
+誤って`/premium`の再編集として報告してしまったため、本ラウンドで改めて
+`/materials/school-test`の新規作成として正しく実施した。
+
+**実装内容**: 新規ページ`src/app/materials/school-test/page.tsx`を追加。
+- 高校英単語・高校基礎・大学受験基礎・英検3級/準2級系の既存公開教材9件
+  （新規教材追加なし）を、`/materials/news`と同じ「IDを直接指定して取得」
+  パターン（複数exam_typeにまたがるため`exam_type`単一フィルタが使えない）
+  で取得し、5レベル（高校基礎→高校基礎〜標準→大学受験標準→英検3級→
+  英検準2級）にグループ化して表示
+- 「定期テスト対策で使える理由」として、教科書レベルに近い語彙・SRSで
+  自動復習・PDFテストで最終確認の3点を軽いカード形式で紹介
+- 「無料でできること／Premiumでさらに効率化」を、オーナー指定どおりの
+  区分（Premium＝AI学習プランでテスト前の復習範囲を整理・学校教材やプリント
+  からAIで単語を抽出・広告非表示で短時間学習に集中・タイピング練習）で記載
+- 「保護者の方へ」を、他の目的別LPと同じ5点構成で追加
+- Breadcrumb+ItemListのJSON-LD、metadata（title/description/OGP/canonical）を
+  既存カテゴリLPと同じ形式で設定
+
+**導線整理**: `src/app/materials/page.tsx`のCATEGORY_GROUPS「中学・高校基礎」
+グループ（🌱アイコン、高校基礎レベルの教材が属する既存グループ）に
+`landingPages: [{ href: "/materials/school-test", label: "定期テスト対策
+ページへ" }]`を追加。`/materials/highschool`・`/materials/eiken`・
+`/materials/university-exam`の内部リンク行にもそれぞれ「📖 定期テスト対策
+教材を見る」を追加し、4つの目的別LP間で相互導線となるようにした。
+`src/app/sitemap.ts`に`/materials/school-test`（`changeFrequency: "weekly"`,
+`priority: 0.85`）を追加。
+
+**テスト追加**: `scripts/testing/e2e/category-lps.mjs`に新規セクション
+（13〜13e）を追加し、200表示・H1・レベル別グループ化された教材9件の表示・
+架空の実績や点数保証表現が無いこと・canonical・meta description・
+BreadcrumbList/ItemListのJSON-LD・`/dictionary`/`/premium`への導線・
+`/materials`⇄`/materials/school-test`・他の3つの目的別LPとの相互導線・
+モバイル幅崩れ無し・`/materials/[id]`とのルーティング非競合を検証。
+全項目、初回実行からPASS。
+
+**変更していないもの**: `/premium`ページ（前回ラウンドで完了済みのため
+今回は一切触っていない）、Stripe価格・checkout処理・Premium機能自体、
+AdSense広告枠、SRS V2、teacher機能、既存教材データ（新規追加なし）、
+既存のTOEIC/Business/News/Highschool/Eiken/University-exam LP。
+
+**変更ファイル**: `src/app/materials/school-test/page.tsx`（新規）、
+`src/app/materials/highschool/page.tsx`、`src/app/materials/eiken/page.tsx`、
+`src/app/materials/university-exam/page.tsx`、`src/app/materials/page.tsx`、
+`src/app/sitemap.ts`、`scripts/testing/e2e/category-lps.mjs`、
+`NEXT_IMPROVEMENTS.md`、`WORK_HISTORY.md`。
+
+**検証結果**: `tsc --noEmit`エラーなし、`build`成功、`test:category-lps`・
+`test:premium-conversion`・`test:legal-trust-pages`・`test:smoke`・
+`test:e2e`（全スイート）・`verify:prod`・`verify:srs-global`全PASS。
+
+**DB変更**: なし。
+
+**残課題**: 特になし。高校生向け収益化導線（highschool/eiken/
+university-exam/school-test）の4目的別LP＋`/premium`のセクションが揃った
+ため、次のステップは実際の流入・転換状況をSearch Console等で観察する
+フェーズに移行するのが自然と考えられる。
+
+---
+
 ## 2026-07-07 `/premium`に高校生・英検・大学受験向けセクションを追加
 
 **目的**: 高校生向け収益化導線の第4段階として、`/materials/highschool`・

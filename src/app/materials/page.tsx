@@ -123,6 +123,7 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
       ["中学基礎", "中学標準", "高校基礎"].some((p) =>
         (m.level ?? "").startsWith(p),
       ),
+    landingPages: [{ href: "/materials/school-test", label: "定期テスト対策ページへ" }],
   },
   {
     id: "general",
