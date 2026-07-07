@@ -258,6 +258,12 @@ export default async function EikenMaterialsLandingPage() {
           🎓 高校生向けページへ
         </Link>
         <Link
+          href="/materials/university-exam"
+          className="px-3 py-2 rounded-xl border border-navy-200 text-navy-600 hover:bg-navy-50 transition-colors"
+        >
+          🎓 大学受験対策教材を見る
+        </Link>
+        <Link
           href="/materials"
           className="px-3 py-2 rounded-xl border border-navy-200 text-navy-600 hover:bg-navy-50 transition-colors"
         >

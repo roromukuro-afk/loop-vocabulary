@@ -74,7 +74,10 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
       ["大学受験標準", "大学受験難関", "高校基礎"].some((p) =>
         (m.level ?? "").startsWith(p),
       ),
-    landingPages: [{ href: "/materials/highschool", label: "高校生向けページへ" }],
+    landingPages: [
+      { href: "/materials/highschool", label: "高校生向けページへ" },
+      { href: "/materials/university-exam", label: "大学受験対策ページへ" },
+    ],
   },
   {
     id: "eiken",

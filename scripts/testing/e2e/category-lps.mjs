@@ -23,6 +23,12 @@
  *     /materials⇄/materials/eiken・/materials/highschool⇄/materials/eikenの
  *     相互導線、未実証の合格保証表現が無いこと、モバイル幅での崩れなし、
  *     /materials/[id]とのルーティング非競合も確認する
+ * 12. /materials/university-exam が200で表示され、exam_type="大学受験"の教材11件が
+ *     レベル別（高校基礎〜大学受験難関〜最難関）に正しく表示される。metadata・
+ *     JSON-LD（Breadcrumb+ItemList）・/materials⇄/materials/university-exam・
+ *     /materials/highschool⇄/materials/university-exam・/materials/eiken⇄
+ *     /materials/university-examの相互導線、未実証の合格保証表現が無いこと、
+ *     モバイル幅での崩れなし、/materials/[id]とのルーティング非競合も確認する
  *
  * 使い方: node scripts/testing/e2e/category-lps.mjs
  */
@@ -513,6 +519,166 @@ async function main() {
       ok("/materials/eiken追加後も既存の/materials/[id]が正常に動作する（ルーティング競合なし）");
     } else {
       fail(`/materials/eiken追加後、/materials/${TOEIC_BASIC_100_ID} の表示が想定と異なる: "${stillOkAfterEiken}"`);
+    }
+
+    // ---- 12. /materials/university-exam ----
+    const uniRes = await page.goto(`${baseUrl}/materials/university-exam`, { waitUntil: "load" });
+    await page.waitForLoadState("networkidle");
+    if (uniRes && uniRes.status() === 200) ok("/materials/university-exam が200で表示される");
+    else fail(`/materials/university-exam のステータスが200ではない (${uniRes?.status()})`);
+
+    const uniH1 = await page.locator("h1").textContent();
+    if (uniH1?.includes("大学受験")) ok(`/materials/university-exam のH1に「大学受験」を含む: "${uniH1}"`);
+    else fail(`/materials/university-exam のH1が想定と異なる: "${uniH1}"`);
+
+    const uniCards = page.locator('[data-testid="category-lp-materials"] a');
+    const uniCardCount = await uniCards.count();
+    if (uniCardCount === 11) ok(`/materials/university-exam に教材カードが11件（高校基礎〜大学受験難関）表示される`);
+    else fail(`/materials/university-exam の教材カード数が想定(11件)と異なる (実際: ${uniCardCount}件)`);
+
+    const uniBodyText = await page.locator("body").innerText();
+    if (
+      uniBodyText.includes("高校英単語 基礎100【スターターパック】") &&
+      uniBodyText.includes("高校英単語 基礎100 Part2【スターターパック】") &&
+      uniBodyText.includes("loop受験英単語③【高校基礎】") &&
+      uniBodyText.includes("高校3年・共通テスト重要語") &&
+      uniBodyText.includes("loop受験英単語④【共通テスト】") &&
+      uniBodyText.includes("大学入試頻出英単語 2000+") &&
+      uniBodyText.includes("大学受験 基礎動詞100【スターターパック】") &&
+      uniBodyText.includes("大学受験 基礎名詞100【スターターパック】") &&
+      uniBodyText.includes("大学受験英単語1500") &&
+      uniBodyText.includes("loop受験英単語⑤【難関大】") &&
+      uniBodyText.includes("loop受験英単語⑥【超難関大】")
+    ) {
+      ok("/materials/university-exam に高校基礎〜大学受験難関の全教材タイトルが表示される");
+    } else {
+      fail("/materials/university-exam に想定の教材タイトルが表示されていない");
+    }
+
+    if (
+      !uniBodyText.includes("合格実績") &&
+      !uniBodyText.includes("必ず成績が上がる") &&
+      !uniBodyText.includes("合格を保証") &&
+      !uniBodyText.includes("合格できる") &&
+      !uniBodyText.includes("必ず伸びる")
+    ) {
+      ok("/materials/university-exam に架空の合格実績・成績保証表現が無い");
+    } else {
+      fail("/materials/university-exam に禁止すべき誇張・保証表現が含まれている");
+    }
+
+    const uniCanonical = await page
+      .locator('link[rel="canonical"]')
+      .getAttribute("href")
+      .catch(() => null);
+    if (uniCanonical === "https://loop-vocabulary.app/materials/university-exam") {
+      ok("/materials/university-exam のcanonicalが正しい");
+    } else {
+      fail(`/materials/university-exam のcanonicalが想定と異なる: "${uniCanonical}"`);
+    }
+
+    const uniMetaDesc = await page
+      .locator('meta[name="description"]')
+      .getAttribute("content")
+      .catch(() => null);
+    if (uniMetaDesc?.includes("大学受験")) {
+      ok("/materials/university-exam のmeta descriptionに「大学受験」を含む");
+    } else {
+      fail(`/materials/university-exam のmeta descriptionが想定と異なる: "${uniMetaDesc}"`);
+    }
+
+    const uniLdJsonCount = await page.locator('script[type="application/ld+json"]').count();
+    const uniHtml = await page.content();
+    if (
+      uniLdJsonCount >= 2 &&
+      uniHtml.includes('"@type":"BreadcrumbList"') &&
+      uniHtml.includes('"@type":"ItemList"') &&
+      uniHtml.includes("大学受験対策の英単語教材")
+    ) {
+      ok("/materials/university-exam にBreadcrumbList・ItemListのJSON-LDが正しく出力されている");
+    } else {
+      fail("/materials/university-exam のJSON-LD（Breadcrumb/ItemList）が想定と異なる");
+    }
+
+    const uniDictLink = page.locator('a[href="/dictionary"]');
+    if (await uniDictLink.first().isVisible().catch(() => false)) ok("/materials/university-exam に/dictionaryへの導線がある");
+    else fail("/materials/university-exam に/dictionaryへの導線が見つからない");
+
+    const uniPremiumLink = page.locator('a[href="/premium"]');
+    if (await uniPremiumLink.first().isVisible().catch(() => false)) ok("/materials/university-exam に/premiumへの控えめな導線がある");
+    else fail("/materials/university-exam に/premiumへの導線が見つからない");
+
+    // ---- 12b. /materials/university-exam ⇄ /materials/highschool ----
+    const uniToHighschoolLink = page.locator('a[href="/materials/highschool"]');
+    if (await uniToHighschoolLink.first().isVisible().catch(() => false)) {
+      await Promise.all([
+        page.waitForURL((u) => u.pathname === "/materials/highschool", { timeout: 10000 }),
+        uniToHighschoolLink.first().click(),
+      ]);
+      ok("/materials/university-exam から/materials/highschoolへ遷移できる");
+    } else {
+      fail("/materials/university-exam に/materials/highschoolへの導線が見つからない");
+    }
+    const highschoolToUniLink = page.locator('a[href="/materials/university-exam"]');
+    if (await highschoolToUniLink.first().isVisible().catch(() => false)) {
+      ok("/materials/highschool から/materials/university-examへの導線がある");
+    } else {
+      fail("/materials/highschool に/materials/university-examへの導線が見つからない");
+    }
+
+    // ---- 12c. /materials/university-exam ⇄ /materials/eiken ----
+    await gotoReady(page, `${baseUrl}/materials/university-exam`);
+    const uniToEikenLink = page.locator('a[href="/materials/eiken"]');
+    if (await uniToEikenLink.first().isVisible().catch(() => false)) {
+      await Promise.all([
+        page.waitForURL((u) => u.pathname === "/materials/eiken", { timeout: 10000 }),
+        uniToEikenLink.first().click(),
+      ]);
+      ok("/materials/university-exam から/materials/eikenへ遷移できる");
+    } else {
+      fail("/materials/university-exam に/materials/eikenへの導線が見つからない");
+    }
+    const eikenToUniLink = page.locator('a[href="/materials/university-exam"]');
+    if (await eikenToUniLink.first().isVisible().catch(() => false)) {
+      ok("/materials/eiken から/materials/university-examへの導線がある");
+    } else {
+      fail("/materials/eiken に/materials/university-examへの導線が見つからない");
+    }
+
+    // ---- 12d. /materials ⇄ /materials/university-exam ----
+    await gotoReady(page, `${baseUrl}/materials`);
+    const uniLpLink = page.locator('a[href="/materials/university-exam"]');
+    if ((await uniLpLink.count()) > 0) {
+      await Promise.all([
+        page.waitForURL((u) => u.pathname === "/materials/university-exam", { timeout: 10000 }),
+        uniLpLink.first().click(),
+      ]);
+      ok("/materials から/materials/university-examへ遷移できる");
+    } else {
+      fail("/materials に/materials/university-examへの導線が見つからない");
+    }
+    const backToMaterialsLinkUni = page.locator('a[href="/materials"]');
+    if (await backToMaterialsLinkUni.first().isVisible().catch(() => false)) {
+      ok("/materials/university-exam に/materials（教材一覧）への戻りリンクがある");
+    } else {
+      fail("/materials/university-exam に/materialsへの戻りリンクが見つからない");
+    }
+
+    // ---- 12e. モバイル幅での表示崩れ確認 ----
+    await page.setViewportSize({ width: 375, height: 812 });
+    await gotoReady(page, `${baseUrl}/materials/university-exam`);
+    const hasOverflowUni = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
+    if (!hasOverflowUni) ok("/materials/university-exam: モバイル幅(375px)で横スクロールが発生していない");
+    else fail("/materials/university-exam: モバイル幅(375px)で横スクロールが発生している");
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // ---- 12f. /materials/[id]とのルーティング非競合 ----
+    await gotoReady(page, `${baseUrl}/materials/${TOEIC_BASIC_100_ID}`);
+    const stillOkAfterUni = await page.locator('[data-testid="material-title"]').textContent().catch(() => null);
+    if (stillOkAfterUni?.includes("TOEIC 基礎100")) {
+      ok("/materials/university-exam追加後も既存の/materials/[id]が正常に動作する（ルーティング競合なし）");
+    } else {
+      fail(`/materials/university-exam追加後、/materials/${TOEIC_BASIC_100_ID} の表示が想定と異なる: "${stillOkAfterUni}"`);
     }
 
     if (errors.length === 0) ok("操作中に console error / 5xx なし");

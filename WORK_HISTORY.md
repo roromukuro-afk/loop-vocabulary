@@ -5,6 +5,78 @@
 
 ---
 
+## 2026-07-07 大学受験英単語LP（`/materials/university-exam`）の新設
+
+**目的**: 高校生向け収益化導線の第3段階として、目的別（大学受験対策）の
+入口を新設するオーナー指示に対応。`/materials/highschool`・`/materials/eiken`
+に続く3つ目のカテゴリLP。
+
+**調査**: `/materials/highschool`・`/materials/eiken`・`/materials`の実装
+パターン、`/premium`・`/weak`・`/plan`・`/extract`・`/pdf`・`/test/typing`・
+`/test/listening`のPremiumゲーティング状況、`test:category-lps`の既存テスト
+パターンを確認。Supabase上の`materials`テーブルを`exam_type IN ('大学受験',
+'共通テスト','高校入試')`で照会したところ、`exam_type='大学受験'`の公開教材が
+高校基礎〜超難関大まで計11件存在することを確認した（`exam_type='高校入試'`は
+中学生向けの別カテゴリのため対象外とした）。
+
+**実装内容**: 新規ページ`src/app/materials/university-exam/page.tsx`を追加。
+- `/materials/eiken`と同じ「`exam_type`で動的取得」パターンを採用（IDの
+  ハードコードなし、新規教材追加もなし）。取得した11件を7レベル
+  （高校基礎→高校基礎〜標準→高校3年→高校標準〜大学受験→大学受験標準→
+  大学受験標準〜難関→大学受験難関〜最難関）にグループ化して表示
+- 「大学受験英単語対策で使える理由」として、共通テスト対策・私大対策・
+  基礎固めの3ユースケースを軽いカード形式で紹介
+- 「無料でできること／Premiumでさらに効率化」を、オーナー指定どおりの
+  区分で記載。Premium訴求は大学受験と相性の良い言い回し（AI弱点分析で
+  苦手な品詞・意味・単語傾向を確認、AI学習プランで模試前・定期テスト前・
+  入試前の復習範囲を整理、長文・問題集からAIで単語を抽出、入力テストで
+  スペル確認、リスニング練習で音を確認）にした
+- 「保護者の方へ」を、高校生向けLP・英検LPと同じ5点に加え、今回新たに
+  指定された「広告非表示はPremiumで対応可能」を6点目として追加
+- Breadcrumb+ItemListのJSON-LD、metadata（title/description/OGP/canonical）を
+  既存カテゴリLPと同じ形式で設定
+
+**導線整理**: `src/app/materials/page.tsx`のCATEGORY_GROUPS「大学受験・
+共通テスト」グループの`landingPages`に`{ href: "/materials/university-exam",
+label: "大学受験対策ページへ" }`を追加し、既存の`/materials/highschool`導線と
+並記（TOEICグループの複数landingPages構成と同じパターン）。`/materials/
+highschool`・`/materials/eiken`の内部リンク行にもそれぞれ「🎓 大学受験対策
+教材を見る」を追加し、highschool・eiken・university-examの三者間で相互導線と
+なるようにした。`src/app/sitemap.ts`に`/materials/university-exam`
+（`changeFrequency: "weekly"`, `priority: 0.85`）を追加。
+
+**テスト追加**: `scripts/testing/e2e/category-lps.mjs`に新規セクション
+（12〜12f）を追加し、200表示・H1・レベル別グループ化された教材11件の表示・
+架空の合格実績や成績保証表現が無いこと・canonical・meta description・
+BreadcrumbList/ItemListのJSON-LD・`/dictionary`/`/premium`への導線・
+`/materials`⇄`/materials/university-exam`・`/materials/highschool`⇄
+`/materials/university-exam`・`/materials/eiken`⇄`/materials/university-exam`
+の相互導線・モバイル幅崩れ無し・`/materials/[id]`とのルーティング非競合を
+検証。前2ラウンドの教訓（禁止フレーズの引用による自己矛盾）を活かし、
+初回実行から全項目PASSを確認した。
+
+**変更していないもの**: Stripe価格・Premium機能自体、AdSense広告枠、
+SRS V2、teacher機能、既存教材データ（新規追加なし）、既存の
+TOEIC/Business/News/Highschool/Eiken LP。
+
+**変更ファイル**: `src/app/materials/university-exam/page.tsx`（新規）、
+`src/app/materials/highschool/page.tsx`、`src/app/materials/eiken/page.tsx`、
+`src/app/materials/page.tsx`、`src/app/sitemap.ts`、
+`scripts/testing/e2e/category-lps.mjs`、`NEXT_IMPROVEMENTS.md`、
+`WORK_HISTORY.md`。
+
+**検証結果**: `tsc --noEmit`エラーなし、`build`成功、`test:category-lps`・
+`test:premium-conversion`・`test:smoke`・`test:e2e`（全スイート）・
+`verify:prod`・`verify:srs-global`全PASS。
+
+**DB変更**: なし。
+
+**残課題**: 特になし。高校生向け収益化導線（highschool/eiken/
+university-exam）の3LPが揃ったため、次のステップは実際の流入・転換状況を
+Search Console等で観察するフェーズに移行するのが自然と考えられる。
+
+---
+
 ## 2026-07-07 英検対策LP（`/materials/eiken`）の新設
 
 **目的**: 高校生向け収益化導線の第2段階として、目的別（英検対策）の入口を

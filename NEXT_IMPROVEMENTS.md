@@ -1762,6 +1762,56 @@
     **DB変更**: なし。
     **残課題**: 特になし。
 
+55. ✅ **完了（2026-07-07）: 大学受験英単語LP（`/materials/university-exam`）の新設**
+    高校生向け収益化導線の第3段階として、目的別（大学受験対策）の入口を新設する
+    オーナー指示に対応。Supabase上の`materials`テーブルを`exam_type = '大学受験'`
+    で直接照会したところ、高校基礎レベルから超難関大レベルまで計11件の公開教材
+    （既存材20件中の8件＋新スターターパック2件、`exam_type='高校入試'`の中学生
+    向け教材は対象外）が既に存在することを確認し、`/materials/eiken`と同じ
+    「`exam_type`で動的取得」パターンを採用して新規教材の追加は一切行わずに
+    実装した。
+    **表示教材（既存データのみ、新規教材追加なし・レベル別グループ化）**:
+    高校基礎（高校英単語基礎100・Part2）、高校基礎〜標準（loop受験英単語③）、
+    高校3年（高校3年・共通テスト重要語）、高校標準〜大学受験（loop受験英単語④
+    【共通テスト】）、大学受験標準（大学入試頻出英単語2000+、大学受験基礎動詞100、
+    大学受験基礎名詞100、大学受験英単語1500）、大学受験標準〜難関（loop受験
+    英単語⑤【難関大】）、大学受験難関〜最難関（loop受験英単語⑥【超難関大】）の
+    計7レベル11件。
+    **無料/Premiumの訴求内容**: オーナー指定どおり、無料＝大学受験向け教材
+    インポート・単語帳・SRS復習・4択/入力テスト・PDFテスト・達成スタンプ、
+    Premium＝AI弱点分析（苦手な品詞・意味・単語傾向を確認）・AI学習プラン
+    （模試前・定期テスト前・入試前の復習範囲を整理）・AI単語抽出（長文・問題集
+    から単語を抽出）・入力テストでのスペル確認・リスニング練習・タイピング
+    練習・広告非表示、という自然な言い回しで記載。
+    **保護者向け安心要素**: 高校生向けLP・英検LPと同じ5点に加え、今回オーナー
+    から追加指定された「広告非表示はPremiumで対応可能」を6点目として追加。
+    禁止フレーズを直接引用しない言い回しを踏襲。
+    **導線整理**: `src/app/materials/page.tsx`のCATEGORY_GROUPS「大学受験・
+    共通テスト」グループの`landingPages`に`{ href: "/materials/university-exam",
+    label: "大学受験対策ページへ" }`を追加（既存の`/materials/highschool`導線と
+    並記）。`/materials/highschool`・`/materials/eiken`の内部リンク行にも
+    それぞれ「🎓 大学受験対策教材を見る」を追加し、三者間の相互導線とした。
+    `src/app/sitemap.ts`に`/materials/university-exam`（weekly, priority 0.85）
+    を追加。
+    **変更していないもの**: Stripe価格・Premium機能自体、AdSense広告枠、
+    SRS V2、teacher機能、既存教材データ（新規追加なし）、既存の
+    TOEIC/Business/News/Highschool/Eiken LP。
+    **テスト追加**: `scripts/testing/e2e/category-lps.mjs`に新規セクション
+    （12〜12f）を追加。200表示・H1・レベル別グループ化された教材11件の表示・
+    架空の合格実績や成績保証表現が無いこと・canonical・meta description・
+    BreadcrumbList/ItemListのJSON-LD・`/dictionary`/`/premium`への導線・
+    `/materials`⇄`/materials/university-exam`・`/materials/highschool`⇄
+    `/materials/university-exam`・`/materials/eiken`⇄`/materials/university-exam`
+    の相互導線・モバイル幅崩れ無し・`/materials/[id]`とのルーティング非競合を
+    検証。前2ラウンドの教訓を活かし、初回実行から全項目PASS。
+    検証: `tsc --noEmit`エラーなし、`build`成功、`test:category-lps`・
+    `test:premium-conversion`・`test:smoke`・`test:e2e`（全スイート）・
+    `verify:prod`・`verify:srs-global`全PASS。
+    **DB変更**: なし。
+    **残課題**: 特になし。高校生向け収益化導線（highschool/eiken/
+    university-exam）の3LPが揃ったため、次のステップは実際の流入・転換状況を
+    Search Console等で観察するフェーズに移行するのが自然と考えられる。
+
 ---
 
 ## 💰 収益化・成長 監査（2026-07-04）
