@@ -1670,6 +1670,52 @@
     **残課題**: 特商法ページの請求時開示方式について、専門家（行政書士・
     弁護士等）への確認は未実施のまま（法律判断が必要な場合の任意対応として残る）。
 
+53. ✅ **完了（2026-07-07）: 高校生向けLP（`/materials/highschool`）の新設**
+    収益化の本命として、高校生・大学受験生・英検対策層向けの入口を整理する
+    オーナー指示に対応。既存の`/materials/toeic`・`/materials/business`・
+    `/materials/news`と同じ実装パターン（force-dynamic・Breadcrumb+ItemList
+    のJSON-LD・data-testid付き教材カード・学習の流れセクション）を踏襲し、
+    新規ページ`src/app/materials/highschool/page.tsx`を追加した。
+    **表示教材（既存データのみ、新規教材追加なし）**: 主役2件（高校英単語
+    基礎100・Part2、いずれも`大学受験`/`高校基礎`）、関連教材4件（英検準2級
+    基礎100・英検3級基礎100・大学受験基礎動詞100・大学受験基礎名詞100）。
+    IDを直接指定して取得する方式（`/materials/news`と同じパターン）を採用し、
+    複数exam_typeにまたがる教材を安全にキュレーションした。
+    **無料/Premiumの訴求内容**: オーナー指定どおり、無料＝教材インポート・
+    単語帳・SRS復習・4択/入力テスト・PDFテスト・達成スタンプ、Premium＝
+    AI弱点分析・AI学習プラン・AI単語抽出・タイピング・リスニング・広告非表示、
+    という区分のみを記載（未実装機能は記載せず、Premium訴求は控えめな1リンクに留めた）。
+    **保護者向け安心要素**: 「無料でも基本学習が可能」「料金は/premiumに明記」
+    「解約方法は/termsに記載」「点数上昇や合格を確約する表現・誇張した実績は
+    記載しない」「学習データをもとに復習を支援する」の5点を、法律文書調に
+    せず軽いボックスで記載。
+    **導線整理**: `src/app/materials/page.tsx`のCATEGORY_GROUPS「大学受験・
+    共通テスト」グループに`landingPages: [{ href: "/materials/highschool",
+    label: "高校生向けページへ" }]`を追加（TOEIC/Business/Newsの導線と同じ
+    トーンの`rounded-full`リンク）。`src/app/sitemap.ts`に
+    `/materials/highschool`（weekly, priority 0.85、他のカテゴリLPと同水準）
+    を追加。
+    **変更していないもの**: Stripe価格・Premium機能自体、AdSense広告枠、
+    SRS V2、teacher機能、既存教材データ（新規追加なし）、既存の
+    TOEIC/Business/News LP。
+    **テスト追加**: `scripts/testing/e2e/category-lps.mjs`に新規セクション
+    （10〜10d）を追加。200表示・H1・主役教材2件/関連教材4件の表示・架空の
+    合格実績や成績保証表現が無いこと・canonical・meta description・
+    BreadcrumbList/ItemListのJSON-LD・`/dictionary`/`/premium`への導線・
+    `/materials`との相互導線・モバイル幅崩れ無し・`/materials/[id]`との
+    ルーティング非競合を検証。初回実行時、保護者向け安心文の中で「必ず成績が
+    上がる」「合格を保証する」を直接引用していたため、誇張表現ガードの
+    アサーションが自己矛盾的に失敗（実際には否定文だが文字列一致で検出）。
+    引用を避けた言い回し（「テストの点数上昇や合格を確約するような表現、
+    誇張した実績の記載は行っていません」）に修正して解消し、全項目PASSを確認。
+    検証: `tsc --noEmit`エラーなし、`build`成功、`test:category-lps`・
+    `test:premium-conversion`・`test:smoke`・`test:e2e`（全スイート）・
+    `verify:prod`・`verify:srs-global`全PASS。
+    **DB変更**: なし。
+    **残課題**: 特になし。将来的に高校生向け教材（英検2級・準1級や高校標準
+    レベルなど）を追加する場合は、本ページの主役/関連リストへの反映を
+    別途検討する。
+
 ---
 
 ## 💰 収益化・成長 監査（2026-07-04）

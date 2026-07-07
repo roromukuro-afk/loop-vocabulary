@@ -5,6 +5,78 @@
 
 ---
 
+## 2026-07-07 高校生向けLP（`/materials/highschool`）の新設
+
+**目的**: 収益化の本命として、Loop Vocabularyを高校生・大学受験生・英検
+対策層に刺さる形に整理するオーナー指示に対応。既存のTOEIC・ビジネス・
+ニュース英語LPに続き、高校生向けの入口となるカテゴリLPを新設した。
+
+**調査**: `/materials/toeic`・`/materials/business`・`/materials/news`の
+実装パターン（force-dynamic・Breadcrumb+ItemListのJSON-LD・
+`data-testid="category-lp-materials"`の教材カード・学習の流れセクション・
+LP間相互リンク）、`/materials`のCATEGORY_GROUPS構造とlandingPages導線、
+`src/data/presets/`配下の全プリセット教材のid/title/level/exam_type、
+`src/app/sitemap.ts`の既存カテゴリLPエントリ、`scripts/testing/e2e/
+category-lps.mjs`の既存テストパターンを確認した。`/extract`・`/weak`が
+Premium限定、`/dictionary`・`/test/typing`・`/test/listening`は無料で
+アクセス可能であることも確認し、LP本文の無料/Premium訴求が事実と一致する
+ようにした。
+
+**実装内容**: 新規ページ`src/app/materials/highschool/page.tsx`を追加。
+- 主役2件（高校英単語 基礎100・Part2、`大学受験`/`高校基礎`）、関連教材
+  4件（英検準2級基礎100・英検3級基礎100・大学受験基礎動詞100・基礎名詞100）
+  を、`/materials/news`と同じ「IDを直接指定して取得」方式で表示（既存教材
+  データのみ使用、新規教材追加なし）
+- 「高校生の使い方」として定期テスト前・英検対策・大学受験の3ユースケースを
+  軽いカード形式で紹介
+- 「無料でできること／Premiumでさらに効率化」を、オーナー指定どおりの
+  区分（無料＝教材インポート・単語帳・SRS復習・4択/入力テスト・PDFテスト・
+  達成スタンプ、Premium＝AI弱点分析・AI学習プラン・AI単語抽出・タイピング・
+  リスニング・広告非表示）で記載し、Premiumへの導線は1つの控えめなリンクに留めた
+- 「保護者の方へ」を軽いボックスで追加（無料でも基本学習が可能・料金は
+  `/premium`に明記・解約方法は`/terms`に記載・点数上昇や合格を確約する
+  表現や誇張した実績は記載しない・学習データをもとに復習を支援する、の5点。
+  法律文書調にはしていない）
+- Breadcrumb+ItemListのJSON-LD、metadata（title/description/OGP/canonical）を
+  既存カテゴリLPと同じ形式で設定
+
+**導線整理**: `src/app/materials/page.tsx`のCATEGORY_GROUPS「大学受験・
+共通テスト」グループに`landingPages: [{ href: "/materials/highschool",
+label: "高校生向けページへ" }]`を追加（TOEIC/Business/Newsの導線と同じ
+トーンの`rounded-full`リンク）。`src/app/sitemap.ts`に`/materials/highschool`
+（`changeFrequency: "weekly"`, `priority: 0.85`、他のカテゴリLPと同水準）を追加。
+
+**テスト追加**: `scripts/testing/e2e/category-lps.mjs`に新規セクション
+（10〜10d）を追加し、200表示・H1・主役教材2件/関連教材4件の表示・架空の
+合格実績や成績保証表現が無いこと・canonical・meta description・
+BreadcrumbList/ItemListのJSON-LD・`/dictionary`/`/premium`への導線・
+`/materials`との相互導線・モバイル幅崩れ無し・`/materials/[id]`との
+ルーティング非競合を検証。初回実行時、「保護者の方へ」の安心文で
+「必ず成績が上がる」「合格を保証する」を直接引用していたため、誇張表現
+ガードのアサーションが自己矛盾的に失敗（否定文だが文字列一致で検出された）。
+引用を避けた言い回しに修正して解消し、全項目PASSを確認した。
+
+**変更していないもの**: Stripe価格・Premium機能自体、AdSense広告枠、
+SRS V2、teacher機能、既存教材データ（新規追加なし）、既存の
+TOEIC/Business/News LP。
+
+**変更ファイル**: `src/app/materials/highschool/page.tsx`（新規）、
+`src/app/materials/page.tsx`、`src/app/sitemap.ts`、
+`scripts/testing/e2e/category-lps.mjs`、`NEXT_IMPROVEMENTS.md`、
+`WORK_HISTORY.md`。
+
+**検証結果**: `tsc --noEmit`エラーなし、`build`成功、`test:category-lps`・
+`test:premium-conversion`・`test:smoke`・`test:e2e`（全スイート）・
+`verify:prod`・`verify:srs-global`全PASS。
+
+**DB変更**: なし。
+
+**残課題**: 特になし。将来的に高校生向け教材（英検2級・準1級や高校標準
+レベルなど）を追加する場合は、本ページの主役/関連リストへの反映を
+別途検討する。
+
+---
+
 ## 2026-07-07 `/legal/commercial-transaction`を正式公開
 
 **目的**: 直前の作業で運営者情報（実名・所在地/電話番号の請求時開示方針）を
