@@ -13,6 +13,8 @@
 
 > 以下は開発・運用者向けの内部ドキュメントです（ユーザー向け公開ページではありません）。
 
+- [LAUNCH_STATUS.md](LAUNCH_STATUS.md) — **運用者専用**。「今リリースに進めるか」をカテゴリ別
+  ステータス表・オーナー対応待ち一覧で一目で確認できるダッシュボード
 - [LAUNCH_READINESS_CHECKLIST.md](LAUNCH_READINESS_CHECKLIST.md) — **運用者専用**。本番運用前に
   Stripe/Premium・AI・AdSense・法務・cron・管理画面・SEOの状態を1箇所で確認するチェックリスト
 - [RELEASE_NOTES.md](RELEASE_NOTES.md) — 直近リリースのまとめ・本番確認済み項目・ロールバック方法
