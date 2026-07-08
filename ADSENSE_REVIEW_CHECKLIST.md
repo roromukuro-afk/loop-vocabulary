@@ -5,6 +5,23 @@
 > [ADSENSE_SETUP.md](ADSENSE_SETUP.md) も参照（本書と一部重複するが、本書は今回の
 > 「Low value content」不承認対応に特化した記録）。
 
+## 0. 本番反映確認（2026-07-08）
+
+- 本番デプロイID: `dpl_9hMAdaPfFY4PJ2mEJQ1zfZsgNpfc`（commit `4a3eb93`）READY確認済み
+- `verify:prod`・`verify:seo-lp-audit`・`verify:srs-global`いずれも本番で全PASS
+- `curl`で本番HTMLを直接確認: `/guide`・`/materials`・`/materials/highschool`は
+  AdSense本体スクリプトが出力され、`/terms`・`/login`・`/privacy`・`/dashboard`は
+  出力されないことを確認
+- **既知の注意点**: トップページ(`/`)のみ、デプロイ直後の確認時点でキャッシュが
+  古いバージョンを返していた（`X-Vercel-Cache: HIT`, `Age`が長い）。これは
+  `src/app/page.tsx`の統計表示が`unstable_cache({revalidate: 3600})`で1時間
+  キャッシュされており、Vercelのデータキャッシュがデプロイをまたいで保持される
+  仕様によるもので、今回の広告制限ロジック自体のバグではない（同じ許可ルートである
+  `/materials`・`/guide`では即座に正しく反映されていることで裏付け済み）。
+  最大1時間以内に自然に反映される。急ぎ確認したい場合はVercelダッシュボードの
+  キャッシュパージ、またはブラウザで一度アクセスしてから少し待ってから
+  再確認してください。
+
 ## 1. 不承認理由（オーナー共有分）
 
 - Policy violations found
