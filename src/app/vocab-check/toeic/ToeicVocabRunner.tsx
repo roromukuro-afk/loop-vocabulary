@@ -63,7 +63,7 @@ export function ToeicVocabRunner() {
   if (done) {
     const correct = results.filter(Boolean).length;
     const result = getResult(correct);
-    const shareText = `TOEICスコア語彙力チェック結果：推定スコア ${result.score}（${correct}/20問正解）🎯 #Loop_Vocabulary #TOEIC`;
+    const shareText = `私のTOEIC語彙力は推定スコア${result.score}でした！（${correct}/20問正解）🎯\nLoop Vocabularyで3分語彙力チェック\n自己想起×忘却曲線で英単語を定着\n#LoopVocabulary #英単語 #英語学習 #TOEIC`;
 
     const scoreRanges = [
       { label: "〜500点",    qs: [0,4]  },
@@ -107,15 +107,15 @@ export function ToeicVocabRunner() {
           </div>
 
           <div className="mt-6 flex gap-3">
-            <button onClick={async () => {
+            <button data-testid="vocab-check-share-button" onClick={async () => {
               if (navigator.share) { await navigator.share({ text: shareText }).catch(() => {}); }
               else { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, "_blank", "noopener"); }
             }} className="flex-1 py-3 rounded-2xl bg-sky-500 text-white font-bold text-sm hover:bg-sky-600 transition-colors">
-              📤 結果をシェア
+              📤 結果をXでシェア
             </button>
-            <button onClick={() => { setIdx(0); setPicked(null); setResults([]); setDone(false); }}
+            <button data-testid="vocab-check-retry" onClick={() => { setIdx(0); setPicked(null); setResults([]); setDone(false); }}
               className="flex-1 py-3 rounded-2xl border border-navy-200 text-navy-700 font-bold text-sm hover:bg-navy-50 transition-colors">
-              もう一度
+              もう一度診断する
             </button>
           </div>
 

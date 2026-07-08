@@ -50,6 +50,7 @@ export default function ContactPage() {
         <Card className="mt-4">
           <CardTitle>その他のリンク</CardTitle>
           <ul className="text-sm text-navy-700 space-y-1.5">
+            <li><Link href="/about" className="underline">運営者について</Link></li>
             <li><Link href="/faq" className="underline">よくある質問（FAQ）</Link></li>
             <li><Link href="/privacy" className="underline">プライバシーポリシー</Link></li>
             <li><Link href="/terms" className="underline">利用規約</Link></li>

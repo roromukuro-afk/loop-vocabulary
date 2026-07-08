@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { LESSONS } from "@/lib/grammar/lessons";
 
 const GUIDE_SLUGS = [
+  "vocabulary-quiz-pdf-for-teachers",
   "how-to-memorize-english-words",
   "spaced-repetition-english-vocabulary",
   "flashcards-vs-multiple-choice",
@@ -65,6 +66,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     { url: base,                         lastModified: now, changeFrequency: "weekly",  priority: 1.0 },
     { url: `${base}/signup`,             lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${base}/about`,              lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${base}/press`,              lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${base}/vocab-check`,        lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/vocab-check/eiken`,  lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/vocab-check/toeic`,  lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/dictionary`,         lastModified: now, changeFrequency: "weekly",  priority: 0.8 },
     { url: `${base}/premium`,            lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/materials`,          lastModified: now, changeFrequency: "weekly",  priority: 0.9 },

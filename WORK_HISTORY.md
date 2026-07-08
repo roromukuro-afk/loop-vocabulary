@@ -1,7 +1,42 @@
 # WORK_HISTORY — Loop Vocabulary
 
 > 作業の時系列ログ。新しいものを上に追記する。
-> 最終更新: 2026-07-08
+> 最終更新: 2026-07-09
+
+---
+
+## 2026-07-09 実体感・拡散導線の強化ラウンド
+
+**目的**: AdSense再審査・初期流入・信頼性強化のため、「実際に使える学習サービス」
+「無料診断」「SNS拡散導線」「教員向けPDF機能」「開発者の思想・運営実体」が
+伝わるようにする。詳細は`NEXT_IMPROVEMENTS.md`の完了項目60参照。
+
+**Phase 1**: `/vocab-check`系3種の結果画面シェア機能（既存実装）を強化。
+ハッシュタグを`#LoopVocabulary #英単語 #英語学習`に統一し、一般版に
+高校生向け・英検・大学受験・定期テスト対策の4教材LPへの導線を追加。
+
+**Phase 2**: `/guide/vocabulary-quiz-pdf-for-teachers`を新規追加（塾講師・
+学校教員・家庭教師向けPDF小テスト活用ガイド）。
+
+**Phase 3**: `/about`を新規作成（開発の背景・運営者情報）。
+
+**Phase 4**: `/press`を新規作成（レビュー・メディア向け情報）。
+
+**Phase 5**: `/faq`に診断・PDF・解約に関する3問を追加。
+
+**Phase 6**: SNS・note・教育者・ブロガー向け手動施策を`NEXT_IMPROVEMENTS.md`
+に整理（自動化なし）。
+
+**新規テスト**: `test:diagnostic-share`・`test:teacher-pdf-guide`
+（`run-e2e.mjs`の33・34番目のステージとして追加）。
+
+**検証**: `tsc --noEmit`エラーなし、`build`成功、新規2テスト・
+`verify:seo-lp-audit`・`test:smoke`全PASS。`test:e2e`は34/34 全PASS
+（前回報告した`teacher`のフレークは今回発生せず、一過性だったことを裏付け）。
+
+**DB変更**: なし。Stripe・課金・特商法・SRS V2 ON状態・teacher機能・
+教材データ本体・AdSense publisher ID・ads.txt・Auto adsの基本ID・
+広告枠は変更していない。
 
 ---
 

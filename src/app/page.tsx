@@ -681,6 +681,8 @@ export default async function LandingPage() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <span className="font-bold text-navy-700">運営情報</span>
+                <Link href="/about" className="hover:text-navy-700">運営者について</Link>
+                <Link href="/press" className="hover:text-navy-700">プレスキット</Link>
                 <Link href="/privacy" className="hover:text-navy-700">プライバシーポリシー</Link>
                 <Link href="/terms" className="hover:text-navy-700">利用規約</Link>
                 <Link href="/legal/commercial-transaction" className="hover:text-navy-700">特定商取引法に基づく表記</Link>

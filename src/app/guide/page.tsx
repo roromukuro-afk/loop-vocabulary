@@ -8,6 +8,13 @@ export const metadata: Metadata = {
 
 const GUIDES = [
   {
+    slug: "vocabulary-quiz-pdf-for-teachers",
+    title: "塾・学校の英単語小テストをPDFで作る方法【教員・家庭教師向け】",
+    description: "定期テスト前・英検前・授業後の確認・宿題プリントに使える、小テストPDF作成の使い方。",
+    tag: "教員・塾講師向け",
+    readTime: "4分",
+  },
+  {
     slug: "how-to-memorize-english-words",
     title: "英単語の覚え方【「わかる」と「思い出せる」は違う】",
     description: "再認と想起の違いを理解して、自己想起（アクティブリコール）を使った忘れにくい覚え方に切り替える方法。",

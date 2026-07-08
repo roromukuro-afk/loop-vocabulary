@@ -139,6 +139,12 @@ async function main() {
 
     console.log("\n=== 32. 新規学習ガイド8記事 E2E ===");
     results.guidesContent = runNode("scripts/testing/e2e/guides-content.mjs");
+
+    console.log("\n=== 33. 語彙力チェックSNSシェア導線 E2E ===");
+    results.diagnosticShare = runNode("scripts/testing/e2e/diagnostic-share.mjs");
+
+    console.log("\n=== 34. 教員向けPDF小テストガイド E2E ===");
+    results.teacherPdfGuide = runNode("scripts/testing/e2e/teacher-pdf-guide.mjs");
   } finally {
     stopDevServer(dev);
   }

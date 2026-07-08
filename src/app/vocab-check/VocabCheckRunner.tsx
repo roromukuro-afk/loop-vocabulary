@@ -97,7 +97,7 @@ export function VocabCheckRunner() {
       return { lv, label: LEVEL_LABELS[lv], ok, total: qs.length };
     });
 
-    const shareText = `英語語彙力チェック結果：${result.level}（推定 ${result.vocab}）${correct}/20問正解 🎯 #Loop_Vocabulary`;
+    const shareText = `私の英単語レベルは「${result.level}」でした！（推定語彙数 ${result.vocab}・${correct}/20問正解）\nLoop Vocabularyで3分語彙力チェック📊\n自己想起×忘却曲線で英単語を定着\n#LoopVocabulary #英単語 #英語学習`;
 
     return (
       <div className="min-h-dvh bg-gradient-to-b from-sky-50 to-white px-4 py-10">
@@ -135,6 +135,7 @@ export function VocabCheckRunner() {
           {/* シェアボタン */}
           <div className="mt-6 flex gap-3">
             <button
+              data-testid="vocab-check-share-button"
               onClick={async () => {
                 if (navigator.share) {
                   await navigator.share({ text: shareText }).catch(() => {});
@@ -144,13 +145,14 @@ export function VocabCheckRunner() {
               }}
               className="flex-1 py-3 rounded-2xl bg-sky-500 text-white font-bold text-sm hover:bg-sky-600 transition-colors"
             >
-              📤 結果をシェア
+              📤 結果をXでシェア
             </button>
             <button
+              data-testid="vocab-check-retry"
               onClick={() => { setIdx(0); setPicked(null); setResults([]); setDone(false); }}
               className="flex-1 py-3 rounded-2xl border border-navy-200 text-navy-700 font-bold text-sm hover:bg-navy-50 transition-colors"
             >
-              もう一度
+              もう一度診断する
             </button>
           </div>
 
@@ -163,7 +165,7 @@ export function VocabCheckRunner() {
                 href="/signup"
                 className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
               >
-                無料で始める →
+                無料で単語帳を作る →
               </Link>
               <Link
                 href="/login"
@@ -171,6 +173,17 @@ export function VocabCheckRunner() {
               >
                 ログイン
               </Link>
+            </div>
+          </div>
+
+          {/* 教材LPへの導線 */}
+          <div className="mt-6">
+            <div className="text-sm font-bold text-navy-700 mb-2 text-center">目的別の教材で続けて学ぶ</div>
+            <div className="grid grid-cols-2 gap-2" data-testid="vocab-check-materials-links">
+              <Link href="/materials/highschool" className="px-3 py-2.5 rounded-xl bg-white border border-navy-100 text-navy-700 text-xs font-semibold text-center hover:shadow-sm transition-shadow">🎓 高校生向け教材</Link>
+              <Link href="/materials/eiken" className="px-3 py-2.5 rounded-xl bg-white border border-navy-100 text-navy-700 text-xs font-semibold text-center hover:shadow-sm transition-shadow">📝 英検対策教材</Link>
+              <Link href="/materials/university-exam" className="px-3 py-2.5 rounded-xl bg-white border border-navy-100 text-navy-700 text-xs font-semibold text-center hover:shadow-sm transition-shadow">🎓 大学受験教材</Link>
+              <Link href="/materials/school-test" className="px-3 py-2.5 rounded-xl bg-white border border-navy-100 text-navy-700 text-xs font-semibold text-center hover:shadow-sm transition-shadow">📖 定期テスト対策教材</Link>
             </div>
           </div>
 

@@ -33,7 +33,7 @@ async function main() {
 
   let allPass = true;
   try {
-    const pub = await checkPublicPages(baseUrl, ["/", "/dictionary", "/materials", "/guide", "/grammar", "/faq", "/privacy", "/terms"]);
+    const pub = await checkPublicPages(baseUrl, ["/", "/dictionary", "/materials", "/guide", "/grammar", "/faq", "/privacy", "/terms", "/about", "/press", "/vocab-check"]);
     allPass = printResults("Public pages (expect 200)", pub) && allPass;
 
     const auth = await checkAuthRedirects(baseUrl, ["/dashboard", "/review", "/settings", "/teacher", "/pdf"]);
