@@ -6,6 +6,7 @@ import { ContactForm } from "./ContactForm";
 export const metadata = {
   title: "お問い合わせ | Loop Vocabulary",
   description: "Loop Vocabulary のサポート窓口。ログイン障害・データ削除・著作権・広告に関するお問い合わせはこちら。",
+  alternates: { canonical: "https://loop-vocabulary.app/contact" },
 };
 
 export default function ContactPage() {

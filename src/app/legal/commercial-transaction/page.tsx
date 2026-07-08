@@ -25,6 +25,7 @@ import { SUPPORT_EMAIL } from "@/lib/support";
 export const metadata: Metadata = {
   title: "特定商取引法に基づく表記 | Loop Vocabulary",
   description: "Loop Vocabulary（英単語学習アプリ）の特定商取引法に基づく表記。運営者情報・価格・支払方法・解約方法について。",
+  alternates: { canonical: "https://loop-vocabulary.app/legal/commercial-transaction" },
 };
 
 function Row({ label, value, pending }: { label: string; value: React.ReactNode; pending?: boolean }) {
@@ -126,6 +127,12 @@ export default function CommercialTransactionPage() {
         <Link href="/privacy" className="underline">プライバシーポリシー</Link> と矛盾しないよう
         整備しています。内容に相違がある場合は利用規約・プライバシーポリシーの記載が優先されます。
       </p>
+
+      <div className="flex justify-center gap-4 text-xs flex-wrap mt-6 not-prose">
+        <Link href="/faq" className="text-navy-500 underline">よくある質問</Link>
+        <Link href="/about" className="text-navy-500 underline">運営者について</Link>
+        <Link href="/contact" className="text-navy-500 underline">お問い合わせ</Link>
+      </div>
     </div>
   );
 }

@@ -73,7 +73,8 @@ export default function AboutPage() {
         Loop Vocabularyは個人開発者（佐藤 慶音）が運営しています。販売事業者名・解約方法などの
         詳細は<Link href="/legal/commercial-transaction">特定商取引法に基づく表記</Link>、
         利用条件は<Link href="/terms">利用規約</Link>、個人情報の取り扱いは
-        <Link href="/privacy">プライバシーポリシー</Link>をご覧ください。ご質問・不具合報告は
+        <Link href="/privacy">プライバシーポリシー</Link>をご覧ください。使い方や料金の疑問は
+        <Link href="/faq">よくある質問</Link>、ご質問・不具合報告は
         <Link href="/contact">お問い合わせフォーム</Link>からお願いします。
       </p>
 

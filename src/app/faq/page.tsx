@@ -4,6 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "よくある質問（FAQ）| Loop Vocabulary",
   description: "Loop Vocabulary の使い方・料金・プレミアムプラン・データ削除・英検/TOEIC対応などよくある質問にお答えします。",
+  alternates: { canonical: "https://loop-vocabulary.app/faq" },
 };
 
 const FAQS: { q: string; a: string }[] = [
@@ -120,6 +121,8 @@ export default function FaqPage() {
         <div className="flex justify-center gap-4 text-sm flex-wrap pt-2">
           <Link href="/materials" className="text-navy-500 underline">教材一覧</Link>
           <Link href="/dictionary" className="text-navy-500 underline">辞書検索</Link>
+          <Link href="/about" className="text-navy-500 underline">運営者について</Link>
+          <Link href="/press" className="text-navy-500 underline">プレスキット</Link>
           <Link href="/" className="text-navy-500 underline">← トップページ</Link>
         </div>
       </div>

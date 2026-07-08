@@ -8,6 +8,7 @@ export const metadata: Metadata = {
     title: "無料会員登録（30秒）| Loop Vocabulary",
     description: "忘却曲線で英単語を効率よく覚える学習アプリ。無料登録は30秒・カード不要。",
   },
+  robots: { index: false, follow: true },
 };
 
 export default function SignupLayout({ children }: { children: React.ReactNode }) {
