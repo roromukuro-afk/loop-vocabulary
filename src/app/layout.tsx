@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { AdSenseLoader } from "@/components/ads/AdSenseLoader";
 import "./globals.css";
 
 const APP_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
@@ -116,19 +117,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {`(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","${CLARITY_ID}");`}
           </Script>
         )}
-        {ADSENSE_CLIENT && (
-          <>
-            <Script
-              id="adsense-init"
-              src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
-              strategy="afterInteractive"
-              crossOrigin="anonymous"
-            />
-            <Script id="adsense-auto-ads" strategy="afterInteractive">
-              {`(window.adsbygoogle=window.adsbygoogle||[]).push({google_ad_client:"${ADSENSE_CLIENT}",enable_page_level_ads:true});`}
-            </Script>
-          </>
-        )}
+        <AdSenseLoader client={ADSENSE_CLIENT} />
       </body>
     </html>
   );

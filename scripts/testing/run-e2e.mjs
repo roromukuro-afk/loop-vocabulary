@@ -133,6 +133,12 @@ async function main() {
 
     console.log("\n=== 30. 音声ファーストUI（自動再生トグル）E2E ===");
     results.audioFirstLearning = runNode("scripts/testing/e2e/audio-first-learning.mjs");
+
+    console.log("\n=== 31. AdSense再審査対応（広告表示ルート制限）E2E ===");
+    results.adsenseReadiness = runNode("scripts/testing/e2e/adsense-readiness.mjs");
+
+    console.log("\n=== 32. 新規学習ガイド8記事 E2E ===");
+    results.guidesContent = runNode("scripts/testing/e2e/guides-content.mjs");
   } finally {
     stopDevServer(dev);
   }

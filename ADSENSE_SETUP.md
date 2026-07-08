@@ -166,9 +166,13 @@ AdSenseがまだ`Getting ready`（審査未確定）であることを踏まえ�
 - ポリシーセンターに警告が出ていないか
 - 「広告」→「サマリー」で表示回数・クリック・推定収益が出始めるか
 - 自動広告(Auto Ads)が他ページに表示され始めた場合、学習体験を妨げていないか
-  （Auto AdsはONのため、`Getting ready`の間もGoogle側の判断で任意のページに
-  挿入される可能性がある。手動配置は`/dashboard`のみだが、Auto Ads自体は
-  アプリ側から制御できない点に注意）
+
+> **2026-07-08追記**: 上記「Auto Ads自体はアプリ側から制御できない」は不正確だったため
+> 訂正する。AdSense本体スクリプト（Auto ads含む）の読み込み自体をルート単位で制御できることを
+> 確認し、`src/lib/ads/adRoutePolicy.ts` + `src/components/ads/AdSenseLoader.tsx`で実装した。
+> 現在は`/` ・`/materials`（配下）・`/guide`（配下）以外のページではAuto ads自体が読み込まれず、
+> `/dashboard`等の操作画面・`/terms`等の法務ページには一切広告が表示されない。詳細・経緯は
+> [ADSENSE_REVIEW_CHECKLIST.md](ADSENSE_REVIEW_CHECKLIST.md)を参照。
 
 ---
 

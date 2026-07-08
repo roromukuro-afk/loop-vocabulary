@@ -1973,6 +1973,65 @@
     として整理（下記参照）。SEO/AEOの効果測定はSearch Console等での継続
     観察が必要。
 
+59. ✅ **完了（2026-07-08）: AdSense再審査対応（Low value content不承認への対応）**
+    AdSense不承認（Policy violations found / Low value content / Thin content等）を
+    受け、原因調査と再申請に向けた改善を実施。詳細は
+    [ADSENSE_REVIEW_CHECKLIST.md](ADSENSE_REVIEW_CHECKLIST.md)参照。
+    **調査で判明した主因**: Auto ads（`enable_page_level_ads:true`）+ AdSense本体
+    スクリプトが、ルートを問わず全ページで無条件に読み込まれていた
+    （`/terms`・`/privacy`・`/login`・`/signup`のような薄いページにもGoogleが
+    任意に広告を挿入できる状態）。加えて`dashboard`/`wordbooks`一覧の
+    `NativeAdCard`がPremium判定を経由せず表示され、「広告ゼロ」訴求と矛盾していた。
+    **広告表示ルート制限**: `src/lib/ads/adRoutePolicy.ts`（新規、`isAdsAllowedPath()`
+    でホワイトリスト管理）・`src/components/ads/AdSenseLoader.tsx`（新規、
+    `usePathname()`で許可ルート以外はAdSense本体スクリプト自体を読み込まない）を
+    追加し、`src/app/layout.tsx`の無条件Script呼び出しを置換。`AppAds.tsx`の
+    `AppBannerAd`・`AppNativeAdCard`にも同じルート判定を追加し、`dashboard`・
+    `wordbooks`・`road`・`learn`等の操作画面ではページ側を個別に触らず広告ゼロに
+    （Premiumかどうかに関わらず）。許可ルートは`/`・`/materials`（配下）・
+    `/guide`（配下）のみ（`/premium`は今回据え置き）。publisher ID・ads.txtは無変更。
+    **新規学習ガイド8記事**: 既存の`/guide`システム（27記事）に、自己想起・
+    忘却曲線・AI活用・音声学習など今回の学習効果改善ラウンドの機能に対応する
+    記事が無かったギャップを埋める形で8記事を追加（`how-to-memorize-english-words`・
+    `spaced-repetition-english-vocabulary`・`flashcards-vs-multiple-choice`・
+    `eiken-vocabulary-study`・`university-exam-vocabulary`・`school-test-vocabulary`・
+    `listening-and-pronunciation-vocabulary`・`ai-vocabulary-learning`）。既存の
+    類似記事（`eitango-oboeru-houhou`・`daigaku-juken-tango`等）と内容が重複
+    しないよう検索意図を明確に分けた（詳細はチェックリストの対応表参照）。
+    各記事1,700〜2,200字、FAQ3〜5件、Article/BreadcrumbList/FAQPage JSON-LD、
+    canonical、関連ガイド内部リンクを実装（既存18記事にはFAQPage JSON-LDが
+    無かった不足も新規記事では補っている）。ユーザーから明示された「/guides」
+    という新規ルートは作らず、既存の`/guide`（単数）システムに統合した
+    （新規ハブを作ると内部リンクが分散し、かえって「低価値・断片化した
+    コンテンツ」に見えるリスクがあるため）。
+    **既存ページの補強**: `/materials/{highschool,eiken,university-exam,
+    school-test}`に新規ガイド記事への関連リンクを追加。FAQセクションが
+    無かった`/materials/{toeic,business,news}`にFAQ3項目+FAQPage JSON-LD+
+    関連ガイドリンクを追加し、他4LPと同等の情報量に引き上げた。`/materials`
+    一覧に`/guide`への案内バナーを追加。`sitemap.ts`に新規8記事を追加
+    （robots.txtは元々`/guide`配下許可済みのため変更不要）。
+    **追加テスト**: `test:adsense-readiness`（新規、許可/非許可ルートでの
+    広告スクリプト有無・操作画面での広告ゼロ・publisher ID/ads.txt無変更を
+    検証。ローカル環境では`NEXT_PUBLIC_ADSENSE_CLIENT`が意図的に未設定のため
+    「許可ルートで表示される」検証は環境検出で自動スキップし、情報ログのみ
+    出力する設計）・`test:guides-content`（新規、新規8記事の本文文字数・
+    JSON-LD・FAQ・誇張表現の不在・sitemap反映・教材LPからの導線を検証）。
+    `package.json`・`run-e2e.mjs`に追加（31・32番目のステージ）。
+    **検証**: `tsc --noEmit`エラーなし、`build`成功、`test:adsense-readiness`・
+    `test:guides-content`・`verify:seo-lp-audit`・`test:category-lps`・
+    `test:premium-conversion`・`test:legal-trust-pages`・`test:smoke`全PASS。
+    `test:e2e`（32ステージ）は31/32 PASS——`teacher`のみ1回失敗したが、
+    直後の単体再実行では全項目PASSし、原因（招待コード無効化後のステータス表示）は
+    今回変更したコードと無関係（invite code関連ファイルは一切触っていない）。
+    再現しない一過性のタイミング起因のフレーク（本セッション既知のパターン）と
+    判断した。
+    **DB変更**: なし。**変更していないもの**: Stripe価格・課金ロジック・
+    特商法ページ内容・SRS V2のON状態・teacher機能・教材データ本体・
+    AdSense publisher ID・ads.txt・広告枠の数（むしろ表示対象を絞った）。
+    **残課題**: 既存18本の静的ガイド記事へのFAQPage JSON-LD追加、
+    `guide/[slug]/page.tsx`内のデッドコード（静的ルートと重複する18エントリ）整理、
+    `/premium`への広告表示可否判断は今回のスコープ外（チェックリスト参照）。
+
 ---
 
 ## 💰 収益化・成長 監査（2026-07-04）

@@ -3,6 +3,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { LESSONS } from "@/lib/grammar/lessons";
 
 const GUIDE_SLUGS = [
+  "how-to-memorize-english-words",
+  "spaced-repetition-english-vocabulary",
+  "flashcards-vs-multiple-choice",
+  "eiken-vocabulary-study",
+  "university-exam-vocabulary",
+  "school-test-vocabulary",
+  "listening-and-pronunciation-vocabulary",
+  "ai-vocabulary-learning",
   "daigaku-juken-tango",
   "eiken-2kyu-tango",
   "eiken-jun1-tango",

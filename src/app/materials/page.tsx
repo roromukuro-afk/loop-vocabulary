@@ -343,6 +343,15 @@ export default async function MaterialsPage({
 
       <SearchBar />
 
+      <div className="mt-3">
+        <Link
+          href="/guide"
+          className="block bg-sky-50 border border-sky-200 rounded-xl px-4 py-3 text-xs text-sky-800 hover:bg-sky-100 transition-colors"
+        >
+          <span className="font-bold">📘 学習ガイド</span> — 覚え方・復習タイミング・AI活用など学習法の記事はこちら →
+        </Link>
+      </div>
+
       {/* カテゴリから探す（アンカーリンクでページ内ジャンプ。新規ページは作らない） */}
       <div className="mt-4 flex flex-wrap gap-1.5" data-testid="category-quick-jump">
         {CATEGORY_GROUPS.map((group) => {

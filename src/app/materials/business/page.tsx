@@ -28,6 +28,31 @@ type MaterialRow = {
   exam_type: string | null;
 };
 
+const FAQ_ITEMS = [
+  {
+    q: "ビジネス英語とTOEICの単語はどちらから学ぶべきですか？",
+    a: "TOEICを受験予定の方はTOEIC対策と重なる語彙から、実務で英語メールや会議を行う方はビジネス英語の基礎語彙から始めるのがおすすめです。両者は重なる部分が多いため、どちらから始めても学習が無駄になりにくい構成にしています。",
+  },
+  {
+    q: "職場ですぐ使える表現も学べますか？",
+    a: "単語単体の意味だけでなく、会議・メールでよく使われる文脈を意識して教材を用意しています。単語帳に登録した後は、フラッシュカードや4択で繰り返し確認することで、実際の場面でも思い出しやすくなります。",
+  },
+  {
+    q: "経済ニュースを読むための語彙も学べますか？",
+    a: "はい。経済・企業ニュースで頻出する単語をまとめた教材も別途用意しています。ビジネス基礎語彙を固めたあとのステップアップとしておすすめです。",
+  },
+];
+
+const FAQ_PAGE_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ_ITEMS.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
+
 export default async function BusinessMaterialsLandingPage() {
   const supabase = await createClient();
   const {
@@ -82,6 +107,7 @@ export default async function BusinessMaterialsLandingPage() {
     <AppShell>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_PAGE_LD) }} />
 
       <Link href="/materials" className="text-xs text-navy-500 hover:underline">
         ← 教材一覧
@@ -154,6 +180,34 @@ export default async function BusinessMaterialsLandingPage() {
         </div>
       </div>
 
+      {/* よくある質問 */}
+      <div className="mt-6">
+        <div className="text-sm font-bold text-navy-800 mb-2">よくある質問</div>
+        <div className="space-y-2">
+          {FAQ_ITEMS.map((f) => (
+            <div key={f.q} className="border border-navy-100 rounded-xl px-4 py-3">
+              <div className="font-bold text-navy-800 text-sm">Q. {f.q}</div>
+              <div className="mt-1 text-xs text-navy-600 leading-relaxed">A. {f.a}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 関連ガイド */}
+      <div className="mt-6">
+        <div className="text-sm font-bold text-navy-800 mb-2">関連ガイド</div>
+        <div className="space-y-2">
+          <Link href="/guide/ai-vocabulary-learning" className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
+            <div className="text-[11px] text-sky-600 font-semibold mb-0.5">AI活用</div>
+            <div className="text-sm font-semibold text-navy-800">AIを使った英単語学習法【弱点分析・学習プラン・単語抽出の使い方】</div>
+          </Link>
+          <Link href="/guide/business-english-tango" className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
+            <div className="text-[11px] text-sky-600 font-semibold mb-0.5">ビジネス英語</div>
+            <div className="text-sm font-semibold text-navy-800">ビジネス英語の必須単語300選と実践的な覚え方</div>
+          </Link>
+        </div>
+      </div>
+
       {/* 内部リンク */}
       <div className="mt-5 flex flex-wrap gap-2 text-xs">
         <Link
@@ -173,6 +227,12 @@ export default async function BusinessMaterialsLandingPage() {
           className="px-3 py-2 rounded-xl border border-navy-200 text-navy-600 hover:bg-navy-50 transition-colors"
         >
           📰 経済・企業ニュースの英単語も学ぶ
+        </Link>
+        <Link
+          href="/guide"
+          className="px-3 py-2 rounded-xl border border-navy-200 text-navy-600 hover:bg-navy-50 transition-colors"
+        >
+          📘 学習ガイド一覧
         </Link>
         <Link
           href="/materials"

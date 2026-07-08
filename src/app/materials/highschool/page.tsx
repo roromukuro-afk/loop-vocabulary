@@ -300,6 +300,21 @@ export default async function HighschoolMaterialsLandingPage() {
         </div>
       </div>
 
+      {/* 関連ガイド */}
+      <div className="mt-6">
+        <div className="text-sm font-bold text-navy-800 mb-2">関連ガイド</div>
+        <div className="space-y-2">
+          <Link href="/guide/school-test-vocabulary" className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
+            <div className="text-[11px] text-sky-600 font-semibold mb-0.5">定期テスト</div>
+            <div className="text-sm font-semibold text-navy-800">定期テスト前の英単語復習法【教科書・プリントの単語整理】</div>
+          </Link>
+          <Link href="/guide/how-to-memorize-english-words" className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
+            <div className="text-[11px] text-sky-600 font-semibold mb-0.5">学習法</div>
+            <div className="text-sm font-semibold text-navy-800">英単語の覚え方【「わかる」と「思い出せる」は違う】</div>
+          </Link>
+        </div>
+      </div>
+
       {/* 内部リンク */}
       <div className="mt-5 flex flex-wrap gap-2 text-xs">
         <Link
@@ -325,6 +340,12 @@ export default async function HighschoolMaterialsLandingPage() {
           className="px-3 py-2 rounded-xl border border-navy-200 text-navy-600 hover:bg-navy-50 transition-colors"
         >
           📖 定期テスト対策教材を見る
+        </Link>
+        <Link
+          href="/guide"
+          className="px-3 py-2 rounded-xl border border-navy-200 text-navy-600 hover:bg-navy-50 transition-colors"
+        >
+          📘 学習ガイド一覧
         </Link>
         <Link
           href="/materials"

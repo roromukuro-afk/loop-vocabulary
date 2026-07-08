@@ -5,6 +5,40 @@
 
 ---
 
+## 2026-07-08 AdSense再審査対応（Low value content不承認への対応）
+
+**背景**: AdSenseがPolicy violations found / Low value content / Thin content等を理由に
+不承認。オーナーの指示で、広告枠を増やさず「①原因調査 ②広告表示を安全側に制限
+③独自コンテンツ追加 ④既存LP補強 ⑤ナビゲーション改善 ⑥SEO/構造化データ
+⑦再審査チェックリスト作成 ⑧テスト追加」の8フェーズで対応。詳細な完了報告は
+`NEXT_IMPROVEMENTS.md`の完了項目59・[ADSENSE_REVIEW_CHECKLIST.md](ADSENSE_REVIEW_CHECKLIST.md)参照。
+
+**主因**: Auto ads + AdSense本体スクリプトが全ページ無条件読み込みで、`/terms`・
+`/privacy`・`/login`等の薄いページにも広告が入り得る状態だった。加えて
+`dashboard`/`wordbooks`の`NativeAdCard`がPremium判定を経由せず表示されていた。
+
+**対応**: `src/lib/ads/adRoutePolicy.ts` + `src/components/ads/AdSenseLoader.tsx`（新規）で
+広告表示ルートをホワイトリスト化（`/`・`/materials`・`/guide`のみ）。`AppAds.tsx`の
+`AppBannerAd`/`AppNativeAdCard`にも同じ判定を追加し、操作画面では広告ゼロに統一
+（ページ側コードは個別に触らず解決）。既存`/guide`システムに新規8記事を追加
+（既存27記事との内容重複を避けて検索意図を分離）。`/materials/{toeic,business,news}`に
+不足していたFAQセクションを追加。ユーザー要望の新規「/guides」ルートは作らず
+既存の`/guide`に統合（内部リンク分散・コンテンツ断片化を避けるための判断）。
+
+**新規テスト**: `test:adsense-readiness`・`test:guides-content`（`run-e2e.mjs`の
+31・32番目のステージとして追加）。
+
+**検証**: `tsc --noEmit`エラーなし、`build`成功、新規2テスト・
+`verify:seo-lp-audit`・`test:category-lps`・`test:premium-conversion`・
+`test:legal-trust-pages`・`test:smoke`全PASS。`test:e2e`は31/32 PASS
+（`teacher`が1回失敗したが、今回のAdSense変更と無関係なinvite-code
+ステータス表示の一過性フレークと確認——単体再実行で全PASS）。
+
+**DB変更**: なし。Stripe・課金・特商法・SRS V2 ON状態・teacher機能・
+AdSense publisher ID・ads.txt・広告枠の数は変更していない。
+
+---
+
 ## 2026-07-08 「自己想起×忘却曲線」中心の学習効果改善ラウンド（Phase 1〜6）
 
 **目的**: 収益化・学習効果改善のため、4択テストの存在感を弱め、

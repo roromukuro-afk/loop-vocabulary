@@ -28,6 +28,31 @@ type MaterialRow = {
   exam_type: string | null;
 };
 
+const FAQ_ITEMS = [
+  {
+    q: "TOEIC対策はどのレベルから始めればいいですか？",
+    a: "TOEIC初心者〜600・700点前後を目指す方は、まず頻出動詞・頻出名詞を中心とした基礎語彙から固めるのがおすすめです。単語帳に追加するだけで忘却曲線（SRS）による自動復習が始まります。",
+  },
+  {
+    q: "TOEICの単語はビジネス英語と何が違いますか？",
+    a: "TOEICは会議・オフィス・出張などのビジネスシーンを想定した語彙が多く出題されるため、ビジネス英語と重なる部分が大きいです。TOEIC対策と合わせてビジネス英語教材を学習すると、実務でも使える語彙として定着しやすくなります。",
+  },
+  {
+    q: "スコアアップのために単語以外に必要な対策はありますか？",
+    a: "語彙力はリスニング・リーディング双方の土台になりますが、TOEICでは文法・パート別の解答テクニックも重要です。単語学習と並行してパート別の演習を進めることをおすすめします。",
+  },
+];
+
+const FAQ_PAGE_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ_ITEMS.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
+
 export default async function ToeicMaterialsLandingPage() {
   const supabase = await createClient();
   const {
@@ -82,6 +107,7 @@ export default async function ToeicMaterialsLandingPage() {
     <AppShell>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_PAGE_LD) }} />
 
       <Link href="/materials" className="text-xs text-navy-500 hover:underline">
         ← 教材一覧
@@ -154,6 +180,34 @@ export default async function ToeicMaterialsLandingPage() {
         </div>
       </div>
 
+      {/* よくある質問 */}
+      <div className="mt-6">
+        <div className="text-sm font-bold text-navy-800 mb-2">よくある質問</div>
+        <div className="space-y-2">
+          {FAQ_ITEMS.map((f) => (
+            <div key={f.q} className="border border-navy-100 rounded-xl px-4 py-3">
+              <div className="font-bold text-navy-800 text-sm">Q. {f.q}</div>
+              <div className="mt-1 text-xs text-navy-600 leading-relaxed">A. {f.a}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 関連ガイド */}
+      <div className="mt-6">
+        <div className="text-sm font-bold text-navy-800 mb-2">関連ガイド</div>
+        <div className="space-y-2">
+          <Link href="/guide/ai-vocabulary-learning" className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
+            <div className="text-[11px] text-sky-600 font-semibold mb-0.5">AI活用</div>
+            <div className="text-sm font-semibold text-navy-800">AIを使った英単語学習法【弱点分析・学習プラン・単語抽出の使い方】</div>
+          </Link>
+          <Link href="/guide/toeic-tango" className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
+            <div className="text-[11px] text-sky-600 font-semibold mb-0.5">TOEIC</div>
+            <div className="text-sm font-semibold text-navy-800">TOEICスコアアップの英単語学習法【600→800点】</div>
+          </Link>
+        </div>
+      </div>
+
       {/* 内部リンク */}
       <div className="mt-5 flex flex-wrap gap-2 text-xs">
         <Link
@@ -167,6 +221,12 @@ export default async function ToeicMaterialsLandingPage() {
           className="px-3 py-2 rounded-xl border border-navy-200 text-navy-600 hover:bg-navy-50 transition-colors"
         >
           💼 ビジネス英語教材を見る
+        </Link>
+        <Link
+          href="/guide"
+          className="px-3 py-2 rounded-xl border border-navy-200 text-navy-600 hover:bg-navy-50 transition-colors"
+        >
+          📘 学習ガイド一覧
         </Link>
         <Link
           href="/materials"

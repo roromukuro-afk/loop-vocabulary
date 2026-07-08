@@ -9,8 +9,10 @@
 // ============================================================
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import { isNative } from "@/lib/native/platform";
+import { isAdsAllowedPath } from "@/lib/ads/adRoutePolicy";
 import {
   showBannerAd,
   hideBannerAd,
@@ -39,6 +41,8 @@ function AdLabel() {
 // - Web    : 画面内インラインのプレースホルダを描画
 // ============================================================
 export function AppBannerAd({ className }: { className?: string }) {
+  const pathname = usePathname();
+
   useEffect(() => {
     if (!ADS_ENABLED) return;
     if (!isNative()) return;
@@ -56,6 +60,8 @@ export function AppBannerAd({ className }: { className?: string }) {
   if (!ADS_ENABLED) return null;
   // Native はバナーが画面外に重畳表示されるため、UI 側にプレースホルダは出さない
   if (isNative()) return null;
+  // AdSense再審査対応: 独自コンテンツが薄い操作画面ではWeb広告を出さない
+  if (!isAdsAllowedPath(pathname)) return null;
 
   // Web: Google AdSense バナー
   return <AdSenseBanner className={cn("w-full max-w-2xl mx-auto", className)} />;
@@ -67,8 +73,11 @@ export function AppBannerAd({ className }: { className?: string }) {
 //   AdMob Native Advanced に差し替え可。現状は両プラットフォーム同じ表示。
 // ============================================================
 export function AppNativeAdCard() {
+  const pathname = usePathname();
   if (!ADS_ENABLED) return null;
   if (isNative()) return null;
+  // AdSense再審査対応: 独自コンテンツが薄い操作画面ではWeb広告を出さない
+  if (!isAdsAllowedPath(pathname)) return null;
   // Web: Google AdSense インフィード広告
   return <AdSenseInFeed className="w-full" />;
 }

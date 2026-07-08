@@ -8,6 +8,62 @@ export const metadata: Metadata = {
 
 const GUIDES = [
   {
+    slug: "how-to-memorize-english-words",
+    title: "英単語の覚え方【「わかる」と「思い出せる」は違う】",
+    description: "再認と想起の違いを理解して、自己想起（アクティブリコール）を使った忘れにくい覚え方に切り替える方法。",
+    tag: "学習法",
+    readTime: "5分",
+  },
+  {
+    slug: "spaced-repetition-english-vocabulary",
+    title: "忘却曲線と英単語の復習タイミング【SRSの仕組みを解説】",
+    description: "SRS（間隔反復システム）が「いつ・何を」復習させているのか、毎日何をすればいいか迷わない組み立て方。",
+    tag: "学習法",
+    readTime: "5分",
+  },
+  {
+    slug: "flashcards-vs-multiple-choice",
+    title: "フラッシュカードと4択テストの違い【消去法で正解するリスク】",
+    description: "2つの出題形式の得意・不得意を整理し、自力で思い出せる状態にするための正しい使い分け方。",
+    tag: "学習法",
+    readTime: "5分",
+  },
+  {
+    slug: "eiken-vocabulary-study",
+    title: "英検単語の復習方法【全級共通・音声とAIを使った学習法】",
+    description: "級を問わず使える復習の組み立て方、音声での「聞いて分かる」対策、AI弱点分析の活用法。",
+    tag: "英検",
+    readTime: "5分",
+  },
+  {
+    slug: "university-exam-vocabulary",
+    title: "大学受験 直前期の英単語復習法【模試・AI弱点分析の活用】",
+    description: "直前期に復習範囲を絞り込む方法。模試・過去問で出た単語の扱い方とAI弱点分析の使い方。",
+    tag: "大学受験",
+    readTime: "5分",
+  },
+  {
+    slug: "school-test-vocabulary",
+    title: "定期テスト前の英単語復習法【教科書・プリントの単語整理】",
+    description: "教科書やプリントの単語をどう整理して復習すればいいか。短期間でも自己想起を使った確認方法。",
+    tag: "定期テスト",
+    readTime: "4分",
+  },
+  {
+    slug: "listening-and-pronunciation-vocabulary",
+    title: "単語を音で覚える【音声ファースト学習法】",
+    description: "「読めるのに聞き取れない」を防ぐ、単語レベルでの音声学習の取り入れ方。",
+    tag: "リスニング",
+    readTime: "4分",
+  },
+  {
+    slug: "ai-vocabulary-learning",
+    title: "AIを使った英単語学習法【弱点分析・学習プラン・単語抽出の使い方】",
+    description: "AI弱点分析・学習プラン作成・長文からの単語抽出・単語解説の使い方と、頼りすぎないための注意点。",
+    tag: "AI活用",
+    readTime: "5分",
+  },
+  {
     slug: "daigaku-juken-tango",
     title: "大学受験英単語の効率的な覚え方【2024年版】",
     description: "忘却曲線・SRS・スキマ時間活用など、大学受験に合格する英単語学習法を徹底解説。",
