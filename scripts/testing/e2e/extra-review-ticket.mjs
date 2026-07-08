@@ -61,6 +61,13 @@ async function answerCard(page, correct) {
     : '[data-testid="rate-again"], [data-testid="answer-wrong"]';
   await page.locator(selector).first().waitFor({ state: "visible", timeout: 10000 });
   await page.locator(selector).first().click();
+  if (!correct) {
+    // 「まだ/もう一度」の直後はAI解説導線を挟んで自動では進まない(Phase 3)。
+    // 「次のカードへ」を明示的にクリックして進める。
+    const continueBtn = page.locator('[data-testid="flashcard-continue"]');
+    await continueBtn.waitFor({ state: "visible", timeout: 5000 });
+    await continueBtn.click();
+  }
   // 次のカードに切り替わる(=保存完了)か、完了画面(flip-cardが消える)に切り替わるまで待つ
   await page.waitForFunction(
     (prev) => {

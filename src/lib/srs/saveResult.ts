@@ -8,6 +8,7 @@ import {
   ratingFromCorrect,
   SRS_V2,
   type SrsRating,
+  type ReviewMode,
 } from "@/lib/srs";
 import { todayJST } from "@/lib/utils/date";
 
@@ -15,18 +16,23 @@ export type SrsWord = { id: string; streak: number; is_weak: boolean };
 
 /**
  * 1問答えた直後に SRS / 統計を一括更新する。
- * 4択テスト・入力テスト・復習画面から共通利用。
+ * 4択テスト・入力テスト・タイピング・リスニング・復習画面から共通利用。
  *
  * @param rating 任意。フラッシュカードの自己評価(again/hard/good/easy)。
  *   省略時は isCorrect から good/again に写像する。
  *   feature flag (NEXT_PUBLIC_SRS_V2=1) が ON のときのみ V2 ロジックで使用。
  *   OFF のときは rating を無視し、現状(固定間隔 V1)と完全に同一挙動。
+ * @param mode 任意。どの学習モードで解答したか(flashcard/choice/typing/listening)。
+ *   V2使用時のみ、intervalの伸び幅にモード別の重み付けを適用する
+ *   （自己想起に近いモードほど強く、再認に近いモードほど控えめに反映）。
+ *   省略時はflashcard相当(1.0倍・無変更)として扱われ、V1挙動には一切影響しない。
  */
 export async function saveStudyResult(
   w: SrsWord,
   isCorrect: boolean,
   sessionId?: string,
   rating?: SrsRating,
+  mode?: ReviewMode,
 ) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -58,6 +64,7 @@ export async function saveStudyResult(
       streak: w.streak,
       is_weak: w.is_weak,
       rating: effectiveRating,
+      mode,
     });
 
     await supabase

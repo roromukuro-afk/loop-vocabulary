@@ -39,7 +39,8 @@ export function TypingTestRunner({ pool, count, scopeLabel }: { pool: W[]; count
   const advance = (correct: boolean) => {
     if (timerRef.current) clearInterval(timerRef.current);
     const qTime = startTime ? (Date.now() - startTime) / 1000 : 0;
-    void saveStudyResult(cur, correct);
+    // mode="typing": スペルを能動的に想起・産出するため4択より強く反映する。
+    void saveStudyResult(cur, correct, undefined, undefined, "typing");
     setResults((r) => [...r, { word: cur.word, meaning: cur.meaning, time: qTime, correct }]);
     setFlash(correct);
     setTimeout(() => {

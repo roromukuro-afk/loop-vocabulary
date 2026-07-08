@@ -100,7 +100,8 @@ export function AttackRunner({ pool }: { pool: Word[] }) {
   const pick = (c: string) => {
     if (!curWord || phase !== "playing") return;
     const ok = c === curWord.meaning;
-    void saveStudyResult(curWord, ok);
+    // mode="choice": タイムアタックも選択肢からの再認形式のため4択と同じ重み付けにする。
+    void saveStudyResult(curWord, ok, undefined, undefined, "choice");
     setHistory((h) => [...h, { word: curWord.word, meaning: curWord.meaning, ok }]);
     if (ok) {
       setScore((s) => { scoreRef.current = s + 1; return s + 1; });

@@ -37,6 +37,21 @@ type MaterialRow = {
   exam_type: string | null;
 };
 
+const FAQ_ITEMS = [
+  {
+    q: "フラッシュカード学習は何が良いですか？",
+    a: "答えを見る前に自分の力で意味を思い出す「自己想起」は、選択肢から選ぶだけの学習より記憶に残りやすいとされています。フラッシュカードで自己想起し、忘却曲線に基づく復習タイミングにも反映される仕組みです。",
+  },
+  {
+    q: "忘却曲線に合わせた復習とは何ですか？",
+    a: "エビングハウスの忘却曲線の考え方をもとに、正解・不正解や自己評価に応じて次の復習タイミングを自動で計算する仕組みです。間隔を空けながら繰り返すことで、詰め込みに頼らず記憶の定着を目指せます。",
+  },
+  {
+    q: "定期テスト前に英単語を短時間で確認するには？",
+    a: "テスト範囲の単語をまとめて単語帳に登録し、短時間でもフラッシュカードで自己想起する時間を作るのが効果的です。前日など時間が無いときはPDFテストや4択で最終確認する使い方もできます。",
+  },
+];
+
 export default async function HighschoolMaterialsLandingPage() {
   const supabase = await createClient();
   const {
@@ -100,11 +115,21 @@ export default async function HighschoolMaterialsLandingPage() {
       name: m.title,
     })),
   };
+  const faqPageLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQ_ITEMS.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
 
   return (
     <AppShell>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageLd) }} />
 
       <Link href="/materials" className="text-xs text-navy-500 hover:underline">
         ← 教材一覧
@@ -112,8 +137,8 @@ export default async function HighschoolMaterialsLandingPage() {
       <h1 className="text-xl font-bold text-navy-800 mt-2">高校生向け英単語教材</h1>
       <p className="text-sm text-navy-600 mt-2 leading-relaxed">
         定期テスト対策・英検対策・大学受験の基礎固めに使える英単語教材です。単語帳に追加するだけで
-        忘却曲線（SRS）による自動復習が始まり、4択・入力・PDFテストで定着度を確認できます。
-        まずは無料でお試しいただけます。
+        フラッシュカードによる自己想起と、忘却曲線（SRS）に基づく自動復習が始まります。
+        4択・入力・PDFテストは「覚えたつもり」を防ぐ最後の確認に使えます。まずは無料でお試しいただけます。
       </p>
 
       {/* CTA */}
@@ -216,11 +241,11 @@ export default async function HighschoolMaterialsLandingPage() {
           <span>→</span>
           <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">② 単語帳に追加</span>
           <span>→</span>
-          <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">③ SRSで自動復習</span>
+          <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">③ フラッシュカードで自己想起</span>
           <span>→</span>
-          <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">④ 4択・入力・PDFテストで確認</span>
+          <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">④ 忘却曲線で自動復習</span>
           <span>→</span>
-          <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">⑤ 苦手単語はPremiumのAI分析で効率化</span>
+          <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">⑤ 4択・入力・PDFで最終確認</span>
         </div>
       </div>
 
@@ -229,9 +254,9 @@ export default async function HighschoolMaterialsLandingPage() {
         <div className="bg-white rounded-xl border border-navy-100 p-4">
           <div className="text-sm font-bold text-navy-800 mb-2">無料でできること</div>
           <ul className="text-xs text-navy-600 space-y-1 list-disc pl-4">
+            <li>フラッシュカードで自己想起 → 忘却曲線で自動復習</li>
             <li>教材のインポート・単語帳の作成</li>
-            <li>SRS（忘却曲線）による自動復習</li>
-            <li>4択テスト・入力テスト</li>
+            <li>4択テスト・入力テストでの確認</li>
             <li>PDFテストの作成</li>
             <li>達成スタンプでの学習記録</li>
           </ul>
@@ -260,6 +285,19 @@ export default async function HighschoolMaterialsLandingPage() {
           <li>テストの点数上昇や合格を確約するような表現、誇張した実績の記載は行っていません</li>
           <li>学習データ（正誤・復習状況）をもとに、無理なく復習を続けられるよう支援するアプリです</li>
         </ul>
+      </div>
+
+      {/* よくある質問 */}
+      <div className="mt-6">
+        <div className="text-sm font-bold text-navy-800 mb-2">よくある質問</div>
+        <div className="space-y-2">
+          {FAQ_ITEMS.map((f) => (
+            <div key={f.q} className="border border-navy-100 rounded-xl px-4 py-3">
+              <div className="font-bold text-navy-800 text-sm">Q. {f.q}</div>
+              <div className="mt-1 text-xs text-navy-600 leading-relaxed">A. {f.a}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* 内部リンク */}

@@ -7,10 +7,18 @@ export const dynamic = "force-dynamic";
 
 const MODES = [
   {
+    href: "/review",
+    icon: "🧠",
+    title: "フラッシュカード（自己想起）",
+    desc: "答えを見る前に、自分の力で意味を思い出す。忘却曲線に合わせて自動で復習タイミングも提案。最も記憶が定着しやすい、本格的な復習モードです。",
+    premium: false,
+    highlight: true,
+  },
+  {
     href: "/test/choice",
     icon: "🎯",
     title: "4択テスト (英→日)",
-    desc: "英単語を見て日本語の意味を4択から選ぶ。最もポピュラーなモード。",
+    desc: "英単語を見て日本語の意味を4択から選ぶ。フラッシュカードの後の「仕上げの確認」に。",
     premium: false,
   },
   {
@@ -62,7 +70,9 @@ export default async function TestPage() {
   return (
     <AppShell>
       <h1 className="text-xl font-bold text-navy-800">テストモード</h1>
-      <p className="text-sm text-navy-500 mt-1">学習スタイルに合わせてモードを選んでください。</p>
+      <p className="text-sm text-navy-500 mt-1">
+        自力で思い出す（自己想起）ほど記憶は定着します。フラッシュカードでの復習を軸に、4択・入力・タイピングなどは仕上げの確認としてお使いください。
+      </p>
 
       <div className="mt-5 space-y-3">
         {MODES.map((m) => {
@@ -71,7 +81,7 @@ export default async function TestPage() {
             <Link key={m.href} href={locked ? "/premium" : m.href} className="block">
               <Card
                 className={`hover:shadow-md transition-shadow ${
-                  locked ? "border-amber-200 bg-amber-50/30" : ""
+                  locked ? "border-amber-200 bg-amber-50/30" : m.highlight ? "border-sky-300 bg-sky-50/40" : ""
                 }`}
               >
                 <div className="flex items-start gap-4">

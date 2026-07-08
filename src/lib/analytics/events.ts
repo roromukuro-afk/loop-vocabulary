@@ -97,7 +97,7 @@ export function trackMaterialImported(examType: string, wordCount: number) {
 // ── 機能別使用トラッキング ──────────────────────────────────────
 // どの機能が実際に使われているか把握する
 
-export function trackFeatureUsed(feature: "flip_card" | "choice_test" | "typing_test" | "ai_explain" | "pdf_export" | "dictionary" | "vocab_check" | "weak_words") {
+export function trackFeatureUsed(feature: "flip_card" | "choice_test" | "typing_test" | "ai_explain" | "flashcard_ai_hint" | "pdf_export" | "dictionary" | "vocab_check" | "weak_words") {
   gtag("feature_used", { feature, event_category: "engagement" });
 }
 

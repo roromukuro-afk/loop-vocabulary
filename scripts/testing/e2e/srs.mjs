@@ -114,6 +114,13 @@ async function main() {
       await btn.waitFor({ state: "visible", timeout: 5000 });
       await btn.click();
       ratedWords.push({ word, rating });
+      if (rating === "again") {
+        // 「もう一度」= 自力で思い出せなかった直後は、AI解説導線を挟んで自動では
+        // 進まない仕様（Phase 3）。「次のカードへ」を明示的にクリックして進める。
+        const continueBtn = reviewPage.locator('[data-testid="flashcard-continue"]');
+        await continueBtn.waitFor({ state: "visible", timeout: 5000 });
+        await continueBtn.click();
+      }
       // 保存完了(=次のカードに切り替わる)まで待つ(setTimeout 350ms+DB往復の猶予)
       await reviewPage.waitForFunction(
         (prev) => document.querySelector('[data-testid="flip-card"]')?.getAttribute("data-word") !== prev,

@@ -123,12 +123,12 @@ export default async function ReviewPage({
       <div className="mt-5 space-y-3">
         <Link href={`/review?start=1&mode=flip${bookQuery}`}>
           <Button fullWidth size="lg" disabled={pool.length < 1} data-testid="review-normal-flip">
-            🃏 {isRecoveryCandidate ? "通常復習する（全" + pool.length + "語）" : "フラッシュカードで復習"}
+            🃏 {isRecoveryCandidate ? "通常復習する（全" + pool.length + "語）" : "フラッシュカードで自力に思い出す"}
           </Button>
         </Link>
         <Link href={`/review?start=1&mode=choice${bookQuery}`}>
           <Button fullWidth size="lg" variant="secondary" disabled={pool.length < 4}>
-            ✏️ 4択テストで復習
+            ✏️ 4択で確認（仕上げ用）
           </Button>
         </Link>
         <Link href={`/test/typing${sp.book ? `?book=${sp.book}` : ""}`}>

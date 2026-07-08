@@ -6,6 +6,7 @@ import { Select } from "@/components/ui/Select";
 import { AppRewardedAdButton } from "@/components/ads/AppAds";
 import { UpsellModal } from "@/components/premium/UpsellModal";
 import { trackAiLimitHit, trackFeatureUsed } from "@/lib/analytics/events";
+import { formatAiResult } from "@/lib/ai/formatAiResult";
 
 type Kind = "example" | "explain" | "etymology" | "mnemonic" | "core";
 
@@ -24,29 +25,6 @@ const KIND_ICON: Record<Kind, string> = {
   etymology: "🌱",
   mnemonic:  "🧠",
 };
-
-// 【見出し】 形式のセクションをHTMLに変換
-function formatResult(text: string) {
-  const lines = text.split("\n");
-  return lines.map((line, i) => {
-    const sectionMatch = line.match(/^【(.+?)】(.*)$/);
-    if (sectionMatch) {
-      return (
-        <div key={i} className="mt-3 first:mt-0">
-          <span className="inline-block text-[11px] font-bold px-2 py-0.5 bg-navy-100 text-navy-700 rounded-full mb-1">
-            {sectionMatch[1]}
-          </span>
-          {sectionMatch[2] && <p className="text-sm text-navy-700 mt-0.5">{sectionMatch[2].trim()}</p>}
-        </div>
-      );
-    }
-    if (line.match(/^\d+\./)) {
-      return <p key={i} className="text-sm text-navy-700 mt-1.5 pl-1">{line}</p>;
-    }
-    if (line.trim() === "") return <div key={i} className="h-1" />;
-    return <p key={i} className="text-sm text-navy-700 mt-1 leading-relaxed">{line}</p>;
-  });
-}
 
 type HistoryItem = { word: string; kind: Kind; result: string };
 
@@ -164,7 +142,7 @@ export function AiPanel({ initialWord, initialMeaning }: { initialWord: string; 
             </button>
           </div>
           <div className="px-4 py-4">
-            {formatResult(result)}
+            {formatAiResult(result)}
           </div>
         </div>
       )}

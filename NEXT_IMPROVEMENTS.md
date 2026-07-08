@@ -1897,6 +1897,82 @@
     揃ったため、次のステップは実際の流入・転換状況をSearch Console等で
     観察するフェーズに移行するのが自然と考えられる。
 
+58. ✅ **完了（2026-07-08）: 「自己想起×忘却曲線」中心の学習効果改善ラウンド（Phase 1〜5）**
+    LP群・4択偏重の見せ方を「自己想起（フラッシュカード）×忘却曲線」中心に
+    寄せ、SRSのモード別重み付け・forgot直後のAI解説導線・音声ファーストUI・
+    低リスクSEO/AEO改善を実施。市販教材連携（ターゲット1900・パス単等）は
+    実装せず、将来検討事項として本ファイル末尾に整理するに留めた
+    （「⚪ 保留・要判断」章の「市販教材・公式教材の将来検討事項」参照）。
+    **Phase 1（LP/Premium訴求の言い換え）**: `src/app/page.tsx`（ヒーロー副題
+    にタグライン「調べた英語を、覚える英語へ。覚えた英語を、使える英語へ。」
+    追加、STEPS/FEATURESを自己想起中心に並べ替え、プロダクトビジュアルの
+    4択モックをフラッシュカードモックに置換）、`/materials/{highschool,eiken,
+    university-exam,school-test}`（学習の流れの③④⑤をフラッシュカード→
+    忘却曲線→4択最終確認の順に再構成、無料でできることリストを自己想起
+    優先に並べ替え）、`/premium`（ヒーロー副題・Premium AI機能見出しに
+    「復習精度を上げる補助」の位置付けを明記）、`/review`（4択ボタンの文言を
+    「4択で確認（仕上げ用）」に変更）、`/test`（モード選択画面の先頭に
+    フラッシュカードを追加し「最もポピュラーなモード」という4択の煽り文言を
+    削除）、`/wordbooks/[id]`（学習モード導線の最上部にフラッシュカードへの
+    単独ボタンを配置し、4択以下は「仕上げ・確認用」の下段グループに変更）、
+    `FlipCardRunner.tsx`（ヒント文言を「まず自分の力で意味を思い出してから」
+    に強化）を変更。価格・Stripe導線・特商法・広告枠・teacher機能・SRS V2の
+    ON状態・既存公開URLはすべて維持。
+    **Phase 2（SRSモード別interval重み付け）**: `src/lib/srs/index.ts`に
+    `ReviewMode`型と`MODE_INTERVAL_MULTIPLIER`（flashcard=1.0・typing=0.9・
+    listening=0.85・choice=0.65・unknown=0.75）を追加し、`applySrsV2`の
+    hard/good/easy分岐でinterval計算後に乗算（again分岐は対象外＝忘却
+    シグナルは常にモードによらず強く反映）。`saveStudyResult`に`mode`引数を
+    追加し、6つの学習モードRunner（FlipCard/Choice/Typing/Listening/Input/
+    Attack）それぞれから該当modeを渡すよう変更。DB migrationは無し（`mode`
+    は書き込み時のみ使う一時パラメータで、どのカラムにも保存しない）。
+    ease_factor/interval_daysの既存値・既存ユーザーの状態は破壊していない。
+    **Phase 3（forgot直後のAI解説導線）**: `FlipCardRunner`で「もう一度/
+    まだ」と答えた直後、自動で次のカードへ進む挙動を止め、
+    `FlashcardAiHint.tsx`（新規）のボタン「💡この単語、なぜ覚えにくい？
+    AIで語源・ニュアンスを見る」を表示。明示的にボタンを押すまで`/api/ai`
+    は一切呼ばれない。押すと既存の`kind="explain"`をそのまま再利用し、
+    既存のAI使用量制限（Free 5回/日・Premium 300回/日・ai_generation
+    チケット救済・`UpsellModal`・`ai_usage_events`ログ）を完全に踏襲する
+    （入力テキスト・AI応答本文はログに残さない既存設計を維持）。
+    good/easy/hardでは表示しない（過度に出さない）。
+    **Phase 4（音声ファーストUI）**: `src/lib/audioSettings.ts`（新規、
+    localStorage key `lv_audio_autoplay`）と`AudioAutoplayToggle.tsx`
+    （新規）を追加し、`FlipCardRunner`・`ChoiceTestRunner`の単語自動読み上げ
+    useEffectをこのトグルでゲート。手動再生ボタン（`PronounceButton`）と
+    リスニングテストの明示的な再生ボタンはトグルの影響を受けず常に動作する
+    （OFFでも学習継続可能）。`ChoiceTestRunner`のja2en（日→英）モードにも
+    回答直後の発音確認ボタンを追加（回答前の音声は正解漏洩になるため出さない
+    設計は維持）。`src/lib/tts.ts`の`speakEn()`に try/catch を追加し、
+    音声合成非対応環境でも例外で学習フローが止まらないようにした。
+    Premium専用にはしていない（基本音声体験は無料でも使える）。
+    **Phase 5（低リスクSEO/AEO改善）**: `/materials/{highschool,eiken,
+    university-exam,school-test}`に、実証していない断定を避けた短いFAQ
+    （各3問、`FAQPage`のJSON-LD＋可視セクション）を追加。既存の
+    `BreadcrumbList`/`ItemList`のJSON-LDは変更していない。`/premium`にも
+    既存の`FAQS`配列をそのまま再利用する形で`FAQPage`のJSON-LDのみ追加
+    （新規コピーは書いていない）。`/premium`・`/materials`・`/dictionary`
+    の`metadata`に不足していた`alternates.canonical`を追加。大規模な記事
+    量産・外部被リンク施策は今回のスコープ外として実施していない。
+    **追加・更新したテスト**: `test:srs-mode-weighting`（新規、interval
+    重み付けの数値検証・モード間比較・again/forgotの重み付け対象外を検証）、
+    `test:flashcard-ai-hint`（新規、forgot後の導線表示・自動実行しないこと・
+    上限到達時のUpsellModal・ai_usage_eventsログを検証）、
+    `test:audio-first-learning`（新規、トグルの初期状態・localStorage永続化・
+    OFFでも学習継続できること・手動再生とリスニングがトグルの影響を受けない
+    ことを検証）。既存の`test:srs`・`test:entry-points:e2e`・
+    `test:extra-review-ticket`・`test:learning-modes:e2e`・`test:quiz:e2e`・
+    `test:category-lps`・`test:premium-conversion`・`test:ai-usage-guards`・
+    `test:ai-usage-events`はforgot直後の自動進行の仕様変更に合わせて
+    `srs.mjs`・`extra-review-ticket.mjs`の一部セレクタのみ更新し、他は無修正
+    のまま全PASSを確認。3スクリプトを`package.json`・`run-e2e.mjs`に追加。
+    検証: `tsc --noEmit`エラーなし、`build`成功、上記全テストPASS
+    （詳細は完了報告参照）。
+    **DB変更**: なし（全PhaseともDBスキーマ変更を伴わない設計にした）。
+    **残課題**: 市販教材（ターゲット1900・パス単等）連携は実装せず将来案
+    として整理（下記参照）。SEO/AEOの効果測定はSearch Console等での継続
+    観察が必要。
+
 ---
 
 ## 💰 収益化・成長 監査（2026-07-04）
@@ -2201,6 +2277,35 @@ descriptionを持ち、構造化データ（BreadcrumbList・FAQPage・Article�
 ## ⚪ 保留・要判断（大きな設計変更を伴う）
 
 - 上記以外の新機能全般は、まず優先度A・Bの安定運用が回り始めてから検討する
+
+### 市販教材・公式教材（ターゲット1900・パス単等）の将来検討事項（2026-07-08、Phase 6・実装なし）
+
+「自己想起×忘却曲線」中心の学習効果改善ラウンド（完了項目58）のPhase 6として
+調査した内容。**今回は一切実装していない**。市販の英単語帳（『ターゲット1900』
+『英単語ターゲット』『速読英単語』『パス単』など）は著作権・商標・出版社との
+ライセンス契約が関わるため、許諾なしに中身や商標を使う実装は行わない方針。
+
+**将来的な検討事項として整理するもの（あくまで検討事項であり、着手を約束するものではない）**:
+- 公式ライセンス教材の導入自体は将来的な検討事項たり得る。ただし権利者
+  （出版社等）との個別の許諾・ライセンス契約が前提となり、法務・契約面の
+  検討が別途必要。
+- ユーザー自身が「自分が権利上問題ない範囲で」市販教材の単語をCSVインポート
+  する導線（既存の`/wordbooks/[id]/csv-import`の延長）は、技術的には検討
+  可能。ただし「公式対応」であるかのような誤解を招く表現は避ける必要がある。
+- アプリ内課金で公式教材（許諾済み）を販売する場合は、決済フロー・返金
+  ポリシー・特定商取引法上の表示義務などを別途確認する必要がある
+  （既存のPremiumサブスクリプションとは別の検討軸になる）。
+
+**やってはいけないこと（明確な禁止事項）**:
+- 市販教材の単語リスト・例文・訳を許諾なく収録・配布する。
+- 「ターゲット1900対応」「パス単対応」等の表現を、許諾を得ずに大きく訴求
+  したり、公式対応であるかのように見せるSEOページ・LPを作成する。
+- 書籍の内容（単語・訳・レイアウト等）を再配布する形のコンテンツを作る。
+- 非公式に作成した市販教材相当のCSVファイルをアプリに同梱・配布する。
+
+**現状の対応**: 実装は行わず、本項目としてドキュメント化するに留めた。
+既存の教材データ（Loop Vocabulary独自作成分・許諾済み分のみ）や、ユーザー
+自身による自由入力の単語帳機能は従来通り変更なし。
 
 ## ゲーミフィケーション×リワードチケットの次の一手（優先度A完了項目30〜34の延長・提案のみ）
 

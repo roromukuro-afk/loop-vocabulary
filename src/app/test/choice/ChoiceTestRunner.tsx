@@ -9,7 +9,9 @@ import { saveStudyResult } from "@/lib/srs/saveResult";
 import { selectQuizWords, pickDistractors, type SrsQuizWord } from "@/lib/learning/wordSelection";
 import { useAppInterstitial, AppRewardedAdButton } from "@/components/ads/AppAds";
 import { speakEn } from "@/lib/tts";
+import { isAudioAutoplayEnabled } from "@/lib/audioSettings";
 import { PronounceButton } from "@/components/ui/PronounceButton";
+import { AudioAutoplayToggle } from "@/components/ui/AudioAutoplayToggle";
 import { trackFeatureUsed } from "@/lib/analytics/events";
 
 type W = SrsQuizWord & { streak: number; is_weak: boolean };
@@ -71,17 +73,26 @@ export function ChoiceTestRunner({
 
   // 英語→日本語モード: 問題が変わるたびに英単語を自動読み上げ
   useEffect(() => {
-    if (!done && mode === "en2ja" && cur?.prompt) {
+    if (!done && mode === "en2ja" && cur?.prompt && isAudioAutoplayEnabled()) {
       speakEn(cur.prompt);
     }
   }, [cur?.prompt, mode, done]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 日本語→英語モード: 解答前は答えが漏れるため読み上げない。回答した直後
+  // （英単語がすでに選択肢の色分けで判明した後）に発音を確認できるようにする。
+  useEffect(() => {
+    if (!done && mode === "ja2en" && picked != null && isAudioAutoplayEnabled()) {
+      speakEn(cur.w.word);
+    }
+  }, [picked, mode, done]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onPick = (c: string) => {
     if (picked != null) return;
     setPicked(c);
     const isOk = c === cur.answer;
     setResults((r) => [...r, { word: cur.w.word, meaning: cur.w.meaning, ok: isOk }]);
-    void saveStudyResult(cur.w, isOk);
+    // mode="choice": 4択(再認)は自己想起より弱いシグナルのため間隔重み付けを控えめにする。
+    void saveStudyResult(cur.w, isOk, undefined, undefined, "choice");
   };
 
   const next = () => {
@@ -182,6 +193,7 @@ export function ChoiceTestRunner({
       <div className="flex items-center justify-between text-xs text-navy-500">
         <Link href="/dashboard">← 中断</Link>
         <span>{idx + 1} / {qs.length}</span>
+        <AudioAutoplayToggle />
       </div>
       {scopeLabel && (
         <p className="mt-1 text-center text-[11px] text-navy-400" data-testid="quiz-scope-label">{scopeLabel}</p>
@@ -245,6 +257,12 @@ export function ChoiceTestRunner({
             <div className="mb-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3">
               正解: <b>{cur.answer}</b>
               <div className="mt-1 text-navy-600">{cur.w.word} = {cur.w.meaning}</div>
+            </div>
+          )}
+          {mode === "ja2en" && (
+            <div className="mb-3 flex items-center justify-center gap-1.5 text-sm text-navy-600">
+              <span className="font-semibold">{cur.w.word}</span>
+              <PronounceButton word={cur.w.word} size="sm" />
             </div>
           )}
           <Button fullWidth size="lg" onClick={next} data-testid="quiz-next">

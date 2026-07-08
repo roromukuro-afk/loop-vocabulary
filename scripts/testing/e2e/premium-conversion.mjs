@@ -236,6 +236,20 @@ async function main() {
       fail("/premium: 利用規約への導線が見つからない");
     }
 
+    // ================= 6b. /premium: canonical・FAQPage JSON-LD（低リスクSEO/AEO改善） =================
+    const premiumCanonical = await page1.locator('link[rel="canonical"]').getAttribute("href").catch(() => null);
+    if (premiumCanonical === "https://loop-vocabulary.app/premium") {
+      ok("/premium のcanonicalが自分自身のURLを指している");
+    } else {
+      fail(`/premium のcanonicalが想定と異なる: "${premiumCanonical}"`);
+    }
+    const premiumHtml = await page1.content();
+    if (premiumHtml.includes('"@type":"FAQPage"')) {
+      ok("/premium にFAQPageのJSON-LDが出力されている（既存FAQ表示内容を再利用）");
+    } else {
+      fail("/premium にFAQPageのJSON-LDが見つからない");
+    }
+
     // ================= 7. モバイル幅での崩れ確認（非Premium状態のまま） =================
     console.log("\n--- 7. /premium モバイル幅(375px)での崩れ確認 ---");
     await page1.setViewportSize({ width: 375, height: 812 });

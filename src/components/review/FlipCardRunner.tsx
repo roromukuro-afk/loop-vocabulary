@@ -6,7 +6,10 @@ import { saveStudyResult } from "@/lib/srs/saveResult";
 import { isSrsV2Enabled, type SrsRating } from "@/lib/srs";
 import { useAppInterstitial, AppRewardedAdButton } from "@/components/ads/AppAds";
 import { speakEn } from "@/lib/tts";
+import { isAudioAutoplayEnabled } from "@/lib/audioSettings";
 import { PronounceButton } from "@/components/ui/PronounceButton";
+import { AudioAutoplayToggle } from "@/components/ui/AudioAutoplayToggle";
+import { FlashcardAiHint } from "@/components/review/FlashcardAiHint";
 import { trackFeatureUsed, trackReviewComplete, trackFirstReviewComplete } from "@/lib/analytics/events";
 
 type W = {
@@ -44,6 +47,10 @@ export function FlipCardRunner({
   const [wrongPool, setWrongPool] = useState<W[]>([]);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  // 「もう一度/まだ」（自力で思い出せなかった）と答えた直後、次のカードへ進む前に
+  // AI解説への導線を挟むためのフラグ。ONの間は自動で次へ進まず、
+  // 「次のカードへ」を押すまで現在のカードにとどまる。
+  const [showForgotHint, setShowForgotHint] = useState(false);
   const [swipeMode, setSwipeMode] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem(SWIPE_KEY) === "1" : false
   );
@@ -59,7 +66,7 @@ export function FlipCardRunner({
   useEffect(() => { trackFeatureUsed("flip_card"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!done && cur) speakEn(cur.word);
+    if (!done && cur && isAudioAutoplayEnabled()) speakEn(cur.word);
   }, [idx, done]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -90,16 +97,34 @@ export function FlipCardRunner({
     setSwipeHint(null);
     // rating は V2 フラグ ON のときのみ saveStudyResult 内で使用される。
     // OFF のときは無視され、従来通り isCorrect ベースで動作する。
-    await saveStudyResult(cur, isCorrect, undefined, rating);
+    // mode="flashcard": 自己想起モードのため間隔重み付けは1.0倍（無変更）。
+    await saveStudyResult(cur, isCorrect, undefined, rating, "flashcard");
     const newResults = [...results, { word: cur.word, meaning: cur.meaning, ok: isCorrect }];
     setResults(newResults);
-    if (!isCorrect) setWrongPool((w) => [...w, cur]);
+    if (!isCorrect) {
+      setWrongPool((w) => [...w, cur]);
+      // 自力で思い出せなかった直後はすぐには次へ進まず、AI解説への導線を挟む。
+      // 「次のカードへ」を押すまでこのカードにとどまる（AI APIはボタンを押すまで呼ばれない）。
+      setShowForgotHint(true);
+      setBusy(false);
+      return;
+    }
     if (idx + 1 >= sessionPool.length) {
       setDone(true);
     } else {
       setFlipped(false);
       setTimeout(() => { setIdx((i) => i + 1); setBusy(false); }, 350);
     }
+  };
+
+  const continueAfterForgotHint = () => {
+    setShowForgotHint(false);
+    if (idx + 1 >= sessionPool.length) {
+      setDone(true);
+      return;
+    }
+    setFlipped(false);
+    setIdx((i) => i + 1);
   };
 
   // 4段階評価（V2）: again 以外は「覚えた」= ok:true として集計
@@ -121,7 +146,7 @@ export function FlipCardRunner({
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     touchStartX.current = null;
     setSwipeHint(null);
-    if (!swipeMode || !flipped || busy) return;
+    if (!swipeMode || !flipped || busy || showForgotHint) return;
     if (dx > 60) void handleAnswer(true);   // 右スワイプ = 覚えた
     else if (dx < -60) void handleAnswer(false); // 左スワイプ = まだ
   };
@@ -130,7 +155,7 @@ export function FlipCardRunner({
   // 元の全語セットをもう一周する。
   const restart = () => {
     setSessionPool(pool);
-    setIdx(0); setFlipped(false); setResults([]); setWrongPool([]); setDone(false); setBusy(false);
+    setIdx(0); setFlipped(false); setResults([]); setWrongPool([]); setDone(false); setBusy(false); setShowForgotHint(false);
   };
 
   // 無料の再挑戦: このセッションで「まだ」だった語だけに絞ってもう一度復習する。
@@ -139,7 +164,7 @@ export function FlipCardRunner({
   // （詳細はNEXT_IMPROVEMENTS.md「無料/広告再挑戦の役割分担」参照）。
   const retryWrongOnly = () => {
     setSessionPool(wrongPool);
-    setIdx(0); setFlipped(false); setResults([]); setWrongPool([]); setDone(false); setBusy(false);
+    setIdx(0); setFlipped(false); setResults([]); setWrongPool([]); setDone(false); setBusy(false); setShowForgotHint(false);
   };
 
   const correctCount = results.filter((r) => r.ok).length;
@@ -235,16 +260,19 @@ export function FlipCardRunner({
       <div className="flex items-center justify-between text-xs text-navy-500">
         <Link href="/review">← 中断</Link>
         <span data-testid="flip-progress">{idx + 1} / {sessionPool.length}</span>
-        <button
-          onClick={toggleSwipe}
-          className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-            swipeMode
-              ? "bg-sky-100 border-sky-300 text-sky-700 font-semibold"
-              : "bg-white border-navy-200 text-navy-400"
-          }`}
-        >
-          {swipeMode ? "👆 スワイプON" : "👆 スワイプ"}
-        </button>
+        <div className="flex items-center gap-1.5">
+          <AudioAutoplayToggle />
+          <button
+            onClick={toggleSwipe}
+            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+              swipeMode
+                ? "bg-sky-100 border-sky-300 text-sky-700 font-semibold"
+                : "bg-white border-navy-200 text-navy-400"
+            }`}
+          >
+            {swipeMode ? "👆 スワイプON" : "👆 スワイプ"}
+          </button>
+        </div>
       </div>
       {scopeLabel && (
         <p className="mt-1 text-center text-[11px] text-navy-400" data-testid="quiz-scope-label">{scopeLabel}</p>
@@ -289,7 +317,7 @@ export function FlipCardRunner({
               {cur.phonetic && <div className="mt-2 text-sm text-navy-400 font-mono">{cur.phonetic}</div>}
               <div className="mt-5"><PronounceButton word={cur.word} size="lg" /></div>
               <div className="mt-5 flex items-center gap-1.5 text-xs text-navy-400">
-                <span>タップして意味を確認</span>
+                <span>まず自分で思い出してからタップ</span>
                 <span className="text-base">👆</span>
               </div>
             </div>
@@ -315,8 +343,18 @@ export function FlipCardRunner({
         </div>
 
         {/* ボタン / スワイプヒント */}
-        {!flipped ? (
-          <p className="text-sm text-navy-400">カードをタップして意味を確認してください</p>
+        {showForgotHint ? (
+          <div className="w-full space-y-3" data-testid="flashcard-forgot-hint">
+            <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 text-center">
+              <p className="text-sm font-bold text-red-700">大丈夫、これから覚えていきましょう</p>
+            </div>
+            <FlashcardAiHint word={cur.word} meaning={cur.meaning} />
+            <Button fullWidth onClick={continueAfterForgotHint} data-testid="flashcard-continue">
+              次のカードへ →
+            </Button>
+          </div>
+        ) : !flipped ? (
+          <p className="text-sm text-navy-400">まず自分の力で意味を思い出してから、タップして確認しましょう</p>
         ) : swipeMode ? (
           <p className="text-sm text-navy-400">← まだ　　覚えた →</p>
         ) : v2 ? (

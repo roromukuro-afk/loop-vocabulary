@@ -37,7 +37,8 @@ export function InputTestRunner({ pool, count, scopeLabel }: { pool: W[]; count:
     setVerdict(v);
     setState("judged");
     setResults((r) => [...r, { word: cur.word, meaning: cur.meaning, ok, v }]);
-    void saveStudyResult(cur, ok);
+    // mode="typing": 入力テストも自力で単語を打ち込む能動的想起のため4択より強く反映する。
+    void saveStudyResult(cur, ok, undefined, undefined, "typing");
   };
 
   const next = () => {

@@ -1,7 +1,73 @@
 # WORK_HISTORY — Loop Vocabulary
 
 > 作業の時系列ログ。新しいものを上に追記する。
-> 最終更新: 2026-07-07
+> 最終更新: 2026-07-08
+
+---
+
+## 2026-07-08 「自己想起×忘却曲線」中心の学習効果改善ラウンド（Phase 1〜6）
+
+**目的**: 収益化・学習効果改善のため、4択テストの存在感を弱め、
+「自己想起（フラッシュカード）×忘却曲線×AI補助」をアプリの中心価値として
+明確にするオーナー指示に対応。LP・Premium・教材LPの訴求文言、SRSの
+モード別重み付け、フラッシュカードforgot直後のAI解説導線、音声ファーストUI、
+低リスクSEO/AEO改善の5フェーズを実装し、市販教材連携（Phase 6）は
+実装せず将来検討事項としてドキュメント化するに留めた。詳細は
+`NEXT_IMPROVEMENTS.md`の完了項目58を参照。
+
+**Phase 1（LP/Premium訴求）**: トップページのヒーロー副題にタグライン
+「調べた英語を、覚える英語へ。覚えた英語を、使える英語へ。」を追加し、
+STEPS・FEATURES・プロダクトビジュアル（4択モック→フラッシュカードモック）
+を自己想起中心に再構成。4つの目的別LP（highschool/eiken/university-exam/
+school-test）の「学習の流れ」を①教材選択→②単語帳追加→③フラッシュカード
+自己想起→④忘却曲線で自動復習→⑤4択・入力・PDFで最終確認、の順に統一。
+`/premium`はAI機能を「復習精度を上げる補助」として位置付け直し、`/review`・
+`/test`・`/wordbooks/[id]`のモード選択導線でフラッシュカードを最優先表示に
+変更（「最もポピュラーなモード」という4択の煽り文言は削除）。価格・Stripe・
+特商法・広告枠・SRS V2 ON状態・既存公開URLは一切変更していない。
+
+**Phase 2（SRSモード別interval重み付け）**: `src/lib/srs/index.ts`に
+`MODE_INTERVAL_MULTIPLIER`（flashcard=1.0/typing=0.9/listening=0.85/
+choice=0.65）を追加し、V2の`hard/good/easy`分岐のintervalに乗算
+（`again`は対象外＝忘却シグナルは常に強く反映）。6モード全Runnerから
+`saveStudyResult`にmodeを渡すよう変更。DB migrationなし（modeは書き込み
+時のみ使う一時パラメータ）。既存の`test:srs`は無修正のまま全PASS。
+
+**Phase 3（forgot直後のAI解説導線）**: `FlipCardRunner`で「もう一度/まだ」
+の直後は自動で次のカードへ進まず、`FlashcardAiHint.tsx`（新規）のボタンを
+挟む。ボタンを押すまで`/api/ai`は呼ばれない。既存の`kind="explain"`・
+AI使用量制限（Free 5回/日・Premium 300回/日・チケット救済・UpsellModal・
+ai_usage_eventsログ）をそのまま再利用。既存の`FlipCardRunner`のauto-advance
+挙動が変わったため、`srs.mjs`・`extra-review-ticket.mjs`の該当セレクタを
+「次のカードへ」ボタンのクリックを挟む形に更新。
+
+**Phase 4（音声ファーストUI）**: `src/lib/audioSettings.ts`・
+`AudioAutoplayToggle.tsx`（新規、localStorage key `lv_audio_autoplay`）で
+フラッシュカード・4択テストの自動読み上げをON/OFFできるようにした。手動
+再生ボタン・リスニングの明示的な再生ボタンはトグルの影響を受けない。
+`src/lib/tts.ts`の`speakEn()`にtry/catchを追加し、音声合成非対応環境でも
+学習継続できるようにした。
+
+**Phase 5（低リスクSEO/AEO）**: 4つの目的別LPに実証していない断定を避けた
+短いFAQ（各3問、`FAQPage`のJSON-LD＋可視セクション）を追加。`/premium`は
+既存の`FAQS`配列を再利用して`FAQPage`のJSON-LDのみ追加。`/premium`・
+`/materials`・`/dictionary`に不足していた`alternates.canonical`を追加。
+
+**Phase 6（市販教材の将来検討事項）**: 実装は行わず、`NEXT_IMPROVEMENTS.md`
+の「⚪ 保留・要判断」章に将来検討事項として整理した。
+
+**追加テスト**: `test:srs-mode-weighting`・`test:flashcard-ai-hint`・
+`test:audio-first-learning`（いずれも新規）。`package.json`・
+`run-e2e.mjs`に追加。
+
+**検証**: `tsc --noEmit`エラーなし、`build`成功、`test:srs`・
+`test:srs-mode-weighting`・`test:flashcard-ai-hint`・
+`test:audio-first-learning`・`test:entry-points:e2e`・
+`test:extra-review-ticket`・`test:learning-modes:e2e`・`test:quiz:e2e`・
+`test:category-lps`・`test:premium-conversion`・`test:ai-usage-guards`・
+`test:ai-usage-events`全PASS。
+
+**DB変更**: なし。
 
 ---
 

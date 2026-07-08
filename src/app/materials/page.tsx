@@ -13,6 +13,7 @@ export const metadata: Metadata = {
     title: "英語教材・単語帳一覧【無料】英検・TOEIC・大学受験 | Loop Vocabulary",
     description: "英検・TOEIC・大学受験の単語帳を無料でインポートして学習。AIが苦手を分析し効率的に暗記。",
   },
+  alternates: { canonical: "https://loop-vocabulary.app/materials" },
 };
 
 const LEVEL_COLOR: Record<string, string> = {

@@ -172,9 +172,12 @@ export default async function LandingPage() {
               <span className="text-sky-400">もう一度</span><br />
               調べない。
             </h1>
-            <p className="mt-5 text-navy-300 text-base leading-relaxed max-w-sm">
-              調べた瞬間に単語帳へ。忘却曲線が復習タイミングを自動計算。
-              AIが語源・例文・ニュアンスをその場で解説。
+            <p className="mt-4 text-sky-300 text-sm font-bold">
+              調べた英語を、覚える英語へ。覚えた英語を、使える英語へ。
+            </p>
+            <p className="mt-3 text-navy-300 text-base leading-relaxed max-w-sm">
+              自力で思い出す（自己想起）ほど記憶は定着します。忘却曲線に合わせて自動で復習タイミングを提案。
+              仕上げの4択で確認、AIが語源・ニュアンスをその場で解説。
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <Link href="/signup">
@@ -331,7 +334,7 @@ export default async function LandingPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-1">
                   <div className="bg-navy-800 text-white text-[9px] font-bold rounded-lg py-2 text-center">今日の復習</div>
-                  <div className="bg-navy-50 text-navy-700 text-[9px] font-bold rounded-lg py-2 text-center">4択テスト</div>
+                  <div className="bg-navy-50 text-navy-700 text-[9px] font-bold rounded-lg py-2 text-center">4択で確認</div>
                 </div>
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
                   <p className="text-[8px] font-bold text-amber-800 mb-1">獲得バッジ</p>
@@ -342,9 +345,9 @@ export default async function LandingPage() {
               </div>
             </div>
 
-            {/* 4択テスト画面モック */}
+            {/* フラッシュカード画面モック（自己想起） */}
             <div className="w-full sm:w-56 bg-white border-2 border-navy-200 rounded-3xl shadow-xl overflow-hidden mx-auto sm:mx-0">
-              <div className="bg-navy-800 text-white text-[10px] px-3 py-1.5 text-center font-medium tracking-wide">4択テスト</div>
+              <div className="bg-navy-800 text-white text-[10px] px-3 py-1.5 text-center font-medium tracking-wide">フラッシュカード</div>
               <div className="p-3 space-y-2">
                 <div className="flex items-center justify-between text-[9px] text-navy-400">
                   <span>← 中断</span>
@@ -353,18 +356,15 @@ export default async function LandingPage() {
                 <div className="h-1 bg-navy-100 rounded-full">
                   <div className="h-full bg-navy-700 rounded-full" style={{ width: "50%" }} />
                 </div>
-                <div className="text-center pt-2 pb-1">
-                  <div className="text-[9px] text-navy-400">意味を選ぼう</div>
-                  <div className="text-2xl font-bold text-navy-900 mt-1">persist</div>
+                <div className="mt-2 bg-navy-50 border border-navy-100 rounded-2xl py-6 text-center">
+                  <div className="text-[9px] text-navy-400 mb-1">意味を自分で思い出そう</div>
+                  <div className="text-2xl font-black text-navy-900">persist</div>
+                  <div className="text-[9px] text-navy-400 mt-1">タップして答えを確認</div>
                 </div>
-                <ul className="space-y-1.5">
-                  {[["やり遂げる", false], ["固執する", true], ["消滅する", false], ["獲得する", false]].map(([t, correct]) => (
-                    <li key={String(t)} className={`rounded-xl border px-3 py-2 text-[10px] font-semibold ${correct ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-white border-navy-100 text-navy-700"}`}>
-                      {String(t)}
-                    </li>
-                  ))}
-                </ul>
-                <div className="bg-navy-800 text-white text-[9px] font-bold rounded-lg py-2 text-center mt-1">次へ →</div>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <div className="rounded-xl border border-red-200 bg-red-50 text-red-600 text-[10px] font-bold text-center py-2.5">忘れた</div>
+                  <div className="rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-700 text-[10px] font-bold text-center py-2.5">思い出せた</div>
+                </div>
               </div>
             </div>
 
@@ -707,12 +707,12 @@ const STEPS = [
     body: "英単語を検索すると意味・品詞が自動入力。ワンタップで自分の単語帳に追加できます。",
   },
   {
-    title: "テストで記憶を定着",
-    body: "4択テスト・入力テスト・復習モードで繰り返し出題。間違えた単語は「苦手」に自動フラグ。",
+    title: "フラッシュカードで自力に思い出す",
+    body: "見て終わりにせず、まず自分の力で意味を思い出す（自己想起）。4択・入力テストは仕上げの確認に使えます。",
   },
   {
     title: "忘却曲線で自動復習",
-    body: "正解した単語は1→3→7→14→30日後に再出題。覚えた単語は自然と減っていきます。",
+    body: "「思い出せた／忘れた」の結果に応じて次の復習タイミングを自動計算。覚えたつもりを防ぎ、本当に定着させます。",
   },
 ];
 
@@ -724,16 +724,16 @@ const FEATURES = [
     body: "英単語を検索して結果からワンタップで登録。「調べる→忘れる」のループを断ち切ります。",
   },
   {
-    icon: "🔄",
-    tag: "復習",
-    title: "忘却曲線で自動スケジューリング",
-    body: "エビングハウス忘却曲線に基づいて復習タイミングを自動計算。覚えた単語は長期記憶へ。",
+    icon: "🧠",
+    tag: "復習モード",
+    title: "フラッシュカードで自己想起",
+    body: "答えを見る前に、まず自分の力で思い出す。4択・入力テストは仕上げの確認用として使えます。",
   },
   {
-    icon: "⚡",
-    tag: "テスト",
-    title: "爆速4択 & 入力テスト",
-    body: "テンポよく回せる4択と、スペルを書く入力テスト。苦手だけ・未学習だけに絞ることも。",
+    icon: "🔄",
+    tag: "忘却曲線",
+    title: "忘却曲線で自動スケジューリング",
+    body: "エビングハウス忘却曲線に基づいて復習タイミングを自動計算。「覚えたつもり」を防ぎ、長期記憶へ。",
   },
   {
     icon: "📚",

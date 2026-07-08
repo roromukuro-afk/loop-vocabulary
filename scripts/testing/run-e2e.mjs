@@ -56,6 +56,9 @@ async function main() {
     console.log("\n=== 5. SRS V2 E2E ===");
     results.srs = runNode("scripts/testing/e2e/srs.mjs");
 
+    console.log("\n=== 5b. SRS モード別間隔重み付け E2E ===");
+    results.srsModeWeighting = runNode("scripts/testing/e2e/srs-mode-weighting.mjs");
+
     console.log("\n=== 6. teacher E2E ===");
     results.teacher = runNode("scripts/testing/e2e/teacher.mjs");
 
@@ -124,6 +127,12 @@ async function main() {
 
     console.log("\n=== 28. ai_usage_events 自動削除cron E2E ===");
     results.aiUsageCleanupCron = runNode("scripts/testing/e2e/ai-usage-cleanup-cron.mjs");
+
+    console.log("\n=== 29. フラッシュカードforgot直後のAI解説導線 E2E ===");
+    results.flashcardAiHint = runNode("scripts/testing/e2e/flashcard-ai-hint.mjs");
+
+    console.log("\n=== 30. 音声ファーストUI（自動再生トグル）E2E ===");
+    results.audioFirstLearning = runNode("scripts/testing/e2e/audio-first-learning.mjs");
   } finally {
     stopDevServer(dev);
   }

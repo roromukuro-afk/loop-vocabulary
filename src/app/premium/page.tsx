@@ -10,6 +10,7 @@ import { PremiumStickyBar } from "@/components/premium/PremiumStickyBar";
 export const metadata: Metadata = {
   title: "プレミアムプラン | Loop Vocabulary",
   description: "広告なし・AI無制限・CSV一括インポート・弱点分析・リスニングテスト。月額¥480から始める英単語学習のアップグレード。",
+  alternates: { canonical: "https://loop-vocabulary.app/premium" },
 };
 
 const COMPARISON = [
@@ -61,8 +62,19 @@ export default async function PremiumPage() {
 
   const stripeReady = !!(process.env.STRIPE_PRICE_ID_MONTHLY && process.env.STRIPE_SECRET_KEY);
 
+  const faqPageLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQS.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageLd) }} />
       <PremiumTracker />
       {!isPremium && <PremiumStickyBar />}
 
@@ -80,7 +92,7 @@ export default async function PremiumPage() {
             広告なし・AI使い放題で<br />英語力を最短で伸ばす
           </h1>
           <p className="mt-3 text-sm text-navy-300 max-w-xs mx-auto">
-            月額たった¥480。スタバ1杯より安く、英語学習が劇的に変わります。
+            月額¥480。忘却曲線に沿った自己想起の復習を、AIでもう一歩サポートします。
           </p>
           {isPremium && (
             <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-sm font-bold">
@@ -140,7 +152,10 @@ export default async function PremiumPage() {
 
         {/* AI機能ショーケース */}
         <div className="mt-6">
-          <h2 className="font-black text-navy-800 text-center mb-3">Premium限定のAI機能</h2>
+          <h2 className="font-black text-navy-800 text-center mb-1">Premium限定のAI機能</h2>
+          <p className="text-xs text-navy-500 text-center mb-3 leading-relaxed">
+            「自力で思い出せなかった」ときの理解を助ける補助機能です。復習そのものはフラッシュカード・忘却曲線が中心です。
+          </p>
           <div className="grid grid-cols-2 gap-3">
             {[
               { icon: "✨", title: "英文から単語抽出", desc: "英語記事を貼るだけでAIが語彙を自動抽出。気づかなかった表現も見逃さない。" },
@@ -214,9 +229,9 @@ export default async function PremiumPage() {
             <div className="bg-white rounded-xl border border-navy-100 p-4">
               <div className="text-xs font-bold text-navy-800 mb-2">無料でできること</div>
               <ul className="text-[11px] text-navy-600 space-y-1 list-disc pl-4">
+                <li>フラッシュカードで自己想起 → 忘却曲線で自動復習</li>
                 <li>教材のインポート・単語帳の作成</li>
-                <li>SRS（忘却曲線）による自動復習</li>
-                <li>4択テスト・入力テスト</li>
+                <li>4択テスト・入力テストでの確認</li>
                 <li>PDFテストの作成</li>
                 <li>達成スタンプでの学習記録</li>
               </ul>

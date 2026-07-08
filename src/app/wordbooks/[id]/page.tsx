@@ -78,16 +78,22 @@ export default async function WordBookDetailPage({ params }: { params: Promise<{
       </div>
 
       {/* 学習モード導線: すべてこの単語帳(?book=)を引き継ぐ */}
+      {/* 自己想起（フラッシュカード）を最優先の導線として最上部に配置。
+          4択・入力等は「仕上げ・確認用」の位置づけとして下段にまとめる。 */}
       <div className="mt-4">
-        <div className="text-xs font-bold text-navy-500 mb-2">この単語帳で学習する</div>
+        <Link href={`/review?book=${book.id}`}>
+          <Button fullWidth>🔁 自己想起で復習する（フラッシュカード）</Button>
+        </Link>
+      </div>
+      <div className="mt-4">
+        <div className="text-xs font-bold text-navy-500 mb-2">その他の学習モード（仕上げ・確認用）</div>
         <div className="grid grid-cols-2 gap-2">
-          <Link href={`/test/choice?book=${book.id}`}><Button fullWidth variant="secondary">🎯 4択テスト</Button></Link>
+          <Link href={`/test/choice?book=${book.id}`}><Button fullWidth variant="secondary">🎯 4択で確認</Button></Link>
           <Link href={`/test/input?book=${book.id}`}><Button fullWidth variant="secondary">✏️ 入力テスト</Button></Link>
           <Link href={`/test/typing?book=${book.id}`}><Button fullWidth variant="secondary">⌨️ タイピング（Premium）</Button></Link>
           <Link href={`/test/listening?book=${book.id}`}><Button fullWidth variant="secondary">🎧 リスニング（Premium）</Button></Link>
           <Link href={`/test/attack?book=${book.id}`}><Button fullWidth variant="secondary">⚡ タイムアタック</Button></Link>
           <Link href={`/pdf?book=${book.id}`}><Button fullWidth variant="secondary">📄 PDFテスト</Button></Link>
-          <Link href={`/review?book=${book.id}`} className="col-span-2"><Button fullWidth variant="secondary">🔁 SRS復習</Button></Link>
         </div>
       </div>
 

@@ -16,6 +16,7 @@ export const metadata: Metadata = {
     description:
       "英単語をログイン不要・無料で検索。意味・品詞・例文を確認し、無料登録で単語帳に追加して復習できます。",
   },
+  alternates: { canonical: "https://loop-vocabulary.app/dictionary" },
 };
 
 export default async function DictionaryPage() {

@@ -208,15 +208,15 @@ async function main() {
       if (scopeText === `「${bookTitle}」から出題中`) ok("review: 一覧画面でスコープラベルに対象単語帳名が表示される");
       else bad(`review: スコープラベルが想定外 (${scopeText})`);
 
-      const flipHref = await page.locator('a:has-text("フラッシュカードで復習")').getAttribute("href");
+      const flipHref = await page.locator('a:has-text("フラッシュカードで自力に思い出す")').getAttribute("href");
       if (flipHref === `/review?start=1&mode=flip&book=${targetBookId}`) {
-        ok("review: 「フラッシュカードで復習」リンクがbookパラメータを引き継ぐ（修正前は失われていた）");
+        ok("review: 「フラッシュカードで自力に思い出す」リンクがbookパラメータを引き継ぐ（修正前は失われていた）");
       } else {
         bad(`review: フラッシュカードのリンクが想定外 (${flipHref})`);
       }
-      const choiceHref = await page.locator('a:has-text("4択テストで復習")').getAttribute("href");
+      const choiceHref = await page.locator('a:has-text("4択で確認")').getAttribute("href");
       if (choiceHref === `/review?start=1&mode=choice&book=${targetBookId}`) {
-        ok("review: 「4択テストで復習」リンクがbookパラメータを引き継ぐ（修正前は失われていた）");
+        ok("review: 「4択で確認」リンクがbookパラメータを引き継ぐ（修正前は失われていた）");
       } else {
         bad(`review: 4択テストのリンクが想定外 (${choiceHref})`);
       }

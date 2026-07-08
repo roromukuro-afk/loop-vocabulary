@@ -2,17 +2,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { saveStudyResult } from "@/lib/srs/saveResult";
 import { selectQuizWords, type SrsQuizWord } from "@/lib/learning/wordSelection";
+import { speakEn } from "@/lib/tts";
 
 type Word = SrsQuizWord & { streak: number; is_weak: boolean };
-
-function speakWord(word: string) {
-  if (typeof window === "undefined") return;
-  window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(word);
-  utt.lang = "en-US";
-  utt.rate = 0.85;
-  window.speechSynthesis.speak(utt);
-}
 
 export function ListeningTestRunner({ pool, count = 10, scopeLabel }: { pool: Word[]; count?: number; scopeLabel?: string }) {
   // 未学習優先→due/weak優先の重み付き抽選（4択テストと共通ロジック、詳細はwordSelection.ts参照）
@@ -36,7 +28,7 @@ export function ListeningTestRunner({ pool, count = 10, scopeLabel }: { pool: Wo
 
   function play() {
     if (!cur) return;
-    speakWord(cur.word);
+    speakEn(cur.word);
     setPlayed(true);
   }
 
@@ -47,7 +39,8 @@ export function ListeningTestRunner({ pool, count = 10, scopeLabel }: { pool: Wo
     setSubmit(true);
     // 従来SRS更新が呼ばれておらず、リスニングでの学習がcorrect_count/wrong_count/
     // next_review_at等に一切反映されない不具合があったため追加（他モードと同様に接続）
-    void saveStudyResult(cur, correct);
+    // mode="listening": 音のみから想起・スペル産出するため4択より強く反映する。
+    void saveStudyResult(cur, correct, undefined, undefined, "listening");
   }
 
   function next() {

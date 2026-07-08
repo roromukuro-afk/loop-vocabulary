@@ -90,12 +90,38 @@ export const SRS_V2 = {
   INTERVAL_MAX: 180, // 間隔の上限（日）
 } as const;
 
+// ============================================================
+// 学習モード別の間隔重み付け（自己想起の強さに応じてintervalを調整）
+// ------------------------------------------------------------
+// 4択のような再認(recognition)は消去法・見覚えでも正解できてしまうため、
+// フラッシュカードでの自己想起(self-recall)ほど強い記憶定着シグナルではない。
+// この差を、ease_factorそのものではなく計算後のinterval_daysにのみ
+// 乗算する形で反映する（ease_factorの長期的な意味合いは変えない）。
+// mode省略時はflashcard相当(=1.0倍・無変更)にフォールバックするため、
+// 既存の呼び出し（mode未指定）は完全に従来と同一の挙動を保つ。
+// ============================================================
+export type ReviewMode = "flashcard" | "choice" | "typing" | "listening" | "unknown";
+
+export const MODE_INTERVAL_MULTIPLIER: Record<ReviewMode, number> = {
+  flashcard: 1.0,
+  typing: 0.9,
+  listening: 0.85,
+  choice: 0.65,
+  unknown: 0.75,
+};
+
+function modeIntervalMultiplier(mode?: ReviewMode): number {
+  if (!mode) return MODE_INTERVAL_MULTIPLIER.flashcard;
+  return MODE_INTERVAL_MULTIPLIER[mode] ?? MODE_INTERVAL_MULTIPLIER.unknown;
+}
+
 export type SrsV2Input = {
   ease: number;           // 現在の ease_factor（未設定時は EASE_DEFAULT を渡す）
   interval_days: number;  // 直近の間隔（日）。0 = 初回/未学習（fallback）
   streak: number;
   is_weak: boolean;
   rating: SrsRating;
+  mode?: ReviewMode;       // 省略時はflashcard相当(1.0倍)として扱う
   now?: Date;
 };
 
@@ -120,13 +146,15 @@ export function ratingFromCorrect(is_correct: boolean): SrsRating {
   return is_correct ? "good" : "again";
 }
 
-export function applySrsV2({ ease, interval_days, streak, is_weak, rating, now }: SrsV2Input): SrsV2Result {
+export function applySrsV2({ ease, interval_days, streak, is_weak, rating, mode, now }: SrsV2Input): SrsV2Result {
   const base = now ?? new Date();
   // データ欠損時でも壊れない fallback
   const curEase = Number.isFinite(ease) && ease > 0 ? ease : SRS_V2.EASE_DEFAULT;
   const prev = Number.isFinite(interval_days) && interval_days > 0 ? interval_days : 0;
 
   if (rating === "again") {
+    // 「もう一度」はどのモードでも忘却シグナルとして強く反映するため、
+    // モード別重み付けの対象外（常に翌日固定）。
     const newEase = clampEase(curEase - 0.2);
     const interval = 1;
     return {
@@ -139,21 +167,22 @@ export function applySrsV2({ ease, interval_days, streak, is_weak, rating, now }
     };
   }
 
+  const weight = modeIntervalMultiplier(mode);
   let newEase = curEase;
   let interval: number;
   let masteryDelta: number;
 
   if (rating === "hard") {
     newEase = clampEase(curEase - 0.15);
-    interval = clampIntervalDays(prev > 0 ? prev * 1.2 : 1);
+    interval = clampIntervalDays((prev > 0 ? prev * 1.2 : 1) * weight);
     masteryDelta = 4;
   } else if (rating === "easy") {
     newEase = clampEase(curEase + 0.15);
-    interval = clampIntervalDays(prev > 0 ? prev * newEase * 1.3 : 3);
+    interval = clampIntervalDays((prev > 0 ? prev * newEase * 1.3 : 3) * weight);
     masteryDelta = 16;
   } else {
     // good
-    interval = clampIntervalDays(prev > 0 ? prev * curEase : 1);
+    interval = clampIntervalDays((prev > 0 ? prev * curEase : 1) * weight);
     masteryDelta = 12;
   }
 

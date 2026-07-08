@@ -345,6 +345,12 @@ async function main() {
       fail("/materials/highschool のJSON-LD（Breadcrumb/ItemList）が想定と異なる");
     }
 
+    if (highschoolHtml.includes('"@type":"FAQPage"') && highschoolBodyText.includes("よくある質問")) {
+      ok("/materials/highschool にFAQPageのJSON-LD・visible FAQセクションが出力されている");
+    } else {
+      fail("/materials/highschool のFAQPage JSON-LD・FAQセクションが見つからない");
+    }
+
     const highschoolDictLink = page.locator('a[href="/dictionary"]');
     if (await highschoolDictLink.first().isVisible().catch(() => false)) ok("/materials/highschool に/dictionaryへの導線がある");
     else fail("/materials/highschool に/dictionaryへの導線が見つからない");
@@ -464,6 +470,12 @@ async function main() {
       ok("/materials/eiken にBreadcrumbList・ItemListのJSON-LDが正しく出力されている");
     } else {
       fail("/materials/eiken のJSON-LD（Breadcrumb/ItemList）が想定と異なる");
+    }
+
+    if (eikenHtml.includes('"@type":"FAQPage"') && eikenBodyText.includes("よくある質問")) {
+      ok("/materials/eiken にFAQPageのJSON-LD・visible FAQセクションが出力されている");
+    } else {
+      fail("/materials/eiken のFAQPage JSON-LD・FAQセクションが見つからない");
     }
 
     const eikenDictLink = page.locator('a[href="/dictionary"]');
@@ -605,6 +617,12 @@ async function main() {
       ok("/materials/university-exam にBreadcrumbList・ItemListのJSON-LDが正しく出力されている");
     } else {
       fail("/materials/university-exam のJSON-LD（Breadcrumb/ItemList）が想定と異なる");
+    }
+
+    if (uniHtml.includes('"@type":"FAQPage"') && uniBodyText.includes("よくある質問")) {
+      ok("/materials/university-exam にFAQPageのJSON-LD・visible FAQセクションが出力されている");
+    } else {
+      fail("/materials/university-exam のFAQPage JSON-LD・FAQセクションが見つからない");
     }
 
     const uniDictLink = page.locator('a[href="/dictionary"]');
@@ -762,6 +780,12 @@ async function main() {
       ok("/materials/school-test にBreadcrumbList・ItemListのJSON-LDが正しく出力されている");
     } else {
       fail("/materials/school-test のJSON-LD（Breadcrumb/ItemList）が想定と異なる");
+    }
+
+    if (schoolTestHtml.includes('"@type":"FAQPage"') && schoolTestBodyText.includes("よくある質問")) {
+      ok("/materials/school-test にFAQPageのJSON-LD・visible FAQセクションが出力されている");
+    } else {
+      fail("/materials/school-test のFAQPage JSON-LD・FAQセクションが見つからない");
     }
 
     const schoolTestDictLink = page.locator('a[href="/dictionary"]');
