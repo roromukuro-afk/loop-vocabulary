@@ -4,6 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "英単語学習ガイド | Loop Vocabulary",
   description: "大学受験・英検・TOEICの英単語を効率よく覚えるためのガイド記事を掲載しています。スマホアプリで忘却曲線を活かした学習を。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide" },
 };
 
 const GUIDES = [

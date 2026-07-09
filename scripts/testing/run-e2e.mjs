@@ -145,6 +145,9 @@ async function main() {
 
     console.log("\n=== 34. 教員向けPDF小テストガイド E2E ===");
     results.teacherPdfGuide = runNode("scripts/testing/e2e/teacher-pdf-guide.mjs");
+
+    console.log("\n=== 35. canonical URL整合性 E2E ===");
+    results.canonicalIntegrity = runNode("scripts/testing/e2e/canonical-integrity.mjs");
   } finally {
     stopDevServer(dev);
   }

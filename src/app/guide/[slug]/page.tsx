@@ -1725,6 +1725,7 @@ export async function generateMetadata(
   return {
     title: `${article.title} | Loop Vocabulary`,
     description: article.description,
+    alternates: { canonical: `${SITE_URL}/guide/${slug}` },
     openGraph: {
       title: article.title,
       description: article.description,
