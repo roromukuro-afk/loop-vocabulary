@@ -114,7 +114,7 @@ export function DictionarySearch({
           data-testid="dictionary-search-input"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="例: increase / 重要"
+          placeholder="英単語を入力（例: increase, opportunity）"
           inputMode="search"
         />
         <Button data-testid="dictionary-search-submit" type="submit" disabled={busy}>{busy ? "検索中..." : "検索"}</Button>
@@ -183,7 +183,10 @@ export function DictionarySearch({
           );
         })}
         {hits.length === 0 && !busy && q && (
-          <li className="text-sm text-navy-500">該当する単語が見つかりませんでした。</li>
+          <li className="text-sm text-navy-500">
+            該当する単語が見つかりませんでした。英単語のつづりで検索してください（例:
+            increase, opportunity, important）。日本語の意味からの検索には対応していません。
+          </li>
         )}
       </ul>
     </div>
