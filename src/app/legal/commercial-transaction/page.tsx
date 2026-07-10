@@ -107,7 +107,7 @@ export default function CommercialTransactionPage() {
           />
           <Row
             label="サービス提供時期"
-            value="決済完了後、直ちにプレミアム機能（広告非表示・AI解説無制限・CSV一括インポート等）をご利用いただけます"
+            value="決済完了後、直ちにプレミアム機能（広告非表示・AI解説300回/日・CSV一括インポート等）をご利用いただけます"
           />
           <Row
             label="解約・返品特約"
@@ -132,6 +132,7 @@ export default function CommercialTransactionPage() {
         <Link href="/faq" className="text-navy-500 underline">よくある質問</Link>
         <Link href="/about" className="text-navy-500 underline">運営者について</Link>
         <Link href="/contact" className="text-navy-500 underline">お問い合わせ</Link>
+        <Link href="/legal/content-policy" className="text-navy-500 underline">教材データ・著作権について</Link>
       </div>
     </div>
   );

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 const FAQS: { q: string; a: string }[] = [
   {
     q: "Loop Vocabulary は無料で使えますか？",
-    a: "はい、基本機能（単語帳作成・忘却曲線復習・AI解説5回/日）は完全無料です。プレミアムプランでは広告ゼロ・AI解説無制限・CSV一括インポートなどが使えます。",
+    a: "はい、基本機能（単語帳作成・忘却曲線復習・AI解説5回/日）は完全無料です。プレミアムプランでは広告ゼロ・AI解説300回/日・CSV一括インポートなどが使えます。",
   },
   {
     q: "プレミアムプランの料金はいくらですか？",
@@ -26,7 +26,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "AI解説機能とは何ですか？",
-    a: "Claude（Anthropic社）を使い、単語の語源・ニュアンス・例文・覚え方を AI が解説します。無料プランは1日5回まで、プレミアムは無制限です。フラッシュカードで「思い出せなかった」場合に限り、任意でボタンを押したときだけ表示され、自動では呼び出されません。",
+    a: "Claude（Anthropic社）を使い、単語の語源・ニュアンス・例文・覚え方を AI が解説します。無料プランは1日5回まで、プレミアムは他のAI機能と合計1日300回まで利用できます。フラッシュカードで「思い出せなかった」場合に限り、任意でボタンを押したときだけ表示され、自動では呼び出されません。",
   },
   {
     q: "語彙力チェック（診断）は無料ですか？ログインは必要ですか？",
@@ -123,6 +123,7 @@ export default function FaqPage() {
           <Link href="/dictionary" className="text-navy-500 underline">辞書検索</Link>
           <Link href="/about" className="text-navy-500 underline">運営者について</Link>
           <Link href="/press" className="text-navy-500 underline">プレスキット</Link>
+          <Link href="/legal/content-policy" className="text-navy-500 underline">教材データ・著作権について</Link>
           <Link href="/" className="text-navy-500 underline">← トップページ</Link>
         </div>
       </div>

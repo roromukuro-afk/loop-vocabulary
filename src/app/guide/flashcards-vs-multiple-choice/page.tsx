@@ -138,7 +138,7 @@ export default function FlashcardsVsMultipleChoicePage() {
             <div className="text-sm font-bold text-navy-800 mb-2">Premiumでさらに効率化</div>
             <ul className="text-xs text-navy-600 space-y-1 list-disc pl-4">
               <li>AI弱点分析で「4択は解けるが入力は苦手」などの傾向を確認</li>
-              <li>思い出せなかった単語のAI解説を無制限に利用</li>
+              <li>思い出せなかった単語のAI解説を1日300回まで利用</li>
               <li>広告非表示</li>
             </ul>
             <Link href="/premium" className="inline-block mt-2 text-xs text-sky-700 hover:underline">月額 ¥480〜 プレミアムを見る →</Link>

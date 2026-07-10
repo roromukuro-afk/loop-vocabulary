@@ -242,7 +242,7 @@ export function LearnRunner({ words, onComplete }: { words: Word[]; onComplete?:
         {/* プレミアムアップセル */}
         <a href="/premium" className="mt-6 block bg-gradient-to-r from-navy-800 to-navy-900 rounded-2xl p-4 text-white hover:opacity-90 transition-opacity">
           <div className="text-[10px] font-bold uppercase tracking-widest text-sky-300 mb-1">Premium</div>
-          <div className="font-black text-sm leading-tight">広告なし · AI解説無制限 · 全機能開放</div>
+          <div className="font-black text-sm leading-tight">広告なし · AI解説300回/日 · 全機能開放</div>
           <div className="text-xs text-navy-300 mt-0.5">月額 ¥480 〜 → 詳しく見る</div>
         </a>
 

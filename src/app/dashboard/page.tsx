@@ -494,7 +494,7 @@ export default async function DashboardPage() {
           <div className="relative overflow-hidden bg-gradient-to-r from-navy-800 to-navy-950 rounded-2xl p-4 text-white hover:opacity-90 transition-opacity">
             <div className="relative z-10">
               <div className="text-[10px] font-bold uppercase tracking-widest text-sky-300 mb-1">Premium</div>
-              <div className="font-black text-base leading-tight">広告ゼロ · AI無制限 · CSV一括インポート</div>
+              <div className="font-black text-base leading-tight">広告ゼロ · AI解説300回/日 · CSV一括インポート</div>
               <div className="text-xs text-navy-300 mt-1">月額 ¥480 〜 でアップグレード →</div>
             </div>
             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-20">⚡</div>

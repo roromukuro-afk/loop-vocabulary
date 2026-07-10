@@ -9,14 +9,14 @@ import { PremiumStickyBar } from "@/components/premium/PremiumStickyBar";
 
 export const metadata: Metadata = {
   title: "プレミアムプラン | Loop Vocabulary",
-  description: "広告なし・AI無制限・CSV一括インポート・弱点分析・リスニングテスト。月額¥480から始める英単語学習のアップグレード。",
+  description: "広告なし・AI解説が1日300回まで使える・CSV一括インポート・弱点分析・リスニングテスト。月額¥480から始める英単語学習のアップグレード。",
   alternates: { canonical: "https://loop-vocabulary.app/premium" },
 };
 
 const COMPARISON = [
   { label: "単語帳・SRS復習",         free: "✓",       prem: "✓" },
   { label: "4択・入力テスト",          free: "✓",       prem: "✓" },
-  { label: "AI解説（例文・語源）",     free: "5回/日",   prem: "∞ 無制限" },
+  { label: "AI解説（例文・語源）",     free: "5回/日",   prem: "300回/日" },
   { label: "AI弱点分析レポート",       free: "—",        prem: "✓" },
   { label: "AIパーソナル学習プラン",   free: "—",        prem: "✓" },
   { label: "英文から単語自動抽出",     free: "—",        prem: "✓" },
@@ -33,7 +33,7 @@ const FAQS = [
   { q: "年間プランはいつでも解約できますか？", a: "年間プランも途中解約可能です。ただし残期間の日割り返金は対応しておりません。まずは月額プランでお試しください。" },
   { q: "支払い方法は何が使えますか？", a: "Visa・Mastercard・JCB・American Expressなどのクレジットカード・デビットカードに対応しています（Stripe安全決済）。" },
   { q: "無料プランで作った単語帳はどうなりますか？", a: "プレミアム登録後もすべてのデータ（単語帳・学習履歴・AI解説履歴）はそのまま引き継がれます。" },
-  { q: "AIの使用量に制限はありますか？", a: "プレミアムプランではAI解説・弱点分析・学習プラン生成・英文抽出がすべて無制限で利用できます（過度な自動化利用を除く）。" },
+  { q: "AIの使用量に制限はありますか？", a: "プレミアムプランではAI解説・弱点分析・学習プラン生成・英文抽出を合計1日300回まで利用できます。通常の学習でこの上限に達することはほとんどありません。" },
 ];
 
 export default async function PremiumPage() {
@@ -140,7 +140,7 @@ export default async function PremiumPage() {
         <div className="mt-6 grid grid-cols-3 gap-3">
           {[
             { icon: "🚫", label: "広告非表示" },
-            { icon: "🤖", label: "AI利用無制限" },
+            { icon: "🤖", label: "AI解説300回/日" },
             { icon: "📄", label: "PDF出力無制限" },
           ].map((s) => (
             <div key={s.label} className="bg-white rounded-2xl border border-navy-100 p-3 text-center">

@@ -268,6 +268,48 @@ async function main() {
       fail(`/legal/commercial-transactionへのリンクが見つからないページがある: ${notLinkedFrom.join(", ")}`);
     }
     await page7.close();
+
+    // ================= 10. /legal/content-policy（教材データ・著作権について、新設） =================
+    console.log("\n--- 10. /legal/content-policy: 200表示・canonical自己参照・index許可・sitemap収録・主要ページからのリンクの確認 ---");
+    const cpRes = await fetch(`${baseUrl}/legal/content-policy`, { redirect: "manual" });
+    if (cpRes.status === 200) ok("/legal/content-policy -> 200");
+    else fail(`/legal/content-policy -> ${cpRes.status}（200を期待）`);
+    const cpHtml = await cpRes.text();
+
+    if (/<meta name="robots" content="noindex/.test(cpHtml)) {
+      fail("/legal/content-policyにnoindexのrobots metaが出力されている");
+    } else {
+      ok("/legal/content-policyはnoindexになっていない");
+    }
+    if (cpHtml.includes('href="https://loop-vocabulary.app/legal/content-policy"')) {
+      ok("/legal/content-policyのcanonicalが自己参照");
+    } else {
+      fail("/legal/content-policyのcanonicalが自己参照でない");
+    }
+    if (/Disallow:\s*\/legal\b/.test(robotsTxt)) {
+      fail("robots.txtで/legal配下がブロックされている(/legal/content-policyもクロール不可になる)");
+    } else {
+      ok("robots.txtで/legal配下はブロックされていない");
+    }
+    if (sitemapXml.includes("/legal/content-policy")) {
+      ok("/sitemap.xmlに/legal/content-policyが含まれている");
+    } else {
+      fail("/sitemap.xmlに/legal/content-policyが含まれていない");
+    }
+
+    const page8 = await browser.newPage();
+    const cpNotLinkedFrom = [];
+    for (const p of ["/terms", "/faq", "/contact", "/legal/commercial-transaction"]) {
+      await gotoReady(page8, `${baseUrl}${p}`);
+      const html = await page8.content();
+      if (!html.includes("/legal/content-policy")) cpNotLinkedFrom.push(p);
+    }
+    if (cpNotLinkedFrom.length === 0) {
+      ok("/terms・/faq・/contact・/legal/commercial-transactionのいずれからも/legal/content-policyへのリンクがある");
+    } else {
+      fail(`/legal/content-policyへのリンクが見つからないページがある: ${cpNotLinkedFrom.join(", ")}`);
+    }
+    await page8.close();
   } finally {
     stopDevServer(dev);
   }

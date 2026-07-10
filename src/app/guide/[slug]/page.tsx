@@ -16,6 +16,15 @@ type Article = {
 };
 
 type BookRec = { title: string; author: string; asin: string; price: string; label?: string };
+// 市販単語帳の名称・比較を扱う記事。商標・非公式である旨の注記を表示する対象。
+const BRAND_REVIEW_SLUGS = new Set([
+  "system-eitango",
+  "target-1900",
+  "systan-vs-target-1900",
+  "leap-eitango",
+  "eitango-cho-hikaku",
+]);
+
 const BOOKS: Record<string, BookRec[]> = {
   "daigaku-juken-tango": [
     { title: "ターゲット1900 6訂版", author: "旺文社", asin: "4010773634", price: "¥1,100", label: "大学受験最定番" },
@@ -1988,6 +1997,15 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
             books={BOOKS[slug]}
             heading="📚 あわせて読みたい参考書（Amazon）"
           />
+        )}
+
+        {BRAND_REVIEW_SLUGS.has(slug) && (
+          <p className="mt-3 text-[11px] text-navy-400 leading-relaxed">
+            ※ 本記事で紹介する教材名は各出版社の商標または著作物です。Loop Vocabulary は
+            各出版社と公式に提携するものではなく、本記事は独自の解説・比較です。詳しくは
+            <Link href="/legal/content-policy" className="underline">教材データ・著作権について</Link>
+            をご覧ください。
+          </p>
         )}
 
         <GuideEmailCapture slug={slug} />

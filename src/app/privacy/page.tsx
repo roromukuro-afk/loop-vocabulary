@@ -1,5 +1,12 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { SUPPORT_EMAIL } from "@/lib/support";
+
+export const metadata: Metadata = {
+  title: "プライバシーポリシー | Loop Vocabulary",
+  description: "Loop Vocabulary のプライバシーポリシー。取得する情報・利用目的・広告配信・第三者サービス・データ削除について説明します。",
+  alternates: { canonical: "https://loop-vocabulary.app/privacy" },
+};
 
 export default function PrivacyPage() {
   return (

@@ -7,7 +7,7 @@ export default function PremiumSuccessPage() {
         <div className="text-6xl mb-4">🎉</div>
         <h1 className="text-2xl font-black text-navy-800">プレミアム登録完了！</h1>
         <p className="mt-3 text-sm text-navy-600">
-          ありがとうございます。AI解説無制限・広告非表示など、すべてのプレミアム機能が有効になりました。
+          ありがとうございます。AI解説300回/日・広告非表示など、すべてのプレミアム機能が有効になりました。
         </p>
         <div className="mt-8 space-y-3">
           <Link

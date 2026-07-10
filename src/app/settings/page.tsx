@@ -37,7 +37,7 @@ export default async function SettingsPage() {
       {!profile?.is_premium && (
         <div className="mt-4 bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-4 text-white">
           <div className="text-xs font-bold uppercase tracking-widest text-sky-300 mb-1">Premium</div>
-          <div className="font-bold text-base">広告ゼロ・AI無制限</div>
+          <div className="font-bold text-base">広告ゼロ・AI解説300回/日</div>
           <div className="text-xs text-navy-300 mt-0.5">月額 ¥480 〜 でアップグレード</div>
           <Link
             href="/premium"

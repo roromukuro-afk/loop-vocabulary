@@ -28,13 +28,15 @@ export default function TermsPage() {
       <p>
         本サービスに収録された公開教材データは、許諾を得た上で掲載しています。
         許諾の確認が取れない教材は公開しません。ユーザーが登録した単語・例文等の権利はユーザーに帰属します。
+        市販教材の紹介・比較記事における商標・著作権の扱いについては
+        <Link href="/legal/content-policy">教材データ・著作権について</Link>もご確認ください。
       </p>
 
       <h2 className="text-lg font-bold text-navy-800 mt-6">5. 広告・課金</h2>
       <p>
         本サービスは無料プランで広告を表示します（Web 版は Google AdSense、Android / iOS
         アプリ版は Google AdMob）。プレミアムプラン（有料、月額 ¥480 または年額 ¥3,800）に
-        登録すると広告が非表示になり、AI 解説の利用回数無制限、CSV 一括インポート等の
+        登録すると広告が非表示になり、AI 解説の利用回数が1日300回まで拡大、CSV 一括インポート等の
         追加機能が利用できます。
       </p>
       <p className="mt-2">

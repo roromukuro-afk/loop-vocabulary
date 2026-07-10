@@ -269,6 +269,60 @@ const GUIDES = [
   },
 ];
 
+// タグ→カテゴリのマッピング。記事のURL・タグ自体は変更せず、一覧の見せ方のみ整理する。
+const TAG_TO_CATEGORY: Record<string, string> = {
+  "英検": "英検対策",
+  "英検2級": "英検対策",
+  "英検準1級": "英検対策",
+  "英検1級": "英検対策",
+  "英検3級": "英検対策",
+  "英検準2級": "英検対策",
+  "TOEIC": "TOEIC対策",
+  "TOEIC 900点": "TOEIC対策",
+  "大学受験": "大学受験英単語",
+  "定期テスト": "定期テスト・高校英語",
+  "高校英語": "定期テスト・高校英語",
+  "中学英語": "定期テスト・高校英語",
+  "学習法": "記憶法・忘却曲線（SRS）",
+  "リスニング": "リスニング・発音",
+  "発音練習": "リスニング・発音",
+  "英文法": "英文法",
+  "長文読解": "長文読解",
+  "AI活用": "AIを使った英単語学習",
+  "教員・塾講師向け": "PDF小テスト・教育者向け",
+  "単語帳": "英単語帳レビュー・比較",
+  "英会話": "英会話・資格・ビジネス英語",
+  "IELTS": "英会話・資格・ビジネス英語",
+  "ビジネス英語": "英会話・資格・ビジネス英語",
+};
+
+const CATEGORY_ORDER = [
+  "記憶法・忘却曲線（SRS）",
+  "英検対策",
+  "TOEIC対策",
+  "大学受験英単語",
+  "定期テスト・高校英語",
+  "リスニング・発音",
+  "英文法",
+  "長文読解",
+  "AIを使った英単語学習",
+  "PDF小テスト・教育者向け",
+  "英単語帳レビュー・比較",
+  "英会話・資格・ビジネス英語",
+];
+
+// 初めての方向けに、まず読むとよい3記事をおすすめとして固定表示する。
+const FEATURED_SLUGS = [
+  "how-to-memorize-english-words",
+  "spaced-repetition-english-vocabulary",
+  "tangocho-erabikata",
+];
+
+const CATEGORIZED_GUIDES = CATEGORY_ORDER.map((category) => ({
+  category,
+  guides: GUIDES.filter((g) => TAG_TO_CATEGORY[g.tag] === category),
+}));
+
 const LIST_JSON_LD = {
   "@context": "https://schema.org",
   "@type": "ItemList",
@@ -302,18 +356,54 @@ export default function GuidePage() {
           </div>
         </Link>
 
-        {GUIDES.map((g) => (
-          <Link key={g.slug} href={`/guide/${g.slug}`} className="block">
-            <div className="bg-white rounded-2xl border border-navy-100 p-5 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-semibold">{g.tag}</span>
-                <span className="text-[11px] text-navy-400">読了 {g.readTime}</span>
-              </div>
-              <h2 className="font-bold text-navy-800 leading-snug">{g.title}</h2>
-              <p className="text-sm text-navy-500 mt-1 leading-relaxed">{g.description}</p>
-              <div className="mt-3 text-sm text-sky-600 font-semibold">続きを読む →</div>
+        <div data-testid="guide-featured-section" className="bg-white rounded-2xl border border-navy-100 p-5">
+          <div className="text-xs font-bold text-navy-800 mb-1">はじめての方へ</div>
+          <p className="text-xs text-navy-500 mb-3">まずはこの3記事から読むのがおすすめです。</p>
+          <div className="space-y-2">
+            {FEATURED_SLUGS.map((slug) => {
+              const g = GUIDES.find((x) => x.slug === slug);
+              if (!g) return null;
+              return (
+                <Link key={slug} href={`/guide/${slug}`} className="flex items-center justify-between gap-2 text-sm font-semibold text-sky-700 hover:underline">
+                  <span>{g.title}</span>
+                  <span className="shrink-0 text-navy-300">→</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        <nav aria-label="カテゴリ一覧" className="bg-white rounded-2xl border border-navy-100 p-4 flex flex-wrap gap-2">
+          {CATEGORIZED_GUIDES.map(({ category, guides }) => (
+            <a
+              key={category}
+              href={`#category-${category}`}
+              className="text-[11px] px-2.5 py-1 rounded-full bg-navy-50 text-navy-600 font-semibold hover:bg-navy-100 transition-colors"
+            >
+              {category}（{guides.length}）
+            </a>
+          ))}
+        </nav>
+
+        {CATEGORIZED_GUIDES.map(({ category, guides }) => (
+          <section key={category} id={`category-${category}`} data-testid="guide-category-section" className="scroll-mt-4">
+            <h2 className="text-base font-black text-navy-800 px-1 mb-2">{category}</h2>
+            <div className="space-y-3">
+              {guides.map((g) => (
+                <Link key={g.slug} href={`/guide/${g.slug}`} className="block">
+                  <div className="bg-white rounded-2xl border border-navy-100 p-5 hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-semibold">{g.tag}</span>
+                      <span className="text-[11px] text-navy-400">読了 {g.readTime}</span>
+                    </div>
+                    <h3 className="font-bold text-navy-800 leading-snug">{g.title}</h3>
+                    <p className="text-sm text-navy-500 mt-1 leading-relaxed">{g.description}</p>
+                    <div className="mt-3 text-sm text-sky-600 font-semibold">続きを読む →</div>
+                  </div>
+                </Link>
+              ))}
             </div>
-          </Link>
+          </section>
         ))}
 
         <div className="bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-5 text-white text-center mt-6">

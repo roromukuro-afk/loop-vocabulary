@@ -287,3 +287,128 @@ SRS V2・教師機能・教材データ・AdSense publisher ID・ads.txt・広�
 - **今後の方針**: インデックスの反映（数日〜1〜2週間程度）を待たずに次の実装ラウンドを
   重ねることはしない。次に着手すべきは「実装の追加」ではなく「今回までの変更が実際に
   Googleにクロール・評価されるのを待つこと」である。
+
+## 10. canonical不整合の緊急修正（2026-07-09、Search Console報告への対応）
+
+§9の完了後、Search Consoleで`/press`・`/guide`一覧・`/guide/*`記事10本（レガシー動的
+ルート配信分）のUser-declared canonicalが自己参照になっていない（別ページを指している
+ように見える）という報告があり、緊急でAdSense再申請を一旦停止して調査・修正した。
+
+- **実際の原因**: 「前記事のcanonicalをコピペし忘れた」といったチェーン状の誤り自体は
+  現行コードには存在しなかった（`/about`・`/press`・静的フォルダ記事はいずれも作成時から
+  正しい自己参照URLをハードコードしていたことをgit履歴・現行ソース・本番HTMLで確認済み）。
+  実際の不具合は2件、**canonicalの「誤り」ではなく「欠落」**だった。
+  1. `/guide`（一覧ページ）に`alternates.canonical`が設定されていなかった
+  2. `guide/[slug]/page.tsx`（静的フォルダに未移行の旧記事10本を配信する動的ルート）の
+     `generateMetadata`がcanonicalを返しておらず、該当10記事がcanonicalなしで配信されていた
+- **修正ファイル**: `src/app/guide/page.tsx`・`src/app/guide/[slug]/page.tsx`
+- **追加テスト**: `test:canonical-integrity`（`/about`・`/press`・`/guide`・静的記事9本・
+  レガシー動的記事10本、計22URLのcanonical自己参照・noindex非設定・sitemap収録・
+  robots.txt非ブロックを検証）
+- 本番デプロイ後、対象22URLすべてでcanonicalが自己参照になっていることをcurlで直接確認済み
+
+## 11. 追加監査ラウンド（2026-07-09、公開辞書・プライバシー・ガイド構成・信頼性）
+
+「低価値コンテンツ・広告表示」の観点で追加の8項目を監査し、見つかった不整合を修正した。
+
+### 11-1. 「辞書だけ試す（登録不要）」の実挙動確認
+
+- 懸念（`/dictionary`が実はログイン要求される）は**再現しなかった**。コード
+  （`src/app/dictionary/page.tsx`にroot middlewareなし、`AppShell`に認証チェックなし）・
+  本番HTML（未ログインで200・「ログイン不要で英単語を検索できます」表示）・DB RLS
+  （`material_words`は匿名SELECT許可、`words`はユーザー自身のみで匿名は空配列）の
+  3方向で確認し、いずれも「登録不要」の表示どおり動作している。
+- 再発防止のため`test:public-dictionary`を新規追加（未ログインで200・リダイレクトなし・
+  検索結果表示・「単語帳に追加」ボタン非表示・「無料登録」導線表示・noindex非設定・
+  canonical自己参照を検証）。コード変更は無し。
+
+### 11-2. `/privacy`のAdSense（Web）Cookie対応確認
+
+- 既に「3. 広告について」セクションに、Web版AdSenseにおけるGoogle等third-partyの
+  Cookie使用・パーソナライズ広告への言及・Google広告設定へのオプトアウト導線・
+  Googleの広告ポリシーへのリンクが記載済みであることを確認した。アプリ版AdMobとWeb版
+  AdSenseの記載も明確に分けられている。コード変更は不要と判断。
+
+### 11-3. `/guide`のカテゴリ別整理
+
+- 37記事すべてを12カテゴリ（記憶法・忘却曲線／英検対策／TOEIC対策／大学受験英単語／
+  定期テスト・高校英語／リスニング・発音／英文法／長文読解／AIを使った英単語学習／
+  PDF小テスト・教育者向け／英単語帳レビュー・比較／英会話・資格・ビジネス英語）に
+  分類し、カテゴリ見出し・カテゴリジャンプナビ・「はじめての方へ」おすすめ3記事
+  セクションを追加した。既存記事のURL・tagは一切変更していない。
+  - **変更ファイル**: `src/app/guide/page.tsx`
+
+### 11-4. 公開辞書・単語詳細ページ（`/dictionary/[word]`）の実現可能性調査
+
+今回は調査・提案のみで実装は行っていない（大量ページの拙速な公開を避けるため）。
+
+- `material_words`は33,392行・distinct 15,614語だが、例文（`example`）を持つのは
+  3,887行（約12%）のみ。品詞・発音表記の専用カラムは無い（発音はブラウザのWeb Speech
+  APIによる読み上げのみで、音声データの保存は無い）。
+- `materials`テーブルは全46件が`license_status = 'approved'`（許諾確認済み）または
+  `'original'`（自社作成）のみで、権利未確認データが混入するリスクは無い。
+- **提案**: いきなり全15,614語を公開するのではなく、(1) 例文を持つ語に限定、
+  (2) 複数教材にまたがる語は意味・例文を集約して1ページの情報量を厚くする、
+  (3) まず50〜100語の小規模PoCとして`noindex`で公開し、表示崩れ・重複コンテンツの
+  有無を確認してから`index`許可を判断する、という段階的な進め方を推奨する。
+  単語帳への追加操作のみログイン導線とする設計は`/dictionary`の既存パターンを踏襲できる。
+
+### 11-5. SSR/SSGクローラー可読性監査
+
+- `/`・`/guide`・`/guide/*`記事2本・`/materials`・`/materials/highschool`・
+  `/materials/eiken`・`/materials/university-exam`・`/materials/school-test`・
+  `/dictionary`・`/about`・`/press`・`/privacy`・`/faq`・`/contact`の計15ページを
+  JavaScript実行なしのfetchで直接確認し、いずれもタグ除去後の本文テキスト・JSON-LD・
+  canonicalがHTMLに直接出力されていることを確認した（client-onlyの空シェルは無し）。
+- 再発防止のため`test:crawler-readable-pages`を新規追加。
+
+### 11-6. 著作権・教材データについてのページ追加
+
+- `/legal/content-policy`（教材データ・著作権について）を新設。収録教材データの許諾方針、
+  市販単語帳の紹介記事が非公式・商標は各権利者に帰属する旨、CSVインポート時の注意、
+  権利者向けの問い合わせ導線を記載。特商法ページの内容は変更していない。
+  - `/terms`§4・`/faq`・`/contact`・`/legal/commercial-transaction`から相互リンク
+  - 市販単語帳を比較する5記事（system-eitango・target-1900・systan-vs-target-1900・
+    leap-eitango・eitango-cho-hikaku）に非公式である旨の注記とリンクを追加
+  - sitemap.tsに追加、robots.txtでブロックされていないことを確認
+  - `test:legal-trust-pages`に§10として検証項目を追加
+
+### 11-7. Premium/Free表記の整合性監査
+
+- **発見**: サイト全体で「AI解説無制限」という表記が18箇所（`/premium`・`/faq`・
+  `/terms`・`/settings`・`/dashboard`・`/learn`・`/test/typing`・`/premium/success`・
+  `/legal/commercial-transaction`・ホームページ・学習ガイド記事2本）に存在していたが、
+  実際にはPremiumでも他のAI機能と合算で**1日300回のソフト上限**（`src/lib/ai/aiQuota.ts`、
+  `supabase/migrations/015_atomic_ai_quota.sql`）がある。すべて「300回/日」という
+  正確な表記に修正した。
+- PDF出力（Premiumで実装上の上限なし）・単語帳/単語登録（実装上の上限なし）・
+  CSV一括インポート（5000語/回、無制限とは謳っていない）の「無制限」表記は、
+  実装を確認のうえ正確であることを確認し、変更していない。
+- teacher機能がPremium限定であるかのような表記は見つからなかった（コード上も
+  Premium判定なしで無料利用可能であることと一致）。
+
+### 11-8. 今回の変更ファイル一覧
+
+- `src/app/guide/page.tsx`（カテゴリ別整理）
+- `src/app/guide/[slug]/page.tsx`（商標注記追加）
+- `src/app/legal/content-policy/page.tsx`（新規）
+- `src/app/sitemap.ts`（`/legal/content-policy`追加）
+- `src/app/terms/page.tsx`（`/legal/content-policy`リンク追加）
+- `src/app/faq/page.tsx`（同上）
+- `src/app/contact/page.tsx`（同上）
+- `src/app/legal/commercial-transaction/page.tsx`（同上）
+- `src/app/premium/page.tsx`・`src/app/faq/page.tsx`・`src/app/page.tsx`・
+  `src/app/legal/commercial-transaction/page.tsx`・
+  `src/app/guide/flashcards-vs-multiple-choice/page.tsx`・
+  `src/app/guide/how-to-memorize-english-words/page.tsx`・`src/app/terms/page.tsx`・
+  `src/app/settings/page.tsx`・`src/app/dashboard/page.tsx`・
+  `src/app/learn/LearnRunner.tsx`・`src/app/test/typing/page.tsx`・
+  `src/app/premium/success/page.tsx`（AI「無制限」表記の修正、計18箇所）
+- `scripts/testing/e2e/public-dictionary.mjs`（新規）
+- `scripts/testing/e2e/crawler-readable-pages.mjs`（新規）
+- `scripts/testing/e2e/legal-trust-pages.mjs`（§10追加）
+- `scripts/testing/run-e2e.mjs`・`package.json`（新規テスト2本を登録）
+
+Stripe価格・Stripe checkout・Premium課金ロジック・特商法ページ内容・SRS V2 ON状態・
+teacher機能・教材データ本体・AdSense publisher ID・ads.txt・広告枠数への変更は
+一切行っていない。

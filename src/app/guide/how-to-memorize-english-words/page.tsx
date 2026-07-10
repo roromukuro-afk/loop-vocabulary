@@ -137,7 +137,7 @@ export default function HowToMemorizeEnglishWordsPage() {
           <div className="bg-white rounded-xl border border-navy-100 p-4">
             <div className="text-sm font-bold text-navy-800 mb-2">Premiumでさらに効率化</div>
             <ul className="text-xs text-navy-600 space-y-1 list-disc pl-4">
-              <li>思い出せなかった単語のAI解説を無制限に利用</li>
+              <li>思い出せなかった単語のAI解説を1日300回まで利用</li>
               <li>AI弱点分析で「想起が苦手な単語」の傾向を確認</li>
               <li>タイピング・リスニング練習</li>
               <li>広告非表示</li>

@@ -148,6 +148,12 @@ async function main() {
 
     console.log("\n=== 35. canonical URL整合性 E2E ===");
     results.canonicalIntegrity = runNode("scripts/testing/e2e/canonical-integrity.mjs");
+
+    console.log("\n=== 36. 未ログインでの辞書検索 E2E ===");
+    results.publicDictionary = runNode("scripts/testing/e2e/public-dictionary.mjs");
+
+    console.log("\n=== 37. SSR/SSGクローラー可読性監査 ===");
+    results.crawlerReadablePages = runNode("scripts/testing/e2e/crawler-readable-pages.mjs");
   } finally {
     stopDevServer(dev);
   }

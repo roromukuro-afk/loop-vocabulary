@@ -37,7 +37,7 @@ export default async function TypingTestPage({
             <ul className="mt-3 text-xs text-navy-300 text-left space-y-1">
               <li>✓ タイピング練習（リアルタイム判定）</li>
               <li>✓ 広告なし</li>
-              <li>✓ AI提案・解説 無制限</li>
+              <li>✓ AI提案・解説（1日300回）</li>
               <li>✓ CSV 一括インポート</li>
             </ul>
             <Link href="/premium" className="mt-5 block">

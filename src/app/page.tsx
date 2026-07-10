@@ -116,6 +116,7 @@ const FAQ_LD = {
 export const metadata = {
   title: "Loop Vocabulary — 忘却曲線で英単語を本当に覚える",
   description: "調べた英語を本当に覚える英単語学習アプリ。SRS・忘却曲線・AI解説搭載。無料登録30秒。",
+  alternates: { canonical: "https://loop-vocabulary.app" },
   openGraph: {
     title: "Loop Vocabulary — 忘却曲線で英単語を本当に覚える",
     description: "調べた英語を本当に覚える英単語学習アプリ。無料登録30秒。",
@@ -397,7 +398,7 @@ export default async function LandingPage() {
           <div className="text-center mb-10">
             <span className="text-xs font-black uppercase tracking-widest text-sky-400 mb-2 block">Features</span>
             <h2 className="text-2xl sm:text-3xl font-black text-white">主要機能は、無料。</h2>
-            <p className="text-navy-400 text-sm mt-2">単語帳・復習・テスト・辞書は無料で使い放題（広告あり）。広告非表示やAI無制限はPremiumで。</p>
+            <p className="text-navy-400 text-sm mt-2">単語帳・復習・テスト・辞書は無料で使い放題（広告あり）。広告非表示やAI解説300回/日はPremiumで。</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {FEATURES.map((f) => (
@@ -790,7 +791,7 @@ const FREE_FEATURES = [
 
 const PREMIUM_FEATURES = [
   "広告を完全に非表示",
-  "AI例文・解説 無制限",
+  "AI例文・解説（1日300回）",
   "小テストPDF出力 無制限",
   "CSVで単語を一括インポート（5000語）",
   "学習データ CSVエクスポート",
