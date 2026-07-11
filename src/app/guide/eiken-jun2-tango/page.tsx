@@ -8,6 +8,7 @@ import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 export const metadata: Metadata = {
   title: "英検準2級 単語対策【頻出1000語カテゴリ別】| Loop Vocabulary",
   description: "英検準2級合格のための必須単語1,000語を徹底解説。カテゴリ別頻出語彙・学習プラン・語彙問題の解き方まで完全網羅。高校生・社会人の英検準2級対策に最適。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/eiken-jun2-tango" },
 };
 
 const CATEGORIES = [

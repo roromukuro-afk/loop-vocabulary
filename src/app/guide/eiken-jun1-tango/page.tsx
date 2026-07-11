@@ -8,6 +8,7 @@ import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 export const metadata: Metadata = {
   title: "英検準1級 単語対策【合格に必要な語彙数と学習戦略】| Loop Vocabulary",
   description: "英検準1級合格に必要な単語数・学習戦略・頻出カテゴリ語彙を徹底解説。語彙問題25問で高得点を取るための最短学習ルートを紹介します。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/eiken-jun1-tango" },
   openGraph: {
     title: "英検準1級 単語対策【合格に必要な語彙数と学習戦略】",
     description: "英検準1級合格に必要な単語数・学習戦略・頻出カテゴリ語彙を徹底解説。",

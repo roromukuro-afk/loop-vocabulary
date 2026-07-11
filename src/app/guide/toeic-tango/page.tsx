@@ -8,6 +8,7 @@ import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 export const metadata: Metadata = {
   title: "TOEIC頻出単語・語彙対策【スコア別必須リスト】| Loop Vocabulary",
   description: "TOEIC L&Rテストで頻出する単語・フレーズをスコア帯別に解説。600点・730点・860点突破に必要な語彙数と効率的な覚え方を徹底紹介。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/toeic-tango" },
 };
 
 const SCORE_BANDS = [
@@ -64,12 +65,38 @@ const JSON_LD = {
   "url": "https://loop-vocabulary.app/guide/toeic-tango",
 };
 
+const FAQ_ITEMS = [
+  {
+    q: "TOEICの単語対策はスコア帯によって変えるべきですか？",
+    a: "はい。600点までは日常業務の基本動詞、730点前後からは財務・人事などビジネス頻出語、860点以降は法務・マーケティング等の専門語彙と、出題される語彙の傾向がスコア帯ごとに変わっていきます。今のスコア帯に合った語彙から優先して覚えるのが効率的です。",
+  },
+  {
+    q: "TOEICの単語は何周すれば覚えられますか？",
+    a: "回数の目安より、忘れかけたタイミングで復習できているかが重要です。1回で完璧に覚えようとせず、間隔をあけて何度も触れる方が、結果的に定着が早くなります。",
+  },
+  {
+    q: "TOEICの単語帳とビジネス英語の単語、両方やるべきですか？",
+    a: "TOEICの出題語彙とビジネスシーンで実際に使う語彙は重なる部分が多いため、TOEIC単語帳をベースにしつつ、実務で頻出する表現も合わせて覚えると、スコアと実務力の両方に効果的です。",
+  },
+];
+
+const FAQ_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ_ITEMS.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
+
 export default function ToeicTangoPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="toeic-tango" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"TOEIC頻出単語・語彙対策【スコア別必須リスト】","item":"https://loop-vocabulary.app/guide/toeic-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
 
       {/* ヘッダー */}
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
@@ -150,6 +177,18 @@ export default function ToeicTangoPage() {
                   <div className="font-bold text-navy-800 text-sm">{t.title}</div>
                   <p className="text-xs text-navy-500 mt-0.5 leading-relaxed">{t.desc}</p>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <div className="text-sm font-bold text-navy-800 mb-2">よくある質問</div>
+          <div className="space-y-2">
+            {FAQ_ITEMS.map((f) => (
+              <div key={f.q} className="border border-navy-100 rounded-xl px-4 py-3">
+                <div className="font-bold text-navy-800 text-sm">Q. {f.q}</div>
+                <div className="mt-1 text-xs text-navy-600 leading-relaxed">A. {f.a}</div>
               </div>
             ))}
           </div>

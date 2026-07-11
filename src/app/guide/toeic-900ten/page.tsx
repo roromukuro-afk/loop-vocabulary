@@ -8,6 +8,7 @@ import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 export const metadata: Metadata = {
   title: "TOEIC 900点の勉強法【スコアアップ戦略と学習スケジュール】| Loop Vocabulary",
   description: "TOEIC 900点達成のための勉強法を徹底解説。現在のスコア別ロードマップ・パート別攻略・語彙強化・時間管理テクニックまで、実践的な戦略を紹介。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/toeic-900ten" },
 };
 
 const PARTS = [
@@ -75,12 +76,38 @@ const JSON_LD = {
   "url": "https://loop-vocabulary.app/guide/toeic-900ten",
 };
 
+const FAQ_ITEMS = [
+  {
+    q: "TOEIC900点に必要な語彙数はどれくらいですか？",
+    a: "目安として約10,000語程度と言われます。ただし単語数を増やすことより、学術・専門用語や抽象的な語彙を含め「即座に意味が浮かぶ」状態にすることの方が900点到達には重要です。",
+  },
+  {
+    q: "860点は取れているのに900点で伸び悩んでいます。何が原因ですか？",
+    a: "860点前後の学習者は、語彙は知っているのに読解・リスニングのスピードが追いついていないケースが多いです。単語を「知っている」から「即答できる」レベルまで仕上げる復習が有効です。",
+  },
+  {
+    q: "900点を目指すのに、どのくらいの学習期間が必要ですか？",
+    a: "現在のスコアや学習時間によって大きく異なるため一概には言えませんが、語彙の仕上げには数ヶ月単位で継続的に復習する時間を見込んでおくのが現実的です。詰め込みより分散した復習の方が定着しやすくなります。",
+  },
+];
+
+const FAQ_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ_ITEMS.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
+
 export default function Toeic900TenPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="toeic-900ten" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"TOEIC 900点の勉強法【スコアアップ戦略と学習スケジュール】","item":"https://loop-vocabulary.app/guide/toeic-900ten"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
 
       {/* ヘッダー */}
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
@@ -176,6 +203,18 @@ export default function Toeic900TenPage() {
               </li>
             ))}
           </ul>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <div className="text-sm font-bold text-navy-800 mb-2">よくある質問</div>
+          <div className="space-y-2">
+            {FAQ_ITEMS.map((f) => (
+              <div key={f.q} className="border border-navy-100 rounded-xl px-4 py-3">
+                <div className="font-bold text-navy-800 text-sm">Q. {f.q}</div>
+                <div className="mt-1 text-xs text-navy-600 leading-relaxed">A. {f.a}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* アフィリエイト */}

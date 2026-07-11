@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/server";
 import { DictionarySearch } from "./DictionarySearch";
+import { PILOT_WORDS } from "@/lib/dictionaryWords/pilotWords";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +83,22 @@ export default async function DictionaryPage() {
         ※ 検索対象は、許諾済みの公開教材データ・あなた自身の登録単語です。
         外部辞書APIには将来差し替え可能な構造にしています。
       </p>
+
+      {/* よく調べられる単語ページへの導線（クローラビリティ・内部リンク用） */}
+      <div className="mt-4 bg-white border border-navy-100 rounded-2xl px-4 py-3" data-testid="dictionary-popular-words">
+        <p className="text-xs font-bold text-navy-700 mb-2">よく調べられる単語</p>
+        <div className="flex flex-wrap gap-1.5">
+          {PILOT_WORDS.map((w) => (
+            <Link
+              key={w.slug}
+              href={`/dictionary/${w.slug}`}
+              className="text-[11px] px-2.5 py-1 rounded-full bg-navy-50 text-navy-600 font-semibold hover:bg-navy-100 transition-colors"
+            >
+              {w.word}
+            </Link>
+          ))}
+        </div>
+      </div>
 
       {/* 単語帳を自分で作るのが大変な方へ: 内蔵教材への導線 */}
       <div className="mt-4 bg-navy-50 border border-navy-100 rounded-2xl px-4 py-3" data-testid="dictionary-materials-cta">

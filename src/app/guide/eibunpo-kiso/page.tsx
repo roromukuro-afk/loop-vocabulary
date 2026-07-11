@@ -7,6 +7,7 @@ import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 export const metadata: Metadata = {
   title: "英文法 基礎の覚え方【中学〜高校・大学受験 完全ガイド】| Loop Vocabulary",
   description: "英文法の基礎を効率的に学ぶ方法を解説。中学英文法から高校英文法・大学受験まで、つまずきやすいポイントと覚え方を徹底解説。英検・TOEIC文法対策にも対応。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/eibunpo-kiso" },
 };
 
 const GRAMMAR_POINTS = [

@@ -7,6 +7,7 @@ import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 export const metadata: Metadata = {
   title: "英語リスニング練習方法【初心者〜上級者別 完全ガイド】| Loop Vocabulary",
   description: "英語リスニングを独学で上達させる方法を徹底解説。シャドーイング・ディクテーション・多聴の効果的な使い方、レベル別おすすめ教材まで。TOEICリスニング対策にも対応。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/eigo-listening-renshu" },
 };
 
 const LEVELS = [

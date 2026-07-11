@@ -8,6 +8,7 @@ import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 export const metadata: Metadata = {
   title: "ビジネス英語 必須単語300選と実践的な覚え方 | Loop Vocabulary",
   description: "会議・メール・プレゼンで使えるビジネス英語の頻出単語と表現を厳選。TOEIC 800点以上にも対応した語彙学習戦略を解説します。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/business-english-tango" },
   openGraph: {
     title: "ビジネス英語 必須単語300選と実践的な覚え方",
     description: "会議・メール・プレゼンで使えるビジネス英語の頻出単語と表現を厳選。",

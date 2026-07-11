@@ -8,6 +8,7 @@ import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 export const metadata: Metadata = {
   title: "英検3級の単語・語彙対策【頻出800語一覧】| Loop Vocabulary",
   description: "英検3級に合格するための必須単語800語を完全解説。出題傾向・覚え方・おすすめ勉強法を紹介。中学英語レベルの語彙を効率よくマスターしよう。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/eiken-3kyu-tango" },
 };
 
 const CATEGORIES = [
@@ -65,12 +66,38 @@ const JSON_LD = {
   "url": "https://loop-vocabulary.app/guide/eiken-3kyu-tango",
 };
 
+const FAQ_ITEMS = [
+  {
+    q: "英検3級に必要な単語数はどれくらいですか？",
+    a: "必須単語の目安は約800語程度とされます。中学英語の基礎レベルが中心なので、まずはこの800語を「読んで意味が分かる」レベルから「聞いて分かる」レベルまで引き上げることを目指すと安定します。",
+  },
+  {
+    q: "英検3級はリスニングの配点が大きいと聞きましたが、単語対策で対応できますか？",
+    a: "単語を目で見て分かるだけでなく、音で聞いて意味が浮かぶ状態にしておくとリスニング対策にもつながります。単語を覚える際に音声も一緒に確認する習慣をつけるのがおすすめです。",
+  },
+  {
+    q: "中学校の教科書の単語と英検3級の単語は同じですか？",
+    a: "重なる部分は多いですが、英検3級では教科書に出てこない語彙も出題されます。教科書の復習に加えて、英検専用の単語リストでカバーしておくと抜けが少なくなります。",
+  },
+];
+
+const FAQ_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ_ITEMS.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
+
 export default function Eiken3KyuPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="eiken-3kyu-tango" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"英検3級の単語・語彙対策【頻出800語一覧】","item":"https://loop-vocabulary.app/guide/eiken-3kyu-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
       <div className="bg-gradient-to-br from-emerald-700 to-emerald-900 px-5 pt-12 pb-12 text-white text-center">
         <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-300 mb-3">英検対策ガイド</div>
         <h1 className="text-2xl font-black leading-tight">英検3級 単語・語彙対策</h1>
@@ -167,6 +194,18 @@ export default function Eiken3KyuPage() {
           <div className="flex gap-3 justify-center flex-wrap">
             <Link href="/vocab-check/eiken" className="px-5 py-2.5 rounded-xl bg-white text-emerald-700 font-bold text-sm hover:bg-emerald-50 transition-colors">英検語彙チェック →</Link>
             <Link href="/signup" className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">SRS学習を始める</Link>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <div className="text-sm font-bold text-navy-800 mb-2">よくある質問</div>
+          <div className="space-y-2">
+            {FAQ_ITEMS.map((f) => (
+              <div key={f.q} className="border border-navy-100 rounded-xl px-4 py-3">
+                <div className="font-bold text-navy-800 text-sm">Q. {f.q}</div>
+                <div className="mt-1 text-xs text-navy-600 leading-relaxed">A. {f.a}</div>
+              </div>
+            ))}
           </div>
         </div>
 

@@ -8,6 +8,7 @@ import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 export const metadata: Metadata = {
   title: "大学受験英単語の効率的な覚え方【2025年版 共通テスト〜難関大】| Loop Vocabulary",
   description: "大学受験（共通テスト・私大・国公立二次）に合格するために必要な英単語数・学習法・単語帳の選び方を徹底解説。SRS×AI解説で最短合格を目指しましょう。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/daigaku-juken-tango" },
   openGraph: {
     title: "大学受験英単語の効率的な覚え方【2025年版】",
     description: "共通テスト〜難関大に必要な英単語数・学習法・おすすめ単語帳を解説。",

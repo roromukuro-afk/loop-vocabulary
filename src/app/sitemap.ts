@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { LESSONS } from "@/lib/grammar/lessons";
+import { PILOT_WORDS } from "@/lib/dictionaryWords/pilotWords";
 
 const GUIDE_SLUGS = [
   "vocabulary-quiz-pdf-for-teachers",
@@ -85,6 +86,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: "monthly" as const,
       priority: 0.8,
+    })),
+    // /dictionary/[word] は品質基準(実例文あり・独自解説あり)を満たしindexEligible=trueの
+    // ものだけをsitemapに含める。noindex対象のページは意図的にsitemapへ含めない。
+    ...PILOT_WORDS.filter((w) => w.isIndexEligible).map((w) => ({
+      url: `${base}/dictionary/${w.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
     })),
     { url: `${base}/guide`,              lastModified: now, changeFrequency: "weekly",  priority: 0.8 },
     ...GUIDE_SLUGS.map((slug) => ({

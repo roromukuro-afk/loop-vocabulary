@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -8,6 +9,11 @@ import { createClient } from "@/lib/supabase/client";
 import { UpsellModal } from "@/components/premium/UpsellModal";
 import { trackFeatureUsed } from "@/lib/analytics/events";
 import { todayStartJstISO } from "@/lib/utils/date";
+
+// PDF小テストの配布先（生徒・保護者）がオフラインから流入できるようにするための
+// QRコード遷移先。個人情報・生徒名・学校名・単語帳の内容は一切含めない、
+// 固定の公開URLのみを埋め込む。
+const PDF_QR_TARGET_URL = "https://loop-vocabulary.app/vocab-check";
 
 const FREE_PDF_LIMIT = 3;
 
@@ -104,6 +110,14 @@ export function PdfTestBuilder({
       const rows = sample(all, Math.min(count, all.length));
       if (rows.length === 0) { setMsg("対象の単語が見つかりませんでした"); return; }
 
+      // オフライン配布からの流入導線用に、固定の公開URLへ遷移するQRコードを
+      // 印刷ウィンドウを開く前に生成しておく（外部通信なし、ローカル生成）。
+      const qrDataUrl = await QRCode.toDataURL(PDF_QR_TARGET_URL, {
+        width: 88,
+        margin: 0,
+        color: { dark: "#1a2a4a", light: "#ffffff" },
+      }).catch(() => null);
+
       // 印刷用ウィンドウを開いて jsPDF でなく HTML 印刷を使う (フォント互換のため)
       // 多言語フォント問題を避けるため HTML 経由でブラウザ印刷 → PDF 化
       const html = renderHtml({
@@ -111,6 +125,7 @@ export function PdfTestBuilder({
         title: src === "book"
           ? books.find((b) => b.id === sourceId)?.title ?? "小テスト"
           : materials.find((m) => m.id === sourceId)?.title ?? "小テスト",
+        qrDataUrl,
       });
       const w = window.open("", "_blank");
       if (!w) { setMsg("ポップアップがブロックされました"); return; }
@@ -216,8 +231,9 @@ export function PdfTestBuilder({
 
 function renderHtml(o: {
   rows: Row[]; direction: Direction; format: Format; columns: Columns; answerMode: AnswerMode; title: string;
+  qrDataUrl: string | null;
 }) {
-  const { rows, direction, format, columns, answerMode, title } = o;
+  const { rows, direction, format, columns, answerMode, title, qrDataUrl } = o;
   const items = rows.map((r, i) => {
     const prompt = direction === "en2ja" ? r.word : r.meaning;
     const answer = direction === "en2ja" ? r.meaning : r.word;
@@ -257,7 +273,17 @@ function renderHtml(o: {
     ol.answers-list.cols2 { column-count: 2; column-gap: 10mm; }
     ol.answers-list li { font-size: 10pt; margin-bottom: 1.5mm; line-height: 1.5; }
     @media print { .answer-sheet { page-break-before: always; } }
+    .lv-footer { margin-top: 8mm; padding-top: 3mm; border-top: 1px solid #d8dfec; display: flex; align-items: center; gap: 3mm; break-inside: avoid; page-break-inside: avoid; }
+    .lv-footer img { width: 14mm; height: 14mm; flex-shrink: 0; }
+    .lv-footer .lv-text { font-size: 7.5pt; color: #8092b0; line-height: 1.4; }
   `;
+
+  const footerHtml = qrDataUrl
+    ? `<div class="lv-footer">
+        <img src="${qrDataUrl}" alt="Loop Vocabulary QRコード" />
+        <span class="lv-text">作成：Loop Vocabulary（英単語小テストを作成できます）<br/>https://loop-vocabulary.app</span>
+      </div>`
+    : `<div class="lv-footer"><span class="lv-text">作成：Loop Vocabulary（英単語小テストを作成できます）— https://loop-vocabulary.app</span></div>`;
 
   const qhtml = items.map((q) => {
     const choicesHtml = q.choices
@@ -297,6 +323,7 @@ function renderHtml(o: {
   <div class="meta">出題方向: ${dirLabel} / 形式: ${fmtLabel} / 全 ${items.length} 問</div>
   <ol class="${olClass}">${qhtml}</ol>
   ${answerMode === "inline" ? answersHtml : ""}
+  ${footerHtml}
 </section>
 ${answerMode === "separate" ? answersHtml : ""}
 </body></html>`;

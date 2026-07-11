@@ -7,6 +7,7 @@ import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 export const metadata: Metadata = {
   title: "英会話に効く英単語の覚え方【使えるフレーズ・旅行英語を習得】| Loop Vocabulary",
   description: "日常英会話・旅行英語・ビジネス会話で実際に使える単語とフレーズの覚え方を解説。感情表現・口語表現・依頼表現など場面別に厳選。SRSで会話フレーズを定着させる方法も紹介。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/eiken-conversation" },
   openGraph: {
     title: "英会話に効く英単語の覚え方【場面別フレーズ・旅行英語】",
     description: "日常英会話・旅行英語で使えるフレーズと語彙の覚え方を場面別に解説。",

@@ -8,6 +8,7 @@ import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 export const metadata: Metadata = {
   title: "中学英語の単語を完璧に覚える方法【高校受験・英検3級対策】| Loop Vocabulary",
   description: "高校受験・英検3級・日常会話の基礎となる中学英単語1,200語の効率的な覚え方を解説します。SRS・品詞セット学習・例文記憶法をわかりやすく紹介。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/chugaku-eigo-tango" },
   openGraph: {
     title: "中学英語の単語を完璧に覚える方法【高校受験・英検3級対策】",
     description: "中学英単語1,200語の効率的な覚え方とSRS活用法を解説。",

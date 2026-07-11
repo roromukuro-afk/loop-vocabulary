@@ -154,6 +154,12 @@ async function main() {
 
     console.log("\n=== 37. SSR/SSGクローラー可読性監査 ===");
     results.crawlerReadablePages = runNode("scripts/testing/e2e/crawler-readable-pages.mjs");
+
+    console.log("\n=== 38. /dictionary/[word] 公開単語詳細ページ E2E ===");
+    results.dictionaryWordPages = runNode("scripts/testing/e2e/dictionary-word-pages.mjs");
+
+    console.log("\n=== 39. PDF小テスト QRコード・ブランディング表記 E2E ===");
+    results.pdfQrBranding = runNode("scripts/testing/e2e/pdf-qr-branding.mjs");
   } finally {
     stopDevServer(dev);
   }

@@ -7,6 +7,7 @@ import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 export const metadata: Metadata = {
   title: "英語長文読解の勉強法【大学受験・英検・TOEIC対応】| Loop Vocabulary",
   description: "英語長文読解を速く正確に解く方法を解説。パラグラフリーディング・精読と速読の使い分け・語彙力強化まで。大学受験・英検2級〜1級・TOEICのPart7対策にも対応。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/eigo-dokkai-houhou" },
 };
 
 const SKILLS = [

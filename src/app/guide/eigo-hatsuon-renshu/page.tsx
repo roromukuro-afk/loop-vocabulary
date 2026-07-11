@@ -7,6 +7,7 @@ import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 export const metadata: Metadata = {
   title: "英語の発音練習方法【フォニックス・シャドーイング完全ガイド】| Loop Vocabulary",
   description: "英語の発音を独学で改善する方法を徹底解説。フォニックス・シャドーイング・IPA（国際音声記号）の使い方から、おすすめアプリ・教材まで。日本人が苦手な発音を克服しよう。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/eigo-hatsuon-renshu" },
 };
 
 const PHONICS = [

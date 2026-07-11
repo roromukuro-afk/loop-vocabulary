@@ -7,6 +7,7 @@ import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 export const metadata: Metadata = {
   title: "IELTSの英単語学習法【AWL・アカデミック語彙を効率的に覚える】| Loop Vocabulary",
   description: "IELTS Academic/General の頻出語彙・AWL（アカデミック語彙リスト570語）の攻略法とスコア帯別の学習戦略を解説。留学・就労ビザ取得を目指す方向け完全ガイド。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/ielts-tango" },
   openGraph: {
     title: "IELTSの英単語学習法【AWL攻略・スコア帯別戦略】",
     description: "IELTS頻出語彙・AWL570語の覚え方とBand別学習戦略を完全解説。",

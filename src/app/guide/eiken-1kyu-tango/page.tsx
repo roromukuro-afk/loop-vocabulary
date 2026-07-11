@@ -8,6 +8,7 @@ import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 export const metadata: Metadata = {
   title: "英検1級 単語対策【合格に必要な15,000語レベルの学習戦略】| Loop Vocabulary",
   description: "英検1級合格に必要な語彙数・頻出カテゴリ・学習戦略を徹底解説。準1級との差と15,000語レベルへの到達ルートを紹介します。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/eiken-1kyu-tango" },
   openGraph: {
     title: "英検1級 単語対策【15,000語レベルへの学習戦略】",
     description: "英検1級合格に必要な語彙数・頻出カテゴリ・学習戦略を徹底解説。",

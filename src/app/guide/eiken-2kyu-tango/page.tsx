@@ -8,6 +8,7 @@ import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 export const metadata: Metadata = {
   title: "英検2級 単語対策【頻出1,500語カテゴリ別解説】| Loop Vocabulary",
   description: "英検2級合格に必要な必須単語1,500語をテーマ別に解説。社会・環境・医療・テクノロジーの頻出語彙と8週間合格プランを掲載。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/eiken-2kyu-tango" },
 };
 
 const CATEGORIES = [
@@ -81,12 +82,38 @@ const JSON_LD = {
   "url": "https://loop-vocabulary.app/guide/eiken-2kyu-tango",
 };
 
+const FAQ_ITEMS = [
+  {
+    q: "英検2級の単語は何語くらい覚えれば合格できますか？",
+    a: "必要語彙数の目安は約1,500〜3,600語程度とされます。ただし語彙数だけでなく、長文読解・リスニングで実際に使える語彙になっているかどうかも重要です。",
+  },
+  {
+    q: "準2級の単語を復習してから2級を始めるべきですか？",
+    a: "準2級の語彙が曖昧なまま2級の学習を始めると、長文で知らない単語につまずきやすくなります。準2級レベルの単語で自信のないものは、2級対策と並行して復習しておくと土台が安定します。",
+  },
+  {
+    q: "2級の単語対策で、社会・環境・医療などのテーマ別語彙はどう覚えればいいですか？",
+    a: "テーマごとにまとめて覚えると、関連する単語同士のつながりで記憶に残りやすくなります。1つのテーマを浅く広く触れるより、忘れかけたタイミングでそのテーマの単語群をまとめて復習する方が定着しやすいです。",
+  },
+];
+
+const FAQ_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ_ITEMS.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
+
 export default function Eiken2KyuPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="eiken-2kyu-tango" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"英検2級 単語対策【頻出1,500語カテゴリ別解説】","item":"https://loop-vocabulary.app/guide/eiken-2kyu-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
 
       {/* ヘッダー */}
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
@@ -173,6 +200,18 @@ export default function Eiken2KyuPage() {
                   <div className="font-bold text-navy-800 text-sm">{t.title}</div>
                   <p className="text-xs text-navy-500 mt-0.5 leading-relaxed">{t.desc}</p>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <div className="text-sm font-bold text-navy-800 mb-2">よくある質問</div>
+          <div className="space-y-2">
+            {FAQ_ITEMS.map((f) => (
+              <div key={f.q} className="border border-navy-100 rounded-xl px-4 py-3">
+                <div className="font-bold text-navy-800 text-sm">Q. {f.q}</div>
+                <div className="mt-1 text-xs text-navy-600 leading-relaxed">A. {f.a}</div>
               </div>
             ))}
           </div>

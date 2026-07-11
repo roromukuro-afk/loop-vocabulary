@@ -7,6 +7,7 @@ import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 export const metadata: Metadata = {
   title: "英単語の覚え方・効率的な記憶術【2024年版】| Loop Vocabulary",
   description: "英単語が覚えられない悩みを解決！忘却曲線・SRS・語呂合わせ・語源学習・例文記憶など、科学的に証明された英単語の覚え方を徹底解説。英検・TOEIC・大学受験対応。",
+  alternates: { canonical: "https://loop-vocabulary.app/guide/eitango-oboeru-houhou" },
 };
 
 const METHODS = [
