@@ -25,6 +25,7 @@
     "test:crawler-readable-pages": "node scripts/testing/e2e/crawler-readable-pages.mjs",
     "test:dictionary-word-pages": "node scripts/testing/e2e/dictionary-word-pages.mjs",
     "test:pdf-qr-branding": "node scripts/testing/e2e/pdf-qr-branding.mjs",
+    "test:canonical-domain-redirect": "node scripts/testing/e2e/canonical-domain-redirect.mjs",
     "test:diagnostic-share": "node scripts/testing/e2e/diagnostic-share.mjs",
     "test:teacher-pdf-guide": "node scripts/testing/e2e/teacher-pdf-guide.mjs",
     "test:teacher": "node scripts/testing/e2e/teacher.mjs",

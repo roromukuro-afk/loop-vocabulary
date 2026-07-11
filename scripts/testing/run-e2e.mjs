@@ -160,6 +160,9 @@ async function main() {
 
     console.log("\n=== 39. PDF小テスト QRコード・ブランディング表記 E2E ===");
     results.pdfQrBranding = runNode("scripts/testing/e2e/pdf-qr-branding.mjs");
+
+    console.log("\n=== 40. vercel.app→カスタムドメイン恒久リダイレクト E2E ===");
+    results.canonicalDomainRedirect = runNode("scripts/testing/e2e/canonical-domain-redirect.mjs");
   } finally {
     stopDevServer(dev);
   }
