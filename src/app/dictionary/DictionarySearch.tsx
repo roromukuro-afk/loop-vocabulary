@@ -1,12 +1,19 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { trackFeatureUsed } from "@/lib/analytics/events";
+import {
+  trackFeatureUsed,
+  trackDictionarySearchExecuted,
+  trackDictionarySearchResults,
+  trackDictionarySearchZero,
+  trackDictionaryAddCtaClick,
+  trackDictionarySignupCtaClick,
+} from "@/lib/analytics/events";
 
 type Hit = {
   source: "material" | "user";
@@ -25,6 +32,7 @@ export function DictionarySearch({
   loggedIn?: boolean;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
   const [busy, setBusy] = useState(false);
@@ -52,25 +60,25 @@ export function DictionarySearch({
       .catch(() => {});
   }, [loggedIn, initialBooks]);
 
-  const search = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!q.trim()) return;
+  const runSearch = async (term: string) => {
+    if (!term.trim()) return;
     trackFeatureUsed("dictionary");
+    trackDictionarySearchExecuted();
     setBusy(true);
     setError(null);
     setSavedKey(null);
     const supabase = createClient();
-    const term = q.trim();
+    const trimmed = term.trim();
     const [mw, uw] = await Promise.all([
       supabase
         .from("material_words")
         .select("word, meaning, pos, example, example_ja")
-        .ilike("word", `${term}%`)
+        .ilike("word", `${trimmed}%`)
         .limit(15),
       supabase
         .from("words")
         .select("word, meaning, pos, example, example_ja")
-        .ilike("word", `${term}%`)
+        .ilike("word", `${trimmed}%`)
         .limit(10),
     ]);
     if (mw.error || uw.error) {
@@ -84,7 +92,26 @@ export function DictionarySearch({
     ];
     setHits(result);
     setBusy(false);
+    if (result.length === 0) trackDictionarySearchZero();
+    else trackDictionarySearchResults(result.length);
   };
+
+  const search = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await runSearch(q);
+  };
+
+  // 単語ページの関連語リンク(/dictionary?q=word)からの遷移時、自動的に検索を実行する
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current) return;
+    prefilled.current = true;
+    const initialQ = searchParams.get("q");
+    if (!initialQ) return;
+    setQ(initialQ);
+    runSearch(initialQ);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const addToBook = async (h: Hit) => {
     if (!bookId) { setError("追加先の単語帳を選択してください"); return; }
@@ -167,12 +194,18 @@ export function DictionarySearch({
               )}
               <div className="mt-3">
                 {loggedIn ? (
-                  <Button data-testid="add-to-wordbook" size="sm" onClick={() => addToBook(h)} disabled={saved || !bookId}>
+                  <Button
+                    data-testid="add-to-wordbook"
+                    size="sm"
+                    onClick={() => { trackDictionaryAddCtaClick("search_result"); addToBook(h); }}
+                    disabled={saved || !bookId}
+                  >
                     {saved ? "追加済み" : "＋ 単語帳に追加"}
                   </Button>
                 ) : (
                   <Link
                     href="/signup?next=/dictionary"
+                    onClick={() => trackDictionarySignupCtaClick("search_result")}
                     className="inline-block text-xs font-bold text-sky-600 hover:text-sky-700 border border-sky-200 rounded-lg px-3 py-1.5 hover:bg-sky-50 transition-colors"
                   >
                     ＋ 無料登録で単語帳に追加

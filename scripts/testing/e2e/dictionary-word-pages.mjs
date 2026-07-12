@@ -164,7 +164,7 @@ async function main() {
     await authContext.close();
   } finally {
     await browser.close();
-    stopDevServer(dev.proc);
+    stopDevServer(dev);
   }
 
   console.log(process.exitCode ? "\n=== test:dictionary-word-pages: FAILED ===" : "\n=== test:dictionary-word-pages RESULT: all checks passed ===");

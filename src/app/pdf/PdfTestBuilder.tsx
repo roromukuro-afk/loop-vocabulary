@@ -7,13 +7,14 @@ import { Select } from "@/components/ui/Select";
 import { sample } from "@/lib/utils/shuffle";
 import { createClient } from "@/lib/supabase/client";
 import { UpsellModal } from "@/components/premium/UpsellModal";
-import { trackFeatureUsed } from "@/lib/analytics/events";
+import { trackFeatureUsed, trackPdfGenerateStart, trackPdfGenerateComplete } from "@/lib/analytics/events";
 import { todayStartJstISO } from "@/lib/utils/date";
 
 // PDF小テストの配布先（生徒・保護者）がオフラインから流入できるようにするための
 // QRコード遷移先。個人情報・生徒名・学校名・単語帳の内容は一切含めない、
 // 固定の公開URLのみを埋め込む。
-const PDF_QR_TARGET_URL = "https://loop-vocabulary.app/vocab-check";
+// utm_* はGA4が着地ページ読み込み時に自動検出するため、QR側の追加実装は不要
+const PDF_QR_TARGET_URL = "https://loop-vocabulary.app/vocab-check?utm_source=pdf_qr&utm_medium=offline&utm_campaign=teacher_pdf";
 
 const FREE_PDF_LIMIT = 3;
 
@@ -85,6 +86,7 @@ export function PdfTestBuilder({
 
   const generate = async () => {
     trackFeatureUsed("pdf_export");
+    trackPdfGenerateStart();
     setBusy(true); setMsg(null);
     try {
       // PDF 利用上限チェック（無料ユーザーは1日3回まで）
@@ -131,6 +133,7 @@ export function PdfTestBuilder({
       if (!w) { setMsg("ポップアップがブロックされました"); return; }
       w.document.write(html);
       w.document.close();
+      trackPdfGenerateComplete(rows.length);
       // ログ保存
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();

@@ -108,3 +108,114 @@ export function trackLandingSection(section: "hero" | "numbers" | "steps" | "fea
 export function trackPricingIntent(plan: "free" | "premium_monthly" | "premium_yearly") {
   gtag("pricing_intent", { plan, event_category: "monetization" });
 }
+
+// ── グロース計測: /vocab-check ファネル ───────────────────────────
+// 個人情報は一切含めない（送るのは診断の種類・問題番号・正誤・得点・遷移先程度）
+
+export type VocabCheckVariant = "general" | "eiken" | "toeic";
+
+export function trackVocabCheckPageView(variant: VocabCheckVariant) {
+  gtag("vocab_check_view", { variant, event_category: "diagnostic" });
+}
+
+export function trackVocabCheckStart(variant: VocabCheckVariant) {
+  gtag("vocab_check_start", { variant, event_category: "diagnostic" });
+}
+
+export function trackVocabCheckAnswer(variant: VocabCheckVariant, questionIndex: number, correct: boolean) {
+  gtag("vocab_check_answer", { variant, question_index: questionIndex, correct, event_category: "diagnostic" });
+}
+
+export function trackVocabCheckProgress(variant: VocabCheckVariant, answered: number, total: number) {
+  gtag("vocab_check_progress", { variant, answered, total, event_category: "diagnostic" });
+}
+
+export function trackVocabCheckResultView(variant: VocabCheckVariant, level: string, correct: number, total: number) {
+  gtag("vocab_check_result_view", { variant, level, correct, total, event_category: "diagnostic" });
+}
+
+export function trackVocabCheckShareClick(variant: VocabCheckVariant) {
+  gtag("vocab_check_share_click", { variant, event_category: "viral" });
+}
+
+export function trackVocabCheckCtaClick(variant: VocabCheckVariant, target: "signup" | "login" | "materials" | "guide" | "vocab_check_variant") {
+  gtag("vocab_check_cta_click", { variant, target, event_category: "conversion" });
+}
+
+// ── グロース計測: /dictionary ────────────────────────────────────
+
+export function trackDictionaryPageView() {
+  gtag("dictionary_view", { event_category: "dictionary" });
+}
+
+export function trackDictionarySearchExecuted() {
+  gtag("dictionary_search_executed", { event_category: "dictionary" });
+}
+
+export function trackDictionarySearchResults(resultCount: number) {
+  gtag("dictionary_search_results", { result_count: resultCount, event_category: "dictionary" });
+}
+
+export function trackDictionarySearchZero() {
+  gtag("dictionary_search_zero", { event_category: "dictionary" });
+}
+
+export function trackDictionaryWordClick(wordSlug: string) {
+  gtag("dictionary_word_click", { word_slug: wordSlug, event_category: "dictionary" });
+}
+
+export function trackDictionaryAddCtaClick(source: "search_result") {
+  gtag("dictionary_add_cta_click", { source, event_category: "conversion" });
+}
+
+export function trackDictionaryLoginPromptView() {
+  gtag("dictionary_login_prompt_view", { event_category: "conversion" });
+}
+
+export function trackDictionarySignupCtaClick(source: "top_banner" | "search_result") {
+  gtag("dictionary_signup_cta_click", { source, event_category: "conversion" });
+}
+
+// ── グロース計測: /dictionary/[word] ─────────────────────────────
+
+export function trackWordPageView(wordSlug: string) {
+  gtag("word_page_view", { word_slug: wordSlug, event_category: "dictionary" });
+}
+
+export function trackWordPageAddCtaClick(wordSlug: string, loggedIn: boolean) {
+  gtag("word_page_add_cta_click", { word_slug: wordSlug, logged_in: loggedIn, event_category: "conversion" });
+}
+
+export function trackWordPageVocabCheckClick(wordSlug: string) {
+  gtag("word_page_vocab_check_click", { word_slug: wordSlug, event_category: "engagement" });
+}
+
+export function trackWordPageGuideClick(wordSlug: string, guideSlug: string) {
+  gtag("word_page_guide_click", { word_slug: wordSlug, guide_slug: guideSlug, event_category: "content" });
+}
+
+export function trackWordPageRelatedWordClick(wordSlug: string, relatedWord: string) {
+  gtag("word_page_related_word_click", { word_slug: wordSlug, related_word: relatedWord, event_category: "engagement" });
+}
+
+// ── グロース計測: /guide ─────────────────────────────────────────
+// trackGuideRead（記事表示）は既存。CTA/導線クリックのみ追加する。
+
+export function trackGuideCtaClick(guideSlug: string, target: "vocab_check" | "dictionary" | "premium" | "materials" | "other_guide") {
+  gtag("guide_cta_click", { guide_slug: guideSlug, target, event_category: "conversion" });
+}
+
+export function trackGuideShareClick(guideSlug: string) {
+  gtag("guide_share_click", { guide_slug: guideSlug, event_category: "viral" });
+}
+
+// ── グロース計測: PDF小テスト ─────────────────────────────────────
+// trackFeatureUsed("pdf_export") は既存（生成ボタン押下）。開始/完了を分離して追加する。
+
+export function trackPdfGenerateStart() {
+  gtag("pdf_generate_start", { event_category: "engagement" });
+}
+
+export function trackPdfGenerateComplete(questionCount: number) {
+  gtag("pdf_generate_complete", { question_count: questionCount, event_category: "engagement" });
+}

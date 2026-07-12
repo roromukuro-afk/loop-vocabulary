@@ -5,6 +5,8 @@ import { AppShell } from "@/components/layout/AppShell";
 import { createClient } from "@/lib/supabase/server";
 import { PILOT_WORD_SLUGS, getPilotWord } from "@/lib/dictionaryWords/pilotWords";
 import { AddToWordbook } from "./AddToWordbook";
+import { WordPageTracker } from "./WordPageTracker";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 
 const SITE_URL = "https://loop-vocabulary.app";
 
@@ -78,6 +80,7 @@ export default async function WordPage({ params }: { params: Promise<{ word: str
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(definedTermLd) }} />
+      <WordPageTracker wordSlug={entry.slug} />
 
       <Link href="/dictionary" className="text-xs text-navy-500">← 辞書検索へ戻る</Link>
 
@@ -102,6 +105,7 @@ export default async function WordPage({ params }: { params: Promise<{ word: str
           pos={entry.pos}
           example={entry.exampleEn}
           exampleJa={entry.exampleJa}
+          wordSlug={entry.slug}
         />
       </div>
 
@@ -132,7 +136,22 @@ export default async function WordPage({ params }: { params: Promise<{ word: str
             <>
               <h2 className="text-sm font-bold text-navy-800 mb-2">関連語</h2>
               <ul className="text-sm text-navy-700 space-y-1 mb-3">
-                {entry.relatedWords.map((r) => <li key={r}>・{r}</li>)}
+                {entry.relatedWords.map((r) => {
+                  const bareWord = r.split("（")[0].trim();
+                  return (
+                    <li key={r}>
+                      ・
+                      <TrackedLink
+                        href={`/dictionary?q=${encodeURIComponent(bareWord)}`}
+                        event="trackWordPageRelatedWordClick"
+                        args={[entry.slug, bareWord]}
+                        className="hover:underline hover:text-sky-600"
+                      >
+                        {r}
+                      </TrackedLink>
+                    </li>
+                  );
+                })}
               </ul>
             </>
           )}
@@ -150,16 +169,26 @@ export default async function WordPage({ params }: { params: Promise<{ word: str
       <div className="mt-5 bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-5 text-white text-center">
         <div className="font-black text-base mb-1">自分の語彙レベルを確認する</div>
         <p className="text-sm text-navy-300 mb-3">3分・登録不要の語彙力チェック</p>
-        <Link href="/vocab-check" className="inline-block px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">
+        <TrackedLink
+          href="/vocab-check"
+          event="trackWordPageVocabCheckClick"
+          args={[entry.slug]}
+          className="inline-block px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
+        >
           語彙力チェックへ →
-        </Link>
+        </TrackedLink>
       </div>
 
       <div className="mt-3 bg-navy-50 border border-navy-100 rounded-2xl px-4 py-3">
         <p className="text-xs font-bold text-navy-700">{entry.word} が出る学習法・試験対策を読む</p>
-        <Link href={`/guide/${entry.relatedGuideSlug}`} className="mt-2 inline-block text-xs font-bold text-sky-600 hover:underline">
+        <TrackedLink
+          href={`/guide/${entry.relatedGuideSlug}`}
+          event="trackWordPageGuideClick"
+          args={[entry.slug, entry.relatedGuideSlug]}
+          className="mt-2 inline-block text-xs font-bold text-sky-600 hover:underline"
+        >
           関連ガイド記事を見る →
-        </Link>
+        </TrackedLink>
       </div>
 
       <div className="flex justify-center gap-4 text-sm flex-wrap pt-4">

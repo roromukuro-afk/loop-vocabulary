@@ -7,12 +7,12 @@ const SITE_URL = "https://loop-vocabulary.app";
 const SLUG = "vocabulary-quiz-pdf-for-teachers";
 
 export const metadata: Metadata = {
-  title: "塾・学校の英単語小テストをPDFで作る方法【教員・家庭教師向け】 | Loop Vocabulary",
+  title: "英単語 小テスト 作成ツール【印刷できるPDF・塾/学校/家庭教師向け】 | Loop Vocabulary",
   description:
-    "塾講師・学校教員・家庭教師向けに、英単語の小テストを短時間でPDF化する方法を解説。定期テスト前・英検前・授業後の確認・宿題プリントなど、紙で確認したい場面での使い方を紹介します。",
+    "塾講師・学校教員・家庭教師向けの英単語小テスト作成ツール。単語帳から印刷できるPDFの小テストを短時間で作成。高校英語の単語テストの作り方、定期テスト前・英検前・授業後の確認・宿題プリントなど、紙で確認したい場面での使い方を紹介します。",
   openGraph: {
-    title: "塾・学校の英単語小テストをPDFで作る方法【教員・家庭教師向け】",
-    description: "単語帳から小テストPDFを作る方法と、授業・宿題での使い方を解説。",
+    title: "英単語 小テスト 作成ツール【印刷できるPDF・塾/学校/家庭教師向け】",
+    description: "単語帳から印刷できる英単語小テストPDFを作る方法と、授業・宿題での使い方を解説。",
     url: `${SITE_URL}/guide/${SLUG}`,
     type: "article",
   },
@@ -40,17 +40,25 @@ const FAQ_ITEMS = [
     q: "苦手な単語だけを絞ってテストを作れますか？",
     a: "はい。単語帳内の学習履歴をもとに「苦手単語のみ」「未学習のみ」で絞り込んでPDFを作成できます。定期テスト前に間違えやすい単語だけを再確認する用途に向いています。",
   },
+  {
+    q: "高校英語の単語テストも作れますか？",
+    a: "はい。高校基礎・大学受験レベルの単語帳や、当サービスが公開している高校生向け教材から出題範囲を選んで作成できます。中学英語から難関大レベルまで、対象学年に合わせた小テストを作れます。",
+  },
+  {
+    q: "PDFにQRコードが入っていますが、何が表示されますか？",
+    a: "紙面の隅に小さなQRコードと「作成：Loop Vocabulary」の表記が入ります。生徒名・学校名・単語帳の内容など個人情報は一切含まれておらず、読み取ると登録不要で使える語彙力チェックページに遷移するだけです。問題文や解答欄を邪魔しない位置・大きさにしているため、配布の妨げにはなりません。",
+  },
 ];
 
 const JSON_LD = {
   "@context": "https://schema.org",
   "@type": "Article",
-  headline: "塾・学校の英単語小テストをPDFで作る方法【教員・家庭教師向け】",
-  description: "塾講師・学校教員・家庭教師向けに、英単語の小テストを短時間でPDF化する方法を解説。",
+  headline: "英単語 小テスト 作成ツール【印刷できるPDF・塾/学校/家庭教師向け】",
+  description: "塾講師・学校教員・家庭教師向けの英単語小テスト作成ツール。単語帳から印刷できるPDFの小テストを短時間で作成する方法を解説。",
   author: { "@type": "Organization", name: "Loop Vocabulary" },
   publisher: { "@type": "Organization", name: "Loop Vocabulary" },
   datePublished: "2026-07-09",
-  dateModified: "2026-07-09",
+  dateModified: "2026-07-12",
   url: `${SITE_URL}/guide/${SLUG}`,
 };
 
@@ -60,7 +68,7 @@ const BREADCRUMB_LD = {
   itemListElement: [
     { "@type": "ListItem", position: 1, name: "ホーム", item: SITE_URL },
     { "@type": "ListItem", position: 2, name: "学習ガイド", item: `${SITE_URL}/guide` },
-    { "@type": "ListItem", position: 3, name: "塾・学校の英単語小テストをPDFで作る方法", item: `${SITE_URL}/guide/${SLUG}` },
+    { "@type": "ListItem", position: 3, name: "英単語 小テスト 作成ツール", item: `${SITE_URL}/guide/${SLUG}` },
   ],
 };
 
@@ -85,9 +93,9 @@ export default function VocabularyQuizPdfForTeachersPage() {
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
         <div className="max-w-2xl mx-auto">
           <Link href="/guide" className="text-xs text-navy-400 hover:text-white transition-colors block mb-4">← ガイド一覧</Link>
-          <div className="inline-block text-[11px] px-2 py-0.5 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 font-semibold mb-3">教員・塾講師向け</div>
-          <h1 className="text-2xl font-black leading-tight">塾・学校の英単語小テストを<br />PDFで作る方法</h1>
-          <p className="mt-2 text-sm text-navy-300 max-w-sm mx-auto">授業後の確認・定期テスト前・宿題プリントに使える小テスト作成法。</p>
+          <div className="inline-block text-[11px] px-2 py-0.5 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 font-semibold mb-3">塾講師・学校教員・家庭教師向け</div>
+          <h1 className="text-2xl font-black leading-tight">英単語 小テスト 作成ツール<br />印刷できるPDFで簡単に</h1>
+          <p className="mt-2 text-sm text-navy-300 max-w-sm mx-auto">中学英語〜高校英語・大学受験レベルまで対応。授業後の確認・定期テスト前・宿題プリントに使える小テスト作成法。</p>
         </div>
       </div>
 
@@ -124,6 +132,19 @@ export default function VocabularyQuizPdfForTeachersPage() {
           <h2 className="font-black text-navy-800 mb-3">作り方</h2>
           <p className="text-sm text-navy-700 leading-relaxed">
             単語帳を用意し、<Link href="/pdf" className="underline font-semibold">小テストPDF作成画面</Link>から出題範囲（単語帳全体・苦手単語のみ・未学習のみ）・出題方向（英→日／日→英）・出題形式（記述／4択）・出題数・段組み・解答の配置（なし／同ページ末尾／別紙）を選ぶだけで、ブラウザの印刷機能からPDFとして保存・印刷できます。特別なソフトのインストールは不要です。
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-3">生徒側の利用導線（QRコード）</h2>
+          <p className="text-sm text-navy-700 leading-relaxed">
+            作成したPDFの紙面の隅には、小さなQRコードと「作成：Loop Vocabulary」という
+            表記が入ります。問題文や解答欄を邪魔しないサイズ・位置にしているため、配布の
+            妨げにはなりません。生徒がQRコードを読み取ると、登録不要で使える3分程度の
+            語彙力チェックページに遷移します。もっと使いたいと感じた生徒だけが、その場で
+            無料登録して自分の単語帳を作れる流れです。QRコードには生徒名・学校名・
+            単語帳の内容などの個人情報は一切含まれておらず、固定の公開URLのみを
+            埋め込んでいます。
           </p>
         </div>
 

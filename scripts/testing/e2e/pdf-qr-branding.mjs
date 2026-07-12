@@ -25,7 +25,7 @@ import { login, collectErrors } from "./lib/login.mjs";
 import { gotoReady } from "./lib/nav.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
-const EXPECTED_QR_URL = "https://loop-vocabulary.app/vocab-check";
+const EXPECTED_QR_URL = "https://loop-vocabulary.app/vocab-check?utm_source=pdf_qr&utm_medium=offline&utm_campaign=teacher_pdf";
 
 function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; }
 function ok(msg) { console.log(`✅ ${msg}`); }
@@ -112,7 +112,7 @@ async function main() {
     else ok("操作中にconsole error/5xxなし");
   } finally {
     await browser.close();
-    stopDevServer(dev.proc);
+    stopDevServer(dev);
   }
 
   console.log(process.exitCode ? "\n=== test:pdf-qr-branding: FAILED ===" : "\n=== test:pdf-qr-branding RESULT: all checks passed ===");

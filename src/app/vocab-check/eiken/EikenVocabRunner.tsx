@@ -1,6 +1,15 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import {
+  trackVocabCheckPageView,
+  trackVocabCheckStart,
+  trackVocabCheckAnswer,
+  trackVocabCheckProgress,
+  trackVocabCheckResultView,
+  trackVocabCheckShareClick,
+  trackVocabCheckCtaClick,
+} from "@/lib/analytics/events";
 
 type Question = { word: string; answer: string; choices: string[]; level: string };
 
@@ -46,24 +55,35 @@ export function EikenVocabRunner() {
   const [results, setResults] = useState<boolean[]>([]);
   const [done, setDone]     = useState(false);
 
+  useEffect(() => { trackVocabCheckPageView("eiken"); }, []);
+
   const cur = QUESTIONS[idx];
 
   const onPick = (c: string) => {
     if (picked != null) return;
+    if (idx === 0) trackVocabCheckStart("eiken");
+    const correct = c === cur.answer;
+    trackVocabCheckAnswer("eiken", idx, correct);
     setPicked(c);
-    setResults((r) => [...r, c === cur.answer]);
+    setResults((r) => [...r, correct]);
+    const answered = idx + 1;
+    if (answered === 10 || answered === QUESTIONS.length) trackVocabCheckProgress("eiken", answered, QUESTIONS.length);
   };
 
   const next = () => {
     setPicked(null);
-    if (idx + 1 >= QUESTIONS.length) { setDone(true); return; }
+    if (idx + 1 >= QUESTIONS.length) {
+      const finalCorrect = [...results, picked === cur.answer].filter(Boolean).length;
+      trackVocabCheckResultView("eiken", getResult(finalCorrect).label, finalCorrect, QUESTIONS.length);
+      setDone(true);
+      return;
+    }
     setIdx(idx + 1);
   };
 
   if (done) {
     const correct = results.filter(Boolean).length;
     const result = getResult(correct);
-    const shareText = `私の英検語彙力は「${result.label}」でした！（${correct}/20問正解）📚\nLoop Vocabularyで3分語彙力チェック\n自己想起×忘却曲線で英単語を定着\n#LoopVocabulary #英単語 #英語学習 #英検`;
 
     const levels = [
       { label: "3級",  qs: [0, 4]  },
@@ -72,6 +92,18 @@ export function EikenVocabRunner() {
       { label: "準1級", qs: [12, 16]},
       { label: "1級",  qs: [16, 20]},
     ];
+
+    const levelRatios = levels.map(({ label, qs }) => {
+      const ok = results.slice(qs[0], qs[1]).filter(Boolean).length;
+      return { label, ratio: ok / (qs[1] - qs[0]) };
+    });
+    const maxRatio = Math.max(...levelRatios.map((r) => r.ratio));
+    const minRatio = Math.min(...levelRatios.map((r) => r.ratio));
+    const strong = maxRatio !== minRatio ? levelRatios.find((r) => r.ratio === maxRatio)?.label ?? null : null;
+    const weak = maxRatio !== minRatio ? levelRatios.find((r) => r.ratio === minRatio)?.label ?? null : null;
+    const strengthLine = strong && weak && strong !== weak ? `\n得意: ${strong}級 / 苦手: ${weak}級` : "";
+
+    const shareText = `私の英検語彙力は「${result.label}」でした！（${correct}/20問正解）${strengthLine}📚\nLoop Vocabularyで3分語彙力チェック\n自己想起×忘却曲線で英単語を定着\n#LoopVocabulary #英単語 #英語学習 #英検`;
 
     return (
       <div className="min-h-dvh bg-gradient-to-b from-emerald-50 to-white px-4 py-10">
@@ -82,6 +114,12 @@ export function EikenVocabRunner() {
             <div className={`mt-3 text-3xl font-black ${result.color}`}>{result.label}</div>
             <div className="mt-2 text-lg font-bold text-navy-800">{correct}<span className="text-sm text-navy-400 font-normal"> / 20問 正解</span></div>
             <p className="mt-2 text-sm text-navy-600">{result.message}</p>
+            {strong && weak && strong !== weak && (
+              <div className="mt-3 flex justify-center gap-2 text-xs" data-testid="vocab-check-strength">
+                <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold">得意: {strong}級</span>
+                <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-semibold">苦手: {weak}級</span>
+              </div>
+            )}
           </div>
 
           <div className="mt-8 bg-white rounded-2xl border border-navy-100 shadow-sm overflow-hidden">
@@ -108,6 +146,7 @@ export function EikenVocabRunner() {
 
           <div className="mt-6 flex gap-3">
             <button data-testid="vocab-check-share-button" onClick={async () => {
+              trackVocabCheckShareClick("eiken");
               if (navigator.share) { await navigator.share({ text: shareText }).catch(() => {}); }
               else { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, "_blank", "noopener"); }
             }} className="flex-1 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-sm hover:bg-emerald-600 transition-colors">
@@ -123,14 +162,14 @@ export function EikenVocabRunner() {
             <div className="font-black text-base">英検合格に向けて語彙を効率的に増やす</div>
             <p className="text-xs text-navy-300 mt-1">SRS（忘却曲線）で英検頻出単語を体系的に記憶。合格まで最短ルートで進もう。</p>
             <div className="mt-4 flex gap-2 justify-center">
-              <Link href="/signup" className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">無料で始める →</Link>
-              <Link href="/guide/eiken-2kyu-tango" className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">英検2級ガイド</Link>
+              <Link href="/signup" onClick={() => trackVocabCheckCtaClick("eiken", "signup")} className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">無料で始める →</Link>
+              <Link href="/guide/eiken-2kyu-tango" onClick={() => trackVocabCheckCtaClick("eiken", "guide")} className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">英検2級ガイド</Link>
             </div>
           </div>
 
           <div className="mt-6 text-center space-y-2">
-            <Link href="/vocab-check" className="block text-sm text-navy-500 underline">← 一般語彙力チェックに戻る</Link>
-            <Link href="/vocab-check/toeic" className="block text-sm text-sky-600 underline">TOEIC語彙チェックを試す →</Link>
+            <Link href="/vocab-check" onClick={() => trackVocabCheckCtaClick("eiken", "vocab_check_variant")} className="block text-sm text-navy-500 underline">← 一般語彙力チェックに戻る</Link>
+            <Link href="/vocab-check/toeic" onClick={() => trackVocabCheckCtaClick("eiken", "vocab_check_variant")} className="block text-sm text-sky-600 underline">TOEIC語彙チェックを試す →</Link>
           </div>
         </div>
       </div>

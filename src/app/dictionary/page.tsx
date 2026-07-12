@@ -4,6 +4,8 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/server";
 import { DictionarySearch } from "./DictionarySearch";
+import { DictionaryPageTracker } from "./DictionaryPageTracker";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 import { PILOT_WORDS } from "@/lib/dictionaryWords/pilotWords";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +55,7 @@ export default async function DictionaryPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
       />
+      <DictionaryPageTracker showLoginPrompt={!user} />
       <h1 className="text-xl font-bold text-navy-800">辞書検索</h1>
       <p className="text-sm text-navy-500 mt-1">
         {user
@@ -65,12 +68,14 @@ export default async function DictionaryPage() {
           <div className="text-xs text-sky-800">
             <span className="font-bold">無料登録</span>すると、調べた単語をワンタップで単語帳に保存して忘却曲線で復習できます。
           </div>
-          <Link
+          <TrackedLink
             href="/signup?next=/dictionary"
+            event="trackDictionarySignupCtaClick"
+            args={["top_banner"]}
             className="shrink-0 px-3 py-1.5 bg-sky-600 text-white text-xs font-bold rounded-xl hover:bg-sky-700 transition-colors"
           >
             無料で始める
-          </Link>
+          </TrackedLink>
         </div>
       )}
 
@@ -89,13 +94,15 @@ export default async function DictionaryPage() {
         <p className="text-xs font-bold text-navy-700 mb-2">よく調べられる単語</p>
         <div className="flex flex-wrap gap-1.5">
           {PILOT_WORDS.map((w) => (
-            <Link
+            <TrackedLink
               key={w.slug}
               href={`/dictionary/${w.slug}`}
+              event="trackDictionaryWordClick"
+              args={[w.slug]}
               className="text-[11px] px-2.5 py-1 rounded-full bg-navy-50 text-navy-600 font-semibold hover:bg-navy-100 transition-colors"
             >
               {w.word}
-            </Link>
+            </TrackedLink>
           ))}
         </div>
       </div>

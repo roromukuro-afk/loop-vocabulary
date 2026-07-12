@@ -13,7 +13,7 @@ export default function PrivacyPage() {
     <div className="max-w-3xl mx-auto px-5 py-10 prose prose-sm">
       <Link href="/" className="text-xs text-navy-500">← トップへ</Link>
       <h1 className="text-2xl font-bold text-navy-800 mt-3">プライバシーポリシー</h1>
-      <p className="text-sm text-navy-500">最終更新日: 2026-07-06</p>
+      <p className="text-sm text-navy-500">最終更新日: 2026-07-12</p>
 
       <h2 className="text-lg font-bold text-navy-800 mt-6">1. 取得する情報</h2>
       <p>Loop Vocabulary (以下「本サービス」) は、サービス提供のため以下の情報を取得します。</p>
@@ -86,6 +86,12 @@ export default function PrivacyPage() {
         <li>
           <b>認証・データベース（Supabase）</b>: アカウント認証・学習データの保存基盤として
           利用しています。
+        </li>
+        <li>
+          <b>アクセス解析（Google Analytics, Microsoft Clarity）</b>: サービス改善のため、
+          どのページがどれだけ利用されているか等をアクセス解析ツールで計測しています。
+          送信するのはページの種類・操作したボタンの種類・匿名の識別子・アクセス日時等の
+          みで、メールアドレス・氏名・単語帳の内容など個人を特定できる情報は送信しません。
         </li>
       </ul>
 

@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
+import { trackWordPageAddCtaClick } from "@/lib/analytics/events";
 
 type Props = {
   loggedIn: boolean;
@@ -11,9 +12,10 @@ type Props = {
   pos: string;
   example: string;
   exampleJa: string;
+  wordSlug: string;
 };
 
-export function AddToWordbook({ loggedIn, word, meaning, pos, example, exampleJa }: Props) {
+export function AddToWordbook({ loggedIn, word, meaning, pos, example, exampleJa, wordSlug }: Props) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +25,7 @@ export function AddToWordbook({ loggedIn, word, meaning, pos, example, exampleJa
       <Link
         href={`/signup?next=/dictionary/${word}`}
         data-testid="word-page-signup-cta"
+        onClick={() => trackWordPageAddCtaClick(wordSlug, false)}
         className="inline-block text-sm font-bold text-sky-600 hover:text-sky-700 border border-sky-200 rounded-xl px-4 py-2.5 hover:bg-sky-50 transition-colors"
       >
         ＋ 無料登録して単語帳に追加
@@ -31,6 +34,7 @@ export function AddToWordbook({ loggedIn, word, meaning, pos, example, exampleJa
   }
 
   const handleAdd = async () => {
+    trackWordPageAddCtaClick(wordSlug, true);
     setBusy(true);
     setError(null);
     const supabase = createClient();

@@ -163,6 +163,15 @@ async function main() {
 
     console.log("\n=== 40. vercel.app→カスタムドメイン恒久リダイレクト E2E ===");
     results.canonicalDomainRedirect = runNode("scripts/testing/e2e/canonical-domain-redirect.mjs");
+
+    console.log("\n=== 41. グロース計測イベント E2E ===");
+    results.growthEvents = runNode("scripts/testing/e2e/growth-events.mjs");
+
+    console.log("\n=== 42. 先生向けPDF記事キーワード補強 E2E ===");
+    results.teacherKeywordPage = runNode("scripts/testing/e2e/teacher-keyword-page.mjs");
+
+    console.log("\n=== 43. 広告プレースホルダー安全確認 E2E ===");
+    results.adsenseSafePlacements = runNode("scripts/testing/e2e/adsense-safe-placements.mjs");
   } finally {
     stopDevServer(dev);
   }

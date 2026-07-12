@@ -1,7 +1,17 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { trackVocabCheckComplete, trackFeatureUsed } from "@/lib/analytics/events";
+import {
+  trackVocabCheckComplete,
+  trackFeatureUsed,
+  trackVocabCheckPageView,
+  trackVocabCheckStart,
+  trackVocabCheckAnswer,
+  trackVocabCheckProgress,
+  trackVocabCheckResultView,
+  trackVocabCheckShareClick,
+  trackVocabCheckCtaClick,
+} from "@/lib/analytics/events";
 
 type Question = {
   word: string;
@@ -50,6 +60,19 @@ const LEVEL_LABELS: Record<number, string> = {
   5: "IELTS / TOEIC 900+",
 };
 
+// 得意/苦手カテゴリの算出。全レベルの正答率が同じ（差が無い）場合は、
+// 意味のない「得意/苦手」表示を避けるため両方nullを返す。
+function getStrengthWeakness(byLevel: { lv: number; label: string; ok: number; total: number }[]): { strong: string | null; weak: string | null } {
+  const ratios = byLevel.map((b) => ({ label: b.label, ratio: b.total > 0 ? b.ok / b.total : 0 }));
+  const max = Math.max(...ratios.map((r) => r.ratio));
+  const min = Math.min(...ratios.map((r) => r.ratio));
+  if (max === min) return { strong: null, weak: null };
+  return {
+    strong: ratios.find((r) => r.ratio === max)?.label ?? null,
+    weak: ratios.find((r) => r.ratio === min)?.label ?? null,
+  };
+}
+
 function getResult(correct: number): { level: string; vocab: string; message: string; color: string } {
   if (correct <= 4)  return { level: "中学英語レベル", vocab: "〜1,500語", message: "基礎から着実に積み上げましょう！", color: "text-sky-600" };
   if (correct <= 8)  return { level: "高校基礎レベル", vocab: "〜3,000語", message: "大学受験・英検2級を目指せます！", color: "text-emerald-600" };
@@ -64,14 +87,22 @@ export function VocabCheckRunner() {
   const [results, setResults] = useState<boolean[]>([]);
   const [done, setDone] = useState(false);
 
-  useEffect(() => { trackFeatureUsed("vocab_check"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    trackFeatureUsed("vocab_check");
+    trackVocabCheckPageView("general");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cur = QUESTIONS[idx];
 
   const onPick = (c: string) => {
     if (picked != null) return;
+    if (idx === 0) trackVocabCheckStart("general");
+    const correct = c === cur.answer;
+    trackVocabCheckAnswer("general", idx, correct);
     setPicked(c);
-    setResults((r) => [...r, c === cur.answer]);
+    setResults((r) => [...r, correct]);
+    const answered = idx + 1;
+    if (answered === 10 || answered === QUESTIONS.length) trackVocabCheckProgress("general", answered, QUESTIONS.length);
   };
 
   const next = () => {
@@ -80,6 +111,7 @@ export function VocabCheckRunner() {
       const finalCorrect = [...results, picked === cur.answer].filter(Boolean).length;
       const finalResult = getResult(finalCorrect);
       trackVocabCheckComplete(finalCorrect, finalResult.level);
+      trackVocabCheckResultView("general", finalResult.level, finalCorrect, QUESTIONS.length);
       setDone(true);
       return;
     }
@@ -97,7 +129,12 @@ export function VocabCheckRunner() {
       return { lv, label: LEVEL_LABELS[lv], ok, total: qs.length };
     });
 
-    const shareText = `私の英単語レベルは「${result.level}」でした！（推定語彙数 ${result.vocab}・${correct}/20問正解）\nLoop Vocabularyで3分語彙力チェック📊\n自己想起×忘却曲線で英単語を定着\n#LoopVocabulary #英単語 #英語学習`;
+    const strength = getStrengthWeakness(byLevel);
+    const strengthLine = strength.strong && strength.weak && strength.strong !== strength.weak
+      ? `\n得意: ${strength.strong} / 苦手: ${strength.weak}`
+      : "";
+
+    const shareText = `私の英単語レベルは「${result.level}」でした！（推定語彙数 ${result.vocab}・${correct}/20問正解）${strengthLine}\nLoop Vocabularyで3分語彙力チェック📊\n自己想起×忘却曲線で英単語を定着\n#LoopVocabulary #英単語 #英語学習`;
 
     return (
       <div className="min-h-dvh bg-gradient-to-b from-sky-50 to-white px-4 py-10">
@@ -109,6 +146,12 @@ export function VocabCheckRunner() {
             <div className="text-sm text-navy-500 mt-1">推定語彙数: {result.vocab}</div>
             <div className="mt-2 text-lg font-bold text-navy-800">{correct}<span className="text-sm text-navy-400 font-normal"> / 20問 正解</span></div>
             <p className="mt-2 text-sm text-navy-600">{result.message}</p>
+            {strength.strong && strength.weak && strength.strong !== strength.weak && (
+              <div className="mt-3 flex justify-center gap-2 text-xs" data-testid="vocab-check-strength">
+                <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold">得意: {strength.strong}</span>
+                <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-semibold">苦手: {strength.weak}</span>
+              </div>
+            )}
           </div>
 
           {/* レベル別内訳 */}
@@ -137,6 +180,7 @@ export function VocabCheckRunner() {
             <button
               data-testid="vocab-check-share-button"
               onClick={async () => {
+                trackVocabCheckShareClick("general");
                 if (navigator.share) {
                   await navigator.share({ text: shareText }).catch(() => {});
                 } else {
@@ -163,12 +207,14 @@ export function VocabCheckRunner() {
             <div className="mt-4 flex gap-2 justify-center">
               <Link
                 href="/signup"
+                onClick={() => trackVocabCheckCtaClick("general", "signup")}
                 className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
               >
                 無料で単語帳を作る →
               </Link>
               <Link
                 href="/login"
+                onClick={() => trackVocabCheckCtaClick("general", "login")}
                 className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors"
               >
                 ログイン
@@ -180,10 +226,10 @@ export function VocabCheckRunner() {
           <div className="mt-6">
             <div className="text-sm font-bold text-navy-700 mb-2 text-center">目的別の教材で続けて学ぶ</div>
             <div className="grid grid-cols-2 gap-2" data-testid="vocab-check-materials-links">
-              <Link href="/materials/highschool" className="px-3 py-2.5 rounded-xl bg-white border border-navy-100 text-navy-700 text-xs font-semibold text-center hover:shadow-sm transition-shadow">🎓 高校生向け教材</Link>
-              <Link href="/materials/eiken" className="px-3 py-2.5 rounded-xl bg-white border border-navy-100 text-navy-700 text-xs font-semibold text-center hover:shadow-sm transition-shadow">📝 英検対策教材</Link>
-              <Link href="/materials/university-exam" className="px-3 py-2.5 rounded-xl bg-white border border-navy-100 text-navy-700 text-xs font-semibold text-center hover:shadow-sm transition-shadow">🎓 大学受験教材</Link>
-              <Link href="/materials/school-test" className="px-3 py-2.5 rounded-xl bg-white border border-navy-100 text-navy-700 text-xs font-semibold text-center hover:shadow-sm transition-shadow">📖 定期テスト対策教材</Link>
+              <Link href="/materials/highschool" onClick={() => trackVocabCheckCtaClick("general", "materials")} className="px-3 py-2.5 rounded-xl bg-white border border-navy-100 text-navy-700 text-xs font-semibold text-center hover:shadow-sm transition-shadow">🎓 高校生向け教材</Link>
+              <Link href="/materials/eiken" onClick={() => trackVocabCheckCtaClick("general", "materials")} className="px-3 py-2.5 rounded-xl bg-white border border-navy-100 text-navy-700 text-xs font-semibold text-center hover:shadow-sm transition-shadow">📝 英検対策教材</Link>
+              <Link href="/materials/university-exam" onClick={() => trackVocabCheckCtaClick("general", "materials")} className="px-3 py-2.5 rounded-xl bg-white border border-navy-100 text-navy-700 text-xs font-semibold text-center hover:shadow-sm transition-shadow">🎓 大学受験教材</Link>
+              <Link href="/materials/school-test" onClick={() => trackVocabCheckCtaClick("general", "materials")} className="px-3 py-2.5 rounded-xl bg-white border border-navy-100 text-navy-700 text-xs font-semibold text-center hover:shadow-sm transition-shadow">📖 定期テスト対策教材</Link>
             </div>
           </div>
 
