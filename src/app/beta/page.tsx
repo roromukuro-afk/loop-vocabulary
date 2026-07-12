@@ -5,6 +5,8 @@ import { AppShell } from "@/components/layout/AppShell";
 export const metadata = {
   title: "ベータテスター募集 | Loop Vocabulary",
   description: "Loop Vocabulary Androidアプリのベータテスターを募集しています。無料でプレミアム機能を体験しながらアプリ改善に参加しよう。",
+  // 募集人数「0/20名」等の表示が静的で陳腐化しやすい募集ページのためnoindex
+  robots: { index: false, follow: true },
 };
 
 const BENEFITS = [

@@ -4,6 +4,7 @@ import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
+import { ExamInfoDisclaimer } from "@/components/guide/ExamInfoDisclaimer";
 
 export const metadata: Metadata = {
   title: "高校英語の単語を完全に覚える方法【大学受験対応・2,000語攻略】| Loop Vocabulary",
@@ -116,6 +117,9 @@ export default function KoukouEigoTangoPage() {
                 <div className="text-[10px] text-navy-500 mt-0.5">{s.label}</div>
               </div>
             ))}
+          </div>
+          <div className="mt-4">
+            <ExamInfoDisclaimer kind="university" />
           </div>
         </div>
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
+import { GuideByline } from "@/components/guide/GuideByline";
 
 const SITE_URL = "https://loop-vocabulary.app";
 const SLUG = "how-to-memorize-english-words";
@@ -160,6 +161,13 @@ export default function HowToMemorizeEnglishWordsPage() {
             <li>この記事の内容で必ず成績が上がることを保証するものではありません。学習法の一つの考え方としてご活用ください。</li>
           </ul>
         </div>
+
+        <GuideByline
+          targetAudience="単語帳を繰り返しても本番で思い出せない、と感じている中学生〜社会人の英語学習者向け"
+          sources="「検索練習(retrieval practice)」「テスト効果(testing effect)」と呼ばれる、認知心理学で広く支持されている研究領域の考え方を一般向けに要約したものです。特定の論文の引用ではありません。"
+          lastUpdated="2026-07-12"
+          changelog={[{ date: "2026-07-12", note: "対象者・出典・更新履歴セクションを追加" }]}
+        />
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <div className="text-sm font-bold text-navy-800 mb-2">よくある質問</div>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { GuideTracker } from "@/components/guide/GuideTracker";
+import { GuideByline } from "@/components/guide/GuideByline";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
@@ -194,6 +195,13 @@ export default function FlashcardsVsMultipleChoicePage() {
             <li>この記事の内容で特定の試験のスコア向上を保証するものではありません。</li>
           </ul>
         </div>
+
+        <GuideByline
+          targetAudience="4択問題ばかりで単語学習をしていて、なぜかテストで点が伸びないと感じている英語学習者向け"
+          sources="選択形式(再認)と自由再生形式(想起)の記憶への影響の違いは、認知心理学のテスト効果(testing effect)研究領域で広く議論されている論点を一般向けに要約したものです。特定の論文の引用ではありません。"
+          lastUpdated="2026-07-12"
+          changelog={[{ date: "2026-07-12", note: "対象者・出典・更新履歴セクションを追加" }]}
+        />
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <div className="text-sm font-bold text-navy-800 mb-2">よくある質問</div>

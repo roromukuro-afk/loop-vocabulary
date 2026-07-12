@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { GuideTracker } from "@/components/guide/GuideTracker";
+import { GuideByline } from "@/components/guide/GuideByline";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
@@ -157,6 +158,13 @@ export default function ListeningAndPronunciationVocabularyPage() {
             <li>単語レベルの音声学習だけでリスニング力全体が向上することを保証するものではありません。</li>
           </ul>
         </div>
+
+        <GuideByline
+          targetAudience="単語を目で覚えているがリスニングで聞き取れない、発音に自信がない英語学習者向け"
+          sources="音声を伴う学習が語彙定着に有利であるとする言語習得研究の一般的な知見を要約したものです。特定の論文の引用ではありません。"
+          lastUpdated="2026-07-12"
+          changelog={[{ date: "2026-07-12", note: "対象者・出典・更新履歴セクションを追加" }]}
+        />
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <div className="text-sm font-bold text-navy-800 mb-2">よくある質問</div>

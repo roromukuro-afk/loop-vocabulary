@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { GuideTracker } from "@/components/guide/GuideTracker";
+import { GuideByline } from "@/components/guide/GuideByline";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
@@ -160,6 +161,13 @@ export default function SpacedRepetitionPage() {
             <li>特定の期間で必ず語彙数が増えることを保証するものではありません。</li>
           </ul>
         </div>
+
+        <GuideByline
+          targetAudience="単語をどのタイミングで復習すればいいか分からない、詰め込み学習で忘れやすいと感じている英語学習者向け"
+          sources="ドイツの心理学者ヘルマン・エビングハウスの忘却曲線の考え方と、その後の間隔反復(spaced repetition)研究で一般的に支持されている知見を要約したものです。特定の論文の引用ではありません。"
+          lastUpdated="2026-07-12"
+          changelog={[{ date: "2026-07-12", note: "対象者・出典・更新履歴セクションを追加" }]}
+        />
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <div className="text-sm font-bold text-navy-800 mb-2">よくある質問</div>

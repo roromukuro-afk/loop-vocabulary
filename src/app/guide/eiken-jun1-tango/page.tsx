@@ -4,6 +4,7 @@ import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
+import { ExamInfoDisclaimer } from "@/components/guide/ExamInfoDisclaimer";
 
 export const metadata: Metadata = {
   title: "英検準1級 単語対策【合格に必要な語彙数と学習戦略】| Loop Vocabulary",
@@ -122,13 +123,16 @@ export default function EikenJun1Page() {
             {[
               { label: "必要語彙数", value: "7,000〜8,000語" },
               { label: "語彙問題", value: "25問（大問1）" },
-              { label: "合格スコア目安", value: "約72%(一次)" },
+              { label: "一次スコアの目安（過去傾向）", value: "約72%相当" },
             ].map((s) => (
               <div key={s.label} className="bg-violet-50 border border-violet-100 rounded-xl p-3 text-center">
                 <div className="text-xs font-black text-violet-800">{s.value}</div>
                 <div className="text-[10px] text-violet-600 mt-0.5">{s.label}</div>
               </div>
             ))}
+          </div>
+          <div className="mt-4">
+            <ExamInfoDisclaimer kind="eiken" showCseNote />
           </div>
         </div>
 
@@ -239,7 +243,7 @@ export default function EikenJun1Page() {
         <GuideMaterialCTA
           heading="英検準1級の単語帳を無料でインポート"
           materials={[
-            { id: "5eae7c64-fcb5-4164-99fb-cdb5ce10567c", title: "英検準1級 必須単語600" },
+            { id: "5eae7c64-fcb5-4164-99fb-cdb5ce10567c", title: "英検準1級 基礎単語" },
             { id: "00000000-0000-0000-0000-000000000023", title: "英検準1級 重要単語" },
           ]}
         />

@@ -27,9 +27,12 @@ type AnswerMode = "none" | "inline" | "separate";
 
 type Row = { word: string; meaning: string };
 
+type BookOption = { id: string; title: string; source_type?: string | null; source_material_id?: string | null };
+type MaterialOption = { id: string; title: string; publisher?: string | null; author?: string | null };
+
 export function PdfTestBuilder({
   books, materials, initialBookId,
-}: { books: { id: string; title: string }[]; materials: { id: string; title: string }[]; initialBookId?: string | null }) {
+}: { books: BookOption[]; materials: MaterialOption[]; initialBookId?: string | null }) {
   // ?book=<id> で単語帳詳細ページ等から遷移してきた場合は、その単語帳を初期選択する
   const initialBook = initialBookId ? books.find((b) => b.id === initialBookId) : undefined;
   const [src, setSrc] = useState<SourceKind>(initialBook ? "book" : books[0] ? "book" : "material");
@@ -122,11 +125,26 @@ export function PdfTestBuilder({
 
       // 印刷用ウィンドウを開いて jsPDF でなく HTML 印刷を使う (フォント互換のため)
       // 多言語フォント問題を避けるため HTML 経由でブラウザ印刷 → PDF 化
+      // 出典表示: 教材を直接選んだ場合、または教材インポート由来の単語帳を選んだ場合に、
+      // 元教材の publisher/author を「出典: 〇〇」として印刷物に明記する（著作権対応）。
+      const sourceMaterial =
+        src === "material"
+          ? materials.find((m) => m.id === sourceId)
+          : (() => {
+              const b = books.find((bk) => bk.id === sourceId);
+              if (!b || b.source_type !== "material" || !b.source_material_id) return undefined;
+              return materials.find((m) => m.id === b.source_material_id);
+            })();
+      const attribution = sourceMaterial
+        ? [sourceMaterial.publisher, sourceMaterial.author].filter(Boolean).join(" / ")
+        : null;
+
       const html = renderHtml({
         rows, direction, format, columns, answerMode,
         title: src === "book"
           ? books.find((b) => b.id === sourceId)?.title ?? "小テスト"
           : materials.find((m) => m.id === sourceId)?.title ?? "小テスト",
+        attribution,
         qrDataUrl,
       });
       const w = window.open("", "_blank");
@@ -234,9 +252,10 @@ export function PdfTestBuilder({
 
 function renderHtml(o: {
   rows: Row[]; direction: Direction; format: Format; columns: Columns; answerMode: AnswerMode; title: string;
+  attribution: string | null;
   qrDataUrl: string | null;
 }) {
-  const { rows, direction, format, columns, answerMode, title, qrDataUrl } = o;
+  const { rows, direction, format, columns, answerMode, title, attribution, qrDataUrl } = o;
   const items = rows.map((r, i) => {
     const prompt = direction === "en2ja" ? r.word : r.meaning;
     const answer = direction === "en2ja" ? r.meaning : r.word;
@@ -261,6 +280,7 @@ function renderHtml(o: {
     .head .info { display:flex; gap: 4mm; flex-shrink:0; }
     .info-box { border:1px solid #243860; border-radius: 2px; padding: 1.5mm 4mm; font-size: 10pt; white-space:nowrap; }
     .meta { font-size: 9.5pt; color:#476394; margin: 0 0 6mm; }
+    .source { font-size: 8.5pt; color:#8092b0; margin: -4mm 0 6mm; }
     ol { margin: 0; padding-left: 8mm; }
     ol.cols2 { column-count: 2; column-gap: 10mm; }
     li { font-size: 11pt; margin-bottom: 5mm; line-height: 1.6; break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; }
@@ -308,6 +328,7 @@ function renderHtml(o: {
     answersHtml = `<section class="answer-sheet">
       <h1>${escape(title)} 小テスト <span style="font-size:11pt;color:#476394;">— 解答用紙</span></h1>
       <div class="meta">出題方向: ${dirLabel} / 形式: ${fmtLabel} / 全 ${items.length} 問</div>
+      ${attribution ? `<div class="source">出典: ${escape(attribution)}</div>` : ""}
       ${answersListHtml}
     </section>`;
   }
@@ -324,6 +345,7 @@ function renderHtml(o: {
     </div>
   </div>
   <div class="meta">出題方向: ${dirLabel} / 形式: ${fmtLabel} / 全 ${items.length} 問</div>
+  ${attribution ? `<div class="source">出典: ${escape(attribution)}</div>` : ""}
   <ol class="${olClass}">${qhtml}</ol>
   ${answerMode === "inline" ? answersHtml : ""}
   ${footerHtml}

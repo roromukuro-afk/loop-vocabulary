@@ -4,6 +4,7 @@ import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
+import { ExamInfoDisclaimer } from "@/components/guide/ExamInfoDisclaimer";
 
 export const metadata: Metadata = {
   title: "TOEIC 900点の勉強法【スコアアップ戦略と学習スケジュール】| Loop Vocabulary",
@@ -169,6 +170,7 @@ export default function Toeic900TenPage() {
 
         {/* パート別攻略 */}
         <h2 className="font-black text-navy-800 text-lg px-1">パート別 900点攻略ポイント</h2>
+        <ExamInfoDisclaimer kind="toeic" />
         {PARTS.map((p) => (
           <div key={p.part} className="bg-white rounded-2xl border border-navy-100 overflow-hidden">
             <div className={`bg-gradient-to-r ${p.color} px-5 py-3 text-white`}>
@@ -263,8 +265,8 @@ export default function Toeic900TenPage() {
         <GuideMaterialCTA
           heading="TOEIC 800点突破の単語帳を無料でインポート"
           materials={[
-            { id: "00000000-0000-0000-0000-000000000031", title: "TOEIC 頻出単語 800" },
-            { id: "96d6e5a2-c0f5-48b1-8eed-14a91424790f", title: "TOEIC頻出単語600" },
+            { id: "00000000-0000-0000-0000-000000000031", title: "TOEIC 頻出単語 2500" },
+            { id: "96d6e5a2-c0f5-48b1-8eed-14a91424790f", title: "TOEIC頻出基礎単語" },
           ]}
         />
       </div>

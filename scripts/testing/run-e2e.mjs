@@ -190,6 +190,24 @@ async function main() {
 
     console.log("\n=== 49. /reports（準備中）ページ E2E ===");
     results.reportsPage = runNode("scripts/testing/e2e/reports-page.mjs");
+
+    console.log("\n=== 50. 試験情報アキュラシー監査（英検/TOEIC/大学受験） E2E ===");
+    results.examInfoSources = runNode("scripts/testing/e2e/exam-info-sources.mjs");
+
+    console.log("\n=== 51. noindex/robots/sitemap/canonical整合性 E2E ===");
+    results.indexingPolicy = runNode("scripts/testing/e2e/indexing-policy.mjs");
+
+    console.log("\n=== 52. /toolsハブページ E2E ===");
+    results.toolsHub = runNode("scripts/testing/e2e/tools-hub.mjs");
+
+    console.log("\n=== 53. 上位ガイド記事の品質シグナル E2E ===");
+    results.guideQualitySignals = runNode("scripts/testing/e2e/guide-quality-signals.mjs");
+
+    console.log("\n=== 54. プライバシー/CMP/広告開示 E2E ===");
+    results.privacyAdsDisclosure = runNode("scripts/testing/e2e/privacy-ads-disclosure.mjs");
+
+    console.log("\n=== 55. 外部教材・権利監査 E2E ===");
+    results.externalMaterialRights = runNode("scripts/testing/e2e/external-material-rights.mjs");
   } finally {
     stopDevServer(dev);
   }

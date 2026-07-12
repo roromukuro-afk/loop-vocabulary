@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+// 決済完了直後の個人向けサンクスページのためnoindex
+export const metadata: Metadata = {
+  title: "プレミアム登録完了 | Loop Vocabulary",
+  robots: { index: false, follow: true },
+};
 
 export default function PremiumSuccessPage() {
   return (

@@ -187,7 +187,7 @@ const NEW_MATERIALS = [
   },
   {
     id: "00000000-0000-0000-0000-000000000031",
-    title: "TOEIC 頻出単語 800",
+    title: "TOEIC 頻出単語 2500",
     publisher: "Loop Vocabulary",
     level: "TOEIC",
     exam_type: "TOEIC",

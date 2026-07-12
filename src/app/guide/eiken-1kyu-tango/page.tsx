@@ -4,6 +4,7 @@ import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
+import { ExamInfoDisclaimer } from "@/components/guide/ExamInfoDisclaimer";
 
 export const metadata: Metadata = {
   title: "英検1級 単語対策【合格に必要な15,000語レベルの学習戦略】| Loop Vocabulary",
@@ -123,6 +124,9 @@ export default function Eiken1KyuPage() {
                 <div className="text-[10px] text-rose-600 mt-0.5">{s.label}</div>
               </div>
             ))}
+          </div>
+          <div className="mt-4">
+            <ExamInfoDisclaimer kind="eiken" />
           </div>
         </div>
 
@@ -250,7 +254,7 @@ export default function Eiken1KyuPage() {
           heading="英検1級レベルの単語帳を無料でインポート"
           materials={[
             { id: "00000000-0000-0000-0000-000000000032", title: "英検1級 必須単語" },
-            { id: "5eae7c64-fcb5-4164-99fb-cdb5ce10567c", title: "英検準1級 必須単語600" },
+            { id: "5eae7c64-fcb5-4164-99fb-cdb5ce10567c", title: "英検準1級 基礎単語" },
           ]}
         />
 

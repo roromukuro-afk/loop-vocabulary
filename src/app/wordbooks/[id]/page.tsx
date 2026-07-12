@@ -111,13 +111,19 @@ export default async function WordBookDetailPage({ params }: { params: Promise<{
         <QuickAddWord wordBookId={book.id} />
       </Card>
 
-      {/* 単語帳シェア */}
+      {/* 単語帳シェア（教材インポート由来の単語帳は無断再配布防止のため共有不可） */}
       <div className="mt-4">
-        <ShareButton
-          wordbookId={book.id}
-          initialShared={book.is_shared ?? false}
-          initialCode={book.share_code ?? null}
-        />
+        {book.source_type === "custom" ? (
+          <ShareButton
+            wordbookId={book.id}
+            initialShared={book.is_shared ?? false}
+            initialCode={book.share_code ?? null}
+          />
+        ) : (
+          <p className="text-[11px] text-navy-400 text-center">
+            教材からインポートした単語帳は共有できません。自分で作成した単語帳のみ共有可能です。
+          </p>
+        )}
       </div>
 
       <DeleteWordbookButton wordbookId={book.id} title={book.title} wordCount={totalCount} />

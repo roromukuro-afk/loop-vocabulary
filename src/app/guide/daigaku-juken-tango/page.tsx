@@ -4,13 +4,14 @@ import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
+import { ExamInfoDisclaimer } from "@/components/guide/ExamInfoDisclaimer";
 
 export const metadata: Metadata = {
-  title: "大学受験英単語の効率的な覚え方【2025年版 共通テスト〜難関大】| Loop Vocabulary",
+  title: "大学受験英単語の効率的な覚え方【共通テスト〜難関大対応】| Loop Vocabulary",
   description: "大学受験（共通テスト・私大・国公立二次）に合格するために必要な英単語数・学習法・単語帳の選び方を徹底解説。SRS×AI解説で最短合格を目指しましょう。",
   alternates: { canonical: "https://loop-vocabulary.app/guide/daigaku-juken-tango" },
   openGraph: {
-    title: "大学受験英単語の効率的な覚え方【2025年版】",
+    title: "大学受験英単語の効率的な覚え方【共通テスト〜難関大対応】",
     description: "共通テスト〜難関大に必要な英単語数・学習法・おすすめ単語帳を解説。",
     url: "https://loop-vocabulary.app/guide/daigaku-juken-tango",
     type: "article",
@@ -67,12 +68,12 @@ const MISTAKES = [
 const JSON_LD = {
   "@context": "https://schema.org",
   "@type": "Article",
-  "headline": "大学受験英単語の効率的な覚え方【2025年版 共通テスト〜難関大】",
+  "headline": "大学受験英単語の効率的な覚え方【共通テスト〜難関大対応】",
   "description": "大学受験に合格するために必要な英単語数・学習法・単語帳の選び方を徹底解説。",
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-09-01",
-  "dateModified": "2025-01-15",
+  "dateModified": "2026-07-12",
   "url": "https://loop-vocabulary.app/guide/daigaku-juken-tango",
 };
 
@@ -80,7 +81,7 @@ export default function DaigakuJukenPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="daigaku-juken-tango" />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"大学受験英単語の効率的な覚え方【2025年版 共通テスト〜難関大】","item":"https://loop-vocabulary.app/guide/daigaku-juken-tango"}]}) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"大学受験英単語の効率的な覚え方【共通テスト〜難関大対応】","item":"https://loop-vocabulary.app/guide/daigaku-juken-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       {/* ヘッダー */}
@@ -90,7 +91,7 @@ export default function DaigakuJukenPage() {
           <div className="inline-block text-[11px] px-2 py-0.5 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-300 font-semibold mb-3">
             大学受験ガイド
           </div>
-          <h1 className="text-2xl font-black leading-tight">大学受験英単語の<br />効率的な覚え方【2025年版】</h1>
+          <h1 className="text-2xl font-black leading-tight">大学受験英単語の<br />効率的な覚え方</h1>
           <p className="mt-2 text-sm text-navy-300 max-w-sm mx-auto">共通テスト〜早慶・難関国公立まで。合格に必要な語彙数と最短学習戦略を完全解説。</p>
         </div>
       </div>
@@ -121,6 +122,9 @@ export default function DaigakuJukenPage() {
                 <p className="text-[11px] text-navy-500 leading-relaxed border-t border-navy-100 pt-2 mt-1">{lv.tip}</p>
               </div>
             ))}
+          </div>
+          <div className="mt-4">
+            <ExamInfoDisclaimer kind="university" />
           </div>
         </div>
 

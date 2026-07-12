@@ -4,6 +4,7 @@ import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
+import { ExamInfoDisclaimer } from "@/components/guide/ExamInfoDisclaimer";
 
 export const metadata: Metadata = {
   title: "TOEIC頻出単語・語彙対策【スコア別必須リスト】| Loop Vocabulary",
@@ -137,6 +138,9 @@ export default function ToeicTangoPage() {
               </div>
             ))}
           </div>
+          <div className="mt-4">
+            <ExamInfoDisclaimer kind="toeic" />
+          </div>
         </div>
 
         {/* スコア帯別単語 */}
@@ -247,8 +251,8 @@ export default function ToeicTangoPage() {
         <GuideMaterialCTA
           heading="TOEICの単語帳を無料でインポート"
           materials={[
-            { id: "96d6e5a2-c0f5-48b1-8eed-14a91424790f", title: "TOEIC頻出単語600" },
-            { id: "00000000-0000-0000-0000-000000000031", title: "TOEIC 頻出単語 800" },
+            { id: "96d6e5a2-c0f5-48b1-8eed-14a91424790f", title: "TOEIC頻出基礎単語" },
+            { id: "00000000-0000-0000-0000-000000000031", title: "TOEIC 頻出単語 2500" },
           ]}
         />
       </div>

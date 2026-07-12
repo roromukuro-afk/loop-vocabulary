@@ -15,8 +15,17 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: book } = await supabase.from("word_books").select("id, share_code, is_shared").eq("id", id).eq("user_id", user.id).maybeSingle();
+  const { data: book } = await supabase.from("word_books").select("id, share_code, is_shared, source_type").eq("id", id).eq("user_id", user.id).maybeSingle();
   if (!book) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // 市販教材（source_type !== "custom"）由来の単語帳は、無断再配布防止のため共有不可。
+  // 詳細: SHARED_WORDBOOKS_DESIGN.md 4章。
+  if (book.source_type !== "custom") {
+    return NextResponse.json(
+      { error: "許諾教材からインポートした単語帳は共有できません。自分で作成した単語帳のみ共有可能です。" },
+      { status: 403 }
+    );
+  }
 
   const code = book.share_code ?? randomCode();
   const { error } = await supabase.from("word_books").update({ share_code: code, is_shared: true }).eq("id", id);

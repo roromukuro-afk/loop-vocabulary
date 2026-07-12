@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 export const metadata: Metadata = {
   title: "Loop Vocabulary — 無料招待",
   description: "友だちの紹介で Loop Vocabulary に参加しよう。英単語学習×忘却曲線×AI解説が全部無料。",
+  // 招待コードごとに無数のURLが生成される個人・重複コンテンツのためnoindex
+  robots: { index: false, follow: true },
 };
 
 export default async function ReferralPage({

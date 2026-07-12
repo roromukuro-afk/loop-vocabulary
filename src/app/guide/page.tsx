@@ -101,7 +101,7 @@ const GUIDES = [
   },
   {
     slug: "daigaku-juken-tango",
-    title: "大学受験英単語の効率的な覚え方【2024年版】",
+    title: "大学受験英単語の効率的な覚え方【共通テスト〜難関大対応】",
     description: "忘却曲線・SRS・スキマ時間活用など、大学受験に合格する英単語学習法を徹底解説。",
     tag: "大学受験",
     readTime: "5分",

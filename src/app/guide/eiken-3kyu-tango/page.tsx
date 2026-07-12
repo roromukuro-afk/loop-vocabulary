@@ -4,6 +4,7 @@ import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
+import { ExamInfoDisclaimer } from "@/components/guide/ExamInfoDisclaimer";
 
 export const metadata: Metadata = {
   title: "英検3級の単語・語彙対策【頻出800語一覧】| Loop Vocabulary",
@@ -120,13 +121,16 @@ export default function Eiken3KyuPage() {
               <div className="text-[10px] text-emerald-600">必須語彙数</div>
             </div>
             <div className="bg-navy-50 rounded-xl p-3">
-              <div className="text-lg font-black text-navy-700">65%</div>
-              <div className="text-[10px] text-navy-500">合格ライン</div>
+              <div className="text-lg font-black text-navy-700">約65%</div>
+              <div className="text-[10px] text-navy-500">合格ラインの目安（過去傾向）</div>
             </div>
             <div className="bg-sky-50 rounded-xl p-3">
               <div className="text-lg font-black text-sky-700">3〜6ヶ月</div>
               <div className="text-[10px] text-sky-500">学習期間目安</div>
             </div>
+          </div>
+          <div className="mt-4">
+            <ExamInfoDisclaimer kind="eiken" showCseNote />
           </div>
         </div>
 

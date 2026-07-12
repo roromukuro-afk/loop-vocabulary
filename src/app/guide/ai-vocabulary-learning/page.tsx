@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { GuideTracker } from "@/components/guide/GuideTracker";
+import { GuideByline } from "@/components/guide/GuideByline";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
@@ -159,6 +160,13 @@ export default function AiVocabularyLearningPage() {
             <li>AI機能の利用が特定の試験のスコア向上を保証するものではありません。</li>
           </ul>
         </div>
+
+        <GuideByline
+          targetAudience="AI解説・AI弱点分析などをどう使えば学習効率が上がるか知りたい英語学習者向け"
+          sources="Loop Vocabulary内のAI機能（弱点分析・学習プラン・単語抽出）の仕様に基づく一次情報です。効果の大きさは個人差があり、成績向上を保証するものではありません。"
+          lastUpdated="2026-07-12"
+          changelog={[{ date: "2026-07-12", note: "対象者・出典・更新履歴セクションを追加" }]}
+        />
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <div className="text-sm font-bold text-navy-800 mb-2">よくある質問</div>

@@ -13,8 +13,9 @@ export default async function PdfPage({
   const { user, supabase } = await requireUser();
   const sp = await searchParams;
   const [books, materials] = await Promise.all([
-    supabase.from("word_books").select("id, title").eq("user_id", user.id).order("updated_at", { ascending: false }),
-    supabase.from("materials").select("id, title").eq("is_public", true).in("license_status", ["approved", "original"]),
+    supabase.from("word_books").select("id, title, source_type, source_material_id").eq("user_id", user.id).order("updated_at", { ascending: false }),
+    // publisher/author も取得し、教材由来の出典表示（著作権・出典明記対応）に使う
+    supabase.from("materials").select("id, title, publisher, author").eq("is_public", true).in("license_status", ["approved", "original"]),
   ]);
 
   return (

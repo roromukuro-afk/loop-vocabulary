@@ -188,7 +188,7 @@ export default function UniversityExamVocabularyPage() {
           <div className="text-sm font-bold text-navy-700 mb-3">関連ガイド</div>
           <div className="space-y-2">
             {[
-              { href: "/guide/daigaku-juken-tango", tag: "大学受験", title: "大学受験英単語の効率的な覚え方【2025年版】" },
+              { href: "/guide/daigaku-juken-tango", tag: "大学受験", title: "大学受験英単語の効率的な覚え方【共通テスト〜難関大対応】" },
               { href: "/guide/ai-vocabulary-learning", tag: "AI活用", title: "AIを使った英単語学習法" },
               { href: "/guide/spaced-repetition-english-vocabulary", tag: "学習法", title: "忘却曲線と復習タイミングの科学" },
             ].map((r) => (

@@ -4,6 +4,7 @@ import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
+import { ExamInfoDisclaimer } from "@/components/guide/ExamInfoDisclaimer";
 
 export const metadata: Metadata = {
   title: "英検2級 単語対策【頻出1,500語カテゴリ別解説】| Loop Vocabulary",
@@ -145,13 +146,16 @@ export default function Eiken2KyuPage() {
               <div className="text-[10px] text-navy-500">必須語彙数</div>
             </div>
             <div className="bg-emerald-50 rounded-xl p-3">
-              <div className="text-lg font-black text-emerald-700">65%</div>
-              <div className="text-[10px] text-emerald-600">合格ライン</div>
+              <div className="text-lg font-black text-emerald-700">約65%</div>
+              <div className="text-[10px] text-emerald-600">合格ラインの目安（過去傾向）</div>
             </div>
             <div className="bg-amber-50 rounded-xl p-3">
               <div className="text-lg font-black text-amber-700">4〜6ヶ月</div>
               <div className="text-[10px] text-amber-600">学習期間目安</div>
             </div>
+          </div>
+          <div className="mt-4">
+            <ExamInfoDisclaimer kind="eiken" showCseNote />
           </div>
         </div>
 
@@ -270,7 +274,7 @@ export default function Eiken2KyuPage() {
         <GuideMaterialCTA
           heading="英検2級の単語帳を無料でインポート"
           materials={[
-            { id: "f2661c18-fb99-4ec2-888f-30e1fd012da0", title: "英検2級 必須単語800" },
+            { id: "f2661c18-fb99-4ec2-888f-30e1fd012da0", title: "英検2級 基礎単語" },
             { id: "00000000-0000-0000-0000-000000000022", title: "英検2級 重要単語" },
           ]}
         />
