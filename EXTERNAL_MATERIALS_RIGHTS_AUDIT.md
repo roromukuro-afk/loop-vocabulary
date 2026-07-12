@@ -235,3 +235,42 @@ PDF生成ロジックで、教材直接選択時・教材インポート由来�
   横断的に確認することを推奨する（本ラウンドでは005のみ確認）。
 - `license_status="approved"`の実際の許諾根拠（メール・契約書等）をコード外で
   一元管理する運用ルールを `CONTENT_SOURCE_POLICY.md` に定義した。
+
+## 9. 追記(2026-07-12): 出典未記録3教材の一時非公開
+
+`reports/material-count-consistency.md`の監査で、`license_status="approved"`だが
+`publisher`/`author`/`license_note`に加えて`license_id`（`licenses`テーブルとの
+紐付け自体）も無い教材が3件見つかった（1章の4件とは別。1章の4件は簡素とはいえ
+`licenses`行が存在したが、この3件はそれすら無い、より根拠の薄い状態）。
+
+| id | 教材名 | 実収録語数 |
+|---|---|---|
+| `f2661c18-fb99-4ec2-888f-30e1fd012da0` | 英検2級 基礎単語 | 349語 |
+| `5eae7c64-fcb5-4164-99fb-cdb5ce10567c` | 英検準1級 基礎単語 | 265語 |
+| `96d6e5a2-c0f5-48b1-8eed-14a91424790f` | TOEIC頻出基礎単語 | 263語 |
+
+**対応**: AdSense再申請前の安全判断として、上記3件を`materials.is_public = false`に
+変更した（削除ではない）。これにより:
+- `/materials`一覧・`/materials/eiken`・`/materials/toeic`（いずれもis_public=trueで
+  絞り込むクエリ）から自動的に除外される。
+- `/materials/[id]`詳細ページは既存の`.eq("is_public", true)`フィルタにより404を返す
+  （新規のコード変更は不要、既存の非公開教材と同じ挙動）。
+- sitemap.xmlは`materials.is_public=true`のみを動的取得しているため自動的に除外される。
+- 6本のガイド記事（business-english-tango・eiken-1kyu-tango・eiken-2kyu-tango・
+  eiken-jun1-tango・toeic-900ten・toeic-tango）内の`GuideMaterialCTA`が、この3件の
+  ID+タイトルをハードコードで保持し、DB状態を確認せずリンクを描画する実装だったため、
+  該当エントリを削除し、同カテゴリの代替教材（自社ラベル付き、または既に出典表示が
+  確認済みの教材）のみを残すよう修正した。
+
+**再公開の条件**（`scripts/audit/material-count-consistency.mjs`にも同内容を記載し、
+`reports/material-count-consistency.md`の再生成のたびに表示される）:
+1. 出所が自社作成であることを確認できる → `license_note`に記録
+2. 外部由来の場合、公開・PDF/CSV出力・共有利用の許諾範囲を確認できる →
+   `licenses`テーブルに`note`/`approved_by`/`approved_at`を記録し`license_id`を設定
+3. `publisher`/`author`/`license_note`のいずれかを適切に記録する
+   （PDF/CSV出力時の出典表示が空にならないようにするため）
+
+**関連する未対応事項**: `00000000-0000-0000-0000-000000000024`（大学受験英単語1500、
+1553語）も同様に`license_status="approved"`だが出典未記録。ただし今回ユーザーから
+明示的に対象指定された3件には含まれていなかったため、`is_public`は変更していない。
+次回の棚卸し対象として記録する。

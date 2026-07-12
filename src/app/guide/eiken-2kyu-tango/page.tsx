@@ -274,7 +274,6 @@ export default function Eiken2KyuPage() {
         <GuideMaterialCTA
           heading="英検2級の単語帳を無料でインポート"
           materials={[
-            { id: "f2661c18-fb99-4ec2-888f-30e1fd012da0", title: "英検2級 基礎単語" },
             { id: "00000000-0000-0000-0000-000000000022", title: "英検2級 重要単語" },
           ]}
         />

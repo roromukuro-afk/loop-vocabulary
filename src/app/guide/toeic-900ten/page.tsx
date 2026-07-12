@@ -266,7 +266,6 @@ export default function Toeic900TenPage() {
           heading="TOEIC 800点突破の単語帳を無料でインポート"
           materials={[
             { id: "00000000-0000-0000-0000-000000000031", title: "TOEIC 頻出単語 2500" },
-            { id: "96d6e5a2-c0f5-48b1-8eed-14a91424790f", title: "TOEIC頻出基礎単語" },
           ]}
         />
       </div>

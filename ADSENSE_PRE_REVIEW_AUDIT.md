@@ -55,6 +55,8 @@ Google Auto Adsはページ単位でのON/OFFのみ可能なため、`ADS_ALLOWE
 
 `materials`テーブルのうち外部publisher/authorが記録されている4件（VOCABULARISM由来2件、printgenerator.net由来1件、ukaru-eigo.com由来1件）と、市販教材名（ターゲット1900・システム英単語・LEAP）を扱う比較記事群。詳細は `EXTERNAL_MATERIALS_RIGHTS_AUDIT.md` を参照。
 
+**追記(2026-07-12)**: 上記4件よりさらに根拠が薄い（`licenses`テーブルとの紐付け自体が無い）教材3件（英検2級 基礎単語/英検準1級 基礎単語/TOEIC頻出基礎単語）を発見し、出典が確認できるまで`is_public=false`に変更した（削除ではない）。詳細は `EXTERNAL_MATERIALS_RIGHTS_AUDIT.md` §9、再公開条件は同章を参照。
+
 ## 5. 総括（Phase0時点のGO/NO-GO判定材料）
 
 | 観点 | 状態 |
@@ -62,7 +64,7 @@ Google Auto Adsはページ単位でのON/OFFのみ可能なため、`ADS_ALLOWE
 | 教材名と実語数の不整合 | ✅ 解消（4件修正、監査スクリプト常設） |
 | noindex漏れ | ✅ 主要な漏れ(5パス)を解消。認証必須ページのmeta明示は次回 |
 | 試験情報の正確性 | 🔶 Phase2で主要記事を修正中（詳細は個別ドキュメント） |
-| 権利リスク | 🔶 Phase3で監査・disclaimer整備中 |
+| 権利リスク | 🔶 Phase3で監査・disclaimer整備中。出典未記録3件は出典確認まで非公開化済み(2026-07-12) |
 | プライバシー/CMP/広告開示 | 🔶 Phase5で監査済み。AdSense管理画面側の確認項目あり |
 
 最終的なGO/NO-GO判断は `GROWTH_90_DAY_ROADMAP.md` のWeek1-2チェックリストを参照。

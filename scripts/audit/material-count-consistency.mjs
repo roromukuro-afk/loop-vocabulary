@@ -124,12 +124,36 @@ function toMarkdown({ results, mismatches, needsSourceDoc }) {
     lines.push("");
     lines.push("これらは自社データか外部データか判別できないため、人間による出典確認が必要です。");
     lines.push("");
-    lines.push("| id | title | actual words |");
-    lines.push("|---|---|---|");
+    lines.push("| id | title | actual words | is_public |");
+    lines.push("|---|---|---|---|");
     for (const r of needsSourceDoc) {
-      lines.push(`| ${r.id} | ${r.title} | ${r.actualCount} |`);
+      lines.push(`| ${r.id} | ${r.title} | ${r.actualCount} | ${r.is_public} |`);
     }
     lines.push("");
+
+    const restricted = needsSourceDoc.filter((r) => !r.is_public);
+    if (restricted.length > 0) {
+      lines.push("### 一時非公開の対応状況");
+      lines.push("");
+      lines.push(
+        "2026-07-12: 出典未記録のまま`license_status=approved`だった以下の教材は、AdSense再申請前の" +
+        "安全判断として`is_public=false`に変更済み（削除ではない）。sitemap・/materials一覧・カテゴリLP" +
+        "（/materials/eiken・/materials/toeic）・関連ガイド記事のCTAカードからは除外され、詳細ページは" +
+        "既存の`materials/[id]/page.tsx`の`is_public=true`フィルタにより404となる。",
+      );
+      lines.push("");
+      for (const r of restricted) {
+        lines.push(`- ${r.title}（${r.id}）`);
+      }
+      lines.push("");
+      lines.push("**再公開の条件**（いずれかを満たし、対応するDBフィールドを記録すること）:");
+      lines.push("1. 出所が自社作成であることを確認できる → `license_note`に記録");
+      lines.push("2. 外部由来の場合、公開・PDF/CSV出力・共有利用の許諾範囲を確認できる → `licenses`テーブルに`note`/`approved_by`/`approved_at`を記録し`license_id`を設定");
+      lines.push("3. `publisher`/`author`/`license_note`のいずれかを適切に記録する（PDF/CSV出力時に出典表示が空にならないようにするため）");
+      lines.push("");
+      lines.push("詳細は `EXTERNAL_MATERIALS_RIGHTS_AUDIT.md` を参照。");
+      lines.push("");
+    }
   }
 
   return lines.join("\n");

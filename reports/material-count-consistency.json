@@ -228,7 +228,7 @@
     {
       "id": "96d6e5a2-c0f5-48b1-8eed-14a91424790f",
       "title": "TOEIC頻出基礎単語",
-      "is_public": true,
+      "is_public": false,
       "license_status": "approved",
       "publisher": null,
       "author": null,
@@ -468,7 +468,7 @@
     {
       "id": "f2661c18-fb99-4ec2-888f-30e1fd012da0",
       "title": "英検2級 基礎単語",
-      "is_public": true,
+      "is_public": false,
       "license_status": "approved",
       "publisher": null,
       "author": null,
@@ -543,7 +543,7 @@
     {
       "id": "5eae7c64-fcb5-4164-99fb-cdb5ce10567c",
       "title": "英検準1級 基礎単語",
-      "is_public": true,
+      "is_public": false,
       "license_status": "approved",
       "publisher": null,
       "author": null,
@@ -696,7 +696,7 @@
     {
       "id": "96d6e5a2-c0f5-48b1-8eed-14a91424790f",
       "title": "TOEIC頻出基礎単語",
-      "is_public": true,
+      "is_public": false,
       "license_status": "approved",
       "publisher": null,
       "author": null,
@@ -726,7 +726,7 @@
     {
       "id": "f2661c18-fb99-4ec2-888f-30e1fd012da0",
       "title": "英検2級 基礎単語",
-      "is_public": true,
+      "is_public": false,
       "license_status": "approved",
       "publisher": null,
       "author": null,
@@ -741,7 +741,7 @@
     {
       "id": "5eae7c64-fcb5-4164-99fb-cdb5ce10567c",
       "title": "英検準1級 基礎単語",
-      "is_public": true,
+      "is_public": false,
       "license_status": "approved",
       "publisher": null,
       "author": null,

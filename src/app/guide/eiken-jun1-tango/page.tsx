@@ -243,7 +243,6 @@ export default function EikenJun1Page() {
         <GuideMaterialCTA
           heading="英検準1級の単語帳を無料でインポート"
           materials={[
-            { id: "5eae7c64-fcb5-4164-99fb-cdb5ce10567c", title: "英検準1級 基礎単語" },
             { id: "00000000-0000-0000-0000-000000000023", title: "英検準1級 重要単語" },
           ]}
         />
