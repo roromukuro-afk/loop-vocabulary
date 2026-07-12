@@ -93,7 +93,7 @@ export default async function DictionaryPage() {
       <div className="mt-4 bg-white border border-navy-100 rounded-2xl px-4 py-3" data-testid="dictionary-popular-words">
         <p className="text-xs font-bold text-navy-700 mb-2">よく調べられる単語</p>
         <div className="flex flex-wrap gap-1.5">
-          {PILOT_WORDS.map((w) => (
+          {PILOT_WORDS.filter((w) => w.isIndexEligible).map((w) => (
             <TrackedLink
               key={w.slug}
               href={`/dictionary/${w.slug}`}

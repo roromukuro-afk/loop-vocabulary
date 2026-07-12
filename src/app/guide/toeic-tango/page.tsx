@@ -111,9 +111,16 @@ export default function ToeicTangoPage() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 mt-6 space-y-5">
+        <div className="bg-white rounded-2xl border border-navy-100 p-5">
+          <p className="text-base font-semibold text-navy-800 leading-relaxed">
+            結論: TOEICのスコアは語彙力に大きく左右されます。目標スコアに応じた語彙数（600点で3,000語、730点で5,000語、860点で7,000語が目安）を、Part5の語彙問題対策と読解速度の両面から押さえることが最短ルートです。
+          </p>
+        </div>
+
         {/* 概要 */}
         <div className="bg-white rounded-2xl border border-navy-100 p-5">
           <h2 className="font-black text-navy-800 text-lg mb-2">TOEICと語彙の関係</h2>
+          <p className="text-sm font-semibold text-navy-800 mb-2">語彙力がスコアの30〜40%を左右すると言われています。</p>
           <p className="text-sm text-navy-600 leading-relaxed">
             TOEIC L&Rテストでは語彙力がスコアの30〜40%を左右すると言われています。Part5（文法・語彙）で直接問われるほか、Part3・4（会話・説明）や Part7（長文）での読解速度も語彙力に直結。目標スコアに合わせた語彙数の習得が最短合格への道です。
           </p>

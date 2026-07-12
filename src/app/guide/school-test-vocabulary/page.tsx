@@ -87,7 +87,14 @@ export default function SchoolTestVocabularyPage() {
       <div className="max-w-2xl mx-auto px-4 -mt-4 space-y-5">
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <p className="text-base font-semibold text-navy-800 leading-relaxed">
+            結論: 定期テスト前は範囲すべてを完璧に覚えようとせず、「見て意味がすぐ思い出せない単語」だけを洗い出して復習対象を絞ることが、短期間でも効果を出すコツです。
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <h2 className="font-black text-navy-800 text-lg mb-3">テスト範囲がバラバラで復習しづらい</h2>
+          <p className="text-sm font-semibold text-navy-800 mb-2">教科書・ワーク・プリントで出典が分散しているためです。</p>
           <p className="text-sm text-navy-700 leading-relaxed">
             定期テストの単語対策で困りやすいのは、教科書・ワーク・プリントなど出典がバラバラで、どこを復習すればいいか整理しにくい点です。すべてを完璧に覚えようとすると範囲が広すぎて手が回らなくなるため、まずは「テスト範囲の中で、見て意味がすぐ思い出せない単語」だけを洗い出して復習対象を絞ることが重要です。
           </p>

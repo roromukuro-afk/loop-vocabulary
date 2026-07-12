@@ -92,7 +92,14 @@ export default function HowToMemorizeEnglishWordsPage() {
       <div className="max-w-2xl mx-auto px-4 -mt-4 space-y-5">
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <p className="text-base font-semibold text-navy-800 leading-relaxed">
+            結論: 英単語は「見て分かる（再認）」だけでなく「見ずに思い出せる（想起）」練習をすることで忘れにくくなります。答えを隠してから自分の力で思い出す習慣に切り替えるのが、最も効果の大きい一歩です。
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <h2 className="font-black text-navy-800 text-lg mb-3">なぜ「覚えたはず」なのに思い出せないのか</h2>
+          <p className="text-sm font-semibold text-navy-800 mb-2">再認と想起という別の力を鍛える練習をしているためです。</p>
           <p className="text-sm text-navy-700 leading-relaxed">
             単語帳を何周もしたのに、テストになると意味が出てこない。これは記憶力の問題というより、練習していた作業とテストで求められる作業がズレていることが原因のことが多いです。単語帳を眺める・日本語訳を読む作業は「見れば思い出せる」という<strong>再認（recognition）</strong>の力を鍛えます。一方でテストや長文読解、会話で必要なのは、手がかりなしで意味を引き出す<strong>想起（recall）</strong>の力です。この2つは似ているようで別の作業であり、再認だけを繰り返しても想起力はあまり伸びません。
           </p>

@@ -25,6 +25,7 @@ const NO_AD_PATHS = [
   "/pdf",
   "/premium",
   "/contact",
+  "/reports",
 ];
 
 function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; }

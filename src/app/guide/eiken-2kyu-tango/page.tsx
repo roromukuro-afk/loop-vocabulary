@@ -126,9 +126,16 @@ export default function Eiken2KyuPage() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 mt-6 space-y-5">
+        <div className="bg-white rounded-2xl border border-navy-100 p-5">
+          <p className="text-base font-semibold text-navy-800 leading-relaxed">
+            結論: 英検2級の語彙問題（大問1）は25問と配点比率が高く、1,500〜2,500語程度をテーマ別（社会・環境・医療・テクノロジー等）に学習するのが効果的です。
+          </p>
+        </div>
+
         {/* 概要 */}
         <div className="bg-white rounded-2xl border border-navy-100 p-5">
           <h2 className="font-black text-navy-800 text-lg mb-2">英検2級の語彙レベル</h2>
+          <p className="text-sm font-semibold text-navy-800 mb-2">高校卒業レベルの語彙力、目安1,500〜2,500語が必要です。</p>
           <p className="text-sm text-navy-600 leading-relaxed">
             英検2級は高校卒業レベルの英語力が目安。語彙問題（大問1）は25問で、全体スコアへの影響が最も大きいパートです。単語は<strong>1,500〜2,500語</strong>程度が必要で、社会・環境・医療・テクノロジーなどのテーマに沿ったカテゴリ別学習が最も効果的です。
           </p>

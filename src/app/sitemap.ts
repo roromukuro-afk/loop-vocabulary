@@ -5,6 +5,10 @@ import { PILOT_WORDS } from "@/lib/dictionaryWords/pilotWords";
 
 const GUIDE_SLUGS = [
   "vocabulary-quiz-pdf-for-teachers",
+  "english-vocabulary-quiz-maker",
+  "printable-english-vocabulary-test",
+  "juku-vocabulary-test",
+  "high-school-english-vocabulary-test",
   "how-to-memorize-english-words",
   "spaced-repetition-english-vocabulary",
   "flashcards-vs-multiple-choice",
@@ -68,6 +72,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: base,                         lastModified: now, changeFrequency: "weekly",  priority: 1.0 },
     { url: `${base}/about`,              lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/press`,              lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${base}/reports`,            lastModified: now, changeFrequency: "monthly", priority: 0.4 },
     { url: `${base}/vocab-check`,        lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/vocab-check/eiken`,  lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/vocab-check/toeic`,  lastModified: now, changeFrequency: "monthly", priority: 0.7 },

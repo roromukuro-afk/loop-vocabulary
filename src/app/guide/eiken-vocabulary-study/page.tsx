@@ -91,7 +91,14 @@ export default function EikenVocabularyStudyPage() {
       <div className="max-w-2xl mx-auto px-4 -mt-4 space-y-5">
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <p className="text-base font-semibold text-navy-800 leading-relaxed">
+            結論: 英検対策で語彙力を左右するのは単語帳選びではなく復習の仕方です。3級から1級まで共通して使える型は、自己想起での確認→音声での聞き取り→AIでの弱点分析、という3ステップです。
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <h2 className="font-black text-navy-800 text-lg mb-3">単語帳を「選ぶ」だけでは合格に近づかない</h2>
+          <p className="text-sm font-semibold text-navy-800 mb-2">語彙力を左右するのは単語帳の種類ではなく復習の仕方だからです。</p>
           <p className="text-sm text-navy-700 leading-relaxed">
             英検対策というと「どの単語帳を使うか」に注目しがちですが、実際に語彙力を左右するのは<strong>どう復習するか</strong>です。単語帳を1周しただけでは記憶は定着せず、語彙問題（短文空所補充）やリスニング、長文読解のいずれでも得点に結びつきません。級ごとの必要語彙数やおすすめ教材は各級別ガイドに譲り、このページでは3級から1級まで共通して使える復習の型を解説します。
           </p>

@@ -91,7 +91,14 @@ export default function SpacedRepetitionPage() {
       <div className="max-w-2xl mx-auto px-4 -mt-4 space-y-5">
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <p className="text-base font-semibold text-navy-800 leading-relaxed">
+            結論: 完全に忘れる前、思い出すのに少し苦労するタイミングで復習すると記憶が定着しやすくなります。このタイミングを単語ごとに自動で計算する仕組みがSRS（間隔反復システム）です。
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <h2 className="font-black text-navy-800 text-lg mb-3">なぜ「復習のタイミング」が重要なのか</h2>
+          <p className="text-sm font-semibold text-navy-800 mb-2">早すぎると意味が薄く、遅すぎると覚え直しになるためです。</p>
           <p className="text-sm text-navy-700 leading-relaxed">
             単語は覚えた直後から少しずつ忘れていきます。早すぎるタイミングで復習すると「まだ覚えている」状態での確認になり時間の無駄が多く、逆に遅すぎると一から覚え直しになってしまいます。エビングハウスの忘却曲線が示すのは、「完全に忘れる前、思い出すのに少し苦労するタイミング」で復習すると、記憶の定着効率が良いという考え方です。この「ちょうどいいタイミング」を単語ごとに手作業で管理するのは現実的ではないため、SRS（Spaced Repetition System・間隔反復システム）という仕組みが使われます。
           </p>

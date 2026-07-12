@@ -10,6 +10,7 @@ import {
   trackVocabCheckShareClick,
   trackVocabCheckCtaClick,
 } from "@/lib/analytics/events";
+import { VocabCheckShareCard } from "@/components/vocabCheck/VocabCheckShareCard";
 
 type Question = { word: string; answer: string; choices: string[]; level: string };
 
@@ -108,19 +109,21 @@ export function EikenVocabRunner() {
     return (
       <div className="min-h-dvh bg-gradient-to-b from-emerald-50 to-white px-4 py-10">
         <div className="max-w-md mx-auto">
-          <div className="text-center">
-            <div className="text-5xl mb-3">📚</div>
+          <div className="text-center mb-4">
             <h1 className="text-2xl font-black text-navy-800">英検 語彙力チェック結果</h1>
-            <div className={`mt-3 text-3xl font-black ${result.color}`}>{result.label}</div>
-            <div className="mt-2 text-lg font-bold text-navy-800">{correct}<span className="text-sm text-navy-400 font-normal"> / 20問 正解</span></div>
-            <p className="mt-2 text-sm text-navy-600">{result.message}</p>
-            {strong && weak && strong !== weak && (
-              <div className="mt-3 flex justify-center gap-2 text-xs" data-testid="vocab-check-strength">
-                <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold">得意: {strong}級</span>
-                <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-semibold">苦手: {weak}級</span>
-              </div>
-            )}
+            <p className="mt-1 text-sm text-navy-600">{result.message}</p>
           </div>
+
+          <VocabCheckShareCard
+            emoji="📚"
+            levelLabel={result.label}
+            correct={correct}
+            total={QUESTIONS.length}
+            strong={strong ? `${strong}級` : null}
+            weak={weak ? `${weak}級` : null}
+            nextAction="苦手な級の単語を中心に、無料登録して単語帳で復習する"
+            colorClass={result.color}
+          />
 
           <div className="mt-8 bg-white rounded-2xl border border-navy-100 shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-navy-50">

@@ -172,6 +172,24 @@ async function main() {
 
     console.log("\n=== 43. 広告プレースホルダー安全確認 E2E ===");
     results.adsenseSafePlacements = runNode("scripts/testing/e2e/adsense-safe-placements.mjs");
+
+    console.log("\n=== 44. 辞書50語拡張・品質ゲート E2E ===");
+    results.dictionaryProgrammaticQuality = runNode("scripts/testing/e2e/dictionary-programmatic-quality.mjs");
+
+    console.log("\n=== 45. 先生向け新規SEOページ4本 E2E ===");
+    results.teacherSeoPages = runNode("scripts/testing/e2e/teacher-seo-pages.mjs");
+
+    console.log("\n=== 46. guide記事AEO強化 E2E ===");
+    results.guideAeoBlocks = runNode("scripts/testing/e2e/guide-aeo-blocks.mjs");
+
+    console.log("\n=== 47. 語彙力チェックシェアカード E2E ===");
+    results.vocabCheckShareCard = runNode("scripts/testing/e2e/vocab-check-share-card.mjs");
+
+    console.log("\n=== 48. ショート動画台本キュー データ整合性 ===");
+    results.shortVideoContentQueue = runNode("scripts/testing/test-short-video-content-queue.mjs");
+
+    console.log("\n=== 49. /reports（準備中）ページ E2E ===");
+    results.reportsPage = runNode("scripts/testing/e2e/reports-page.mjs");
   } finally {
     stopDevServer(dev);
   }

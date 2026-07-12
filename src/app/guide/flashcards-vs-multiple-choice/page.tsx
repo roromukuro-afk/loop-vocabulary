@@ -91,7 +91,14 @@ export default function FlashcardsVsMultipleChoicePage() {
       <div className="max-w-2xl mx-auto px-4 -mt-4 space-y-5">
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <p className="text-base font-semibold text-navy-800 leading-relaxed">
+            結論: 4択は消去法や見覚えでも正解できてしまうため、自力で意味を思い出す力を測るにはフラッシュカードでの自己想起が向いています。4択は仕上げの確認、フラッシュカードは覚える段階の練習、と使い分けるのが効果的です。
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <h2 className="font-black text-navy-800 text-lg mb-3">4択で正解できても安心できない理由</h2>
+          <p className="text-sm font-semibold text-navy-800 mb-2">消去法や見覚えだけで正解できてしまうことがあるためです。</p>
           <p className="text-sm text-navy-700 leading-relaxed">
             4択問題は「正しい選択肢を選ぶ」形式です。このとき、単語の意味を完全に思い出せていなくても、明らかにおかしい選択肢を消去したり、なんとなく見覚えのある選択肢を選んだりするだけで正解できてしまうことがあります。つまり4択の正答率は、必ずしも「自力で意味を思い出せる力」を反映しているとは限りません。長文読解や英作文、リスニングでは選択肢は用意されていないため、4択だけで学習を終えると本番で実力が発揮できない、というギャップが生まれやすくなります。
           </p>
@@ -115,6 +122,41 @@ export default function FlashcardsVsMultipleChoicePage() {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-3">形式別の比較表</h2>
+          <table className="w-full text-sm text-navy-700 border-collapse">
+            <thead>
+              <tr className="border-b border-navy-100">
+                <th className="text-left py-2 font-bold text-navy-800">形式</th>
+                <th className="text-left py-2 font-bold text-navy-800">想起の負荷</th>
+                <th className="text-left py-2 font-bold text-navy-800">向いている用途</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-navy-50">
+                <td className="py-2">フラッシュカード</td>
+                <td className="py-2">高い</td>
+                <td className="py-2">覚える段階の練習</td>
+              </tr>
+              <tr className="border-b border-navy-50">
+                <td className="py-2">4択テスト</td>
+                <td className="py-2">低い</td>
+                <td className="py-2">仕上げの確認・試験形式に慣れる</td>
+              </tr>
+              <tr className="border-b border-navy-50">
+                <td className="py-2">入力（タイピング）</td>
+                <td className="py-2">最も高い</td>
+                <td className="py-2">スペルを書く力の確認</td>
+              </tr>
+              <tr>
+                <td className="py-2">リスニング</td>
+                <td className="py-2">高い</td>
+                <td className="py-2">聞いて分かる力の確認</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         <div className="bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-200 rounded-2xl p-5">

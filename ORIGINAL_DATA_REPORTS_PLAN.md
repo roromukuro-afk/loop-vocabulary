@@ -136,4 +136,56 @@ GA4→BigQueryのエクスポートが使えるようになれば、コード変
 このラウンドでは、上記のいずれのレポートも実データでの計算・公開を行わない。
 Phase 1で追加したGA4イベントの蓄積が始まったばかりであり、6章の最低サンプルサイズに
 遠く及ばないため。次回以降、十分なデータが貯まった時点で本ドキュメントを元に
-実装を検討する。
+実装を検討する。`/reports`ページ（準備中の告知のみ、実データなし）は今回公開した。
+
+---
+
+## 9. 実装寄りの具体化（グロース施策 第2ラウンド追記）
+
+### 9-1. 収集済みイベント（`GROWTH_MEASUREMENT_PLAN.md`参照）
+
+`src/lib/analytics/events.ts`経由でGA4に送信中のイベント: `vocab_check_view` /
+`vocab_check_start` / `vocab_check_answer` / `vocab_check_progress` /
+`vocab_check_result_view` / `vocab_check_share_click` / `vocab_check_cta_click` /
+`dictionary_view` / `dictionary_search_executed` / `dictionary_search_results` /
+`dictionary_search_zero` / `dictionary_word_click` / `word_page_view` /
+`word_page_related_word_click` / `guide_read` / `guide_cta_click` /
+`pdf_generate_start` / `pdf_generate_complete` 等。
+
+### 9-2. どのイベントからどのレポートを作れるか
+
+| レポート | 使えるイベント/データ源 | 現状で作れるか |
+|---|---|---|
+| 忘れられやすい単語ランキング | `words.wrong_count`/`correct_count`（DB） | △ 単語表記の正規化が必要 |
+| 英検級別つまずき単語 | `material_words.level` + `words`の突合 | △ `words`→`material_words`の参照カラムが無い |
+| 語彙力チェック結果の分布 | `vocab_check_result_view`イベント | ○ GA4→BigQueryエクスポートが使えれば集計可能 |
+| 辞書検索されやすい単語 | `dictionary_word_click`イベント（`/dictionary/[word]`のみ）、`dictionary_search_*`は検索語自体を送っていない | △ `/dictionary/[word]`へのクリックのみ集計可能。全文検索語の集計は別途ログが必要 |
+
+### 9-3. 公開条件・最低サンプル数・更新頻度（`/reports`と統一）
+
+- 単語単位の集計: 対象語への回答が**最低100件**貯まるまで非公開
+- レベル別・級別の分布: カテゴリ合計**最低300件**貯まるまで非公開
+- 更新頻度: 月次を基本とする（速報性より正確性を優先し、四半期ごとの見直しも可）
+- 集計期間・対象母数(n=◯◯)を必ず本文に明記する
+
+### 9-4. レポートURL案
+
+- `/reports`（一覧・準備中告知。実装済み）
+- `/reports/forgotten-words`（忘れられやすい英単語ランキング）
+- `/reports/eiken-difficult-words`（英検級別つまずきやすい単語）
+- `/reports/vocab-check-distribution`（語彙力チェック結果の分布）
+- `/reports/searched-words`（辞書検索されやすい英単語ランキング）
+
+### 9-5. noindex/index方針
+
+- `/reports`（一覧）: **index対象**（実データを含まない告知ページのため、薄いコンテンツにはあたらない）
+- 個別レポート（`/reports/[slug]`）: 十分なデータで実際に公開されるまでは**ルート自体を作らない**
+  （空のページをnoindexで先行公開するより、無い方が安全）。公開時点でindex対象にするかは、
+  内容が十分にオリジナル性を持つか（大量の単語ページと同様の判断基準）を都度確認する
+
+### 9-6. レポート用構造化データ案
+
+- `Article`: レポート本文全体
+- `Dataset`: 集計データそのもの（`measurementTechnique`・`temporalCoverage`等でサンプルサイズや集計期間を機械可読にできる）
+- `FAQPage`: 「このデータの取得方法は？」等、想定される質問がある場合のみ
+- `BreadcrumbList`: 他ページと同様

@@ -91,7 +91,14 @@ export default function ListeningAndPronunciationVocabularyPage() {
       <div className="max-w-2xl mx-auto px-4 -mt-4 space-y-5">
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <p className="text-base font-semibold text-navy-800 leading-relaxed">
+            結論: 文字と日本語訳だけで覚えた単語は「文字の記憶」にとどまり、音を聞いても結びつかないことがあります。単語を覚える段階から音声をセットにしておくことで、読めるのに聞き取れないというギャップを小さくできます。
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <h2 className="font-black text-navy-800 text-lg mb-3">「読めるのに聞き取れない」が起きる理由</h2>
+          <p className="text-sm font-semibold text-navy-800 mb-2">文字だけで覚えた単語は、音と結びついていないためです。</p>
           <p className="text-sm text-navy-700 leading-relaxed">
             単語帳で文字と日本語訳だけを繰り返し覚えると、その単語は「文字の記憶」として定着します。ところが実際の英語の音は、つづり通りに発音されないことも多く、文字だけで覚えた単語は音を聞いても結びつかないことがあります。これが「読めば分かるのに、リスニングでは聞き取れない」というギャップの一因です。単語を覚える段階から音声をセットにしておくことで、このギャップを小さくできます。
           </p>

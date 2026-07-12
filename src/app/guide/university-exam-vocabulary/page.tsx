@@ -91,7 +91,14 @@ export default function UniversityExamVocabularyPage() {
       <div className="max-w-2xl mx-auto px-4 -mt-4 space-y-5">
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <p className="text-base font-semibold text-navy-800 leading-relaxed">
+            結論: 受験直前期は新しい単語帳を増やすより、これまで使ってきた単語帳の復習と、模試・過去問で見つかった自分の弱点の補強を優先するのが効果的です。
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <h2 className="font-black text-navy-800 text-lg mb-3">直前期は「増やす」より「絞る」フェーズ</h2>
+          <p className="text-sm font-semibold text-navy-800 mb-2">残り時間で対応できる復習量には限りがあるためです。</p>
           <p className="text-sm text-navy-700 leading-relaxed">
             試験が近づくほど、残り時間で対応できる復習量には限りがあります。この時期に新しい単語帳を何冊も増やすと、どれも中途半端なまま試験当日を迎えてしまうリスクがあります。大切なのは、これまで使ってきた単語帳の復習を優先しつつ、模試や過去問で実際に出会った「自分の弱点」を効率よく拾い上げていくことです。必要な語彙数やレベル別の学習戦略そのものは、大学受験英単語の効率的な覚え方の記事で扱っているため、このページでは直前期に絞った復習の進め方を解説します。
           </p>

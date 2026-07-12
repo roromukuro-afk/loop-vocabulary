@@ -1,0 +1,7887 @@
+{
+  "generatedAt": "2026-07-12",
+  "minMaterialCount": 8,
+  "alreadyPublished": 50,
+  "candidateCount": 429,
+  "candidates": [
+    {
+      "word": "promote",
+      "materialCount": 14,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "高校2年",
+        "英検準2級",
+        "英検2級",
+        "TOEIC標準",
+        "TOEIC",
+        "大学受験標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The event was held to promote local products.",
+      "sampleExampleJa": "そのイベントは地元の商品を促進するために開かれました。",
+      "sampleMeaning": "促進する、昇進させる",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "poverty",
+      "materialCount": 14,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校2年",
+        "大学受験標準",
+        "慶応頻出",
+        "高校中級",
+        "英検3級",
+        "英検2級"
+      ],
+      "sampleExample": "The government is working to reduce poverty.",
+      "sampleExampleJa": "政府は貧困を減らすために取り組んでいます。",
+      "sampleMeaning": "貧困",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "circumstance",
+      "materialCount": 14,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "英検2級"
+      ],
+      "sampleExample": "Under these circumstances, we must be careful.",
+      "sampleExampleJa": "この状況では、私たちは注意しなければなりません。",
+      "sampleMeaning": "状況、事情",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "efficient",
+      "materialCount": 14,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "日常英会話",
+        "高校基礎",
+        "TOEIC標準",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Efficient use of resources saves both time and money.",
+      "sampleExampleJa": "資源の効率的な使用は時間とお金を節約する。",
+      "sampleMeaning": "効率的な（形容詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "fundamental",
+      "materialCount": 14,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "大学受験難関",
+        "高校基礎",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "Reading is a fundamental skill for students.",
+      "sampleExampleJa": "読書は生徒にとって基本的な技能です。",
+      "sampleMeaning": "基本的な、根本的な",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "develop",
+      "materialCount": 13,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "大学受験標準",
+        "TOEIC標準",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "They developed a new app.",
+      "sampleExampleJa": "彼らは新しいアプリを開発した。",
+      "sampleMeaning": "発達する、開発する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "complex",
+      "materialCount": 13,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "TOEIC",
+        "高校基礎",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "This is a complex problem to solve.",
+      "sampleExampleJa": "これは解決するのが複雑な問題です。",
+      "sampleMeaning": "複雑な",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "collaborate",
+      "materialCount": 13,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "英検準1級",
+        "最難関",
+        "高校中級",
+        "TOEIC",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The two organizations will collaborate on environmental protection projects.",
+      "sampleExampleJa": "2つの組織は環境保全プロジェクトで協力する。",
+      "sampleMeaning": "協力する、共同で行う（動詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "identify",
+      "materialCount": 13,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校2年",
+        "英検2級",
+        "英検準2級",
+        "高校基礎",
+        "TOEIC"
+      ],
+      "sampleExample": "The police identified the man in the photo.",
+      "sampleExampleJa": "警察は写真の男性を特定しました。",
+      "sampleMeaning": "特定する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "effective",
+      "materialCount": 13,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "大学受験標準",
+        "TOEIC",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "This is an effective way to study words.",
+      "sampleExampleJa": "これは単語を勉強する効果的な方法です。",
+      "sampleMeaning": "効果的な",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "indicate",
+      "materialCount": 13,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検準2級",
+        "TOEIC基礎",
+        "TOEIC",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "This sign indicates the way to the station.",
+      "sampleExampleJa": "この標識は駅への道を示しています。",
+      "sampleMeaning": "示す",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "organize",
+      "materialCount": 13,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "大学受験標準",
+        "英検準2級",
+        "TOEIC基礎",
+        "TOEIC"
+      ],
+      "sampleExample": "We organized a small party for her.",
+      "sampleExampleJa": "私たちは彼女のために小さなパーティーを開きました。",
+      "sampleMeaning": "組織する、準備する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "reduce",
+      "materialCount": 13,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検準2級",
+        "TOEIC",
+        "英検3級",
+        "共通テスト標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Reduce the amount of sugar.",
+      "sampleExampleJa": "砂糖の量を減らして。",
+      "sampleMeaning": "減らす",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "resource",
+      "materialCount": 13,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎",
+        "TOEIC",
+        "共通テスト標準",
+        "TOEIC基礎",
+        "英検2級"
+      ],
+      "sampleExample": "Water is a precious resource.",
+      "sampleExampleJa": "水は貴重な資源です。",
+      "sampleMeaning": "資源",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "factor",
+      "materialCount": 13,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "TOEIC",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Sleep is an important factor in health.",
+      "sampleExampleJa": "睡眠は健康における重要な要因です。",
+      "sampleMeaning": "要因",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "flexible",
+      "materialCount": 13,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校基礎",
+        "日常英会話",
+        "高校英語上級",
+        "TOEIC",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "My work schedule is quite flexible.",
+      "sampleExampleJa": "私の仕事のスケジュールはかなり柔軟です。",
+      "sampleMeaning": "柔軟な",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "obtain",
+      "materialCount": 13,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校2年",
+        "英検準2級",
+        "高校基礎",
+        "TOEIC",
+        "大学受験難関",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "You can obtain a ticket at the counter.",
+      "sampleExampleJa": "カウンターでチケットを手に入れることができます。",
+      "sampleMeaning": "手に入れる",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "expand",
+      "materialCount": 13,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "高校2年",
+        "大学受験標準",
+        "TOEIC標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The company plans to expand its business abroad.",
+      "sampleExampleJa": "その会社は海外に事業を拡大する計画です。",
+      "sampleMeaning": "拡大する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "eventually",
+      "materialCount": 13,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎",
+        "TOEIC標準",
+        "共通テスト標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "She eventually passed the exam.",
+      "sampleExampleJa": "彼女は最終的に試験に合格しました。",
+      "sampleMeaning": "最終的に",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "survey",
+      "materialCount": 13,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎",
+        "TOEIC基礎",
+        "TOEIC",
+        "高校英語基礎"
+      ],
+      "sampleExample": "The survey shows that many students like reading.",
+      "sampleExampleJa": "その調査は多くの生徒が読書を好むことを示しています。",
+      "sampleMeaning": "調査",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "necessary",
+      "materialCount": 13,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "日常英会話",
+        "大学受験標準",
+        "英検3級",
+        "英検2級",
+        "TOEIC基礎",
+        "共通テスト標準",
+        "中学基礎"
+      ],
+      "sampleExample": "Water is necessary for all living things.",
+      "sampleExampleJa": "水はすべての生き物にとって必要です。",
+      "sampleMeaning": "必要な",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "income",
+      "materialCount": 12,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "大学受験標準",
+        "TOEIC",
+        "高校英語基礎",
+        "英検2級"
+      ],
+      "sampleExample": "His income increased after he changed jobs.",
+      "sampleExampleJa": "転職後、彼の収入は増えました。",
+      "sampleMeaning": "収入",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "include",
+      "materialCount": 12,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "中学基礎",
+        "英検準2級",
+        "大学受験標準",
+        "TOEIC",
+        "高校英語上級",
+        "英検3級",
+        "共通テスト標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The price includes tax.",
+      "sampleExampleJa": "価格には税が含まれている。",
+      "sampleMeaning": "含む",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "provide",
+      "materialCount": 12,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検2級",
+        "大学受験標準",
+        "TOEIC",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The school provides free textbooks.",
+      "sampleExampleJa": "その学校は無料の教科書を提供する。",
+      "sampleMeaning": "提供する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "increase",
+      "materialCount": 12,
+      "exampleCount": 3,
+      "levels": [
+        "中学基礎",
+        "共通テスト標準",
+        "高校基礎",
+        "大学受験標準",
+        "英検3級",
+        "TOEIC",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The number of students increased this year.",
+      "sampleExampleJa": "今年は生徒の数が増えた。",
+      "sampleMeaning": "増える、増やす",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "cause",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検3級",
+        "高校英語基礎",
+        "TOEIC",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "The cause of the fire is still unknown.",
+      "sampleExampleJa": "火事の原因はまだわかっていません。",
+      "sampleMeaning": "原因、引き起こす",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "crucial",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校基礎",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "Sleep plays a crucial role in your health.",
+      "sampleExampleJa": "睡眠はあなたの健康に極めて重要な役割を果たします。",
+      "sampleMeaning": "極めて重要な",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "emphasize",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校基礎",
+        "高校英語上級",
+        "TOEIC",
+        "英検2級"
+      ],
+      "sampleExample": "The teacher emphasized the importance of practice.",
+      "sampleExampleJa": "先生は練習の重要性を強調しました。",
+      "sampleMeaning": "強調する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "negotiate",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "大学受験難関",
+        "英検2級",
+        "TOEIC基礎",
+        "高校基礎",
+        "TOEIC"
+      ],
+      "sampleExample": "Negotiate a better deal.",
+      "sampleExampleJa": "より良い条件で交渉する。",
+      "sampleMeaning": "交渉する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "clarify",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "英検2級",
+        "TOEIC基礎",
+        "高校基礎",
+        "TOEIC標準",
+        "英検準1級"
+      ],
+      "sampleExample": "The teacher clarified the complex concept for confused students.",
+      "sampleExampleJa": "先生は困惑した学生のために複雑な概念を明確にした。",
+      "sampleMeaning": "明確にする、説明する（動詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "complete",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "英検準2級",
+        "TOEIC",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "She completed her homework before dinner.",
+      "sampleExampleJa": "彼女は夕食前に宿題を終わらせました。",
+      "sampleMeaning": "完成させる",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "contribute",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "英検準2級",
+        "高校基礎",
+        "TOEIC",
+        "英検3級",
+        "大学受験標準",
+        "英検2級"
+      ],
+      "sampleExample": "Everyone contributed to the success of the festival.",
+      "sampleExampleJa": "全員がその祭りの成功に貢献しました。",
+      "sampleMeaning": "貢献する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "encourage",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "英検準2級",
+        "高校基礎",
+        "TOEIC",
+        "共通テスト標準"
+      ],
+      "sampleExample": "My coach always encourages me to try again.",
+      "sampleExampleJa": "私のコーチはいつも私にもう一度挑戦するよう励ましてくれます。",
+      "sampleMeaning": "励ます",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "handle",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC基礎",
+        "英検準2級",
+        "日常英会話",
+        "TOEIC標準",
+        "英検3級",
+        "TOEIC",
+        "高校英語基礎",
+        "大学受験標準"
+      ],
+      "sampleExample": "She handled the problem calmly.",
+      "sampleExampleJa": "彼女はその問題を冷静に処理しました。",
+      "sampleMeaning": "扱う、処理する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "respond",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検準2級",
+        "TOEIC",
+        "英検3級",
+        "大学受験難関",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "He responded to my email quickly.",
+      "sampleExampleJa": "彼は私のメールに素早く返信しました。",
+      "sampleMeaning": "返答する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "realize",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検準2級",
+        "大学受験標準",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "I realized my mistake.",
+      "sampleExampleJa": "自分のミスに気づいた。",
+      "sampleMeaning": "気づく、実現する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "revenue",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "ビジネス基礎",
+        "TOEIC",
+        "共通テスト標準",
+        "英検準1級",
+        "TOEIC基礎",
+        "英検2級"
+      ],
+      "sampleExample": "Revenue increased by fifteen percent last quarter.",
+      "sampleExampleJa": "前四半期に収益は15パーセント増加しました。",
+      "sampleMeaning": "収益",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "suggest",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "英検準2級",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "I suggest a different plan.",
+      "sampleExampleJa": "別の計画を提案する。",
+      "sampleMeaning": "提案する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "responsibility",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校英語上級",
+        "TOEIC標準",
+        "ビジネス基礎",
+        "共通テスト標準",
+        "TOEIC基礎",
+        "英検2級"
+      ],
+      "sampleExample": "Her responsibilities include managing the budget.",
+      "sampleExampleJa": "彼女の職務には予算管理が含まれます。",
+      "sampleMeaning": "責任、職務",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "address",
+      "materialCount": 12,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "英検3級",
+        "日常会話",
+        "英検5・4級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Please write your address here.",
+      "sampleExampleJa": "ここにあなたの住所を書いてください。",
+      "sampleMeaning": "住所",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "conflict",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "TOEIC",
+        "大学受験標準",
+        "英検2級"
+      ],
+      "sampleExample": "International conflicts often impact economic markets.",
+      "sampleExampleJa": "国際紛争はしばしば経済市場に影響を与える。",
+      "sampleMeaning": "紛争、対立（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "effect",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "The medicine had a good effect on him.",
+      "sampleExampleJa": "その薬は彼に良い効果がありました。",
+      "sampleMeaning": "効果、影響",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "establish",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "英検準2級",
+        "高校基礎",
+        "TOEIC標準",
+        "共通テスト標準",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The school was established in 1950.",
+      "sampleExampleJa": "その学校は1950年に設立されました。",
+      "sampleMeaning": "設立する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "legislation",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "慶応頻出",
+        "高校中級",
+        "TOEIC",
+        "共通テスト標準",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "The country passed new legislation last year.",
+      "sampleExampleJa": "その国は去年新しい法律を制定しました。",
+      "sampleMeaning": "法律、立法",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "transfer",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "大学受験標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "He was transferred to the Osaka branch.",
+      "sampleExampleJa": "彼は大阪支店に異動しました。",
+      "sampleMeaning": "異動させる、転送する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "global",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "高校2年",
+        "TOEIC",
+        "英検3級",
+        "大学受験標準",
+        "英検2級"
+      ],
+      "sampleExample": "This is a global problem.",
+      "sampleExampleJa": "これは地球規模の問題です。",
+      "sampleMeaning": "地球規模の",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "manage",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検準2級",
+        "日常英会話",
+        "英検3級",
+        "TOEIC"
+      ],
+      "sampleExample": "She manages a small coffee shop.",
+      "sampleExampleJa": "彼女は小さな喫茶店を経営しています。",
+      "sampleMeaning": "経営する、何とかやる",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "relevant",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "共通テスト標準",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "This information is not relevant to our topic.",
+      "sampleExampleJa": "この情報は私たちの話題に関連していません。",
+      "sampleMeaning": "関連性のある",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "represent",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "高校2年",
+        "英検準2級",
+        "TOEIC",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "She will represent our school at the contest.",
+      "sampleExampleJa": "彼女はコンテストで私たちの学校を代表します。",
+      "sampleMeaning": "代表する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "various",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "The shop sells various kinds of bread.",
+      "sampleExampleJa": "その店ではさまざまな種類のパンを売っています。",
+      "sampleMeaning": "さまざまな",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "participate",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校2年",
+        "英検準2級",
+        "高校基礎",
+        "TOEIC",
+        "英検3級",
+        "大学受験標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "More than 100 students participated in the event.",
+      "sampleExampleJa": "100人以上の生徒がそのイベントに参加しました。",
+      "sampleMeaning": "参加する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "structure",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校2年",
+        "高校基礎",
+        "TOEIC",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "The structure of this sentence is difficult.",
+      "sampleExampleJa": "この文の構造は難しいです。",
+      "sampleMeaning": "構造",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "adequate",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "英検準1級",
+        "高校基礎",
+        "TOEIC",
+        "大学受験難関",
+        "英検2級",
+        "TOEIC基礎",
+        "大学受験標準"
+      ],
+      "sampleExample": "The funding provided was adequate to complete the project.",
+      "sampleExampleJa": "提供された資金はプロジェクトを完了するのに十分だった。",
+      "sampleMeaning": "十分な、適切な（形容詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "highlight",
+      "materialCount": 12,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "高校基礎",
+        "TOEIC",
+        "高校英語基礎",
+        "英検3級",
+        "大学受験難関"
+      ],
+      "sampleExample": "The article highlights the need for change.",
+      "sampleExampleJa": "その記事は変化の必要性を強調しています。",
+      "sampleMeaning": "強調する、目立たせる",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "biodiversity",
+      "materialCount": 11,
+      "exampleCount": 7,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "慶應頻出",
+        "高校中級",
+        "英検2級",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "Biodiversity loss threatens ecosystem stability and human survival.",
+      "sampleExampleJa": "生物多様性の喪失は生態系の安定性と人類の生存を脅かす。",
+      "sampleMeaning": "生物多様性（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "assume",
+      "materialCount": 11,
+      "exampleCount": 5,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "英検2級",
+        "高校基礎",
+        "TOEIC標準",
+        "英検準1級"
+      ],
+      "sampleExample": "Let's assume the story is true for now.",
+      "sampleExampleJa": "とりあえずその話が本当だと想定してみましょう。",
+      "sampleMeaning": "想定する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "anticipate",
+      "materialCount": 11,
+      "exampleCount": 4,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "英検準1級",
+        "高校中級",
+        "TOEIC",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "We anticipate that sales will increase next quarter.",
+      "sampleExampleJa": "次の四半期に売上が増加することを予期している。",
+      "sampleMeaning": "予期する（動詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "appreciate",
+      "materialCount": 11,
+      "exampleCount": 4,
+      "levels": [
+        "高校基礎",
+        "高校2年",
+        "英検準2級",
+        "日常英会話",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "I really appreciate your help today.",
+      "sampleExampleJa": "今日は助けていただき本当に感謝します。",
+      "sampleMeaning": "感謝する、真価を認める",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "community",
+      "materialCount": 11,
+      "exampleCount": 4,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "She volunteers in her local community.",
+      "sampleExampleJa": "彼女は地元のコミュニティでボランティアをしています。",
+      "sampleMeaning": "地域社会、コミュニティ",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "pollution",
+      "materialCount": 11,
+      "exampleCount": 4,
+      "levels": [
+        "大学受験標準",
+        "高校中級",
+        "英検3級",
+        "英検2級"
+      ],
+      "sampleExample": "Air pollution is a serious problem in big cities.",
+      "sampleExampleJa": "大気汚染は大都市で深刻な問題です。",
+      "sampleMeaning": "汚染",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "context",
+      "materialCount": 11,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校基礎",
+        "共通テスト標準",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "You should read the word in its context.",
+      "sampleExampleJa": "その単語は文脈の中で読むべきです。",
+      "sampleMeaning": "文脈、背景",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "device",
+      "materialCount": 11,
+      "exampleCount": 3,
+      "levels": [
+        "高校基礎",
+        "英検3級",
+        "大学受験標準",
+        "TOEIC基礎",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "This device measures your heart rate.",
+      "sampleExampleJa": "この機器はあなたの心拍数を測定します。",
+      "sampleMeaning": "装置、機器",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "currency",
+      "materialCount": 11,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "高校中級",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "The yen is the currency of Japan.",
+      "sampleExampleJa": "円は日本の通貨です。",
+      "sampleMeaning": "通貨",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "economy",
+      "materialCount": 11,
+      "exampleCount": 3,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "The country's economy is growing fast.",
+      "sampleExampleJa": "その国の経済は急速に成長しています。",
+      "sampleMeaning": "経済",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "heritage",
+      "materialCount": 11,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "慶応頻出",
+        "高校中級",
+        "英検2級"
+      ],
+      "sampleExample": "The ancient temple is part of our cultural heritage.",
+      "sampleExampleJa": "その古代寺院は私たちの文化遺産の一部である。",
+      "sampleMeaning": "遺産（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "discover",
+      "materialCount": 11,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "大学受験標準",
+        "大学受験",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "They discovered a new planet.",
+      "sampleExampleJa": "新しい惑星を発見した。",
+      "sampleMeaning": "発見する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "recognize",
+      "materialCount": 11,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検準2級",
+        "TOEIC",
+        "英検3級",
+        "英検2級"
+      ],
+      "sampleExample": "I recognized her face.",
+      "sampleExampleJa": "彼女の顔がわかった。",
+      "sampleMeaning": "認識する、見分ける",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "industry",
+      "materialCount": 11,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検2級",
+        "TOEIC",
+        "共通テスト標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The car industry is very important here.",
+      "sampleExampleJa": "ここでは自動車産業がとても重要です。",
+      "sampleMeaning": "産業",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "attitude",
+      "materialCount": 11,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "高校英語上級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "I like her positive attitude toward life.",
+      "sampleExampleJa": "私は彼女の人生に対する前向きな態度が好きです。",
+      "sampleMeaning": "態度",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "achievement",
+      "materialCount": 11,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "高校2年",
+        "高校基礎",
+        "高校中級",
+        "ビジネス基礎",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Winning the contest was a great achievement.",
+      "sampleExampleJa": "コンテストで優勝したことは大きな業績でした。",
+      "sampleMeaning": "業績、達成",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "anxiety",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "慶応頻出",
+        "高校基礎",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "She felt anxiety before her exam.",
+      "sampleExampleJa": "彼女は試験前に不安を感じた。",
+      "sampleMeaning": "不安、心配（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "consistent",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "大学受験難関",
+        "高校基礎",
+        "TOEIC",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Her performance has been consistent this year.",
+      "sampleExampleJa": "彼女の成績は今年一貫しています。",
+      "sampleMeaning": "一貫した",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "determine",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校基礎",
+        "TOEIC",
+        "共通テスト標準",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The test results determine which class you join.",
+      "sampleExampleJa": "テストの結果によってどのクラスに入るかが決まります。",
+      "sampleMeaning": "決定する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "examine",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検準2級",
+        "大学受験標準"
+      ],
+      "sampleExample": "The doctor examined the patient carefully.",
+      "sampleExampleJa": "医者はその患者を注意深く診察しました。",
+      "sampleMeaning": "調べる",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "resolve",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "大学受験難関",
+        "高校基礎",
+        "TOEIC",
+        "英検1級",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Resolve the issue quickly.",
+      "sampleExampleJa": "問題を素早く解決する。",
+      "sampleMeaning": "解決する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "education",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "大学受験",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Education is important for everyone.",
+      "sampleExampleJa": "教育はすべての人にとって重要です。",
+      "sampleMeaning": "教育",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "replace",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "英検準2級",
+        "高校基礎",
+        "TOEIC",
+        "大学受験難関",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "We need to replace the old computer.",
+      "sampleExampleJa": "私たちは古いコンピューターを取り替える必要があります。",
+      "sampleMeaning": "取り替える",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "depend",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検準2級",
+        "日常英会話",
+        "TOEIC",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "It depends on you.",
+      "sampleExampleJa": "あなた次第だ。",
+      "sampleMeaning": "頼る、〜次第である",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "explain",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "中学基礎",
+        "高校基礎",
+        "TOEIC",
+        "英検4級",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Please explain it again.",
+      "sampleExampleJa": "もう一度説明してください。",
+      "sampleMeaning": "説明する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "opportunity",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "TOEIC標準",
+        "英検3級",
+        "共通テスト標準",
+        "TOEIC基礎",
+        "英検2級"
+      ],
+      "sampleExample": "Studying abroad is a great opportunity.",
+      "sampleExampleJa": "留学は素晴らしい機会です。",
+      "sampleMeaning": "機会",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "process",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "高校2年",
+        "TOEIC基礎",
+        "TOEIC",
+        "英検3級"
+      ],
+      "sampleExample": "Learning a language is a slow process.",
+      "sampleExampleJa": "言語を学ぶことはゆっくりとした過程です。",
+      "sampleMeaning": "過程、プロセス",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "protect",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "中学基礎",
+        "英検準2級",
+        "大学受験",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "We must protect nature.",
+      "sampleExampleJa": "自然を守らねばならない。",
+      "sampleMeaning": "守る、保護する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "critical",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎",
+        "TOEIC標準",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "This is a critical moment for the team.",
+      "sampleExampleJa": "これはチームにとって重大な瞬間です。",
+      "sampleMeaning": "重大な、批判的な",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "knowledge",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Reading gives us a lot of knowledge.",
+      "sampleExampleJa": "読書は私たちに多くの知識を与えてくれます。",
+      "sampleMeaning": "知識",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "species",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "慶應頻出",
+        "高校中級",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "This species of bird is found only in Japan.",
+      "sampleExampleJa": "この種の鳥は日本でしか見られません。",
+      "sampleMeaning": "種、種類",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "nevertheless",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校2年",
+        "大学受験",
+        "高校基礎",
+        "英検3級",
+        "大学受験難関"
+      ],
+      "sampleExample": "It was raining; nevertheless, we went out.",
+      "sampleExampleJa": "雨が降っていたが、それにもかかわらず私たちは出かけました。",
+      "sampleMeaning": "それにもかかわらず",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "conduct",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "TOEIC基礎",
+        "TOEIC",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "The team conducted a survey among students.",
+      "sampleExampleJa": "そのチームは生徒たちに調査を行いました。",
+      "sampleMeaning": "行う",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "surplus",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "慶応頻出",
+        "高校中級",
+        "TOEIC",
+        "ニュース英語",
+        "英検2級",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "The farm had a surplus of wheat this season.",
+      "sampleExampleJa": "その農場は今シーズン小麦の余剰がありました。",
+      "sampleMeaning": "余剰、黒字",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "order",
+      "materialCount": 11,
+      "exampleCount": 2,
+      "levels": [
+        "英検3級",
+        "日常英会話",
+        "TOEIC",
+        "TOEIC基礎",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Let's order a pizza tonight.",
+      "sampleExampleJa": "今夜はピザを注文しましょう。",
+      "sampleMeaning": "注文する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "accurate",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The weather report was very accurate today.",
+      "sampleExampleJa": "今日の天気予報はとても正確でした。",
+      "sampleMeaning": "正確な",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "democracy",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "慶応頻出",
+        "高校中級",
+        "英検2級"
+      ],
+      "sampleExample": "Democracy relies on free and fair elections.",
+      "sampleExampleJa": "民主主義は自由で公正な選挙に依存している。",
+      "sampleMeaning": "民主主義（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "demonstrate",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校基礎",
+        "TOEIC",
+        "共通テスト標準",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The teacher demonstrated the experiment.",
+      "sampleExampleJa": "先生はその実験を実演しました。",
+      "sampleMeaning": "実証する、示す",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "eliminate",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校3年",
+        "TOEIC基礎",
+        "高校基礎",
+        "TOEIC",
+        "大学受験難関"
+      ],
+      "sampleExample": "Eliminate unnecessary costs.",
+      "sampleExampleJa": "不要なコストを排除する。",
+      "sampleMeaning": "排除する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "facilitate",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校3年",
+        "英検2級",
+        "高校中級",
+        "TOEIC",
+        "TOEIC基礎",
+        "英検準1級"
+      ],
+      "sampleExample": "Technology facilitates communication across continents.",
+      "sampleExampleJa": "技術は大陸間のコミュニケーションを促進する。",
+      "sampleMeaning": "促進する、容易にする（動詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "globalization",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校3年",
+        "慶応頻出",
+        "高校中級",
+        "ニュース英語",
+        "英検2級"
+      ],
+      "sampleExample": "Globalization has connected markets around the world.",
+      "sampleExampleJa": "グローバル化は世界中の市場を結びつけました。",
+      "sampleMeaning": "グローバル化",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "implement",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "大学受験難関",
+        "英検準1級",
+        "高校基礎",
+        "TOEIC",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The company will implement a new policy next month.",
+      "sampleExampleJa": "その会社は来月、新しい方針を実施します。",
+      "sampleMeaning": "実施する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "atmosphere",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校英語上級",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Pollution in the atmosphere is a serious environmental problem.",
+      "sampleExampleJa": "大気汚染は深刻な環境問題である。",
+      "sampleMeaning": "大気、雰囲気（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "share",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "英検準2級",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "We shared our lunch with new friends.",
+      "sampleExampleJa": "私たちは新しい友達と昼食を分け合いました。",
+      "sampleMeaning": "共有する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "describe",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Please describe your hometown in English.",
+      "sampleExampleJa": "あなたの故郷を英語で説明してください。",
+      "sampleMeaning": "描写する、説明する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "evidence",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "There is no evidence to support this idea.",
+      "sampleExampleJa": "この考えを支える証拠はありません。",
+      "sampleMeaning": "証拠",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "focus",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検準2級",
+        "TOEIC",
+        "大学受験標準",
+        "英検2級"
+      ],
+      "sampleExample": "Please focus on your homework now.",
+      "sampleExampleJa": "今は宿題に集中してください。",
+      "sampleMeaning": "集中する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "method",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "共通テスト標準"
+      ],
+      "sampleExample": "This method is faster than the old one.",
+      "sampleExampleJa": "この方法は以前のものより速いです。",
+      "sampleMeaning": "方法",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "obvious",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検2級",
+        "日常英会話",
+        "共通テスト標準"
+      ],
+      "sampleExample": "It was obvious that he was tired.",
+      "sampleExampleJa": "彼が疲れているのは明らかでした。",
+      "sampleMeaning": "明らかな",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "priority",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校中級",
+        "TOEIC",
+        "ビジネス実践",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Finishing the report is our top priority.",
+      "sampleExampleJa": "その報告書を仕上げることが最優先事項です。",
+      "sampleMeaning": "優先事項",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "sufficient",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "英検2級",
+        "高校基礎",
+        "TOEIC",
+        "大学受験難関"
+      ],
+      "sampleExample": "We have sufficient time to finish this.",
+      "sampleExampleJa": "これを終えるのに十分な時間があります。",
+      "sampleMeaning": "十分な",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "refugee",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "慶応頻出",
+        "高校基礎",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Help refugees.",
+      "sampleExampleJa": "難民を助けましょう。",
+      "sampleMeaning": "難民",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "specific",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "高校英語基礎",
+        "大学受験難関",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Please give me a specific example.",
+      "sampleExampleJa": "具体的な例を教えてください。",
+      "sampleMeaning": "具体的な",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "aspect",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Let's look at another aspect of this issue.",
+      "sampleExampleJa": "この問題の別の側面を見てみましょう。",
+      "sampleMeaning": "側面",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "population",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎",
+        "高校中級",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "The population of Japan is decreasing.",
+      "sampleExampleJa": "日本の人口は減少しています。",
+      "sampleMeaning": "人口",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "moreover",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎",
+        "英検3級"
+      ],
+      "sampleExample": "The hotel is cheap; moreover, it is clean.",
+      "sampleExampleJa": "そのホテルは安く、さらに清潔です。",
+      "sampleMeaning": "さらに、その上",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "outcome",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校2年",
+        "大学受験標準",
+        "TOEIC標準",
+        "共通テスト標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "We are waiting for the outcome of the vote.",
+      "sampleExampleJa": "私たちは投票の結果を待っています。",
+      "sampleMeaning": "結果",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "ensure",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "英検準2級",
+        "高校基礎",
+        "TOEIC標準",
+        "大学受験難関",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Please ensure that the door is locked.",
+      "sampleExampleJa": "ドアが確実に施錠されているようにしてください。",
+      "sampleMeaning": "確実にする",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "perception",
+      "materialCount": 11,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "慶應頻出",
+        "高校中級",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "Public perception of the company changed after the scandal.",
+      "sampleExampleJa": "スキャンダルの後、企業に対する公的理解が変わりました。",
+      "sampleMeaning": "知覚、理解（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "conservation",
+      "materialCount": 10,
+      "exampleCount": 6,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "英検2級",
+        "高校中級",
+        "英検3級",
+        "大学受験難関",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "Conservation of forests is important for the planet.",
+      "sampleExampleJa": "森林の保護は地球にとって重要です。",
+      "sampleMeaning": "保護、保全",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "arbitrary",
+      "materialCount": 10,
+      "exampleCount": 6,
+      "levels": [
+        "高校2年",
+        "高校3年",
+        "高校中級",
+        "英検1級",
+        "英検準1級",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "The judge's arbitrary decision to increase the sentence without justification sparked widespread controversy.",
+      "sampleExampleJa": "正当化なしに刑罰を増加させるという判事の恣意的な決定は、広範な論争を引き起こした。",
+      "sampleMeaning": "恣意的な、独裁的な（形容詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "coherent",
+      "materialCount": 10,
+      "exampleCount": 5,
+      "levels": [
+        "大学受験難関",
+        "高校2年",
+        "英検1級",
+        "英検準1級"
+      ],
+      "sampleExample": "The author presented a coherent argument throughout the essay, with each point logically connected.",
+      "sampleExampleJa": "著者はエッセイ全体を通じて一貫した議論を提示し、各ポイントは論理的に関連していた。",
+      "sampleMeaning": "一貫した、統括的な（形容詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "climate",
+      "materialCount": 10,
+      "exampleCount": 4,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "大学受験標準",
+        "英検3級",
+        "英検2級"
+      ],
+      "sampleExample": "The climate here is mild all year round.",
+      "sampleExampleJa": "ここの気候は一年中穏やかです。",
+      "sampleMeaning": "気候",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "profit",
+      "materialCount": 10,
+      "exampleCount": 4,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "TOEIC基礎",
+        "英検2級"
+      ],
+      "sampleExample": "The company made a big profit this year.",
+      "sampleExampleJa": "その会社は今年大きな利益を上げました。",
+      "sampleMeaning": "利益",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "commodity",
+      "materialCount": 10,
+      "exampleCount": 4,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校3年",
+        "高校中級",
+        "TOEIC",
+        "ニュース英語",
+        "英検準1級",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "Oil is one of the world's most traded commodities.",
+      "sampleExampleJa": "原油は世界で最も取引される商品の一つです。",
+      "sampleMeaning": "商品、コモディティ",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "renewable",
+      "materialCount": 10,
+      "exampleCount": 4,
+      "levels": [
+        "大学受験標準",
+        "英検2級",
+        "慶應頻出",
+        "高校中級",
+        "TOEIC",
+        "TOEIC基礎",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "Renewable energy.",
+      "sampleExampleJa": "再生可能エネルギー。",
+      "sampleMeaning": "再生可能な",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "budget",
+      "materialCount": 10,
+      "exampleCount": 4,
+      "levels": [
+        "大学受験標準",
+        "TOEIC基礎",
+        "TOEIC",
+        "英検2級"
+      ],
+      "sampleExample": "The school has a limited budget this year.",
+      "sampleExampleJa": "その学校は今年予算が限られています。",
+      "sampleMeaning": "予算",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "market",
+      "materialCount": 10,
+      "exampleCount": 4,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "TOEIC基礎",
+        "英検5・4級",
+        "英検3級",
+        "初級",
+        "英検2級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "The company entered the Asian market last year.",
+      "sampleExampleJa": "その会社は昨年アジア市場に参入しました。",
+      "sampleMeaning": "市場",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "autonomy",
+      "materialCount": 10,
+      "exampleCount": 4,
+      "levels": [
+        "高校3年",
+        "大学受験標準",
+        "慶應頻出",
+        "高校中級",
+        "英検1級",
+        "英検準1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "Individual autonomy is a fundamental principle in democratic societies.",
+      "sampleExampleJa": "個人の自律性は民主的社会における基本原則である。",
+      "sampleMeaning": "自律性、自治権（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "custom",
+      "materialCount": 10,
+      "exampleCount": 4,
+      "levels": [
+        "大学受験標準",
+        "英検3級",
+        "高校英語基礎",
+        "英検2級"
+      ],
+      "sampleExample": "It is a custom to remove shoes indoors in Japan.",
+      "sampleExampleJa": "日本では屋内で靴を脱ぐのが習慣です。",
+      "sampleMeaning": "習慣、風習",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "communicate",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検準2級",
+        "TOEIC",
+        "英検3級",
+        "英検2級"
+      ],
+      "sampleExample": "It is important to communicate clearly.",
+      "sampleExampleJa": "明確に意思疎通することは大切です。",
+      "sampleMeaning": "意思疎通する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "carbon",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "慶應頻出",
+        "高校英語上級",
+        "英検2級",
+        "大学受験難関〜最難関",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Carbon dioxide is the primary greenhouse gas responsible for climate change.",
+      "sampleExampleJa": "二酸化炭素は気候変動の原因となる主要な温室効果ガスである。",
+      "sampleMeaning": "炭素（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "contemporary",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校基礎",
+        "英検2級",
+        "大学受験難関",
+        "英検準1級"
+      ],
+      "sampleExample": "Contemporary art often reflects society's current social issues.",
+      "sampleExampleJa": "現代美術はしばしば社会の現在の社会問題を反映している。",
+      "sampleMeaning": "同時代の、現代の（形容詞）；同時代人（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "habitat",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "英検2級",
+        "慶應頻出",
+        "高校中級",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "We must protect the habitat of wild animals.",
+      "sampleExampleJa": "私たちは野生動物の生息地を守らなければなりません。",
+      "sampleMeaning": "生息地",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "prepare",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "中学基礎",
+        "高校基礎",
+        "英検3級",
+        "TOEIC",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Prepare for the test.",
+      "sampleExampleJa": "テストの準備をしなさい。",
+      "sampleMeaning": "準備する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "recession",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "慶応頻出",
+        "高校中級",
+        "ニュース英語",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "The country entered a recession last year.",
+      "sampleExampleJa": "その国は昨年不況に突入しました。",
+      "sampleMeaning": "不況、景気後退",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "remember",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "中学基礎",
+        "共通テスト標準",
+        "高校基礎",
+        "英検3級",
+        "英検4級"
+      ],
+      "sampleExample": "I remember her name.",
+      "sampleExampleJa": "彼女の名前を覚えている。",
+      "sampleMeaning": "覚えている、思い出す",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "introduce",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "中学基礎",
+        "英検準2級",
+        "TOEIC基礎",
+        "英検3級",
+        "TOEIC標準",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Let me introduce myself.",
+      "sampleExampleJa": "自己紹介させてください。",
+      "sampleMeaning": "紹介する、導入する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "expense",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "TOEIC基礎",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "We reduced our monthly expenses.",
+      "sampleExampleJa": "私たちは毎月の費用を減らしました。",
+      "sampleMeaning": "費用、経費",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "experience",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "日常英会話",
+        "英検3級",
+        "ビジネス基礎",
+        "英検2級"
+      ],
+      "sampleExample": "This trip was a valuable experience for me.",
+      "sampleExampleJa": "この旅行は私にとって貴重な経験でした。",
+      "sampleMeaning": "経験",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "abolish",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "高校3年",
+        "英検準1級",
+        "高校中級",
+        "英検1級",
+        "英検2級",
+        "大学受験標準"
+      ],
+      "sampleExample": "The government decided to abolish the old law.",
+      "sampleExampleJa": "政府は古い法律を廃止することを決めた。",
+      "sampleMeaning": "廃止する（動詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "sustainability",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "慶應頻出",
+        "高校中級",
+        "TOEIC",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "Sustainability is a key idea in modern design.",
+      "sampleExampleJa": "持続可能性は現代のデザインにおける重要な考え方です。",
+      "sampleMeaning": "持続可能性",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "colleague",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "高校基礎",
+        "TOEIC標準",
+        "大学受験難関",
+        "TOEIC基礎",
+        "初級",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "I have a good relationship with my colleagues.",
+      "sampleExampleJa": "同僚と良い関係があります。",
+      "sampleMeaning": "同僚（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "deficit",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "慶応頻出",
+        "TOEIC",
+        "ニュース英語",
+        "英検2級",
+        "大学受験難関",
+        "大学受験難関〜最難行"
+      ],
+      "sampleExample": "The government is trying to reduce the deficit.",
+      "sampleExampleJa": "政府は赤字を削減しようとしています。",
+      "sampleMeaning": "赤字",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "bias",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "高校基礎",
+        "英検1級",
+        "英検準1級",
+        "英検2級",
+        "大学受験標準"
+      ],
+      "sampleExample": "The judge showed bias in the decision.",
+      "sampleExampleJa": "裁判官は判決に偏見を示した。",
+      "sampleMeaning": "偏見、偏り（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "symptom",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "英検2級"
+      ],
+      "sampleExample": "The main symptoms of the flu are fever and cough.",
+      "sampleExampleJa": "インフルエンザの主な症状は発熱と咳である。",
+      "sampleMeaning": "症状（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "society",
+      "materialCount": 10,
+      "exampleCount": 3,
+      "levels": [
+        "高校基礎",
+        "大学受験標準",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Technology has changed our society a lot.",
+      "sampleExampleJa": "テクノロジーは私たちの社会を大きく変えました。",
+      "sampleMeaning": "社会",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "accept",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "TOEIC",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Accept the offer.",
+      "sampleExampleJa": "オファーを受け入れる。",
+      "sampleMeaning": "受け入れる",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "acquire",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "TOEIC",
+        "高校基礎",
+        "英検準1級"
+      ],
+      "sampleExample": "Children acquire language skills very quickly.",
+      "sampleExampleJa": "子どもは言語能力をとても早く習得します。",
+      "sampleMeaning": "習得する、獲得する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "capacity",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "高校基礎",
+        "TOEIC標準",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The new plant has double the capacity of the old one.",
+      "sampleExampleJa": "新しい工場は旧工場の2倍の生産能力があります。",
+      "sampleMeaning": "生産能力、収容力",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "consensus",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "英検準1級",
+        "高校3年",
+        "TOEIC",
+        "ビジネス実践",
+        "英検1級"
+      ],
+      "sampleExample": "The team reached a consensus after discussion.",
+      "sampleExampleJa": "そのチームは話し合いの後、合意に達しました。",
+      "sampleMeaning": "合意、総意",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "extend",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "大学受験標準",
+        "TOEIC"
+      ],
+      "sampleExample": "They extended the deadline by one week.",
+      "sampleExampleJa": "彼らは締め切りを1週間延長しました。",
+      "sampleMeaning": "延長する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "verify",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "英検準1級",
+        "高校基礎",
+        "高校中級",
+        "TOEIC",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "We verified the information before publishing it.",
+      "sampleExampleJa": "私たちは公表する前にその情報を検証しました。",
+      "sampleMeaning": "検証する、確認する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "popular",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "中学基礎",
+        "英検3級",
+        "英検5・4級",
+        "日常英会話",
+        "共通テスト標準"
+      ],
+      "sampleExample": "That song is very popular now.",
+      "sampleExampleJa": "その歌は今とても人気があります。",
+      "sampleMeaning": "人気のある",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "predict",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎"
+      ],
+      "sampleExample": "It is difficult to predict the future exactly.",
+      "sampleExampleJa": "未来を正確に予測するのは難しいです。",
+      "sampleMeaning": "予測する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "commitment",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校英語上級",
+        "TOEIC",
+        "共通テスト標準",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Show your commitment.",
+      "sampleExampleJa": "コミットメントを示してください。",
+      "sampleMeaning": "約束",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "characteristic",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "TOEIC",
+        "英検2級"
+      ],
+      "sampleExample": "Patience is one of her characteristics.",
+      "sampleExampleJa": "忍耐強さは彼女の特徴の一つです。",
+      "sampleMeaning": "特徴",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "adopt",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校2年",
+        "大学受験標準",
+        "高校基礎",
+        "英検3級",
+        "大学受験難関",
+        "英検準1級"
+      ],
+      "sampleExample": "The company adopted a new working style.",
+      "sampleExampleJa": "その会社は新しい働き方を採用しました。",
+      "sampleMeaning": "採用する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "attempt",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校1                年",
+        "高校基礎",
+        "大学受験標準",
+        "TOEIC",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "He attempted to fix the bike by himself.",
+      "sampleExampleJa": "彼は自分でその自転車を修理しようと試みました。",
+      "sampleMeaning": "試みる",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "demand",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検準2級",
+        "高校英語上級",
+        "TOEIC",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Customers demanded a full refund.",
+      "sampleExampleJa": "顧客たちは全額返金を要求しました。",
+      "sampleMeaning": "要求する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "current",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "大学受験標準",
+        "英検2級"
+      ],
+      "sampleExample": "The current situation is good.",
+      "sampleExampleJa": "現在の状況は良いです。",
+      "sampleMeaning": "現在の",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "patient",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "英検3級",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "The doctor examined the patient carefully.",
+      "sampleExampleJa": "医者は患者を注意深く診察した。",
+      "sampleMeaning": "患者（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "furthermore",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校2年",
+        "高校基礎"
+      ],
+      "sampleExample": "Furthermore, the plan will save us money.",
+      "sampleExampleJa": "さらに、その計画は私たちのお金を節約します。",
+      "sampleMeaning": "さらに",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "competition",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "英検3級",
+        "ビジネス基礎",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Competition in this market is very tough.",
+      "sampleExampleJa": "この市場での競争は非常に厳しいです。",
+      "sampleMeaning": "競争",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "decision",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "高校英語基礎",
+        "大学受験標準",
+        "英検2級"
+      ],
+      "sampleExample": "It was a difficult decision for her.",
+      "sampleExampleJa": "それは彼女にとって難しい決定でした。",
+      "sampleMeaning": "決定",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "government",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "The government announced a new policy.",
+      "sampleExampleJa": "政府は新しい政策を発表しました。",
+      "sampleMeaning": "政府",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "result",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "I was happy with the test result.",
+      "sampleExampleJa": "私はそのテストの結果に満足でした。",
+      "sampleMeaning": "結果",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "therefore",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "It rained; therefore, we stayed home.",
+      "sampleExampleJa": "雨が降ったので、したがって私たちは家にいました。",
+      "sampleMeaning": "したがって",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "coordinate",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "英検準1級",
+        "TOEIC基礎",
+        "高校中級",
+        "TOEIC",
+        "英検2級"
+      ],
+      "sampleExample": "She coordinates schedules between departments.",
+      "sampleExampleJa": "彼女は部署間のスケジュールを調整しています。",
+      "sampleMeaning": "調整する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "infrastructure",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "英検2級",
+        "慶応頻出",
+        "高校中級",
+        "TOEIC"
+      ],
+      "sampleExample": "Modern infrastructure is necessary for economic development.",
+      "sampleExampleJa": "現代的なインフラストラクチャは経済発展に必要である。",
+      "sampleMeaning": "インフラストラクチャ（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "unemployment",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "慶応頻出",
+        "高校中級",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "Unemployment rose during the recession.",
+      "sampleExampleJa": "不況の間、失業率が上昇しました。",
+      "sampleMeaning": "失業",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "unprecedented",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "慶応頻出",
+        "英検1級",
+        "英検準1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "The pandemic caused unprecedented disruption to the global economy.",
+      "sampleExampleJa": "パンデミックは世界経済に前例のない混乱をもたらした。",
+      "sampleMeaning": "前例のない（形容詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "recommend",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "英検準2級",
+        "日常英会話",
+        "TOEIC",
+        "英検3級",
+        "大学受験標準",
+        "英検2級"
+      ],
+      "sampleExample": "Can you recommend a good restaurant near here?",
+      "sampleExampleJa": "この近くで良いレストランを勧めてもらえますか。",
+      "sampleMeaning": "勧める",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "fix",
+      "materialCount": 10,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "英検3級",
+        "英検4級",
+        "日常英会話"
+      ],
+      "sampleExample": "We need to fix the broken window soon.",
+      "sampleExampleJa": "私たちは壊れた窓を早く修理する必要があります。",
+      "sampleMeaning": "修理する、固定する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "concept",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校基礎",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "The concept of time differs between cultures.",
+      "sampleExampleJa": "時間という概念は文化によって異なります。",
+      "sampleMeaning": "概念",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "controversial",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校3年",
+        "高校英語上級",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "The controversial decision sparked heated debate among stakeholders.",
+      "sampleExampleJa": "その物議をかもす決定は関係者間に熱い議論をもたらした。",
+      "sampleMeaning": "議論の多い、物議をかもす（形容詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "emerge",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "TOEIC",
+        "高校基礎",
+        "英検準1級"
+      ],
+      "sampleExample": "A new problem emerged during the meeting.",
+      "sampleExampleJa": "会議中に新たな問題が生じました。",
+      "sampleMeaning": "現れる",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "epidemic",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "慶応頻出",
+        "高校中級",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "Epidemiologists track the spread of epidemics using statistical models.",
+      "sampleExampleJa": "疫学者は統計モデルを使用して流行病の拡大を追跡する。",
+      "sampleMeaning": "流行病（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "genuine",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校2年",
+        "TOEIC",
+        "高校英語基礎",
+        "英検1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "A genuine concern.",
+      "sampleExampleJa": "本物の懸念。",
+      "sampleMeaning": "本物の",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "difference",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "日常英会話",
+        "高校英語基礎",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "What is the difference between these two words?",
+      "sampleExampleJa": "この2つの単語の違いは何ですか。",
+      "sampleMeaning": "違い",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "involve",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検準2級",
+        "TOEIC",
+        "共通テスト標準"
+      ],
+      "sampleExample": "This project involves many people.",
+      "sampleExampleJa": "このプロジェクトには多くの人が関わっています。",
+      "sampleMeaning": "巻き込む、含む",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "convenient",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "日常英会話",
+        "TOEIC",
+        "英検3級",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "The station is convenient for shopping.",
+      "sampleExampleJa": "その駅は買い物に便利です。",
+      "sampleMeaning": "便利な",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "function",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "TOEIC",
+        "英検3級",
+        "英検2級"
+      ],
+      "sampleExample": "This phone has many useful functions.",
+      "sampleExampleJa": "この電話には便利な機能がたくさんあります。",
+      "sampleMeaning": "機能",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "discuss",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "大学受験難関"
+      ],
+      "sampleExample": "We discussed the plan for two hours.",
+      "sampleExampleJa": "私たちは2時間その計画について議論しました。",
+      "sampleMeaning": "議論する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "impact",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "大学受験標準",
+        "TOEIC標準",
+        "英検2級"
+      ],
+      "sampleExample": "The internet has had a big impact on society.",
+      "sampleExampleJa": "インターネットは社会に大きな影響を与えました。",
+      "sampleMeaning": "影響、衝撃",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "investigate",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校2年",
+        "英検2級",
+        "高校基礎",
+        "大学受験難関"
+      ],
+      "sampleExample": "The police are investigating the case.",
+      "sampleExampleJa": "警察はその事件を調査しています。",
+      "sampleMeaning": "調査する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "perspective",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校2年",
+        "高校基礎",
+        "TOEIC",
+        "大学受験難関",
+        "英検準1級"
+      ],
+      "sampleExample": "Try to see the issue from her perspective.",
+      "sampleExampleJa": "その問題を彼女の視点から見てみてください。",
+      "sampleMeaning": "視点、観点",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "theory",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "共通テスト標準"
+      ],
+      "sampleExample": "This theory explains why the ice is melting.",
+      "sampleExampleJa": "この理論は氷が溶けている理由を説明します。",
+      "sampleMeaning": "理論",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "observe",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Students observed the plants for a month.",
+      "sampleExampleJa": "生徒たちは1か月間植物を観察しました。",
+      "sampleMeaning": "観察する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "produce",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "英検3級"
+      ],
+      "sampleExample": "This factory produces cars for many countries.",
+      "sampleExampleJa": "この工場は多くの国向けに車を生産しています。",
+      "sampleMeaning": "生産する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "stakeholder",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "英検準1級",
+        "大学受験",
+        "高校中級",
+        "TOEIC"
+      ],
+      "sampleExample": "All stakeholders were invited to the planning meeting.",
+      "sampleExampleJa": "すべての利害関係者が計画会議に招待されました。",
+      "sampleMeaning": "利害関係者",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "economic",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "TOEIC",
+        "高校英語上級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "The economic crisis affected businesses and individuals worldwide.",
+      "sampleExampleJa": "経済危機は世界中の企業と個人に影響しました。",
+      "sampleMeaning": "経済的な（形容詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "publish",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "英検準2級",
+        "英検3級",
+        "高校英語基礎",
+        "英検2級"
+      ],
+      "sampleExample": "The author published her first novel last year.",
+      "sampleExampleJa": "その作家は昨年、初めての小説を出版しました。",
+      "sampleMeaning": "出版する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "behavior",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "The teacher praised his good behavior.",
+      "sampleExampleJa": "先生は彼の良い行動をほめました。",
+      "sampleMeaning": "行動",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "element",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎",
+        "英検2級"
+      ],
+      "sampleExample": "Trust is a key element of friendship.",
+      "sampleExampleJa": "信頼は友情の重要な要素です。",
+      "sampleMeaning": "要素",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "feature",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "大学受験標準",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "The main feature of this phone is its camera.",
+      "sampleExampleJa": "この電話の主な特徴はカメラです。",
+      "sampleMeaning": "特徴",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "progress",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校英語基礎",
+        "TOEIC",
+        "共通テスト標準",
+        "TOEIC基礎",
+        "英検2級"
+      ],
+      "sampleExample": "Scientific progress has dramatically improved our lives.",
+      "sampleExampleJa": "科学的進歩は私たちの生活を劇的に改善した。",
+      "sampleMeaning": "進歩（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "period",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "大学受験標準",
+        "高校英語基礎",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "We studied this historical period in class.",
+      "sampleExampleJa": "私たちは授業でこの歴史的な時代を学びました。",
+      "sampleMeaning": "期間、時代",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "especially",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "日常英会話",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "I like fruit, especially apples.",
+      "sampleExampleJa": "私は果物、特にりんごが好きです。",
+      "sampleMeaning": "特に",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "probably",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "日常英会話",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "It will probably rain tomorrow.",
+      "sampleExampleJa": "明日はおそらく雨でしょう。",
+      "sampleMeaning": "おそらく",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "subject",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "英検5・4級",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "What is your favorite subject?",
+      "sampleExampleJa": "好きな科目は何ですか？",
+      "sampleMeaning": "科目",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "prevent",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検準2級",
+        "高校英語上級",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Regular exercise can prevent many diseases.",
+      "sampleExampleJa": "定期的な運動は多くの病気を防ぐことができます。",
+      "sampleMeaning": "防ぐ",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "receive",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "英検準2級",
+        "英検3級",
+        "英検5・4級",
+        "共通テスト標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "I received a nice present from my aunt.",
+      "sampleExampleJa": "私はおばから素敵なプレゼントを受け取りました。",
+      "sampleMeaning": "受け取る",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "assumption",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校基礎",
+        "英検2級"
+      ],
+      "sampleExample": "Our plan is based on a false assumption.",
+      "sampleExampleJa": "私たちの計画は誤った仮定に基づいています。",
+      "sampleMeaning": "想定、仮定",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "prejudice",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "慶応頻出",
+        "高校基礎",
+        "英検1級",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "Overcome prejudice.",
+      "sampleExampleJa": "偏見を克服しましょう。",
+      "sampleMeaning": "偏見",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "delay",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "日常英会話",
+        "TOEIC",
+        "英検3級",
+        "大学受験難関"
+      ],
+      "sampleExample": "There was a delay in the delivery of the parts.",
+      "sampleExampleJa": "部品の配達に遅延がありました。",
+      "sampleMeaning": "遅延",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "practice",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "英検3級",
+        "TOEIC",
+        "英検5・4級"
+      ],
+      "sampleExample": "He practices soccer after school.",
+      "sampleExampleJa": "彼は放課後サッカーを練習します。",
+      "sampleMeaning": "練習する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "notice",
+      "materialCount": 10,
+      "exampleCount": 1,
+      "levels": [
+        "英検準2級",
+        "大学受験",
+        "日常英会話",
+        "英検3級",
+        "大学受験標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "I noticed a new store near the station.",
+      "sampleExampleJa": "私は駅の近くに新しい店があるのに気づきました。",
+      "sampleMeaning": "気づく",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "articulate",
+      "materialCount": 9,
+      "exampleCount": 6,
+      "levels": [
+        "大学受験難関",
+        "高校3年",
+        "最難関",
+        "TOEIC",
+        "英検1級",
+        "英検準1級",
+        "英検2級"
+      ],
+      "sampleExample": "The speaker articulated a compelling vision for the future.",
+      "sampleExampleJa": "その講演者は将来への説得力のあるビジョンを明確に述べた。",
+      "sampleMeaning": "明確に述べる（動詞）；明確に表現された（形容詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "price",
+      "materialCount": 9,
+      "exampleCount": 6,
+      "levels": [
+        "英検5・4級",
+        "英検3級",
+        "日常会話",
+        "TOEIC基礎",
+        "共通テスト標準",
+        "初級",
+        "中学基礎"
+      ],
+      "sampleExample": "What is the price?",
+      "sampleExampleJa": "値段はいくらですか？",
+      "sampleMeaning": "値段",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "emission",
+      "materialCount": 9,
+      "exampleCount": 5,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校中級",
+        "英検2級",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "The new law will reduce carbon emission.",
+      "sampleExampleJa": "その新しい法律は炭素の排出を減らすでしょう。",
+      "sampleMeaning": "排出",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "apparent",
+      "materialCount": 9,
+      "exampleCount": 4,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "大学受験難関",
+        "高校基礎",
+        "TOEIC",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "It was apparent that he was unhappy.",
+      "sampleExampleJa": "彼が不幸であることは明らかだった。",
+      "sampleMeaning": "明らかな、見かけの（形容詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "culture",
+      "materialCount": 9,
+      "exampleCount": 4,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "I am interested in Japanese culture.",
+      "sampleExampleJa": "私は日本文化に興味があります。",
+      "sampleMeaning": "文化",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "investment",
+      "materialCount": 9,
+      "exampleCount": 4,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "ビジネス基礎",
+        "TOEIC",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "The company made a large investment in technology.",
+      "sampleExampleJa": "その会社は技術に多額の投資をしました。",
+      "sampleMeaning": "投資",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "attribute",
+      "materialCount": 9,
+      "exampleCount": 4,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校基礎",
+        "大学受験難関",
+        "英検準1級",
+        "英検2級"
+      ],
+      "sampleExample": "Honesty is an important attribute for leaders.",
+      "sampleExampleJa": "正直さはリーダーにとって重要な属性である。",
+      "sampleMeaning": "属性、特性（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "compromise",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校3年",
+        "TOEIC",
+        "英検準1級"
+      ],
+      "sampleExample": "After heated debates, both parties agreed to compromise on the contentious issue.",
+      "sampleExampleJa": "激しい議論の後、両当事者は物議を醸す問題について妥協することに同意した。",
+      "sampleMeaning": "妥協する、折り合いをつける（動詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "contradict",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校基礎",
+        "英検1級",
+        "英検準1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "That contradicts your earlier claim.",
+      "sampleExampleJa": "それはあなたの以前の主張と矛盾します。",
+      "sampleMeaning": "矛盾する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "difficult",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "中学基礎",
+        "英検5級",
+        "日常英会話",
+        "英検3級",
+        "高校英語基礎",
+        "初級"
+      ],
+      "sampleExample": "Math is difficult for some students.",
+      "sampleExampleJa": "数学は難しいと感じる生徒もいます。",
+      "sampleMeaning": "難しい",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "actually",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "高校基礎",
+        "日常英会話",
+        "日常会話",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Actually, I have never been to Kyoto.",
+      "sampleExampleJa": "実は、私は京都に行ったことがありません。",
+      "sampleMeaning": "実は、実際に",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "literature",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "She studies English literature at university.",
+      "sampleExampleJa": "彼女は大学で英文学を学んでいます。",
+      "sampleMeaning": "文学",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "argue",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "The writer argues that reading changes our lives.",
+      "sampleExampleJa": "その筆者は読書が私たちの人生を変えると主張しています。",
+      "sampleMeaning": "主張する、議論する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "compare",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "英検準2級",
+        "高校基礎",
+        "高校英語上級",
+        "英検3級",
+        "英検2級"
+      ],
+      "sampleExample": "Let's compare these two plans.",
+      "sampleExampleJa": "この2つの計画を比較してみましょう。",
+      "sampleMeaning": "比較する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "reject",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "英検準2級",
+        "高校基礎",
+        "TOEIC",
+        "大学受験難関"
+      ],
+      "sampleExample": "The committee rejected the new plan.",
+      "sampleExampleJa": "委員会はその新しい計画を却下しました。",
+      "sampleMeaning": "拒否する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "understand",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "中学基礎",
+        "高校基礎",
+        "英検4級",
+        "英検3級",
+        "日常会話",
+        "高校英語基礎"
+      ],
+      "sampleExample": "I understand the question.",
+      "sampleExampleJa": "その質問を理解した。",
+      "sampleMeaning": "理解する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "citizen",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "英検3級",
+        "高校英語基礎",
+        "英検2級"
+      ],
+      "sampleExample": "Every citizen has the right to vote.",
+      "sampleExampleJa": "すべての市民は投票する権利を持っています。",
+      "sampleMeaning": "市民",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "attain",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "TOEIC",
+        "大学受験標準",
+        "高校中級",
+        "英検準1級",
+        "英検2級"
+      ],
+      "sampleExample": "With hard work, you can attain your goals.",
+      "sampleExampleJa": "努力すれば、あなたの目標を達成できます。",
+      "sampleMeaning": "達成する、到達する（動詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "compile",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "高校中級",
+        "TOEIC",
+        "TOEIC基礎",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "She compiled the data into one report.",
+      "sampleExampleJa": "彼女はそのデータを一つの報告書にまとめました。",
+      "sampleMeaning": "まとめる、編集する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "authorize",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "TOEIC基礎",
+        "大学受験",
+        "TOEIC",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "Only the manager can authorize this payment.",
+      "sampleExampleJa": "この支払いはマネージャーのみが許可できます。",
+      "sampleMeaning": "許可する、権限を与える",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "inherent",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "高校3年",
+        "大学受験標準",
+        "高校中級",
+        "英検1級",
+        "英検準1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "There are inherent risks in any investment strategy, which investors must understand before committing their capital.",
+      "sampleExampleJa": "あらゆる投資戦略に固有のリスクがあり、投資家は資本を投入する前に理解する必要がある。",
+      "sampleMeaning": "固有の、本来備わった（形容詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "correlation",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "慶応頻出",
+        "高校中級",
+        "TOEIC",
+        "大学受験難関〜最難関",
+        "大学受験難関"
+      ],
+      "sampleExample": "Statistical correlation does not imply causation between variables.",
+      "sampleExampleJa": "統計的相関は変数間の因果関係を意味しない。",
+      "sampleMeaning": "相関（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "consumption",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "慶應頻出",
+        "高校中級",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "Energy consumption has become a major environmental concern.",
+      "sampleExampleJa": "エネルギー消費は主要な環境問題になっている。",
+      "sampleMeaning": "消費（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "distinguish",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校基礎",
+        "大学受験",
+        "TOEIC",
+        "英検2級"
+      ],
+      "sampleExample": "It is hard to distinguish the twins.",
+      "sampleExampleJa": "その双子を見分けるのは難しいです。",
+      "sampleMeaning": "区別する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "scrutiny",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "高校3年",
+        "最難関",
+        "英検1級",
+        "英検準1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "The financial records came under intense scrutiny following the company's bankruptcy announcement.",
+      "sampleExampleJa": "企業の破産発表後、財務記録は綿密な検査を受けた。",
+      "sampleMeaning": "綿密な検査、精査（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "contrast",
+      "materialCount": 9,
+      "exampleCount": 3,
+      "levels": [
+        "高校基礎",
+        "大学受験",
+        "大学受験標準",
+        "英検2級"
+      ],
+      "sampleExample": "The film contrasts city and country life.",
+      "sampleExampleJa": "その映画は都会と田舎の生活を対比しています。",
+      "sampleMeaning": "対比する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "breakthrough",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "TOEIC",
+        "高校基礎"
+      ],
+      "sampleExample": "A scientific breakthrough.",
+      "sampleExampleJa": "科学的な突破口。",
+      "sampleMeaning": "突破口",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "chronic",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "TOEIC",
+        "慶応頻出",
+        "英検1級",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "Many people suffer from chronic pain conditions.",
+      "sampleExampleJa": "多くの人々は慢性疼痛症状に苦しんでいます。",
+      "sampleMeaning": "慢性の（形容詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "concern",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検準2級",
+        "高校英語上級",
+        "TOEIC",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "This news concerns all of us.",
+      "sampleExampleJa": "この知らせは私たち全員に関係します。",
+      "sampleMeaning": "心配させる、〜に関係する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "deforestation",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "慶應頻出",
+        "高校中級",
+        "英検2級",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "Deforestation contributes significantly to climate change and biodiversity loss.",
+      "sampleExampleJa": "森林破壊は気候変動と生物多様性喪失に大きく寄与する。",
+      "sampleMeaning": "森林破壊（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "cooperate",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "英検準2級",
+        "高校英語上級",
+        "TOEIC"
+      ],
+      "sampleExample": "The two teams cooperated to finish the project.",
+      "sampleExampleJa": "2つのチームはプロジェクトを終えるために協力しました。",
+      "sampleMeaning": "協力する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "define",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "英検準2級",
+        "高校基礎"
+      ],
+      "sampleExample": "Can you define this word for me?",
+      "sampleExampleJa": "この単語を定義してもらえますか。",
+      "sampleMeaning": "定義する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "elaborate",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校基礎",
+        "TOEIC",
+        "大学受験難関",
+        "英検準1級"
+      ],
+      "sampleExample": "Please elaborate on your point.",
+      "sampleExampleJa": "ポイントを詳しく説明してください。",
+      "sampleMeaning": "詳しく説明する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "grow",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "中学標準",
+        "大学受験標準",
+        "英検3級",
+        "英検4級",
+        "高校英語基礎"
+      ],
+      "sampleExample": "This plant grows quickly in summer.",
+      "sampleExampleJa": "この植物は夏に速く成長します。",
+      "sampleMeaning": "成長する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "allow",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "中学基礎",
+        "大学受験標準",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "My parents allow me to go.",
+      "sampleExampleJa": "両親は私が行くことを許してくれる。",
+      "sampleMeaning": "許す、〜させてあげる",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "arrange",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "TOEIC",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "We arranged a meeting for next Monday.",
+      "sampleExampleJa": "私たちは来週の月曜日に会議を手配しました。",
+      "sampleMeaning": "手配する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "avoid",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "大学受験標準",
+        "大学受験",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Avoid junk food.",
+      "sampleExampleJa": "ジャンクフードを避けなさい。",
+      "sampleMeaning": "避ける",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "create",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "中学基礎",
+        "英検準2級",
+        "高校基礎",
+        "英検3級"
+      ],
+      "sampleExample": "She created a beautiful painting.",
+      "sampleExampleJa": "彼女は美しい絵を描いた。",
+      "sampleMeaning": "作り出す、創造する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "decide",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "中学基礎",
+        "高校基礎",
+        "英検3級",
+        "高校英語基礎",
+        "英検5・4級"
+      ],
+      "sampleExample": "I decided to learn English.",
+      "sampleExampleJa": "私は英語を学ぶことを決めた。",
+      "sampleMeaning": "決める、決定する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "explore",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "大学受験標準",
+        "高校英語上級"
+      ],
+      "sampleExample": "We explored the old town on foot.",
+      "sampleExampleJa": "私たちはその旧市街を歩いて探検しました。",
+      "sampleMeaning": "探検する、探る",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "release",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "英検準2級",
+        "高校基礎",
+        "TOEIC",
+        "大学受験難関"
+      ],
+      "sampleExample": "The new movie will be released next month.",
+      "sampleExampleJa": "その新作映画は来月公開されます。",
+      "sampleMeaning": "公開する、解放する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "mention",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "英検準2級",
+        "大学受験標準",
+        "TOEIC",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "He mentioned the new movie at lunch.",
+      "sampleExampleJa": "彼は昼食のときに新しい映画について言及しました。",
+      "sampleMeaning": "言及する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "continue",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "中学基礎",
+        "高校基礎",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Continue your studies.",
+      "sampleExampleJa": "勉強を続けなさい。",
+      "sampleMeaning": "続ける",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "responsible",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "大学受験難関",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "She is responsible for the whole team.",
+      "sampleExampleJa": "彼女はチーム全体に責任があります。",
+      "sampleMeaning": "責任がある",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "purpose",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "大学受験標準",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "What is the purpose of this meeting?",
+      "sampleExampleJa": "この会議の目的は何ですか。",
+      "sampleMeaning": "目的",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "quality",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "TOEIC基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "The quality of this product is very high.",
+      "sampleExampleJa": "この製品の質はとても高いです。",
+      "sampleMeaning": "質",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "negotiation",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "高校3年",
+        "TOEIC",
+        "ビジネス基礎",
+        "大学受験標準"
+      ],
+      "sampleExample": "The negotiation was successful.",
+      "sampleExampleJa": "交渉は成功しました。",
+      "sampleMeaning": "交渉",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "renewable energy",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "高校中級",
+        "TOEIC",
+        "大学受験難関〜最難関",
+        "英検2級"
+      ],
+      "sampleExample": "Renewable energy sources like solar and wind power reduce dependence on fossil fuels.",
+      "sampleExampleJa": "太陽光や風力などの再生可能エネルギー源は化石燃料への依存を削減する。",
+      "sampleMeaning": "再生可能エネルギー（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "accommodate",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "高校3年",
+        "英検準1級",
+        "TOEIC",
+        "TOEIC基礎",
+        "英検2級",
+        "大学受験標準"
+      ],
+      "sampleExample": "The hotel can accommodate up to 500 guests.",
+      "sampleExampleJa": "そのホテルは最大500人のゲストを収容できる。",
+      "sampleMeaning": "収容する、対応する（動詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "useful",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "英検3級",
+        "英検5・4級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "This app is useful for learning English.",
+      "sampleExampleJa": "このアプリは英語学習に役立ちます。",
+      "sampleMeaning": "役に立つ",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "weather",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "英検3級",
+        "英検5級",
+        "共通テスト標準",
+        "初級"
+      ],
+      "sampleExample": "The weather was nice yesterday.",
+      "sampleExampleJa": "昨日は天気が良かったです。",
+      "sampleMeaning": "天気",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "gain",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "英検準2級",
+        "大学受験標準",
+        "英検3級",
+        "高校英語基礎",
+        "TOEIC",
+        "共通テスト標準"
+      ],
+      "sampleExample": "She gained a lot of experience from the job.",
+      "sampleExampleJa": "彼女はその仕事から多くの経験を得ました。",
+      "sampleMeaning": "得る",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "report",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "英検準2級",
+        "大学受験",
+        "TOEIC",
+        "英検3級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Please report any problems to the office.",
+      "sampleExampleJa": "問題があれば事務所に報告してください。",
+      "sampleMeaning": "報告する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "carbon footprint",
+      "materialCount": 9,
+      "exampleCount": 2,
+      "levels": [
+        "慶応頻出",
+        "高校英語基礎",
+        "大学受験難関〜最難関",
+        "英検2級"
+      ],
+      "sampleExample": "Reducing carbon footprints is essential for mitigating climate change.",
+      "sampleExampleJa": "カーボンフットプリントを削減することは気候変動を緩和するために不可欠である。",
+      "sampleMeaning": "カーボンフットプリント（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "accumulate",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "英検準1級",
+        "高校中級",
+        "TOEIC"
+      ],
+      "sampleExample": "Dust accumulates on surfaces that are not cleaned regularly.",
+      "sampleExampleJa": "定期的に清掃されない表面にはほこりが蓄積する。",
+      "sampleMeaning": "蓄積する、溜まる（動詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "concentrate",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校英語基礎",
+        "大学受験標準",
+        "英検準1級"
+      ],
+      "sampleExample": "The company decided to concentrate its resources on developing new technology.",
+      "sampleExampleJa": "その企業は新しい技術開発に資源を集中させることを決定した。",
+      "sampleMeaning": "集中する、濃縮する（動詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "depression",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "慶応頻出",
+        "ニュース英語",
+        "高校基礎",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "The Great Depression changed economic policy forever.",
+      "sampleExampleJa": "大恐慌は経済政策を永遠に変えました。",
+      "sampleMeaning": "大恐慌、不況",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "disadvantage",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校2年",
+        "高校英語基礎",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "The main disadvantage is the long travel time.",
+      "sampleExampleJa": "主な欠点は移動時間が長いことです。",
+      "sampleMeaning": "欠点",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "oppose",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校3年",
+        "高校基礎"
+      ],
+      "sampleExample": "Many citizens opposed the new plan.",
+      "sampleExampleJa": "多くの市民がその新しい計画に反対しました。",
+      "sampleMeaning": "反対する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "impose",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校3年",
+        "TOEIC",
+        "英検1級",
+        "英検準1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "The government imposed a new rule on drivers.",
+      "sampleExampleJa": "政府はドライバーに新しい規則を課しました。",
+      "sampleMeaning": "課す",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "inequality",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "慶応頻出",
+        "高校英語上級",
+        "英検2級"
+      ],
+      "sampleExample": "Income inequality is a serious social issue.",
+      "sampleExampleJa": "所得の不平等は深刻な社会問題です。",
+      "sampleMeaning": "不平等",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "propose",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "高校2年",
+        "高校中級",
+        "TOEIC",
+        "大学受験標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "She proposed a new marketing strategy.",
+      "sampleExampleJa": "彼女は新しいマーケティング戦略を提案しました。",
+      "sampleMeaning": "提案する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "justify",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校3年",
+        "英検準1級",
+        "高校基礎",
+        "TOEIC"
+      ],
+      "sampleExample": "He tried to justify his decision.",
+      "sampleExampleJa": "彼は自分の決定を正当化しようとしました。",
+      "sampleMeaning": "正当化する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "spend",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "中学標準",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "We spent the whole day at the zoo.",
+      "sampleExampleJa": "私たちは動物園で1日中過ごしました。",
+      "sampleMeaning": "費やす、使う",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "contribution",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校3年",
+        "TOEIC",
+        "大学受験標準",
+        "英検2級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Her contribution to the project was invaluable.",
+      "sampleExampleJa": "そのプロジェクトへの彼女の貢献は貴重だった。",
+      "sampleMeaning": "貢献、寄付（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "express",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "英検準2級",
+        "TOEIC",
+        "高校基礎",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "It is not easy to express my feelings.",
+      "sampleExampleJa": "自分の気持ちを表現するのは簡単ではありません。",
+      "sampleMeaning": "表現する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "reform",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "TOEIC",
+        "高校基礎"
+      ],
+      "sampleExample": "The government is planning education reform.",
+      "sampleExampleJa": "政府は教育改革を計画しています。",
+      "sampleMeaning": "改革",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "standard",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "高校英語基礎",
+        "TOEIC",
+        "英検3級"
+      ],
+      "sampleExample": "This school has a high academic standard.",
+      "sampleExampleJa": "この学校は高い学業水準を持っています。",
+      "sampleMeaning": "基準、標準",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "submit",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "英検2級",
+        "TOEIC",
+        "英検3級",
+        "大学受験難関",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "You must submit the form by the end of the month.",
+      "sampleExampleJa": "月末までにその用紙を提出しなければなりません。",
+      "sampleMeaning": "提出する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "offer",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "英検準2級",
+        "日常英会話",
+        "TOEIC",
+        "英検3級",
+        "高校英語基礎"
+      ],
+      "sampleExample": "He offered to help me with my bag.",
+      "sampleExampleJa": "彼は私のかばんを手伝ってくれると申し出ました。",
+      "sampleMeaning": "提供する、申し出る",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "solve",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "英検準2級",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "It took an hour to solve the puzzle.",
+      "sampleExampleJa": "そのパズルを解くのに1時間かかりました。",
+      "sampleMeaning": "解決する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "respect",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "中学基礎",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "I respect my teacher.",
+      "sampleExampleJa": "先生を尊敬している。",
+      "sampleMeaning": "尊敬する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "reliable",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎",
+        "TOEIC",
+        "大学受験難関",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "He is a reliable friend.",
+      "sampleExampleJa": "彼は信頼できる友人です。",
+      "sampleMeaning": "信頼できる",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "social",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Social issues such as poverty and education require immediate attention.",
+      "sampleExampleJa": "貧困と教育などの社会的問題には即座の対応が必要です。",
+      "sampleMeaning": "社会的な（形容詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "common",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "This is a common mistake among students.",
+      "sampleExampleJa": "これは生徒の間でよくある間違いです。",
+      "sampleMeaning": "共通の、よくある",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "condition",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "高校英語基礎",
+        "大学受験標準"
+      ],
+      "sampleExample": "The old car is still in good condition.",
+      "sampleExampleJa": "その古い車はまだ良い状態です。",
+      "sampleMeaning": "状態、条件",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "motivation",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校2年",
+        "大学受験標準",
+        "慶応頻出",
+        "高校中級",
+        "ビジネス基礎",
+        "英検2級"
+      ],
+      "sampleExample": "His motivation increased after the promotion.",
+      "sampleExampleJa": "昇進後、彼のやる気は高まりました。",
+      "sampleMeaning": "やる気、意欲",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "project",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "TOEIC基礎",
+        "TOEIC",
+        "英検3級"
+      ],
+      "sampleExample": "She is in charge of this project.",
+      "sampleExampleJa": "彼女はこのプロジェクトの責任者です。",
+      "sampleMeaning": "プロジェクト",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "spread",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検準2級",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "The news spread quickly around the town.",
+      "sampleExampleJa": "そのニュースは町中に素早く広まりました。",
+      "sampleMeaning": "広める、広がる",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "gradually",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "大学受験",
+        "高校英語上級",
+        "大学受験標準"
+      ],
+      "sampleExample": "The sky gradually became dark.",
+      "sampleExampleJa": "空は徐々に暗くなりました。",
+      "sampleMeaning": "徐々に",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "appointment",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "日常英会話",
+        "TOEIC",
+        "TOEIC基礎",
+        "大学受験難関"
+      ],
+      "sampleExample": "I have a dentist appointment this afternoon.",
+      "sampleExampleJa": "今日の午後、歯医者の予約があります。",
+      "sampleMeaning": "予約、約束",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "explicit",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "慶応頻出",
+        "TOEIC",
+        "英検1級",
+        "英検2級"
+      ],
+      "sampleExample": "Explicit instructions.",
+      "sampleExampleJa": "明示的な指示。",
+      "sampleMeaning": "明示的な",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "implication",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "高校英語上級",
+        "TOEIC",
+        "共通テスト標準"
+      ],
+      "sampleExample": "This decision has serious implications.",
+      "sampleExampleJa": "この決定は深刻な影響をもたらします。",
+      "sampleMeaning": "影響、示唆",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "mechanism",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "TOEIC",
+        "高校中級",
+        "英検準1級"
+      ],
+      "sampleExample": "We don't fully understand this mechanism yet.",
+      "sampleExampleJa": "私たちはまだこの仕組みを完全には理解していません。",
+      "sampleMeaning": "仕組み、機構",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "discrimination",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "慶応頻出",
+        "高校中級",
+        "英検2級"
+      ],
+      "sampleExample": "Laws have been enacted to prevent discrimination in the workplace.",
+      "sampleExampleJa": "職場での差別を防ぐために法律が制定されている。",
+      "sampleMeaning": "差別（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "extinction",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "慶應頻出",
+        "高校中級",
+        "大学受験難関"
+      ],
+      "sampleExample": "The panda is in danger of extinction.",
+      "sampleExampleJa": "パンダは絶滅の危機に瀕しています。",
+      "sampleMeaning": "絶滅",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "productivity",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "慶応頻出",
+        "高校中級",
+        "TOEIC",
+        "ビジネス基礎",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The new system improved office productivity.",
+      "sampleExampleJa": "新しいシステムはオフィスの生産性を向上させました。",
+      "sampleMeaning": "生産性",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "subsidy",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "慶応頻出",
+        "高校中級",
+        "英検1級",
+        "ニュース英語"
+      ],
+      "sampleExample": "Farmers receive a government subsidy for their crops.",
+      "sampleExampleJa": "農家は作物のために政府の補助金を受け取ります。",
+      "sampleMeaning": "補助金",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "advantage",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "One advantage of this plan is the low cost.",
+      "sampleExampleJa": "この計画の利点の1つは低コストです。",
+      "sampleMeaning": "利点",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "afford",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "日常会話",
+        "TOEIC",
+        "大学受験難関",
+        "英検準1級"
+      ],
+      "sampleExample": "The city cannot afford to ignore the environmental crisis.",
+      "sampleExampleJa": "その都市は環境危機を無視する余裕がない。",
+      "sampleMeaning": "余裕がある、提供する（動詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "lack",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "大学受験標準",
+        "TOEIC",
+        "共通テスト標準"
+      ],
+      "sampleExample": "This essay lacks a clear conclusion.",
+      "sampleExampleJa": "このエッセイには明確な結論が欠けています。",
+      "sampleMeaning": "欠いている",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "particular",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "TOEIC",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Is there a particular reason for that?",
+      "sampleExampleJa": "それには何か特定の理由があるのですか。",
+      "sampleMeaning": "特定の",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "chemical",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "英検3級",
+        "大学受験標準",
+        "英検2級"
+      ],
+      "sampleExample": "Chemical reactions are essential to understanding biology.",
+      "sampleExampleJa": "化学反応は生物学を理解するために不可欠である。",
+      "sampleMeaning": "化学の、化学物質（形容詞・名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "paradox",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "高校中級",
+        "英検1級",
+        "英検準1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "The modern paradox is that despite technological advancement, people report increased levels of stress and anxiety.",
+      "sampleExampleJa": "現代の逆説は、技術進歩にもかかわらず、人々がストレスと不安のレベルの増加を報告していることである。",
+      "sampleMeaning": "矛盾、逆説（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "raise",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "I got a raise.",
+      "sampleExampleJa": "昇給しました。",
+      "sampleMeaning": "昇給",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "face",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "英検5級",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "We all face difficulties sometimes.",
+      "sampleExampleJa": "私たちは皆、時に困難に直面します。",
+      "sampleMeaning": "直面する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "opinion",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "日常英会話",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "I would like to hear your opinion.",
+      "sampleExampleJa": "あなたの意見を聞きたいです。",
+      "sampleMeaning": "意見",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "organization",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "英検3級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "She works for an international organization.",
+      "sampleExampleJa": "彼女は国際的な組織で働いています。",
+      "sampleMeaning": "組織、団体",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "discount",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "日常英会話",
+        "TOEIC",
+        "英検3級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "We offer a ten percent discount for members.",
+      "sampleExampleJa": "会員には10パーセントの割引をご提供しています。",
+      "sampleMeaning": "割引",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "considerable",
+      "materialCount": 9,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験",
+        "TOEIC",
+        "高校基礎",
+        "大学受験標準",
+        "英検2級"
+      ],
+      "sampleExample": "The technology has made considerable progress in recent years.",
+      "sampleExampleJa": "その技術は近年かなりの進歩を遂げた。",
+      "sampleMeaning": "かなりの、相当な（形容詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "aggregate",
+      "materialCount": 8,
+      "exampleCount": 5,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "TOEIC",
+        "英検準1級",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "Aggregate the data.",
+      "sampleExampleJa": "データを集計する。",
+      "sampleMeaning": "集計する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "diagnosis",
+      "materialCount": 8,
+      "exampleCount": 5,
+      "levels": [
+        "大学受験標準",
+        "慶応頻出",
+        "英検2級",
+        "大学受験難関〜最難関",
+        "大学受験難関"
+      ],
+      "sampleExample": "Differential diagnosis involves distinguishing between multiple possible conditions.",
+      "sampleExampleJa": "鑑別診断は複数の可能な状態を区別することを含む。",
+      "sampleMeaning": "診断（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "pragmatic",
+      "materialCount": 8,
+      "exampleCount": 5,
+      "levels": [
+        "高校3年",
+        "英検準1級",
+        "最難関",
+        "大学受験標準",
+        "英検1級",
+        "大学受験難関",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "Rather than pursuing idealistic solutions, the committee took a pragmatic approach to solving the infrastructure problem.",
+      "sampleExampleJa": "理想的な解決策を追求する代わりに、委員会はインフラの問題を解決するために実用的なアプローチを取った。",
+      "sampleMeaning": "実用的な、現実的な（形容詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "run",
+      "materialCount": 8,
+      "exampleCount": 4,
+      "levels": [
+        "中学基礎",
+        "英検5級",
+        "TOEIC",
+        "初級"
+      ],
+      "sampleExample": "He runs very fast.",
+      "sampleExampleJa": "彼はとても速く走ります。",
+      "sampleMeaning": "走る",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "hospital",
+      "materialCount": 8,
+      "exampleCount": 4,
+      "levels": [
+        "中学基礎",
+        "英検3級",
+        "英検5級",
+        "初級"
+      ],
+      "sampleExample": "My uncle works at a hospital.",
+      "sampleExampleJa": "私のおじは病院で働いています。",
+      "sampleMeaning": "病院",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "application",
+      "materialCount": 8,
+      "exampleCount": 4,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "英検3級",
+        "大学受験難関",
+        "TOEIC基礎",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "Download the application.",
+      "sampleExampleJa": "アプリをダウンロードする。",
+      "sampleMeaning": "アプリ",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "exercise",
+      "materialCount": 8,
+      "exampleCount": 4,
+      "levels": [
+        "英検3級",
+        "TOEIC",
+        "英検5・4級",
+        "初級"
+      ],
+      "sampleExample": "You should exercise every morning.",
+      "sampleExampleJa": "毎朝運動したほうがいいですよ。",
+      "sampleMeaning": "運動する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "contract",
+      "materialCount": 8,
+      "exampleCount": 4,
+      "levels": [
+        "TOEIC",
+        "TOEIC基礎",
+        "英検2級",
+        "英検準1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "Both companies signed the contract yesterday.",
+      "sampleExampleJa": "両社は昨日、契約書に署名しました。",
+      "sampleMeaning": "契約",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "alleviate",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校3年",
+        "英検準1級",
+        "最難関",
+        "英検1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "Charitable organizations work to alleviate suffering in disadvantaged communities.",
+      "sampleExampleJa": "慈善団体は恵まれない地域の苦しみを軽減するために働いている。",
+      "sampleMeaning": "軽くする、緩和する（動詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "school",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "中学基礎",
+        "英検5級",
+        "英検2級"
+      ],
+      "sampleExample": "I go to school by bike.",
+      "sampleExampleJa": "私は自転車で学校に行きます。",
+      "sampleMeaning": "学校",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "write",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "中学基礎",
+        "英検5級",
+        "英検3級",
+        "初級"
+      ],
+      "sampleExample": "Please write your name here.",
+      "sampleExampleJa": "ここにあなたの名前を書いてください。",
+      "sampleMeaning": "書く",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "important",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "中学基礎",
+        "英検3級",
+        "英検4級"
+      ],
+      "sampleExample": "It is important to study every day.",
+      "sampleExampleJa": "毎日勉強することは重要だ。",
+      "sampleMeaning": "重要な",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "bureaucracy",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験難関",
+        "高校3年",
+        "慶応頻出",
+        "高校中級",
+        "英検1級",
+        "英検準1級"
+      ],
+      "sampleExample": "The bureaucracy involved in obtaining a visa can be lengthy and frustrating.",
+      "sampleExampleJa": "ビザを取得するのに関連する官僚的手続きは長く、イライラさせられるものとなりうる。",
+      "sampleMeaning": "官僚機構、官僚制度（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "amendment",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験難関",
+        "高校中級",
+        "TOEIC",
+        "英検2級",
+        "英検準1級",
+        "大学受験標準"
+      ],
+      "sampleExample": "The constitution underwent several amendments.",
+      "sampleExampleJa": "憲法はいくつかの改正を受けた。",
+      "sampleMeaning": "修正、改正（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "skill",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検3級",
+        "ビジネス基礎",
+        "高校英語基礎",
+        "英検2級"
+      ],
+      "sampleExample": "Cooking is a useful skill to have.",
+      "sampleExampleJa": "料理は身につけておくと便利な技能です。",
+      "sampleMeaning": "技能",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "system",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "英検2級"
+      ],
+      "sampleExample": "Our school has a new grading system.",
+      "sampleExampleJa": "私たちの学校には新しい成績評価制度があります。",
+      "sampleMeaning": "制度、システム",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "technology",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎",
+        "英検3級",
+        "英検2級"
+      ],
+      "sampleExample": "New technology has changed how we communicate.",
+      "sampleExampleJa": "新しい技術は私たちのコミュニケーション方法を変えました。",
+      "sampleMeaning": "科学技術",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "methodology",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "慶応頻出",
+        "大学受験難関〜最難関",
+        "大学受験難関"
+      ],
+      "sampleExample": "The methodology of clinical trials must adhere to strict ethical standards.",
+      "sampleExampleJa": "臨床試験の方法論は厳格な倫理基準に準拠する必要がある。",
+      "sampleMeaning": "方法論（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "empirical",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "高校3年",
+        "英検準1級",
+        "慶応頻出",
+        "英検1級",
+        "大学受験難関〜最難関",
+        "大学受験難関"
+      ],
+      "sampleExample": "Empirical evidence from longitudinal studies supports this psychological theory.",
+      "sampleExampleJa": "縦断的研究からの経験的証拠はこの心理学的理論を支持する。",
+      "sampleMeaning": "経験的な（形容詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "exacerbate",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "高校2年",
+        "英検準1級",
+        "最難関",
+        "大学受験難関",
+        "英検1級"
+      ],
+      "sampleExample": "Poor economic policies exacerbated the financial crisis, causing widespread unemployment.",
+      "sampleExampleJa": "不健全な経済政策は金融危機を悪化させ、広範な失業を引き起こした。",
+      "sampleMeaning": "悪化させる、増悪させる（動詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "asset",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "ビジネス基礎",
+        "TOEIC標準",
+        "大学受験標準",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "Employees are our most valuable asset.",
+      "sampleExampleJa": "従業員は私たちの最も価値ある資産です。",
+      "sampleMeaning": "資産",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "train",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "英検3級",
+        "英検5級",
+        "初級",
+        "中学基礎"
+      ],
+      "sampleExample": "I go to school by train.",
+      "sampleExampleJa": "私は電車で学校に通っています。",
+      "sampleMeaning": "電車",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "repair",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "英検準2級",
+        "TOEIC基礎",
+        "TOEIC",
+        "英検3級",
+        "大学受験難関"
+      ],
+      "sampleExample": "My father repaired the broken chair.",
+      "sampleExampleJa": "私の父は壊れたイスを修理しました。",
+      "sampleMeaning": "修理する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "mitigate",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "高校3年",
+        "大学受験標準",
+        "英検準1級",
+        "最難関",
+        "英検1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "The government implemented new policies to mitigate the effects of poverty in rural areas.",
+      "sampleExampleJa": "政府は農村地域の貧困の影響を軽減するための新しい政策を実施した。",
+      "sampleMeaning": "軽減する、緩和する（動詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "store",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "TOEIC",
+        "英検3級",
+        "英検5・4級",
+        "初級"
+      ],
+      "sampleExample": "We store extra supplies in the back room.",
+      "sampleExampleJa": "予備の備品は奥の部屋に保管しています。",
+      "sampleMeaning": "保管する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "enterprise",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "高校3年",
+        "大学受験",
+        "大学受験標準",
+        "TOEIC",
+        "ビジネス基礎",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "Starting a small enterprise takes courage.",
+      "sampleExampleJa": "小さな事業を始めるには勇気が必要です。",
+      "sampleMeaning": "事業、企業",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "attach",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "高校基礎",
+        "英検3級",
+        "TOEIC",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "I attached a photo to the email.",
+      "sampleExampleJa": "私はメールに写真を添付しました。",
+      "sampleMeaning": "取り付ける、添付する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "salary",
+      "materialCount": 8,
+      "exampleCount": 3,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "TOEIC基礎",
+        "英検2級"
+      ],
+      "sampleExample": "She got a higher salary at her new job.",
+      "sampleExampleJa": "彼女は新しい仕事でより高い給料をもらいました。",
+      "sampleMeaning": "給料",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "agriculture",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校中級",
+        "英検2級"
+      ],
+      "sampleExample": "Agriculture is important for the local economy.",
+      "sampleExampleJa": "農業は地域経済にとって重要です。",
+      "sampleMeaning": "農業",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "civilization",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校中級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "This museum shows the history of ancient civilization.",
+      "sampleExampleJa": "この博物館は古代文明の歴史を紹介しています。",
+      "sampleMeaning": "文明",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "approve",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "高校基礎",
+        "TOEIC基礎",
+        "英検準1級"
+      ],
+      "sampleExample": "The manager approved the new budget plan.",
+      "sampleExampleJa": "マネージャーは新しい予算案を承認しました。",
+      "sampleMeaning": "承認する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "consume",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校基礎",
+        "英検準1級"
+      ],
+      "sampleExample": "This car doesn't consume much fuel.",
+      "sampleExampleJa": "この車はあまり燃料を消費しません。",
+      "sampleMeaning": "消費する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "supply",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "TOEIC",
+        "高校英語基礎",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "This factory supplies parts to car makers.",
+      "sampleExampleJa": "この工場は自動車メーカーに部品を供給しています。",
+      "sampleMeaning": "供給する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "assist",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "大学受験標準",
+        "TOEIC基礎",
+        "英検2級"
+      ],
+      "sampleExample": "Can you assist me with this project?",
+      "sampleExampleJa": "このプロジェクトで手助けしてもらえますか?",
+      "sampleMeaning": "手助けする、援助する（動詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "network",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "TOEIC標準",
+        "英検2級"
+      ],
+      "sampleExample": "A strong network of friends and colleagues is valuable.",
+      "sampleExampleJa": "友人や同僚の強いネットワークは価値がある。",
+      "sampleMeaning": "ネットワーク（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "expect",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "英検準2級",
+        "TOEIC",
+        "日常英会話",
+        "英検3級"
+      ],
+      "sampleExample": "I expect good results.",
+      "sampleExampleJa": "良い結果を期待している。",
+      "sampleMeaning": "期待する、予期する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "effort",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "日常英会話",
+        "英検3級",
+        "高校英語基礎",
+        "英検2級"
+      ],
+      "sampleExample": "Make an effort every day.",
+      "sampleExampleJa": "毎日努力しましょう。",
+      "sampleMeaning": "努力",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "problem",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検5・4級",
+        "日常英会話",
+        "英検3級"
+      ],
+      "sampleExample": "We have to solve this problem quickly.",
+      "sampleExampleJa": "私たちはこの問題を早く解決しなければなりません。",
+      "sampleMeaning": "問題",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "convert",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "大学受験難関",
+        "英検2級"
+      ],
+      "sampleExample": "We converted the old room into a study.",
+      "sampleExampleJa": "私たちは古い部屋を書斎に変えました。",
+      "sampleMeaning": "変換する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "scrutinize",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験難関",
+        "高校3年",
+        "TOEIC",
+        "英検1級"
+      ],
+      "sampleExample": "Auditors scrutinized every transaction to detect any fraudulent activity.",
+      "sampleExampleJa": "監査人は詐欺行為を検出するためにすべての取引を綿密に調べた。",
+      "sampleMeaning": "綿密に調べる、精査する（動詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "immediately",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "TOEIC",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Please call me immediately if you need help.",
+      "sampleExampleJa": "助けが必要ならすぐに電話してください。",
+      "sampleMeaning": "すぐに",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "construct",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "大学受験",
+        "高校英語基礎",
+        "大学受験難関",
+        "英検準1級"
+      ],
+      "sampleExample": "The engineers constructed a new bridge across the river.",
+      "sampleExampleJa": "エンジニアは川を横切る新しい橋を建設した。",
+      "sampleMeaning": "構築する、建設する（動詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "theoretical",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "英検準1級",
+        "慶応頻出",
+        "大学受験難関〜最難関",
+        "英検2級"
+      ],
+      "sampleExample": "Theoretical physics explores the fundamental laws governing the universe.",
+      "sampleExampleJa": "理論物理学は宇宙を支配する基本法則を探求する。",
+      "sampleMeaning": "理論的な（形容詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "analogy",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "高校2年",
+        "大学受験難関",
+        "高校3年",
+        "高校中級",
+        "英検準1級"
+      ],
+      "sampleExample": "He used an analogy to explain the complex scientific concept.",
+      "sampleExampleJa": "彼は複雑な科学概念を説明するために類推を使った。",
+      "sampleMeaning": "類推、たとえ（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "judge",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "英検準2級",
+        "高校英語基礎",
+        "大学受験標準"
+      ],
+      "sampleExample": "Don't judge people by their appearance.",
+      "sampleExampleJa": "見た目で人を判断してはいけません。",
+      "sampleMeaning": "判断する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "treatment",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "英検2級"
+      ],
+      "sampleExample": "New treatments for cancer are being developed.",
+      "sampleExampleJa": "がんの新しい治療法が開発されている。",
+      "sampleMeaning": "治療（名詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "carry",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "英検3級",
+        "英検4級",
+        "日常英会話"
+      ],
+      "sampleExample": "She carried the heavy box upstairs.",
+      "sampleExampleJa": "彼女はその重い箱を2階まで運びました。",
+      "sampleMeaning": "運ぶ",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "credible",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校3年",
+        "英検1級",
+        "英検準1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "The witness's testimony was deemed credible by the court.",
+      "sampleExampleJa": "その証人の証言は裁判所に信頼できると判断された。",
+      "sampleMeaning": "信頼できる、信ぴょう性のある（形容詞）",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "metaphor",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "高校3年",
+        "慶應頻出",
+        "高校英語基礎",
+        "大学受験難関"
+      ],
+      "sampleExample": "The poet used a metaphor to describe her heart.",
+      "sampleExampleJa": "その詩人は自分の心を表すのに比喩を使いました。",
+      "sampleMeaning": "隠喩、比喩",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "information",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "高校基礎",
+        "英検3級",
+        "英検2級"
+      ],
+      "sampleExample": "You can find more information on this website.",
+      "sampleExampleJa": "このウェブサイトでさらに情報が見つかります。",
+      "sampleMeaning": "情報",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "review",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "英検準2級",
+        "TOEIC",
+        "英検3級",
+        "高校英語基礎",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Please review your answers before submitting.",
+      "sampleExampleJa": "提出する前に答えを見直してください。",
+      "sampleMeaning": "見直す、批評する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "complain",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "日常英会話",
+        "TOEIC",
+        "英検3級",
+        "大学受験難関"
+      ],
+      "sampleExample": "Some customers complained about the price.",
+      "sampleExampleJa": "一部の客はその値段について不満を言いました。",
+      "sampleMeaning": "不満を言う",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "export",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "英検2級"
+      ],
+      "sampleExample": "Cars are a major export of this country.",
+      "sampleExampleJa": "自動車はこの国の主要な輸出品です。",
+      "sampleMeaning": "輸出",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "attend",
+      "materialCount": 8,
+      "exampleCount": 2,
+      "levels": [
+        "TOEIC",
+        "英検3級",
+        "高校英語基礎",
+        "大学受験標準",
+        "TOEIC基礎",
+        "英検2級"
+      ],
+      "sampleExample": "All employees are expected to attend the training.",
+      "sampleExampleJa": "全従業員がその研修に出席することが求められています。",
+      "sampleMeaning": "出席する",
+      "recommendedForIndex": true,
+      "missingElements": []
+    },
+    {
+      "word": "academic",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Academic excellence is important for future success.",
+      "sampleExampleJa": "学問的卓越性は将来の成功にとって重要である。",
+      "sampleMeaning": "学問的な（形容詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "claim",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年",
+        "大学受験標準",
+        "英検3級",
+        "TOEIC"
+      ],
+      "sampleExample": "The author claims that this method works well.",
+      "sampleExampleJa": "著者はこの方法がうまくいくと主張しています。",
+      "sampleMeaning": "主張する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "compete",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校英語上級",
+        "英検3級"
+      ],
+      "sampleExample": "Many schools competed in the speech contest.",
+      "sampleExampleJa": "多くの学校がそのスピーチコンテストで競い合いました。",
+      "sampleMeaning": "競争する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "deny",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校2年",
+        "大学受験標準",
+        "高校中級"
+      ],
+      "sampleExample": "She denied breaking the window.",
+      "sampleExampleJa": "彼女は窓を割ったことを否定しました。",
+      "sampleMeaning": "否定する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "depict",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校3年",
+        "英検1級",
+        "英検準1級"
+      ],
+      "sampleExample": "The film depicts the struggles of immigrants in modern society.",
+      "sampleExampleJa": "その映画は現代社会における移民の苦労を描写している。",
+      "sampleMeaning": "描く、描写する（動詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "diversity",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校英語上級",
+        "TOEIC",
+        "英検2級"
+      ],
+      "sampleExample": "This city is known for its cultural diversity.",
+      "sampleExampleJa": "この都市は文化の多様性で知られています。",
+      "sampleMeaning": "多様性",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "drought",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校中級",
+        "英検2級",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "Prolonged drought in arid regions threatens food security and water availability.",
+      "sampleExampleJa": "乾燥地域の長期干ばつは食糧安全保障と水利用可能性を脅かす。",
+      "sampleMeaning": "干ばつ（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "initiative",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "英検準1級",
+        "高校基礎",
+        "TOEIC",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Take the initiative.",
+      "sampleExampleJa": "主導権を取る。",
+      "sampleMeaning": "主導権",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "insight",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "大学受験難関",
+        "英検準1級"
+      ],
+      "sampleExample": "The book gives insight into modern history.",
+      "sampleExampleJa": "その本は現代史への洞察を与えてくれます。",
+      "sampleMeaning": "洞察",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "imply",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校基礎",
+        "TOEIC標準",
+        "大学受験難関"
+      ],
+      "sampleExample": "Her silence implied that she disagreed.",
+      "sampleExampleJa": "彼女の沈黙は反対していることをほのめかしていました。",
+      "sampleMeaning": "暗示する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "motivate",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校1年",
+        "高校2年",
+        "英検準1級",
+        "高校基礎",
+        "TOEIC標準"
+      ],
+      "sampleExample": "Good grades motivate her to study more.",
+      "sampleExampleJa": "良い成績が彼女をもっと勉強する気にさせます。",
+      "sampleMeaning": "動機づける、やる気にさせる",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "yield",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校3年",
+        "高校基礎",
+        "TOEIC標準",
+        "ニュース英語",
+        "大学受験難関"
+      ],
+      "sampleExample": "Bond yields rose after the interest rate hike.",
+      "sampleExampleJa": "利上げの後、債券利回りは上昇しました。",
+      "sampleMeaning": "利回り",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "follow",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "中学標準",
+        "英検準2級",
+        "英検3級"
+      ],
+      "sampleExample": "Please follow the instructions carefully.",
+      "sampleExampleJa": "指示に注意深く従ってください。",
+      "sampleMeaning": "従う、ついていく",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "resolution",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "高校3年",
+        "慶応頻出",
+        "TOEIC",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Find a resolution.",
+      "sampleExampleJa": "解決策を見つける。",
+      "sampleMeaning": "解決",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "majority",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校英語上級",
+        "大学受験標準",
+        "共通テスト標準"
+      ],
+      "sampleExample": "The majority of students agreed with the idea.",
+      "sampleExampleJa": "生徒の大多数がその考えに賛成しました。",
+      "sampleMeaning": "多数派、大多数",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "interpretation",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "高校3年",
+        "大学受験",
+        "高校基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Different interpretations exist.",
+      "sampleExampleJa": "異なる解釈が存在します。",
+      "sampleMeaning": "解釈",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "combine",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎",
+        "英検3級",
+        "大学受験難関"
+      ],
+      "sampleExample": "We combined our ideas to make a better plan.",
+      "sampleExampleJa": "私たちはより良い計画を作るためにアイデアを組み合わせました。",
+      "sampleMeaning": "組み合わせる",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "launch",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "TOEIC基礎",
+        "TOEIC"
+      ],
+      "sampleExample": "The company will launch a new product next month.",
+      "sampleExampleJa": "その会社は来月、新製品を発売します。",
+      "sampleMeaning": "開始する、発売する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "revolution",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校2年",
+        "高校中級"
+      ],
+      "sampleExample": "The internet caused a revolution in communication.",
+      "sampleExampleJa": "インターネットはコミュニケーションに革命を起こしました。",
+      "sampleMeaning": "革命、大変革",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "trend",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "高校1年"
+      ],
+      "sampleExample": "There is a new trend among young people.",
+      "sampleExampleJa": "若者の間で新しい傾向があります。",
+      "sampleMeaning": "傾向",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "perform",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検準2級",
+        "英検3級",
+        "TOEIC"
+      ],
+      "sampleExample": "The band performed on stage for an hour.",
+      "sampleExampleJa": "そのバンドは1時間ステージで演奏しました。",
+      "sampleMeaning": "演じる、行う",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "possible",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "日常英会話",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Is it possible to finish this today?",
+      "sampleExampleJa": "今日これを終わらせることは可能ですか。",
+      "sampleMeaning": "可能な",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "arise",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校基礎",
+        "英検2級"
+      ],
+      "sampleExample": "Problems may arise during the construction.",
+      "sampleExampleJa": "建設中に問題が生じるかもしれない。",
+      "sampleMeaning": "生じる、発生する（動詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "science",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "英検3級",
+        "英検5級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "We did an experiment in science class.",
+      "sampleExampleJa": "理科の授業で実験をしました。",
+      "sampleMeaning": "理科、科学",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "certain",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校基礎",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "I am certain that she will succeed.",
+      "sampleExampleJa": "私は彼女が成功すると確信しています。",
+      "sampleMeaning": "確かな、ある〜",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "diverse",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校3年",
+        "英検準1級",
+        "高校基礎",
+        "英検2級"
+      ],
+      "sampleExample": "Our company values diverse perspectives and backgrounds.",
+      "sampleExampleJa": "私たちの企業は多様な視点と背景を大切にしている。",
+      "sampleMeaning": "多様な（形容詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "practical",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "The course teaches practical skills that can be used in real life.",
+      "sampleExampleJa": "その講座は実生活で使用できる実用的なスキルを教える。",
+      "sampleMeaning": "実用的な（形容詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "shortage",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校2年",
+        "TOEIC標準",
+        "ニュース英語",
+        "大学受験標準"
+      ],
+      "sampleExample": "A shortage of workers slowed down production.",
+      "sampleExampleJa": "労働者不足が生産を遅らせました。",
+      "sampleMeaning": "不足",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "disease",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Heart disease is one of the leading causes of death.",
+      "sampleExampleJa": "心臓病は死亡の主な原因の一つである。",
+      "sampleMeaning": "病気（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "on the other hand",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "日常会話",
+        "高校英語基礎",
+        "英検3級"
+      ],
+      "sampleExample": "On the other hand, it could work.",
+      "sampleExampleJa": "一方では、うまくいくかもしれません。",
+      "sampleMeaning": "一方では",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "novel",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験",
+        "高校英語基礎",
+        "英検1級",
+        "英検3級",
+        "英検2級"
+      ],
+      "sampleExample": "She read a novel by a famous contemporary author.",
+      "sampleExampleJa": "彼女は有名な現代作家による小説を読みました。",
+      "sampleMeaning": "小説（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "principle",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "大学受験標準",
+        "高校基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Honesty is an important principle for her.",
+      "sampleExampleJa": "誠実さは彼女にとって重要な原則です。",
+      "sampleMeaning": "原則、原理",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "proposal",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "ビジネス基礎",
+        "TOEIC",
+        "共通テスト標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "We submitted a proposal to the client last week.",
+      "sampleExampleJa": "先週、私たちは取引先に提案書を提出しました。",
+      "sampleMeaning": "提案書",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "task",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "TOEIC基礎",
+        "TOEIC",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Finish this task before you leave the office.",
+      "sampleExampleJa": "退社する前にこの業務を終えてください。",
+      "sampleMeaning": "課題、業務",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "restrict",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校1年",
+        "高校2年",
+        "TOEIC",
+        "大学受験難関",
+        "英検2級",
+        "大学受験標準"
+      ],
+      "sampleExample": "Access to this file is restricted to managers.",
+      "sampleExampleJa": "このファイルへのアクセスはマネージャーに制限されています。",
+      "sampleMeaning": "制限する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "employ",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "英検準2級",
+        "大学受験",
+        "高校英語基礎"
+      ],
+      "sampleExample": "The store employs about ten students.",
+      "sampleExampleJa": "その店は約10人の学生を雇っています。",
+      "sampleMeaning": "雇う",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "encounter",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "英検準2級",
+        "TOEIC",
+        "高校中級"
+      ],
+      "sampleExample": "We encountered a problem during the trip.",
+      "sampleExampleJa": "私たちは旅行中に問題に出くわしました。",
+      "sampleMeaning": "出くわす",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "exhibit",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "大学受験",
+        "TOEIC",
+        "大学受験難関"
+      ],
+      "sampleExample": "The museum exhibits paintings from the 19th century.",
+      "sampleExampleJa": "その美術館は19世紀の絵画を展示しています。",
+      "sampleMeaning": "展示する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "prioritize",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "TOEIC",
+        "英検準1級",
+        "英検2級"
+      ],
+      "sampleExample": "Schools should prioritize students' mental health.",
+      "sampleExampleJa": "学校は生徒の心の健康を優先するべきだ。",
+      "sampleMeaning": "優先順位をつける（動詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "plausible",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "英検準1級",
+        "英検1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "The hypothesis is plausible given the current experimental evidence.",
+      "sampleExampleJa": "この仮説は現在の実験的証拠を考えるともっともらしい。",
+      "sampleMeaning": "もっともらしい、説得力のある（形容詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "framework",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "慶応頻出",
+        "TOEIC"
+      ],
+      "sampleExample": "The report offers a new framework for research.",
+      "sampleExampleJa": "その報告書は研究の新しい枠組みを提供しています。",
+      "sampleMeaning": "枠組み",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "aware",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Are you aware of the recent changes?",
+      "sampleExampleJa": "最近の変更に気付いていますか?",
+      "sampleMeaning": "気付いている、認識している（形容詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "fail",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "大学受験標準",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "He failed the test but tried again.",
+      "sampleExampleJa": "彼はテストに落ちましたが、再び挑戦しました。",
+      "sampleMeaning": "失敗する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "occur",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "英検準2級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "The accident occurred near the school.",
+      "sampleExampleJa": "その事故は学校の近くで起こりました。",
+      "sampleMeaning": "起こる",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "similar",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校基礎",
+        "英検3級"
+      ],
+      "sampleExample": "These two pictures look similar.",
+      "sampleExampleJa": "この2枚の写真はよく似ています。",
+      "sampleMeaning": "似ている",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "compensate",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校中級",
+        "TOEIC",
+        "英検2級",
+        "英検準1級"
+      ],
+      "sampleExample": "The company decided to compensate customers affected by the product recall.",
+      "sampleExampleJa": "その企業は製品回収の影響を受けた顧客に補償することを決定した。",
+      "sampleMeaning": "補償する、代償する（動詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "therapy",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "英検2級"
+      ],
+      "sampleExample": "Physical therapy helped him recover from his injury.",
+      "sampleExampleJa": "リハビリテーションは彼がけがから回復するのを助けた。",
+      "sampleMeaning": "治療法、セラピー（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "infer",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "高校3年",
+        "大学受験標準",
+        "高校中級",
+        "英検1級",
+        "英検準1級",
+        "大学受験難関"
+      ],
+      "sampleExample": "We can infer from the fossil record that evolution occurred over millions of years.",
+      "sampleExampleJa": "化石記録から進化は数百万年にわたって起こったと推論できる。",
+      "sampleMeaning": "推論する、推定する（動詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "deadline",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "ビジネス基礎",
+        "TOEIC",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "The deadline for this report is next Friday.",
+      "sampleExampleJa": "この報告書の締め切りは来週の金曜日です。",
+      "sampleMeaning": "締め切り",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "narrative",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "慶応頻出",
+        "高校中級"
+      ],
+      "sampleExample": "The film tells its narrative in an unusual way.",
+      "sampleExampleJa": "その映画は珍しい方法で物語を語ります。",
+      "sampleMeaning": "物語、語り",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "resilience",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校2年",
+        "大学受験標準",
+        "高校3年",
+        "慶応頻出",
+        "英検1級",
+        "英検準1級"
+      ],
+      "sampleExample": "The community showed remarkable resilience after the natural disaster.",
+      "sampleExampleJa": "その地域は自然災害後に顕著な回復力を示した。",
+      "sampleMeaning": "回復力、復元力（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "reach",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "英検4級",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "We reached the top of the mountain at noon.",
+      "sampleExampleJa": "私たちは正午に山の頂上に到達しました。",
+      "sampleMeaning": "到達する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "appear",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "英検3級",
+        "共通テスト標準",
+        "英検準1級"
+      ],
+      "sampleExample": "New evidence appeared during the investigation.",
+      "sampleExampleJa": "新しい証拠が調査中に現れた。",
+      "sampleMeaning": "現れる、見える（動詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "taste",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "英検4級",
+        "日常会話",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "This soup has a nice taste.",
+      "sampleExampleJa": "このスープはいい味がします。",
+      "sampleMeaning": "味",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "endangered",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "高校英語上級",
+        "英検2級"
+      ],
+      "sampleExample": "The giant panda is an endangered species.",
+      "sampleExampleJa": "ジャイアントパンダは絶滅危機にある種である。",
+      "sampleMeaning": "絶滅危機にある（形容詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "flood",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "英検3級",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "The flood destroyed many homes.",
+      "sampleExampleJa": "洪水が多くの家を破壊しました。",
+      "sampleMeaning": "洪水",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "component",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "TOEIC",
+        "共通テスト標準",
+        "英検2級"
+      ],
+      "sampleExample": "Silicon is a key component of solar panels.",
+      "sampleExampleJa": "シリコンは太陽電池パネルの重要な成分である。",
+      "sampleMeaning": "成分、部品（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "annual",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験難関",
+        "高校基礎",
+        "TOEIC標準",
+        "TOEIC基礎",
+        "英検2級"
+      ],
+      "sampleExample": "The company holds an annual meeting every January.",
+      "sampleExampleJa": "その会社は毎年1月に年次総会を開催している。",
+      "sampleMeaning": "毎年の、年1回の（形容詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "fallacy",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校3年",
+        "大学受験難関",
+        "英検1級"
+      ],
+      "sampleExample": "The ad hominem fallacy attacks the speaker rather than addressing the argument.",
+      "sampleExampleJa": "人身攻撃の誤謬は議論に対処するのではなく発言者を攻撃する。",
+      "sampleMeaning": "誤謬、詭弁（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "hegemony",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校3年",
+        "慶応頻出",
+        "英検1級",
+        "大学受験難関〜最難関"
+      ],
+      "sampleExample": "The hegemony of Western cultural values has been challenged by postcolonial theorists.",
+      "sampleExampleJa": "西洋的文化価値の覇権はポストコロニアル理論家によって異議を唱えられている。",
+      "sampleMeaning": "覇権、支配権（名詞）",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "in spite of",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校3年",
+        "日常会話",
+        "英検3級"
+      ],
+      "sampleExample": "In spite of the rain, we went.",
+      "sampleExampleJa": "雨にもかかわらず、行きました。",
+      "sampleMeaning": "〜にもかかわらず",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "deal with",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "高校3年",
+        "日常英会話",
+        "英検3級",
+        "TOEIC"
+      ],
+      "sampleExample": "Deal with problems.",
+      "sampleExampleJa": "問題に対処する。",
+      "sampleMeaning": "〜に対処する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "correct",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "英検準2級",
+        "日常英会話",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "The teacher corrected our essays.",
+      "sampleExampleJa": "先生は私たちの作文を訂正しました。",
+      "sampleMeaning": "訂正する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "schedule",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "TOEIC基礎",
+        "日常英会話",
+        "TOEIC",
+        "英検3級"
+      ],
+      "sampleExample": "My schedule is full this week.",
+      "sampleExampleJa": "今週は予定がいっぱいです。",
+      "sampleMeaning": "予定、日程",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "earn",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "大学受験",
+        "TOEIC",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "He earned enough money to buy a bike.",
+      "sampleExampleJa": "彼は自転車を買うのに十分なお金を稼ぎました。",
+      "sampleMeaning": "稼ぐ、獲得する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "add",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験標準",
+        "英検4級",
+        "英検3級",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Please add your name to the list.",
+      "sampleExampleJa": "リストにあなたの名前を加えてください。",
+      "sampleMeaning": "加える",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "famous",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "英検3級",
+        "英検4級",
+        "高校英語基礎",
+        "共通テスト標準",
+        "中学基礎"
+      ],
+      "sampleExample": "This singer is famous around the world.",
+      "sampleExampleJa": "この歌手は世界中で有名です。",
+      "sampleMeaning": "有名な",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "distribute",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "大学受験",
+        "高校基礎",
+        "TOEIC",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Please distribute the handouts before the seminar.",
+      "sampleExampleJa": "セミナーの前に配布資料を配ってください。",
+      "sampleMeaning": "配布する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "cancel",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "日常英会話",
+        "TOEIC",
+        "英検3級",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "She had to cancel her trip because of work.",
+      "sampleExampleJa": "彼女は仕事のために旅行を取り消さなければなりませんでした。",
+      "sampleMeaning": "取り消す",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "mean",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "英検4級",
+        "日常英会話",
+        "英検3級",
+        "日常会話",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "What does this word mean?",
+      "sampleExampleJa": "この単語はどういう意味ですか。",
+      "sampleMeaning": "意味する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "run out of",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "日常会話",
+        "英検3級",
+        "TOEIC"
+      ],
+      "sampleExample": "Run out of time.",
+      "sampleExampleJa": "時間を使い果たす。",
+      "sampleMeaning": "〜を使い果たす",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "detail",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "TOEIC",
+        "高校英語基礎",
+        "英検3級",
+        "共通テスト標準",
+        "TOEIC基礎"
+      ],
+      "sampleExample": "Provide more details.",
+      "sampleExampleJa": "もっと詳細を教えてください。",
+      "sampleMeaning": "詳細",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    },
+    {
+      "word": "forward",
+      "materialCount": 8,
+      "exampleCount": 1,
+      "levels": [
+        "日常英会話",
+        "TOEIC",
+        "英検3級",
+        "高校英語基礎",
+        "共通テスト標準"
+      ],
+      "sampleExample": "Could you forward this email to the team?",
+      "sampleExampleJa": "このメールをチームに転送していただけますか。",
+      "sampleMeaning": "転送する",
+      "recommendedForIndex": false,
+      "missingElements": [
+        "例文が1件のみ(複数教材での実例が薄い可能性)"
+      ]
+    }
+  ]
+}

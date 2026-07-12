@@ -91,7 +91,14 @@ export default function AiVocabularyLearningPage() {
       <div className="max-w-2xl mx-auto px-4 -mt-4 space-y-5">
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <p className="text-base font-semibold text-navy-800 leading-relaxed">
+            結論: AIは単語を覚える作業そのものを代行するのではなく、「何を」「どう」復習すべきかを整理する補助として使うのが効果的です。実際に思い出す練習（自己想起）は自分自身で行う必要があります。
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <h2 className="font-black text-navy-800 text-lg mb-3">AIは「覚える作業」を代わりにやってくれるわけではない</h2>
+          <p className="text-sm font-semibold text-navy-800 mb-2">記憶の定着には自分で思い出す練習が必要で、AIはその準備・振り返りを助ける役割だからです。</p>
           <p className="text-sm text-navy-700 leading-relaxed">
             英単語学習におけるAIの役割は、単語を覚えること自体を代行することではなく、「何を」「どう」復習すべきかを整理する補助です。苦手傾向の分析、学習ペースの目安づくり、教材になっていない英文からの単語抽出など、学習の準備・振り返りの部分でAIを活用し、実際に思い出す練習（自己想起）は自分自身で行う、という役割分担を意識すると効果的です。
           </p>

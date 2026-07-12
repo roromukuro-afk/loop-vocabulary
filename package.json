@@ -29,6 +29,12 @@
     "test:growth-events": "node scripts/testing/e2e/growth-events.mjs",
     "test:teacher-keyword-page": "node scripts/testing/e2e/teacher-keyword-page.mjs",
     "test:adsense-safe-placements": "node scripts/testing/e2e/adsense-safe-placements.mjs",
+    "test:dictionary-programmatic-quality": "node scripts/testing/e2e/dictionary-programmatic-quality.mjs",
+    "test:teacher-seo-pages": "node scripts/testing/e2e/teacher-seo-pages.mjs",
+    "test:guide-aeo-blocks": "node scripts/testing/e2e/guide-aeo-blocks.mjs",
+    "test:vocab-check-share-card": "node scripts/testing/e2e/vocab-check-share-card.mjs",
+    "test:short-video-content-queue": "node scripts/testing/test-short-video-content-queue.mjs",
+    "test:reports-page": "node scripts/testing/e2e/reports-page.mjs",
     "test:diagnostic-share": "node scripts/testing/e2e/diagnostic-share.mjs",
     "test:teacher-pdf-guide": "node scripts/testing/e2e/teacher-pdf-guide.mjs",
     "test:teacher": "node scripts/testing/e2e/teacher.mjs",
@@ -72,7 +78,8 @@
     "cleanup:ai-usage-events:apply": "node scripts/ai/cleanup-ai-usage-events.mjs --apply",
     "audit:materials-pos": "node scripts/materials/audit-materials-pos.mjs",
     "materials:pos:dry-run": "node scripts/materials/fill-material-pos.mjs",
-    "materials:pos:apply": "node scripts/materials/fill-material-pos.mjs --apply"
+    "materials:pos:apply": "node scripts/materials/fill-material-pos.mjs --apply",
+    "dictionary:candidates": "node scripts/dictionary/select-public-word-candidates.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
