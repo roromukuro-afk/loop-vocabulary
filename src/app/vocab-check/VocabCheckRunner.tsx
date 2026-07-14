@@ -12,6 +12,7 @@ import {
   trackVocabCheckShareClick,
   trackVocabCheckCtaClick,
 } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 import { VocabCheckShareCard } from "@/components/vocabCheck/VocabCheckShareCard";
 
 type Question = {
@@ -97,13 +98,16 @@ export function VocabCheckRunner() {
 
   const onPick = (c: string) => {
     if (picked != null) return;
-    if (idx === 0) trackVocabCheckStart("general");
+    if (idx === 0) { trackVocabCheckStart("general"); trackEvent("vocab_check_started", { variant: "general" }); }
     const correct = c === cur.answer;
     trackVocabCheckAnswer("general", idx, correct);
     setPicked(c);
     setResults((r) => [...r, correct]);
     const answered = idx + 1;
-    if (answered === 10 || answered === QUESTIONS.length) trackVocabCheckProgress("general", answered, QUESTIONS.length);
+    if (answered === 10 || answered === QUESTIONS.length) {
+      trackVocabCheckProgress("general", answered, QUESTIONS.length);
+      trackEvent("vocab_check_progress", { variant: "general", answered, total: QUESTIONS.length });
+    }
   };
 
   const next = () => {
@@ -113,6 +117,8 @@ export function VocabCheckRunner() {
       const finalResult = getResult(finalCorrect);
       trackVocabCheckComplete(finalCorrect, finalResult.level);
       trackVocabCheckResultView("general", finalResult.level, finalCorrect, QUESTIONS.length);
+      trackEvent("vocab_check_completed", { variant: "general", correct: finalCorrect, total: QUESTIONS.length });
+      trackEvent("vocab_check_result_viewed", { variant: "general", level: finalResult.level });
       setDone(true);
       return;
     }
@@ -184,6 +190,7 @@ export function VocabCheckRunner() {
               data-testid="vocab-check-share-button"
               onClick={async () => {
                 trackVocabCheckShareClick("general");
+                trackEvent("vocab_check_shared", { variant: "general" });
                 if (navigator.share) {
                   await navigator.share({ text: shareText }).catch(() => {});
                 } else {
@@ -210,7 +217,7 @@ export function VocabCheckRunner() {
             <div className="mt-4 flex gap-2 justify-center">
               <Link
                 href="/signup"
-                onClick={() => trackVocabCheckCtaClick("general", "signup")}
+                onClick={() => { trackVocabCheckCtaClick("general", "signup"); trackEvent("vocab_check_signup_clicked", { variant: "general" }); }}
                 className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
               >
                 無料で単語帳を作る →

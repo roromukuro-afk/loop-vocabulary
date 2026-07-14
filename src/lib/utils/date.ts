@@ -77,3 +77,15 @@ export function jstDayOfMonth(date: Date = new Date()): number {
 export function todayStartJstISO(): string {
   return new Date(`${todayJST()}T00:00:00+09:00`).toISOString();
 }
+
+/**
+ * 任意の日本時間の暦日文字列("YYYY-MM-DD")について、その日の開始("startISO")と
+ * 翌日の開始("endISO")をUTC ISO文字列で返す。TIMESTAMPTZ列に対して`gte(startISO).lt(endISO)`
+ * のように「日本時間のその日」を絞り込む際に使う。`todayStartJstISO()`と同じ変換方式
+ * （`${dateStr}T00:00:00+09:00`）を任意日付向けに一般化したもの。
+ */
+export function jstDayRangeISO(dateStr: string): { startISO: string; endISO: string } {
+  const startISO = new Date(`${dateStr}T00:00:00+09:00`).toISOString();
+  const endISO = new Date(new Date(startISO).getTime() + DAY_MS).toISOString();
+  return { startISO, endISO };
+}

@@ -10,6 +10,7 @@ import {
   trackVocabCheckShareClick,
   trackVocabCheckCtaClick,
 } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 import { VocabCheckShareCard } from "@/components/vocabCheck/VocabCheckShareCard";
 
 type Question = { word: string; answer: string; choices: string[]; level: string };
@@ -62,13 +63,16 @@ export function EikenVocabRunner() {
 
   const onPick = (c: string) => {
     if (picked != null) return;
-    if (idx === 0) trackVocabCheckStart("eiken");
+    if (idx === 0) { trackVocabCheckStart("eiken"); trackEvent("vocab_check_started", { variant: "eiken" }); }
     const correct = c === cur.answer;
     trackVocabCheckAnswer("eiken", idx, correct);
     setPicked(c);
     setResults((r) => [...r, correct]);
     const answered = idx + 1;
-    if (answered === 10 || answered === QUESTIONS.length) trackVocabCheckProgress("eiken", answered, QUESTIONS.length);
+    if (answered === 10 || answered === QUESTIONS.length) {
+      trackVocabCheckProgress("eiken", answered, QUESTIONS.length);
+      trackEvent("vocab_check_progress", { variant: "eiken", answered, total: QUESTIONS.length });
+    }
   };
 
   const next = () => {
@@ -76,6 +80,8 @@ export function EikenVocabRunner() {
     if (idx + 1 >= QUESTIONS.length) {
       const finalCorrect = [...results, picked === cur.answer].filter(Boolean).length;
       trackVocabCheckResultView("eiken", getResult(finalCorrect).label, finalCorrect, QUESTIONS.length);
+      trackEvent("vocab_check_completed", { variant: "eiken", correct: finalCorrect, total: QUESTIONS.length });
+      trackEvent("vocab_check_result_viewed", { variant: "eiken", level: getResult(finalCorrect).label });
       setDone(true);
       return;
     }
@@ -150,6 +156,7 @@ export function EikenVocabRunner() {
           <div className="mt-6 flex gap-3">
             <button data-testid="vocab-check-share-button" onClick={async () => {
               trackVocabCheckShareClick("eiken");
+              trackEvent("vocab_check_shared", { variant: "eiken" });
               if (navigator.share) { await navigator.share({ text: shareText }).catch(() => {}); }
               else { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, "_blank", "noopener"); }
             }} className="flex-1 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-sm hover:bg-emerald-600 transition-colors">
@@ -165,7 +172,7 @@ export function EikenVocabRunner() {
             <div className="font-black text-base">英検合格に向けて語彙を効率的に増やす</div>
             <p className="text-xs text-navy-300 mt-1">SRS（忘却曲線）で英検頻出単語を体系的に記憶。合格まで最短ルートで進もう。</p>
             <div className="mt-4 flex gap-2 justify-center">
-              <Link href="/signup" onClick={() => trackVocabCheckCtaClick("eiken", "signup")} className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">無料で始める →</Link>
+              <Link href="/signup" onClick={() => { trackVocabCheckCtaClick("eiken", "signup"); trackEvent("vocab_check_signup_clicked", { variant: "eiken" }); }} className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">無料で始める →</Link>
               <Link href="/guide/eiken-2kyu-tango" onClick={() => trackVocabCheckCtaClick("eiken", "guide")} className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">英検2級ガイド</Link>
             </div>
           </div>

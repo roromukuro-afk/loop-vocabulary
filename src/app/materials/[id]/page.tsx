@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/server";
 import { ImportMaterialButton } from "./ImportMaterialButton";
+import { MaterialViewTracker } from "./MaterialViewTracker";
 import { PronounceButton } from "@/components/ui/PronounceButton";
 import { getPresetMeta } from "@/lib/materials/presetMeta";
 
@@ -212,6 +213,7 @@ export default async function MaterialDetailPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
       />
+      <MaterialViewTracker materialId={material.id} />
       <Link href="/materials" className="text-xs text-navy-500 hover:underline">
         ← 教材一覧
       </Link>

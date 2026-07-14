@@ -4,6 +4,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { trackWordPageAddCtaClick } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
+import { checkActivationAfterSession } from "@/lib/analytics/activation";
 
 type Props = {
   loggedIn: boolean;
@@ -70,6 +72,11 @@ export function AddToWordbook({ loggedIn, word, meaning, pos, example, exampleJa
     if (insertError) { setError(insertError.message); setBusy(false); return; }
     setDone(true);
     setBusy(false);
+    trackEvent("dictionary_word_added", { word_slug: wordSlug });
+    const { count } = await supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id);
+    if (count === 5) trackEvent("five_words_added");
+    if (count === 10) trackEvent("ten_words_added");
+    void checkActivationAfterSession();
   };
 
   if (done) {

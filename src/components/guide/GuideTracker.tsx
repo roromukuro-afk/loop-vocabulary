@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { trackGuideRead, trackGuideCtaClick, trackGuideShareClick } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 
 /**
  * 記事表示イベントに加えて、記事内リンク（/vocab-check・/dictionary・/premium・
@@ -10,6 +11,7 @@ import { trackGuideRead, trackGuideCtaClick, trackGuideShareClick } from "@/lib/
 export function GuideTracker({ slug }: { slug: string }) {
   useEffect(() => {
     trackGuideRead(slug);
+    trackEvent("guide_view", { guide_slug: slug });
 
     const onClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;

@@ -7,6 +7,7 @@ import { isSupabaseNotConfigured } from "@/lib/supabase/env";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { trackSignupComplete } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function SignupPage() {
     setError(null);
     setMessage(null);
     setBusy(true);
+    trackEvent("signup_started", { method: "email" });
     try {
       // Step 1: サーバー側で管理API経由ユーザー作成（メール確認不要）
       const res = await fetch("/api/auth/signup", {
@@ -45,6 +47,7 @@ export default function SignupPage() {
       }
 
       trackSignupComplete("email");
+      trackEvent("signup_completed", { method: "email" });
       fetch("/api/email/welcome", { method: "POST" }).catch(() => {});
       router.replace("/dashboard");
       router.refresh();
@@ -58,6 +61,7 @@ export default function SignupPage() {
   const onGoogle = async () => {
     setError(null);
     setGoogleBusy(true);
+    trackEvent("signup_started", { method: "google" });
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({
@@ -65,7 +69,7 @@ export default function SignupPage() {
         options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
       });
       if (error) { setError(error.message); setGoogleBusy(false); }
-      else { trackSignupComplete("google"); }
+      else { trackSignupComplete("google"); trackEvent("signup_completed", { method: "google" }); }
     } catch (e) {
       setGoogleBusy(false);
       setError(e instanceof Error ? e.message : "予期せぬエラー");

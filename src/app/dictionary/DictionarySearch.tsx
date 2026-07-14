@@ -14,6 +14,9 @@ import {
   trackDictionaryAddCtaClick,
   trackDictionarySignupCtaClick,
 } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
+import { normalizeSearchQuery } from "@/lib/analytics/normalizeSearchQuery";
+import { checkActivationAfterSession } from "@/lib/analytics/activation";
 
 type Hit = {
   source: "material" | "user";
@@ -64,6 +67,8 @@ export function DictionarySearch({
     if (!term.trim()) return;
     trackFeatureUsed("dictionary");
     trackDictionarySearchExecuted();
+    const normalizedQuery = normalizeSearchQuery(term);
+    trackEvent("dictionary_search", normalizedQuery ? { query_normalized: normalizedQuery } : {});
     setBusy(true);
     setError(null);
     setSavedKey(null);
@@ -92,8 +97,13 @@ export function DictionarySearch({
     ];
     setHits(result);
     setBusy(false);
-    if (result.length === 0) trackDictionarySearchZero();
-    else trackDictionarySearchResults(result.length);
+    if (result.length === 0) {
+      trackDictionarySearchZero();
+      trackEvent("dictionary_zero_result");
+    } else {
+      trackDictionarySearchResults(result.length);
+      trackEvent("dictionary_result_found", { result_count: result.length });
+    }
   };
 
   const search = async (e: React.FormEvent) => {
@@ -131,6 +141,11 @@ export function DictionarySearch({
     });
     if (error) { setError(error.message); return; }
     setSavedKey(`${h.source}:${h.word}`);
+    trackEvent("dictionary_word_added", { word_slug: h.word.toLowerCase() });
+    const { count } = await supabase.from("words").select("*", { count: "exact", head: true }).eq("user_id", user.id);
+    if (count === 5) trackEvent("five_words_added");
+    if (count === 10) trackEvent("ten_words_added");
+    void checkActivationAfterSession();
     router.refresh();
   };
 

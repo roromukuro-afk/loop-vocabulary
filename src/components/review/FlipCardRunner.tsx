@@ -11,6 +11,8 @@ import { PronounceButton } from "@/components/ui/PronounceButton";
 import { AudioAutoplayToggle } from "@/components/ui/AudioAutoplayToggle";
 import { FlashcardAiHint } from "@/components/review/FlashcardAiHint";
 import { trackFeatureUsed, trackReviewComplete, trackFirstReviewComplete } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
+import { checkActivationAfterSession } from "@/lib/analytics/activation";
 
 type W = {
   id: string; word: string; meaning: string; streak: number; is_weak: boolean;
@@ -63,7 +65,10 @@ export function FlipCardRunner({
   // 未指定時は env のみで判定。ON のとき4段階評価UI、OFFなら従来の2値。
   const v2 = v2Enabled ?? isSrsV2Enabled();
 
-  useEffect(() => { trackFeatureUsed("flip_card"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    trackFeatureUsed("flip_card");
+    trackEvent("review_session_started");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!done && cur && isAudioAutoplayEnabled()) speakEn(cur.word);
@@ -74,10 +79,13 @@ export function FlipCardRunner({
     void showInterstitial("flip_review");
     const correct = results.filter((r) => r.ok).length;
     trackReviewComplete(correct, results.length);
+    trackEvent("review_session_completed", { total: results.length, correct });
     if (!localStorage.getItem("lv_first_review")) {
       localStorage.setItem("lv_first_review", "1");
       trackFirstReviewComplete();
+      trackEvent("first_review_completed");
     }
+    void checkActivationAfterSession();
   }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleSwipe = () => {
@@ -99,6 +107,8 @@ export function FlipCardRunner({
     // OFF のときは無視され、従来通り isCorrect ベースで動作する。
     // mode="flashcard": 自己想起モードのため間隔重み付けは1.0倍（無変更）。
     await saveStudyResult(cur, isCorrect, undefined, rating, "flashcard");
+    trackEvent("word_answered", { correct: isCorrect });
+    if (!isCorrect) trackEvent("word_marked_again");
     const newResults = [...results, { word: cur.word, meaning: cur.meaning, ok: isCorrect }];
     setResults(newResults);
     if (!isCorrect) {

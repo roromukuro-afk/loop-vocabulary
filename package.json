@@ -87,7 +87,13 @@
     "audit:materials-pos": "node scripts/materials/audit-materials-pos.mjs",
     "materials:pos:dry-run": "node scripts/materials/fill-material-pos.mjs",
     "materials:pos:apply": "node scripts/materials/fill-material-pos.mjs --apply",
-    "dictionary:candidates": "node scripts/dictionary/select-public-word-candidates.mjs"
+    "dictionary:candidates": "node scripts/dictionary/select-public-word-candidates.mjs",
+    "test:experiment-assignment": "node scripts/testing/test-experiment-assignment.mjs",
+    "test:experiment-statistics": "node scripts/testing/test-experiment-statistics.mjs",
+    "test:revenue-metrics": "node scripts/testing/test-revenue-metrics.mjs",
+    "test:weekly-growth-report": "node scripts/testing/test-weekly-growth-report.mjs",
+    "test:growth-rollup-cron": "node scripts/testing/e2e/growth-rollup-cron.mjs",
+    "test:growth-dashboard-auth": "node scripts/testing/e2e/growth-dashboard-auth.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

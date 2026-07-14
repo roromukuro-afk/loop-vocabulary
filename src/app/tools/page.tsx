@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ToolsPageTracker } from "./ToolsPageTracker";
+import { ToolCardLink } from "./ToolCardLink";
 
 const SITE_URL = "https://loop-vocabulary.app";
 
@@ -70,6 +72,7 @@ const PLANNED_TOOLS = [
 export default function ToolsPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+      <ToolsPageTracker />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(BREADCRUMB_LD) }} />
 
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
@@ -87,7 +90,7 @@ export default function ToolsPage() {
           <h2 className="font-black text-navy-800 text-lg mb-3">今すぐ使えるツール</h2>
           <div className="space-y-3">
             {LIVE_TOOLS.map((t) => (
-              <Link
+              <ToolCardLink
                 key={t.href}
                 href={t.href}
                 className="block bg-navy-50 rounded-xl p-4 hover:bg-navy-100 transition-colors"
@@ -100,7 +103,7 @@ export default function ToolsPage() {
                     <div className="text-xs text-sky-700 font-semibold mt-2">{t.cta}</div>
                   </div>
                 </div>
-              </Link>
+              </ToolCardLink>
             ))}
           </div>
         </div>

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { trackMaterialImported } from "@/lib/analytics/events";
+import { checkActivationAfterSession } from "@/lib/analytics/activation";
 
 export function ImportMaterialButton({
   materialId,
@@ -40,6 +41,7 @@ export function ImportMaterialButton({
     } else {
       trackMaterialImported(examType, json.count ?? 0);
       setJustImportedCount(json.count ?? 0);
+      void checkActivationAfterSession();
     }
     router.refresh();
   };

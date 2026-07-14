@@ -13,6 +13,8 @@ import { isAudioAutoplayEnabled } from "@/lib/audioSettings";
 import { PronounceButton } from "@/components/ui/PronounceButton";
 import { AudioAutoplayToggle } from "@/components/ui/AudioAutoplayToggle";
 import { trackFeatureUsed } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
+import { markFirstTestCompletedIfNeeded, checkActivationAfterSession } from "@/lib/analytics/activation";
 
 type W = SrsQuizWord & { streak: number; is_weak: boolean };
 
@@ -64,7 +66,10 @@ export function ChoiceTestRunner({
   const cur = qs[idx];
   const ok = picked != null && picked === cur?.answer;
 
-  useEffect(() => { trackFeatureUsed("choice_test"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    trackFeatureUsed("choice_test");
+    trackEvent("study_session_started", { mode: "choice" });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // テスト完了時にインタースティシャル広告を表示
   useEffect(() => {
@@ -91,6 +96,7 @@ export function ChoiceTestRunner({
     setPicked(c);
     const isOk = c === cur.answer;
     setResults((r) => [...r, { word: cur.w.word, meaning: cur.w.meaning, ok: isOk }]);
+    trackEvent("word_answered", { correct: isOk });
     // mode="choice": 4択(再認)は自己想起より弱いシグナルのため間隔重み付けを控えめにする。
     void saveStudyResult(cur.w, isOk, undefined, undefined, "choice");
   };
@@ -99,6 +105,10 @@ export function ChoiceTestRunner({
     setPicked(null);
     if (idx + 1 >= qs.length) {
       setDone(true);
+      const correctCount = results.filter((r) => r.ok).length;
+      trackEvent("study_session_completed", { mode: "choice", total: results.length, correct: correctCount });
+      markFirstTestCompletedIfNeeded();
+      void checkActivationAfterSession();
       return;
     }
     setIdx(idx + 1);

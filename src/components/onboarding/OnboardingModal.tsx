@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics/track";
 
 const STORAGE_KEY = "loop_onboarding_done";
 
@@ -56,6 +57,9 @@ export function OnboardingModal() {
 
   useEffect(() => {
     if (!localStorage.getItem(STORAGE_KEY)) {
+      // このモーダルは初回ダッシュボード訪問時(=まだオンボーディング未完了)にのみ表示される。
+      // 表示された瞬間が「オンボーディング開始」の最も自然なシグナル。
+      trackEvent("onboarding_started");
       const t = setTimeout(() => setShow(true), 600);
       return () => clearTimeout(t);
     }

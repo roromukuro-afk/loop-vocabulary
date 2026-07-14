@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/supabase/requireUser";
+import { trackWordCountMilestones } from "@/lib/analytics/trackServerEvent";
 
 export const runtime = "nodejs";
 
@@ -40,8 +41,15 @@ export async function POST(
     wrong_count: 0,
   }));
 
+  const { count: countBefore } = await supabase
+    .from("words")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
   const { error } = await supabase.from("words").insert(rows);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + rows.length);
 
   return NextResponse.json({ ok: true, added: rows.length });
 }

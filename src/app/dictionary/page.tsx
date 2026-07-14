@@ -99,6 +99,8 @@ export default async function DictionaryPage() {
               href={`/dictionary/${w.slug}`}
               event="trackDictionaryWordClick"
               args={[w.slug]}
+              growthEvent="dictionary_word_clicked"
+              growthProperties={{ word_slug: w.slug }}
               className="text-[11px] px-2.5 py-1 rounded-full bg-navy-50 text-navy-600 font-semibold hover:bg-navy-100 transition-colors"
             >
               {w.word}

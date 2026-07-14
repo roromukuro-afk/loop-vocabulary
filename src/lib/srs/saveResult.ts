@@ -1,5 +1,6 @@
 "use client";
 import { createClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics/track";
 import {
   applySrs,
   applySrsV2,
@@ -13,6 +14,9 @@ import {
 import { todayJST } from "@/lib/utils/date";
 
 export type SrsWord = { id: string; streak: number; is_weak: boolean };
+
+// dashboard/page.tsx の「習得率カード」と同じ閾値(mastery>=80を習得済みとする)
+const MASTERED_THRESHOLD = 80;
 
 /**
  * 1問答えた直後に SRS / 統計を一括更新する。
@@ -67,6 +71,7 @@ export async function saveStudyResult(
       mode,
     });
 
+    const newMasteryV2 = clampMastery((cur?.mastery ?? 0) + r.mastery_delta);
     await supabase
       .from("words")
       .update({
@@ -78,9 +83,13 @@ export async function saveStudyResult(
         interval_days: r.new_interval_days,
         correct_count: (cur?.correct_count ?? 0) + (countedCorrect ? 1 : 0),
         wrong_count: (cur?.wrong_count ?? 0) + (countedCorrect ? 0 : 1),
-        mastery: clampMastery((cur?.mastery ?? 0) + r.mastery_delta),
+        mastery: newMasteryV2,
       })
       .eq("id", w.id);
+    // dashboard/page.tsx と同じ mastery>=80 を「習得済み」の閾値として使う
+    if ((cur?.mastery ?? 0) < MASTERED_THRESHOLD && newMasteryV2 >= MASTERED_THRESHOLD) {
+      trackEvent("word_mastered");
+    }
   } else {
     // ---- V1: 現状の固定間隔（挙動は従来と完全に同一）----
     const r = applySrs({ streak: w.streak, is_weak: w.is_weak, is_correct: isCorrect });
@@ -91,6 +100,7 @@ export async function saveStudyResult(
       .eq("id", w.id)
       .single();
 
+    const newMasteryV1 = clampMastery((cur?.mastery ?? 0) + r.mastery_delta);
     await supabase
       .from("words")
       .update({
@@ -100,9 +110,12 @@ export async function saveStudyResult(
         last_studied_at: new Date().toISOString(),
         correct_count: (cur?.correct_count ?? 0) + (isCorrect ? 1 : 0),
         wrong_count: (cur?.wrong_count ?? 0) + (isCorrect ? 0 : 1),
-        mastery: clampMastery((cur?.mastery ?? 0) + r.mastery_delta),
+        mastery: newMasteryV1,
       })
       .eq("id", w.id);
+    if ((cur?.mastery ?? 0) < MASTERED_THRESHOLD && newMasteryV1 >= MASTERED_THRESHOLD) {
+      trackEvent("word_mastered");
+    }
   }
 
   await supabase.from("study_results").insert({

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { Button } from "@/components/ui/Button";
+import { LandingPageTracker } from "./LandingPageTracker";
 
 type PublicStats = {
   materialCounts: { exam_type: string; count: number }[];
@@ -140,6 +141,7 @@ export default async function LandingPage() {
 
   return (
     <div className="min-h-dvh bg-white text-navy-900">
+      <LandingPageTracker />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
       {/* ナビ */}

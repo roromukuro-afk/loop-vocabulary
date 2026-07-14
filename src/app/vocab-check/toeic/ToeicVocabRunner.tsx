@@ -10,6 +10,7 @@ import {
   trackVocabCheckShareClick,
   trackVocabCheckCtaClick,
 } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 import { VocabCheckShareCard } from "@/components/vocabCheck/VocabCheckShareCard";
 
 type Question = { word: string; answer: string; choices: string[]; score: number };
@@ -62,13 +63,16 @@ export function ToeicVocabRunner() {
 
   const onPick = (c: string) => {
     if (picked != null) return;
-    if (idx === 0) trackVocabCheckStart("toeic");
+    if (idx === 0) { trackVocabCheckStart("toeic"); trackEvent("vocab_check_started", { variant: "toeic" }); }
     const correct = c === cur.answer;
     trackVocabCheckAnswer("toeic", idx, correct);
     setPicked(c);
     setResults((r) => [...r, correct]);
     const answered = idx + 1;
-    if (answered === 10 || answered === QUESTIONS.length) trackVocabCheckProgress("toeic", answered, QUESTIONS.length);
+    if (answered === 10 || answered === QUESTIONS.length) {
+      trackVocabCheckProgress("toeic", answered, QUESTIONS.length);
+      trackEvent("vocab_check_progress", { variant: "toeic", answered, total: QUESTIONS.length });
+    }
   };
 
   const next = () => {
@@ -76,6 +80,8 @@ export function ToeicVocabRunner() {
     if (idx + 1 >= QUESTIONS.length) {
       const finalCorrect = [...results, picked === cur.answer].filter(Boolean).length;
       trackVocabCheckResultView("toeic", getResult(finalCorrect).score, finalCorrect, QUESTIONS.length);
+      trackEvent("vocab_check_completed", { variant: "toeic", correct: finalCorrect, total: QUESTIONS.length });
+      trackEvent("vocab_check_result_viewed", { variant: "toeic", level: getResult(finalCorrect).score });
       setDone(true);
       return;
     }
@@ -150,6 +156,7 @@ export function ToeicVocabRunner() {
           <div className="mt-6 flex gap-3">
             <button data-testid="vocab-check-share-button" onClick={async () => {
               trackVocabCheckShareClick("toeic");
+              trackEvent("vocab_check_shared", { variant: "toeic" });
               if (navigator.share) { await navigator.share({ text: shareText }).catch(() => {}); }
               else { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, "_blank", "noopener"); }
             }} className="flex-1 py-3 rounded-2xl bg-sky-500 text-white font-bold text-sm hover:bg-sky-600 transition-colors">
@@ -165,7 +172,7 @@ export function ToeicVocabRunner() {
             <div className="font-black text-base">TOEIC語彙を体系的に学ぶ</div>
             <p className="text-xs text-navy-300 mt-1">SRS（忘却曲線）でTOEIC頻出語を効率的に記憶。AI解説でコロケーションも確認。</p>
             <div className="mt-4 flex gap-2 justify-center">
-              <Link href="/signup" onClick={() => trackVocabCheckCtaClick("toeic", "signup")} className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">無料で始める →</Link>
+              <Link href="/signup" onClick={() => { trackVocabCheckCtaClick("toeic", "signup"); trackEvent("vocab_check_signup_clicked", { variant: "toeic" }); }} className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">無料で始める →</Link>
               <Link href="/guide/toeic-tango" onClick={() => trackVocabCheckCtaClick("toeic", "guide")} className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">学習ガイドを読む</Link>
             </div>
           </div>

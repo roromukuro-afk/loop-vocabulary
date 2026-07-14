@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { trackCheckoutStart } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 
 type Props =
   | { action: "checkout"; stripeReady: boolean; loggedIn: boolean }
@@ -13,6 +14,7 @@ export function PremiumCheckout(props: Props) {
 
   const startCheckout = async (plan: "monthly" | "yearly") => {
     trackCheckoutStart(plan);
+    trackEvent("checkout_started", { plan });
     setLoading(true);
     setError("");
     const res = await fetch("/api/stripe/checkout", {

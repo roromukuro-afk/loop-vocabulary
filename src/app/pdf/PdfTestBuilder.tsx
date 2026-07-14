@@ -8,6 +8,7 @@ import { sample } from "@/lib/utils/shuffle";
 import { createClient } from "@/lib/supabase/client";
 import { UpsellModal } from "@/components/premium/UpsellModal";
 import { trackFeatureUsed, trackPdfGenerateStart, trackPdfGenerateComplete } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 import { todayStartJstISO } from "@/lib/utils/date";
 
 // PDF小テストの配布先（生徒・保護者）がオフラインから流入できるようにするための
@@ -152,6 +153,7 @@ export function PdfTestBuilder({
       w.document.write(html);
       w.document.close();
       trackPdfGenerateComplete(rows.length);
+      trackEvent("pdf_generated", { question_count: rows.length });
       // ログ保存
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();

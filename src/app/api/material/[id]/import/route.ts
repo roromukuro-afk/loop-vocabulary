@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { trackWordCountMilestones } from "@/lib/analytics/trackServerEvent";
 
 const CHUNK = 100;
 const PAGE_SIZE = 1000;
@@ -69,6 +70,12 @@ export async function POST(
     offset += PAGE_SIZE;
   }
 
+  // five_words_added / ten_words_added の閾値越え判定用に、追加前の総語数を取得しておく
+  const { count: countBefore } = await supabase
+    .from("words")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
   const now = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
   const rows = mwords.map((m) => ({
     user_id: user.id,
@@ -94,6 +101,8 @@ export async function POST(
       );
     }
   }
+
+  await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + rows.length);
 
   return NextResponse.json({ bookId: book.id, count: rows.length });
 }

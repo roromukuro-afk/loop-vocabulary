@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/Button";
 import { saveStudyResult } from "@/lib/srs/saveResult";
 import { selectQuizWords, type SrsQuizWord } from "@/lib/learning/wordSelection";
 import { trackFeatureUsed } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
+import { markFirstTestCompletedIfNeeded, checkActivationAfterSession } from "@/lib/analytics/activation";
 
 type W = SrsQuizWord & { streak: number; is_weak: boolean };
 
@@ -26,7 +28,10 @@ export function TypingTestRunner({ pool, count, scopeLabel }: { pool: W[]; count
   const targetLower = target.toLowerCase();
   const valLower = val.toLowerCase();
 
-  useEffect(() => { trackFeatureUsed("typing_test"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    trackFeatureUsed("typing_test");
+    trackEvent("study_session_started", { mode: "typing" });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!startTime) { setElapsed(0); return; }
@@ -41,6 +46,7 @@ export function TypingTestRunner({ pool, count, scopeLabel }: { pool: W[]; count
     const qTime = startTime ? (Date.now() - startTime) / 1000 : 0;
     // mode="typing": スペルを能動的に想起・産出するため4択より強く反映する。
     void saveStudyResult(cur, correct, undefined, undefined, "typing");
+    trackEvent("word_answered", { correct });
     setResults((r) => [...r, { word: cur.word, meaning: cur.meaning, time: qTime, correct }]);
     setFlash(correct);
     setTimeout(() => {
@@ -48,7 +54,15 @@ export function TypingTestRunner({ pool, count, scopeLabel }: { pool: W[]; count
       setVal("");
       setStartTime(null);
       setElapsed(0);
-      if (idx + 1 >= qs.length) { setDone(true); return; }
+      if (idx + 1 >= qs.length) {
+        setDone(true);
+        // results state はこのクロージャ内ではまだ今回の解答を含まないため、+1して補う
+        const correctCount = results.filter((r) => r.correct).length + (correct ? 1 : 0);
+        trackEvent("study_session_completed", { mode: "typing", total: results.length + 1, correct: correctCount });
+        markFirstTestCompletedIfNeeded();
+        void checkActivationAfterSession();
+        return;
+      }
       setIdx((i) => i + 1);
       setTimeout(() => inputRef.current?.focus(), 0);
     }, correct ? 350 : 0);

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AppRewardedAdButton } from "@/components/ads/AppAds";
 import { UpsellModal } from "@/components/premium/UpsellModal";
 import { trackAiLimitHit, trackFeatureUsed } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 import { formatAiResult } from "@/lib/ai/formatAiResult";
 
 /**
@@ -26,6 +27,7 @@ export function FlashcardAiHint({ word, meaning }: { word: string; meaning: stri
 
   const run = async () => {
     trackFeatureUsed("flashcard_ai_hint");
+    trackEvent("ai_explanation_used");
     setOpen(true);
     setBusy(true);
     setError(null);
