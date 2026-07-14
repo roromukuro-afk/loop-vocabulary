@@ -173,6 +173,7 @@ export async function computeDailyMetrics(
       .gte("occurred_at", startISO)
       .lt("occurred_at", endISO)
       .not("user_id", "is", null)
+      .eq("is_test_event", false)
       .limit(BULK_FETCH_LIMIT);
     if (euErr) throw new Error(`analytics_events(dau用)取得失敗(${day}): ${euErr.message}`);
     for (const r of eventUserRows ?? []) {
@@ -229,18 +230,27 @@ export async function computeDailyMetrics(
     });
 
     // 補助指標: AI解説利用数(events由来。未配線ならevent_countは0のまま)
-    const { count: aiCount, error: aiErr } = await admin
+    // 【2026-07-14 修正】以前はテストアカウント/テストイベントを除外していなかった
+    // (count専用クエリはuser_idを取得できずフィルタ不可能だった)。user_idを取得して
+    // からフィルタする方式に変更した。
+    const { data: aiEventRows, error: aiErr } = await admin
       .from("analytics_events")
-      .select("id", { count: "exact", head: true })
+      .select("user_id")
       .eq("event_name", "ai_explanation_used")
+      .eq("is_test_event", false)
       .gte("occurred_at", startISO)
-      .lt("occurred_at", endISO);
+      .lt("occurred_at", endISO)
+      .limit(BULK_FETCH_LIMIT);
     if (aiErr) throw new Error(`ai_explanation_used集計失敗(${day}): ${aiErr.message}`);
+    const aiCount = (aiEventRows ?? []).filter((r) => {
+      const uid = r.user_id as string | null;
+      return !uid || !testAccountIds.has(uid);
+    }).length;
     rows.push({
       metric_date: day,
       metric_name: "ai_explanation_used_count",
       dimension: "",
-      value: aiCount ?? 0,
+      value: aiCount,
     });
   }
 
@@ -289,6 +299,7 @@ async function countDistinctSessionOrUser(
     .from("analytics_events")
     .select("user_id, anonymous_session_id")
     .in("event_name", eventNames)
+    .eq("is_test_event", false)
     .gte("occurred_at", startISO)
     .lt("occurred_at", endISO)
     .limit(BULK_FETCH_LIMIT);
@@ -467,6 +478,7 @@ async function groupCountByProperty(
     .from("analytics_events")
     .select("user_id, properties")
     .eq("event_name", eventName)
+    .eq("is_test_event", false)
     .gte("occurred_at", startISO)
     .lt("occurred_at", endISO)
     .limit(BULK_FETCH_LIMIT);
@@ -613,20 +625,31 @@ export async function computeRevenue(
 }
 
 // ─────────────────────────────────────────────────────────────
-// analytics_retention_cohorts: JST月曜始まりの登録週コホート
+// analytics_retention_cohorts: 登録週(JST月曜始まり)でグルーピングして表示するが、
+// D{offset}の判定自体は各ユーザー本人の登録日(profiles.created_at, JST日付)を起点に行う。
+//
+// 【2026-07-14 修正】旧実装は cohort_week(コホートの月曜日)を起点に offset を足していたため、
+// 週の途中(火〜日)に登録したユーザーは実際の経過日数とズレたラベルで判定されていた
+// (例: 日曜登録のユーザーの「本当のD1」が、月曜起点では「D6」やそれ以前としてしか
+// 現れず、D1/D3/D7のセルは登録前の日付を指してしまい常に0になっていた)。
+// これは daily_stats の実活動と矛盾する結果を生んでいた既知の不具合で、今回
+// 各ユーザーの実際の登録日を起点に判定するよう修正した。「未到達ユーザーは分母に
+// 入れない」の原則も、コホート単位ではなくユーザー単位に厳密化した
+// (同じ週内でも登録日が数日ずれれば「到達済みか」も数日ずれるため)。
 // ─────────────────────────────────────────────────────────────
 
-const RETENTION_OFFSETS = [1, 3, 7, 14, 28] as const;
+const RETENTION_OFFSETS = [1, 3, 7, 14, 30] as const;
 
 /** 指定したJST日付文字列が属する週の月曜日(JST)を返す。既存のdate.jsユーティリティ
- * (jstWeekdayIndex/daysAgoJST)を組み合わせて求める(独自の日付計算は増やさない)。 */
+ * (jstWeekdayIndex/daysAgoJST)を組み合わせて求める(独自の日付計算は増やさない)。
+ * 現在はcohort_weekの表示ラベル(グルーピング)としてのみ使う。D{offset}判定には使わない。 */
 export function jstMondayOfWeek(dateStr: string): string {
   const weekdayIdx = jstWeekdayIndex(dateStr); // 0=日,1=月,...,6=土
   const daysSinceMonday = (weekdayIdx + 6) % 7; // 月=0, 火=1, ..., 日=6
   return daysAgoJST(daysSinceMonday, new Date(`${dateStr}T12:00:00+09:00`));
 }
 
-/** weekStart(JST日付文字列)からoffset日後のJST日付文字列。daysAgoJSTに負数を渡すことで
+/** dateStr(JST日付文字列)からoffset日後のJST日付文字列。daysAgoJSTに負数を渡すことで
  * 「n日後」を表現する(daysAgoJST自体の定義は変えず、既存関数の合成のみで実現)。 */
 export function jstDatePlusDays(dateStr: string, offset: number): string {
   return daysAgoJST(-offset, new Date(`${dateStr}T12:00:00+09:00`));
@@ -643,13 +666,11 @@ export async function computeRetentionCohorts(
   if (profErr) throw new Error(`profiles取得失敗: ${profErr.message}`);
   const nonTestProfiles = (profilesRows ?? []).filter((p) => !p.is_test_account);
 
-  const cohorts = new Map<string, string[]>(); // cohort_week(月曜) -> user_id[]
+  // user_id -> { signupDate(JST), cohortWeek(表示用の登録週月曜ラベル) }
+  const userSignup = new Map<string, { signupDate: string; cohortWeek: string }>();
   for (const p of nonTestProfiles) {
-    const createdJst = toJstDateString(new Date(p.created_at as string));
-    const weekStart = jstMondayOfWeek(createdJst);
-    const arr = cohorts.get(weekStart) ?? [];
-    arr.push(p.id as string);
-    cohorts.set(weekStart, arr);
+    const signupDate = toJstDateString(new Date(p.created_at as string));
+    userSignup.set(p.id as string, { signupDate, cohortWeek: jstMondayOfWeek(signupDate) });
   }
 
   const { data: dsRows, error: dsErr } = await admin
@@ -666,20 +687,29 @@ export async function computeRetentionCohorts(
   }
 
   const today = todayJST();
-  const rows: { cohort_week: string; day_offset: number; cohort_size: number; retained_count: number }[] = [];
-  let skippedForNotEnoughTime = 0;
+  // (cohort_week, day_offset) -> { cohortSize(到達済みユーザー数), retainedCount }
+  const agg = new Map<string, { cohortSize: number; retainedCount: number }>();
+  let notYetReachedCount = 0;
 
-  for (const [weekStart, userIds] of cohorts) {
+  for (const [uid, { signupDate, cohortWeek }] of userSignup) {
     for (const offset of RETENTION_OFFSETS) {
-      const targetDate = jstDatePlusDays(weekStart, offset);
+      const targetDate = jstDatePlusDays(signupDate, offset);
       if (targetDate > today) {
-        skippedForNotEnoughTime++;
-        continue; // まだその日数が経過していないコホート/オフセットは書かない(誤った0を防ぐ)
+        notYetReachedCount++;
+        continue; // このユーザーはまだこのoffsetに到達していない → 分母に入れない
       }
-      const cohortSize = userIds.length;
-      const retainedCount = userIds.filter((uid) => activeUserDaySet.has(`${uid}|${targetDate}`)).length;
-      rows.push({ cohort_week: weekStart, day_offset: offset, cohort_size: cohortSize, retained_count: retainedCount });
+      const key = `${cohortWeek}|${offset}`;
+      const entry = agg.get(key) ?? { cohortSize: 0, retainedCount: 0 };
+      entry.cohortSize += 1;
+      if (activeUserDaySet.has(`${uid}|${targetDate}`)) entry.retainedCount += 1;
+      agg.set(key, entry);
     }
+  }
+
+  const rows: { cohort_week: string; day_offset: number; cohort_size: number; retained_count: number }[] = [];
+  for (const [key, { cohortSize, retainedCount }] of agg) {
+    const [cohort_week, offsetStr] = key.split("|");
+    rows.push({ cohort_week, day_offset: Number(offsetStr), cohort_size: cohortSize, retained_count: retainedCount });
   }
 
   if (rows.length > 0) {
@@ -689,5 +719,5 @@ export async function computeRetentionCohorts(
     if (upsertErr) throw new Error(`analytics_retention_cohorts upsert失敗: ${upsertErr.message}`);
   }
 
-  return { ok: true, detail: { cohorts: cohorts.size, rowsWritten: rows.length, skippedForNotEnoughTime } };
+  return { ok: true, detail: { users: userSignup.size, rowsWritten: rows.length, notYetReachedCount } };
 }

@@ -138,13 +138,23 @@ function buildPayload(
 
 async function sendPayload(payload: unknown): Promise<void> {
   try {
-    await fetch("/api/analytics/events", {
+    const res = await fetch("/api/analytics/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       keepalive: true,
     });
-  } catch {
-    // 分析イベントの送信失敗はユーザー体験に一切影響させない
+    // 開発環境でのみ、送信失敗の理由をconsoleに出す(本番では出さない。学習機能への影響はゼロ)。
+    if (process.env.NODE_ENV !== "production") {
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.ok === false || json?.accepted === 0) {
+        console.warn("[analytics/track] event not accepted:", json ?? { status: res.status });
+      }
+    }
+  } catch (e) {
+    // 分析イベントの送信失敗はユーザー体験に一切影響させない(本番では握りつぶす)。
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[analytics/track] send failed:", e);
+    }
   }
 }

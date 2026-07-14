@@ -93,7 +93,13 @@
     "test:revenue-metrics": "node scripts/testing/test-revenue-metrics.mjs",
     "test:weekly-growth-report": "node scripts/testing/test-weekly-growth-report.mjs",
     "test:growth-rollup-cron": "node scripts/testing/e2e/growth-rollup-cron.mjs",
-    "test:growth-dashboard-auth": "node scripts/testing/e2e/growth-dashboard-auth.mjs"
+    "test:growth-dashboard-auth": "node scripts/testing/e2e/growth-dashboard-auth.mjs",
+    "test:analytics-production-ingestion": "node scripts/testing/e2e/analytics-production-ingestion.mjs",
+    "test:analytics-rejection-reasons": "node scripts/testing/e2e/analytics-rejection-reasons.mjs",
+    "test:test-account-exclusion": "node scripts/testing/test-account-exclusion.mjs",
+    "test:retention-source-of-truth": "node scripts/testing/e2e/retention-source-of-truth.mjs",
+    "test:revenue-test-account-exclusion": "node scripts/testing/revenue-test-account-exclusion.mjs",
+    "test:growth-rollup-real-data": "node scripts/testing/e2e/growth-rollup-real-data.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

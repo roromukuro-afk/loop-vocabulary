@@ -92,6 +92,7 @@ export function VocabCheckRunner() {
   useEffect(() => {
     trackFeatureUsed("vocab_check");
     trackVocabCheckPageView("general");
+    trackEvent("vocab_check_page_viewed", { variant: "general" });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cur = QUESTIONS[idx];
@@ -101,6 +102,7 @@ export function VocabCheckRunner() {
     if (idx === 0) { trackVocabCheckStart("general"); trackEvent("vocab_check_started", { variant: "general" }); }
     const correct = c === cur.answer;
     trackVocabCheckAnswer("general", idx, correct);
+    trackEvent("vocab_check_answer_submitted", { variant: "general", question_index: idx, correct });
     setPicked(c);
     setResults((r) => [...r, correct]);
     const answered = idx + 1;

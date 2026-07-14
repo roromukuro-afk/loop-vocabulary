@@ -20,7 +20,7 @@ import type {
 export const dynamic = "force-dynamic";
 
 const PERIOD_OPTIONS: PeriodDays[] = [7, 30, 90];
-const RETENTION_OFFSETS = [1, 3, 7, 14, 28];
+const RETENTION_OFFSETS = [1, 3, 7, 14, 30];
 const CHECKOUT_EVENT_NAMES = ["premium_page_viewed", "checkout_started", "checkout_completed"];
 
 function startOfDayJstISO(dateStr: string): string {
@@ -61,6 +61,7 @@ export default async function AdminGrowthPage({
     { data: revenueRows },
     { data: checkoutFunnelRows },
     { data: checkoutEventRows },
+    { data: testAccountRowsForCheckout },
     { data: experimentRows },
     { data: variantRows },
     { data: exposureRows },
@@ -123,9 +124,15 @@ export default async function AdminGrowthPage({
       .limit(2000),
     admin
       .from("analytics_events")
-      .select("event_name, occurred_at")
+      .select("event_name, occurred_at, user_id")
       .in("event_name", CHECKOUT_EVENT_NAMES)
+      .eq("is_test_event", false)
       .gte("occurred_at", periodStartIso)
+      .limit(20000),
+    admin
+      .from("profiles")
+      .select("id")
+      .eq("is_test_account", true)
       .limit(20000),
     admin
       .from("experiments")
@@ -136,8 +143,8 @@ export default async function AdminGrowthPage({
     admin
       .from("experiment_variants")
       .select("id, experiment_id, key, name, is_control, traffic_weight"),
-    admin.from("experiment_exposures").select("experiment_id, variant_id"),
-    admin.from("experiment_conversions").select("experiment_id, variant_id, metric_name, value"),
+    admin.from("experiment_exposures").select("experiment_id, variant_id, user_id"),
+    admin.from("experiment_conversions").select("experiment_id, variant_id, metric_name, value, user_id"),
     admin
       .from("growth_insights")
       .select(
@@ -289,7 +296,13 @@ export default async function AdminGrowthPage({
     checkoutFunnel = [...map.entries()].map(([step_key, v]) => ({ step_key, step_order: v.step_order, count: v.count })).sort((a, b) => a.step_order - b.step_order);
     checkoutFunnelSource = "funnel_table";
   } else {
-    const events = (checkoutEventRows ?? []) as { event_name: string; occurred_at: string }[];
+    // analytics_daily_funnelsに無ければ生イベントで代用する。is_test_eventは既にクエリ側で
+    // false絞り込み済みだが、テストアカウント(ログイン済み)はuser_idベースでここで除外する
+    // (匿名イベントのis_test_event除外だけでは、ログイン済みテストアカウントの行が
+    // 残ってしまうため)。
+    const testAccountIdSet = new Set((testAccountRowsForCheckout ?? []).map((r) => r.id as string));
+    const events = (checkoutEventRows ?? [])
+      .filter((r) => !r.user_id || !testAccountIdSet.has(r.user_id as string)) as { event_name: string; occurred_at: string }[];
     if (events.length > 0) {
       checkoutFunnel = CHECKOUT_EVENT_NAMES.map((name, i) => ({
         step_key: name,
@@ -319,8 +332,13 @@ export default async function AdminGrowthPage({
     created_at: string;
   }[];
   const variants = (variantRows ?? []) as { id: string; experiment_id: string; key: string; name: string; is_control: boolean; traffic_weight: number }[];
-  const exposures = (exposureRows ?? []) as { experiment_id: string; variant_id: string }[];
-  const conversions = (conversionRows ?? []) as { experiment_id: string; variant_id: string; metric_name: string; value: number }[];
+  // 実験のexposure/conversionも、ログイン済みテストアカウントの行を除外する
+  // (テストアカウントの手動E2E検証がA/Bテストの意思決定用集計を汚さないようにするため)。
+  const experimentTestAccountIds = new Set((testAccountRowsForCheckout ?? []).map((r) => r.id as string));
+  const exposures = ((exposureRows ?? []) as { experiment_id: string; variant_id: string; user_id: string | null }[])
+    .filter((r) => !r.user_id || !experimentTestAccountIds.has(r.user_id));
+  const conversions = ((conversionRows ?? []) as { experiment_id: string; variant_id: string; metric_name: string; value: number; user_id: string | null }[])
+    .filter((r) => !r.user_id || !experimentTestAccountIds.has(r.user_id));
 
   const experimentsData: ExperimentRowData[] = experiments.map((e) => {
     const expVariants = variants.filter((v) => v.experiment_id === e.id);

@@ -184,6 +184,8 @@ export default async function WordPage({ params }: { params: Promise<{ word: str
                           href={`/dictionary?q=${encodeURIComponent(bareWord)}`}
                           event="trackWordPageRelatedWordClick"
                           args={[entry.slug, bareWord]}
+                          growthEvent="word_page_related_word_click"
+                          growthProperties={{ word_slug: entry.slug, related_word: bareWord }}
                           className="hover:underline hover:text-sky-600"
                         >
                           {r}

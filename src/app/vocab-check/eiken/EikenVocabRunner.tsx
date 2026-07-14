@@ -57,7 +57,7 @@ export function EikenVocabRunner() {
   const [results, setResults] = useState<boolean[]>([]);
   const [done, setDone]     = useState(false);
 
-  useEffect(() => { trackVocabCheckPageView("eiken"); }, []);
+  useEffect(() => { trackVocabCheckPageView("eiken"); trackEvent("vocab_check_page_viewed", { variant: "eiken" }); }, []);
 
   const cur = QUESTIONS[idx];
 
@@ -66,6 +66,7 @@ export function EikenVocabRunner() {
     if (idx === 0) { trackVocabCheckStart("eiken"); trackEvent("vocab_check_started", { variant: "eiken" }); }
     const correct = c === cur.answer;
     trackVocabCheckAnswer("eiken", idx, correct);
+    trackEvent("vocab_check_answer_submitted", { variant: "eiken", question_index: idx, correct });
     setPicked(c);
     setResults((r) => [...r, correct]);
     const answered = idx + 1;

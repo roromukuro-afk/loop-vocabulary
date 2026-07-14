@@ -33,28 +33,60 @@ function truncate(v: unknown, max = MAX_STRING_PROPERTY_LENGTH): string | null {
   return v.slice(0, max);
 }
 
+// Phase 3 診断性改善: 失敗理由を安全なerror codeとしてクライアントに返す。
+// PIIは含まない(理由コード+件数のみ)。学習機能に影響させない方針(常に200/例外を投げない)は維持する。
+type RejectReason =
+  | "rejected_bot"
+  | "rejected_origin"
+  | "rejected_rate_limit"
+  | "rejected_invalid_event"
+  | "duplicate"
+  | "invalid_json"
+  | "invalid_batch_size"
+  | "insert_failed";
+
+// E2Eテストハーネス専用ヘッダー。実ユーザーのブラウザはこのヘッダーを送らない。
+// 付与された送信は analytics_events.is_test_event=true として保存し、集計から除外する
+// (匿名イベントは is_test_account のようなユーザー単位の除外ができないための代替策)。
+const E2E_TEST_HEADER = "x-lv-e2e-test";
+
+// 本番でもPIIを含まない失敗件数だけを記録する(理由コード+件数のみ。path/session/propertiesは出さない)。
+function logRejection(reason: RejectReason, count: number) {
+  console.warn("[analytics/events] rejected", { reason, count });
+}
+
 export async function POST(req: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
   const userAgent = req.headers.get("user-agent");
   const origin = req.headers.get("origin");
   const referer = req.headers.get("referer");
-
-  // bot / 不正送信元は静かに受理して破棄する(200を返し、クライアント側の再送ループを防ぐ)。
-  // 学習機能に影響を与えないことを最優先するため、ここでエラーを投げない。
-  if (looksLikeBot(userAgent) || !isSameOriginRequest(origin, referer, siteUrl)) {
-    return NextResponse.json({ ok: true, accepted: 0 });
-  }
+  const isTestRequest = req.headers.get(E2E_TEST_HEADER) === "1";
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+    logRejection("invalid_json", 1);
+    return NextResponse.json({ ok: false, accepted: 0, reason: "invalid_json" }, { status: 400 });
   }
 
   const events: IncomingEvent[] = Array.isArray(body) ? body : [body as IncomingEvent];
   if (events.length === 0 || events.length > 20) {
-    return NextResponse.json({ ok: false, error: "invalid_batch_size" }, { status: 400 });
+    logRejection("invalid_batch_size", events.length);
+    return NextResponse.json({ ok: false, accepted: 0, reason: "invalid_batch_size" }, { status: 400 });
+  }
+
+  // bot / 不正送信元は静かに受理して破棄する(200を返し、クライアント側の再送ループを防ぐ)。
+  // 学習機能に影響を与えないことを最優先するため、ここでエラーを投げない。
+  // (Playwright等の自動テストが既定のheadless UAで弾かれるのは意図どおりの挙動。
+  //  通常ブラウザのUAは弾かない — 2026-07-14実機確認済み。)
+  if (looksLikeBot(userAgent)) {
+    logRejection("rejected_bot", events.length);
+    return NextResponse.json({ ok: true, accepted: 0, reason: "rejected_bot" });
+  }
+  if (!isSameOriginRequest(origin, referer, siteUrl)) {
+    logRejection("rejected_origin", events.length);
+    return NextResponse.json({ ok: true, accepted: 0, reason: "rejected_origin" });
   }
 
   // rate limit: anonymous_session_idを優先し、無ければIPで代用
@@ -62,7 +94,8 @@ export async function POST(req: NextRequest) {
   const rateLimitKey =
     events[0]?.anonymous_session_id || forwardedFor?.split(",")[0]?.trim() || "unknown";
   if (!checkRateLimit(rateLimitKey)) {
-    return NextResponse.json({ ok: true, accepted: 0, reason: "rate_limited" });
+    logRejection("rejected_rate_limit", events.length);
+    return NextResponse.json({ ok: true, accepted: 0, reason: "rejected_rate_limit" });
   }
 
   // 認証済みユーザーがいれば user_id として使う(取得失敗しても匿名イベントとして続行)
@@ -77,10 +110,12 @@ export async function POST(req: NextRequest) {
 
   const deviceCategory = detectDeviceCategory(userAgent);
   const rows: Record<string, unknown>[] = [];
+  let invalidEventCount = 0;
+  let duplicateCount = 0;
 
   for (const ev of events) {
-    if (!isAllowedEventName(ev.event_name)) continue; // allowlist外は黙って除外
-    if (isDuplicateEvent(ev.event_id)) continue;
+    if (!isAllowedEventName(ev.event_name)) { invalidEventCount++; continue; } // allowlist外は黙って除外
+    if (isDuplicateEvent(ev.event_id)) { duplicateCount++; continue; }
 
     rows.push({
       event_name: ev.event_name,
@@ -94,11 +129,20 @@ export async function POST(req: NextRequest) {
       device_category: truncate(ev.device_category) ?? deviceCategory,
       properties: sanitizeProperties(ev.event_name as string, ev.properties),
       schema_version: 1,
+      is_test_event: isTestRequest,
     });
   }
 
+  if (invalidEventCount > 0) logRejection("rejected_invalid_event", invalidEventCount);
+  if (duplicateCount > 0) logRejection("duplicate", duplicateCount);
+
   if (rows.length === 0) {
-    return NextResponse.json({ ok: true, accepted: 0 });
+    return NextResponse.json({
+      ok: true,
+      accepted: 0,
+      rejected_invalid_event: invalidEventCount,
+      duplicate: duplicateCount,
+    });
   }
 
   try {
@@ -106,12 +150,17 @@ export async function POST(req: NextRequest) {
     const { error } = await admin.from("analytics_events").insert(rows);
     if (error) {
       console.error("[analytics/events] insert failed:", error.message);
-      return NextResponse.json({ ok: false, accepted: 0 });
+      return NextResponse.json({ ok: false, accepted: 0, reason: "insert_failed" });
     }
   } catch (e) {
     console.error("[analytics/events] unexpected error:", e);
-    return NextResponse.json({ ok: false, accepted: 0 });
+    return NextResponse.json({ ok: false, accepted: 0, reason: "insert_failed" });
   }
 
-  return NextResponse.json({ ok: true, accepted: rows.length });
+  return NextResponse.json({
+    ok: true,
+    accepted: rows.length,
+    rejected_invalid_event: invalidEventCount,
+    duplicate: duplicateCount,
+  });
 }

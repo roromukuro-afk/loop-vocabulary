@@ -38,7 +38,15 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   },
 
   // ── 語彙力チェック ─────────────────────────────────────
+  // vocab_check_page_viewed: GA4側のvocab_check_view(トップ表示)に対応。診断を開始せず
+  // 離脱したユーザーもGrowth OS側で捕捉できるようにする(以前はstartedのみで欠落していた)。
+  vocab_check_page_viewed: { category: "vocab_check", properties: { variant: "string" } },
   vocab_check_started: { category: "vocab_check", properties: { variant: "string" } },
+  // vocab_check_answer_submitted: GA4側のvocab_check_answer(設問ごとの正誤)に対応。
+  vocab_check_answer_submitted: {
+    category: "vocab_check",
+    properties: { variant: "string", question_index: "number", correct: "boolean" },
+  },
   vocab_check_progress: {
     category: "vocab_check",
     properties: { variant: "string", answered: "number", total: "number" },
@@ -60,6 +68,12 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   dictionary_zero_result: { category: "dictionary", properties: {} },
   dictionary_word_clicked: { category: "dictionary", properties: { word_slug: "string" } },
   dictionary_word_added: { category: "dictionary", properties: { word_slug: "string" } },
+  // word_page_related_word_click: GA4側のtrackWordPageRelatedWordClickに対応する
+  // Growth OS側イベント。以前はallowlist未登録+呼び出し側未配線のため計測されていなかった。
+  word_page_related_word_click: {
+    category: "dictionary",
+    properties: { word_slug: "string", related_word: "string" },
+  },
 
   // ── 登録・オンボーディング ─────────────────────────────
   signup_started: { category: "onboarding", properties: { method: "string" } },

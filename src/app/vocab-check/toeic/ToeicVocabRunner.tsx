@@ -57,7 +57,7 @@ export function ToeicVocabRunner() {
   const [results, setResults] = useState<boolean[]>([]);
   const [done, setDone]   = useState(false);
 
-  useEffect(() => { trackVocabCheckPageView("toeic"); }, []);
+  useEffect(() => { trackVocabCheckPageView("toeic"); trackEvent("vocab_check_page_viewed", { variant: "toeic" }); }, []);
 
   const cur = QUESTIONS[idx];
 
@@ -66,6 +66,7 @@ export function ToeicVocabRunner() {
     if (idx === 0) { trackVocabCheckStart("toeic"); trackEvent("vocab_check_started", { variant: "toeic" }); }
     const correct = c === cur.answer;
     trackVocabCheckAnswer("toeic", idx, correct);
+    trackEvent("vocab_check_answer_submitted", { variant: "toeic", question_index: idx, correct });
     setPicked(c);
     setResults((r) => [...r, correct]);
     const answered = idx + 1;
