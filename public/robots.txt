@@ -4,15 +4,12 @@ Disallow: /api/
 Disallow: /admin
 Disallow: /ai
 Disallow: /auth/
-Disallow: /beta
 Disallow: /dashboard
 Disallow: /extract
 Disallow: /join/
 Disallow: /learn
-Disallow: /offline
 Disallow: /pdf
 Disallow: /plan
-Disallow: /premium/success
 Disallow: /ranking
 Disallow: /referral/
 Disallow: /review

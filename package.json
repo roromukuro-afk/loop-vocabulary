@@ -99,7 +99,10 @@
     "test:test-account-exclusion": "node scripts/testing/test-account-exclusion.mjs",
     "test:retention-source-of-truth": "node scripts/testing/e2e/retention-source-of-truth.mjs",
     "test:revenue-test-account-exclusion": "node scripts/testing/revenue-test-account-exclusion.mjs",
-    "test:growth-rollup-real-data": "node scripts/testing/e2e/growth-rollup-real-data.mjs"
+    "test:growth-rollup-real-data": "node scripts/testing/e2e/growth-rollup-real-data.mjs",
+    "test:all-production-domain-redirects": "node scripts/testing/e2e/all-production-domain-redirects.mjs",
+    "test:noindex-crawlability": "node scripts/testing/e2e/noindex-crawlability.mjs",
+    "test:ads-txt-live": "node scripts/testing/ads-txt-live.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

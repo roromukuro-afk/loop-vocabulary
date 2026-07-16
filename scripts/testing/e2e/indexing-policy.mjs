@@ -47,10 +47,15 @@ const INDEX_PAGES = [
 ];
 
 // robots.txtでDisallowされているべきパス
+// 【2026-07-15更新】/beta・/premium/success・/offlineはここから除外した。これらは
+// HTMLにnoindexメタタグを持つ「クロール可能かつ非インデックス化」対象ページであり、
+// robots.txtでDisallowするとGooglebotがnoindexタグ自体を読めず「インデックス登録済み
+// (robots.txtにより除外されましたが)」というSearch Console警告の原因になっていた。
+// 除外後の「Disallowされていないこと」の検証は test:noindex-crawlability が担う。
 const ROBOTS_DISALLOW_REQUIRED = [
   "/dashboard", "/settings", "/account/", "/review", "/pdf", "/wordbooks",
   "/weak", "/stats", "/teach", "/admin", "/share/", "/join/", "/road",
-  "/beta", "/premium/success", "/referral/", "/auth/", "/offline",
+  "/referral/", "/auth/",
 ];
 
 function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; }
