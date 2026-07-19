@@ -23,6 +23,7 @@
     "scripts/improvement/claim-and-run.mjs",
     "scripts/improvement/pr-ci-checks.mjs",
     "scripts/improvement/reflect-pr-ci-result.mjs",
+    "scripts/improvement/safety-checks.mjs",
     ".env",
     ".git/config",
     "src/app/api/auth/",

@@ -24,10 +24,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { pathIsForbidden, isPathAllowedForCategory } from "./safety-checks.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dir, "../..");
-const FORBIDDEN = JSON.parse(readFileSync(resolve(__dir, "forbidden-paths.json"), "utf8"));
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -72,16 +72,6 @@ function sh(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: "utf8", shell: needsShell, ...opts });
 }
 
-function pathIsForbidden(path) {
-  return FORBIDDEN.forbiddenPathPatterns.some((p) => path.includes(p));
-}
-
-function isPathAllowedForCategory(path, category) {
-  const patterns = FORBIDDEN.allowedPathPatternsByCategory?.[category];
-  if (!patterns || patterns.length === 0) return true; // 未定義カテゴリは制限しない(既存挙動を壊さない)
-  return patterns.some((p) => path.includes(p));
-}
-
 async function recordRun(admin, taskId, runType, status, summary, log = {}) {
   const { error } = await admin.from("improvement_runs").insert({
     task_id: taskId,
@@ -118,7 +108,7 @@ async function cmdVerifyTask(admin, taskId) {
     process.exit(1);
   }
 
-  const forbiddenHits = (task.target_files ?? []).filter(pathIsForbidden);
+  const forbiddenHits = (task.target_files ?? []).filter((f) => pathIsForbidden(f));
   if (forbiddenHits.length > 0) {
     console.error(`❌ target_filesに変更禁止パスが含まれている: ${forbiddenHits.join(", ")}`);
     await admin.from("improvement_tasks").update({ status: "rejected" }).eq("id", taskId);
@@ -179,7 +169,7 @@ async function cmdQualityGate(admin, taskId) {
 async function cmdReview(admin, taskId) {
   const task = await loadTask(admin, taskId);
   const diffFiles = sh("git", ["diff", "--name-only", "origin/main"]).trim().split("\n").filter(Boolean);
-  const forbiddenHits = diffFiles.filter(pathIsForbidden);
+  const forbiddenHits = diffFiles.filter((f) => pathIsForbidden(f));
 
   const verdict = forbiddenHits.length > 0 ? "changes_requested" : "approved";
   const notes = forbiddenHits.length > 0

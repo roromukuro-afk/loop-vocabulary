@@ -21,13 +21,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { pathIsForbidden, isPathAllowedForCategory, checkDiffSize, scanForSecrets, MAX_CHANGED_FILES, MAX_CHANGED_LINES } from "./safety-checks.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dir, "../..");
-const FORBIDDEN = JSON.parse(readFileSync(resolve(__dir, "forbidden-paths.json"), "utf8"));
-
-const MAX_CHANGED_FILES = 8;
-const MAX_CHANGED_LINES = 200;
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -56,16 +53,6 @@ function sh(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: "utf8", shell: needsShell, ...opts });
 }
 
-function pathIsForbidden(path) {
-  return FORBIDDEN.forbiddenPathPatterns.some((p) => path.includes(p));
-}
-
-function isPathAllowedForCategory(path, category) {
-  const patterns = FORBIDDEN.allowedPathPatternsByCategory?.[category];
-  if (!patterns || patterns.length === 0) return true; // 未定義カテゴリは制限しない(既存挙動を壊さない)
-  return patterns.some((p) => path.includes(p));
-}
-
 async function recordRun(admin, taskId, runType, status, summary, log = {}) {
   const { error } = await admin.from("improvement_runs").insert({
     task_id: taskId,
@@ -78,35 +65,27 @@ async function recordRun(admin, taskId, runType, status, summary, log = {}) {
   if (error) console.error(`[claim-and-run] improvement_runs記録失敗: ${error.message}`);
 }
 
-async function main() {
-  loadEnvLocal();
-  const admin = getAdminClient();
-  const workerId = process.env.GITHUB_RUN_ID
-    ? `gha-run-${process.env.GITHUB_RUN_ID}`
-    : `local-${process.pid}-${Date.now()}`;
+/**
+ * claimしたタスク1件を検証→品質ゲート→自己レビュー→Draft PR作成まで処理する。
+ * main()から呼ばれる本番経路のほか、テスト(scripts/testing/test-approved-task-to-draft-pr.mjs)
+ * からも直接呼び出せるよう、RPCによるclaim処理と分離してexportしている
+ * (claim自体の排他制御はtest:approved-task-auto-claim/test:workflow-concurrencyで別途検証する)。
+ *
+ * opts.skipPush=true の場合、品質ゲート・自己レビューまでは本番と全く同じ経路で実行し、
+ * `git push`/`gh pr create`(実際のPR作成)のみをスキップして 'ready_for_review' 相当の
+ * 到達を返す。テストが実行のたびに実PRを作成しないための安全弁。
+ */
+export async function processClaimedTask(admin, task, opts = {}) {
+  const skipPush = opts.skipPush === true;
 
-  console.log(`[claim-and-run] worker_id=${workerId} でclaimを試みる`);
-  const { data: claimed, error: claimErr } = await admin.rpc("claim_next_improvement_task", {
-    worker_id: workerId,
-    stale_after_minutes: 120,
-  });
-  if (claimErr) throw new Error(`claim RPC失敗: ${claimErr.message}`);
-
-  const task = Array.isArray(claimed) ? claimed[0] : claimed;
-  if (!task) {
-    console.log("[claim-and-run] claim対象のタスクが無い(status=approved かつ autonomy_level=3のタスクが無いか、他workerが処理中)。正常終了。");
-    process.exit(0);
+  // 冪等性: 既にDraft PRが作成済みなら再作成しない
+  if (task.pr_url) {
+    console.log(`[claim-and-run] 既にpr_urlが存在するため再作成しない(冪等性): ${task.pr_url}`);
+    await admin.from("improvement_tasks").update({ status: "draft_pr" }).eq("id", task.id);
+    return { outcome: "already_has_pr", prUrl: task.pr_url };
   }
-  console.log(`[claim-and-run] claim成功: task=${task.id} title="${task.title}"`);
 
   try {
-    // 冪等性: 既にDraft PRが作成済みなら再実行しない
-    if (task.pr_url) {
-      console.log(`[claim-and-run] 既にpr_urlが存在するため再作成しない(冪等性): ${task.pr_url}`);
-      await admin.from("improvement_tasks").update({ status: "draft_pr" }).eq("id", task.id);
-      process.exit(0);
-    }
-
     const { data: issue, error: issueErr } = await admin
       .from("improvement_issues")
       .select("id, category, implementation_type")
@@ -115,26 +94,26 @@ async function main() {
     if (issueErr) throw new Error(issueErr.message);
     if (!issue || issue.implementation_type === "human_only") {
       await failTask(admin, task.id, "needs_human_planning", "issue.implementation_type=human_only、自動実装対象外");
-      return;
+      return { outcome: "failed", status: "needs_human_planning" };
     }
 
     // カテゴリ別path allowlist + 禁止パスチェック
     const targetFiles = task.target_files ?? [];
-    const forbiddenHits = targetFiles.filter(pathIsForbidden);
+    const forbiddenHits = targetFiles.filter((f) => pathIsForbidden(f));
     if (forbiddenHits.length > 0) {
       await failTask(admin, task.id, "rejected", `target_filesに変更禁止パス: ${forbiddenHits.join(", ")}`);
-      return;
+      return { outcome: "failed", status: "rejected" };
     }
     const outOfAllowlist = targetFiles.filter((f) => !isPathAllowedForCategory(f, issue.category));
     if (outOfAllowlist.length > 0) {
       await failTask(admin, task.id, "needs_human_planning", `カテゴリ"${issue.category}"のpath allowlist外: ${outOfAllowlist.join(", ")}`);
-      return;
+      return { outcome: "failed", status: "needs_human_planning" };
     }
 
     const branchName = task.branch_name;
     if (!branchName) {
       await failTask(admin, task.id, "needs_human_planning", "branch_name未設定。事前にコード修正branchが用意されていることが前提のタスク。");
-      return;
+      return { outcome: "failed", status: "needs_human_planning" };
     }
 
     // branchの存在確認(git ls-remote)。無ければ「コードがまだ書かれていない」= 人間の作業待ち。
@@ -147,7 +126,7 @@ async function main() {
     }
     if (!branchExists) {
       await failTask(admin, task.id, "needs_human_planning", `branch "${branchName}" が存在しない。コード修正がまだ用意されていない(このスクリプトはコードを書かない設計)。`);
-      return;
+      return { outcome: "failed", status: "needs_human_planning" };
     }
 
     sh("git", ["fetch", "origin", branchName, "main"]);
@@ -162,31 +141,30 @@ async function main() {
       .match(/\d+/g)
       ?.slice(1) // 先頭はfiles changed件数
       .reduce((s, n) => s + Number(n), 0) ?? 0;
-    if (diffFiles.length > MAX_CHANGED_FILES || totalLines > MAX_CHANGED_LINES) {
+    if (!checkDiffSize(diffFiles.length, totalLines)) {
       await failTask(
         admin,
         task.id,
         "needs_human_planning",
         `diff上限超過: files=${diffFiles.length}(上限${MAX_CHANGED_FILES}) lines=${totalLines}(上限${MAX_CHANGED_LINES})`,
       );
-      return;
+      return { outcome: "failed", status: "needs_human_planning" };
     }
     void lineMatch;
 
     // 再度禁止パスチェック(実際のdiffベース。target_filesの申告と実differが食い違うケースに備える)
-    const actualForbidden = diffFiles.filter(pathIsForbidden);
+    const actualForbidden = diffFiles.filter((f) => pathIsForbidden(f));
     if (actualForbidden.length > 0) {
       await failTask(admin, task.id, "rejected", `実際の差分に変更禁止パス: ${actualForbidden.join(", ")}`);
-      return;
+      return { outcome: "failed", status: "rejected" };
     }
 
     // secret混入の簡易検査(diffの内容をスキャン)
     const diffContent = sh("git", ["diff", "origin/main", `origin/${branchName}`]);
-    const secretPatterns = [/sk-[a-zA-Z0-9]{20,}/, /AKIA[0-9A-Z]{16}/, /-----BEGIN [A-Z ]*PRIVATE KEY-----/, /SUPABASE_SERVICE_ROLE_KEY\s*=\s*['"]/];
-    const secretHit = secretPatterns.find((p) => p.test(diffContent));
+    const secretHit = scanForSecrets(diffContent);
     if (secretHit) {
       await failTask(admin, task.id, "rejected", "差分にsecretらしき文字列を検出したため停止(内容はログに残さない)");
-      return;
+      return { outcome: "failed", status: "rejected" };
     }
 
     const commitSha = sh("git", ["rev-parse", "HEAD"]).trim();
@@ -210,7 +188,7 @@ async function main() {
     await recordRun(admin, task.id, "test", allPassed ? "succeeded" : "failed", `${testResults.filter((r) => r.passed).length}/${testResults.length} passed`, { testResults });
     if (!allPassed) {
       await failTask(admin, task.id, "ci_failed", `品質ゲート不通過: ${JSON.stringify(testResults.filter((r) => !r.passed))}`);
-      return;
+      return { outcome: "failed", status: "ci_failed" };
     }
 
     // 自己レビュー
@@ -234,6 +212,13 @@ async function main() {
       verdict: "approved",
       notes: `claim-and-run.mjsによる自動レビュー。差分${diffFiles.length}ファイル・${totalLines}行、禁止パス抵触なし。`,
     });
+
+    if (skipPush) {
+      // テスト用経路: 品質ゲート・自己レビューまで本番と同一の経路を通過したことのみ確認し、
+      // 実際のPR作成(push/gh pr create)は行わない。statusも変更しない(呼び出し元がテスト用に後始末する)。
+      console.log(`[claim-and-run] skipPush=true: 品質ゲート・自己レビュー通過。実際のpush/PR作成はスキップした。`);
+      return { outcome: "ready_for_draft_pr", diffFiles, totalLines, commitSha };
+    }
 
     // Draft PR作成
     const body = [
@@ -273,11 +258,12 @@ async function main() {
     await recordRun(admin, task.id, "draft_pr", "succeeded", `Draft PR作成: ${prUrl}`, { prUrl });
 
     console.log(`[claim-and-run] ✅ Draft PR作成完了: ${prUrl}`);
+    return { outcome: "draft_pr_created", prUrl };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error(`[claim-and-run] 予期しないエラー: ${message}`);
     await failTask(admin, task.id, "ready_for_retry", `予期しないエラー(secretは含めない): ${message.slice(0, 500)}`);
-    process.exitCode = 1;
+    return { outcome: "error", message };
   }
 }
 
@@ -287,7 +273,35 @@ async function failTask(admin, taskId, status, reason) {
   await recordRun(admin, taskId, "implement", "failed", reason);
 }
 
-main().catch((e) => {
-  console.error("claim-and-run crashed:", e);
-  process.exit(1);
-});
+async function main() {
+  loadEnvLocal();
+  const admin = getAdminClient();
+  const workerId = process.env.GITHUB_RUN_ID
+    ? `gha-run-${process.env.GITHUB_RUN_ID}`
+    : `local-${process.pid}-${Date.now()}`;
+
+  console.log(`[claim-and-run] worker_id=${workerId} でclaimを試みる`);
+  const { data: claimed, error: claimErr } = await admin.rpc("claim_next_improvement_task", {
+    worker_id: workerId,
+    stale_after_minutes: 120,
+  });
+  if (claimErr) throw new Error(`claim RPC失敗: ${claimErr.message}`);
+
+  const task = Array.isArray(claimed) ? claimed[0] : claimed;
+  if (!task) {
+    console.log("[claim-and-run] claim対象のタスクが無い(status=approved かつ autonomy_level=3のタスクが無いか、他workerが処理中)。正常終了。");
+    return;
+  }
+  console.log(`[claim-and-run] claim成功: task=${task.id} title="${task.title}"`);
+
+  const result = await processClaimedTask(admin, task);
+  if (result.outcome === "error") process.exitCode = 1;
+}
+
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+if (isMain) {
+  main().catch((e) => {
+    console.error("claim-and-run crashed:", e);
+    process.exit(1);
+  });
+}

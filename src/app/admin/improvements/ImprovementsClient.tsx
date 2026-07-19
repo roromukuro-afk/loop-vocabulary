@@ -10,11 +10,17 @@ const TABS = [
   { key: "current_state", label: "Current State" },
   { key: "open", label: "Open Issues" },
   { key: "critical", label: "Critical" },
-  { key: "approved", label: "Approved Tasks" },
-  { key: "draft_pr", label: "Draft PRs" },
+  { key: "approved", label: "Approved awaiting automation" },
+  { key: "implementing", label: "Implementing" },
+  { key: "draft_pr", label: "Draft PR" },
+  { key: "ci_failed", label: "CI failed" },
+  { key: "ready_for_review", label: "Ready for human review" },
+  { key: "deployed", label: "Deployed" },
   { key: "measuring", label: "Measuring" },
   { key: "successful", label: "Successful" },
   { key: "failed", label: "Failed" },
+  { key: "inconclusive", label: "Inconclusive" },
+  { key: "needs_human_planning", label: "Needs human planning" },
   { key: "pending", label: "Pending Decisions" },
   { key: "autonomy", label: "Autonomy Levels" },
 ] as const;
@@ -106,6 +112,51 @@ function IssueCard({ issue }: { issue: IssueRow }) {
   );
 }
 
+function TaskCard({ task }: { task: TaskRow }) {
+  const m = task.measurement ?? {};
+  return (
+    <div className="bg-white rounded-2xl border border-navy-100 p-4 mb-3" data-testid={`improvement-task-${task.id}`}>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-xs text-navy-400">{task.improvement_issues?.category ?? "-"}</span>
+        <span className="text-xs text-navy-400 ml-auto">status: {task.status} / autonomy_level: {task.autonomy_level}</span>
+      </div>
+      <div className="font-bold text-navy-800">{task.improvement_issues?.title ?? task.title}</div>
+      <p className="text-sm text-navy-600 mt-1">{task.change_summary}</p>
+      {task.target_files?.length > 0 && (
+        <div className="text-xs text-navy-400 mt-1">対象ファイル: {task.target_files.join(", ")}</div>
+      )}
+      <div className="text-xs text-navy-400 mt-1 space-x-3">
+        {task.branch_name && <span>branch: {task.branch_name}</span>}
+        {task.claimed_by && <span>claimed_by: {task.claimed_by}</span>}
+        {task.commit_sha && <span>commit: {task.commit_sha.slice(0, 8)}</span>}
+      </div>
+      {(task.pr_url || task.ci_run_url) && (
+        <div className="text-xs mt-1 space-x-3">
+          {task.pr_url && <a href={task.pr_url} target="_blank" rel="noreferrer" className="text-sky-600 underline">PR: {task.pr_url}</a>}
+          {task.ci_run_url && <a href={task.ci_run_url} target="_blank" rel="noreferrer" className="text-sky-600 underline">CI: {task.ci_run_url}</a>}
+        </div>
+      )}
+      {(m.deployment_id || m.deployed_at) && (
+        <div className="text-xs text-navy-400 mt-1">deployment: {m.deployment_id ?? "-"} / deployed_at: {m.deployed_at ?? "-"} / merge_commit: {m.merge_commit ?? "-"}</div>
+      )}
+      {(m.measurement_started_at || m.measurement_ends_at) && (
+        <div className="text-xs text-navy-400 mt-1">
+          測定期間: {m.measurement_started_at ?? "-"} 〜 {m.measurement_ends_at ?? "-"} / primary_metric: {m.primary_metric ?? "-"}
+        </div>
+      )}
+      {m.final_decision && (
+        <div className="text-xs mt-1">
+          <span className="font-semibold text-navy-700">結果: {m.final_decision}</span>
+          {m.effect_size != null && <span className="text-navy-400"> (effect_size: {(m.effect_size * 100).toFixed(1)}%)</span>}
+          {m.final_decision_reason && <div className="text-navy-400">{m.final_decision_reason}</div>}
+        </div>
+      )}
+      {m.side_effects && <div className="text-xs text-red-500 mt-1">副作用: {m.side_effects}</div>}
+      {m.learning && <div className="text-xs text-emerald-700 mt-1">学び: {m.learning}</div>}
+    </div>
+  );
+}
+
 export function ImprovementsClient({
   issues,
   tasks,
@@ -121,12 +172,19 @@ export function ImprovementsClient({
 
   const critical = issues.filter((i) => i.severity === "critical" && !["successful", "failed", "rolled_back", "rejected"].includes(i.status));
   const open = issues.filter((i) => !["successful", "failed", "rolled_back", "rejected"].includes(i.status));
-  const approvedTasks = tasks.filter((t) => t.status === "approved" || t.status === "implementing");
-  const draftPrTasks = tasks.filter((t) => t.status === "draft_pr" || t.status === "testing" || t.status === "ready_for_review" || t.status === "changes_requested");
-  const measuring = issues.filter((i) => i.status === "measuring");
-  const successful = issues.filter((i) => i.status === "successful");
-  const failed = issues.filter((i) => i.status === "failed" || i.status === "rolled_back");
   const pending = issues.filter((i) => ["detected", "investigated", "proposal_ready"].includes(i.status));
+
+  const approvedTasks = tasks.filter((t) => t.status === "approved");
+  const implementingTasks = tasks.filter((t) => ["claimed", "implementing", "testing"].includes(t.status));
+  const draftPrTasks = tasks.filter((t) => t.status === "draft_pr");
+  const ciFailedTasks = tasks.filter((t) => t.status === "ci_failed");
+  const readyForReviewTasks = tasks.filter((t) => t.status === "ready_for_review" || t.status === "changes_requested");
+  const deployedTasks = tasks.filter((t) => t.status === "deployed");
+  const measuringTasks = tasks.filter((t) => t.status === "measuring");
+  const successfulTasks = tasks.filter((t) => t.status === "successful");
+  const failedTasks = tasks.filter((t) => t.status === "failed" || t.status === "rolled_back");
+  const inconclusiveTasks = tasks.filter((t) => t.status === "inconclusive");
+  const needsHumanPlanningTasks = tasks.filter((t) => t.status === "needs_human_planning" || t.status === "rejected" || t.status === "ready_for_retry");
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
@@ -149,7 +207,13 @@ export function ImprovementsClient({
       {tab === "current_state" && (
         <section data-testid="improvement-section-current-state">
           <Card><CardTitle>System Health</CardTitle>
-            <p className="text-sm text-navy-600 mt-2">Open issues: {open.length} / Critical: {critical.length} / Approved tasks: {approvedTasks.length} / Draft PRs: {draftPrTasks.length} / Measuring: {measuring.length}</p>
+            <p className="text-sm text-navy-600 mt-2">
+              Open issues: {open.length} / Critical: {critical.length} / Approved awaiting automation: {approvedTasks.length} /
+              Implementing: {implementingTasks.length} / Draft PR: {draftPrTasks.length} / CI failed: {ciFailedTasks.length} /
+              Ready for review: {readyForReviewTasks.length} / Deployed: {deployedTasks.length} / Measuring: {measuringTasks.length} /
+              Successful: {successfulTasks.length} / Failed: {failedTasks.length} / Inconclusive: {inconclusiveTasks.length} /
+              Needs human planning: {needsHumanPlanningTasks.length}
+            </p>
           </Card>
         </section>
       )}
@@ -168,43 +232,70 @@ export function ImprovementsClient({
 
       {tab === "approved" && (
         <section data-testid="improvement-section-approved">
-          {approvedTasks.length === 0 ? <p className="text-sm text-navy-400">承認済みタスクはありません。</p> : approvedTasks.map((t) => (
-            <div key={t.id} className="bg-white rounded-2xl border border-navy-100 p-4 mb-3">
-              <div className="font-bold text-navy-800">{t.title}</div>
-              <div className="text-xs text-navy-400 mt-1">status: {t.status} / branch: {t.branch_name ?? "-"} / autonomy_level: {t.autonomy_level}</div>
-              <p className="text-sm text-navy-600 mt-1">{t.change_summary}</p>
-            </div>
-          ))}
+          <p className="text-xs text-navy-400 mb-2">定期GitHub Actions(improvement-auto-claim.yml)が原子的claimして自動実装に着手するのを待っているタスク。</p>
+          {approvedTasks.length === 0 ? <p className="text-sm text-navy-400">承認済み・自動化待ちのタスクはありません。</p> : approvedTasks.map((t) => <TaskCard key={t.id} task={t} />)}
+        </section>
+      )}
+
+      {tab === "implementing" && (
+        <section data-testid="improvement-section-implementing">
+          {implementingTasks.length === 0 ? <p className="text-sm text-navy-400">実装中のタスクはありません。</p> : implementingTasks.map((t) => <TaskCard key={t.id} task={t} />)}
         </section>
       )}
 
       {tab === "draft_pr" && (
         <section data-testid="improvement-section-draft-pr">
-          {draftPrTasks.length === 0 ? <p className="text-sm text-navy-400">Draft PRはありません。</p> : draftPrTasks.map((t) => (
-            <div key={t.id} className="bg-white rounded-2xl border border-navy-100 p-4 mb-3">
-              <div className="font-bold text-navy-800">{t.title}</div>
-              <div className="text-xs text-navy-400 mt-1">status: {t.status}</div>
-              {t.pr_url && <a href={t.pr_url} target="_blank" rel="noreferrer" className="text-sm text-sky-600 underline">{t.pr_url}</a>}
-            </div>
-          ))}
+          {draftPrTasks.length === 0 ? <p className="text-sm text-navy-400">Draft PRはありません。</p> : draftPrTasks.map((t) => <TaskCard key={t.id} task={t} />)}
+        </section>
+      )}
+
+      {tab === "ci_failed" && (
+        <section data-testid="improvement-section-ci-failed">
+          <p className="text-xs text-navy-400 mb-2">独立PR CI(pr-quality-gate.yml)が不合格。Engineering Agent自身のテスト結果に関わらず、人間のレビューまでは進んでいません。</p>
+          {ciFailedTasks.length === 0 ? <p className="text-sm text-navy-400">CI失敗中のタスクはありません。</p> : ciFailedTasks.map((t) => <TaskCard key={t.id} task={t} />)}
+        </section>
+      )}
+
+      {tab === "ready_for_review" && (
+        <section data-testid="improvement-section-ready-for-review">
+          {readyForReviewTasks.length === 0 ? <p className="text-sm text-navy-400">レビュー待ちのタスクはありません。</p> : readyForReviewTasks.map((t) => <TaskCard key={t.id} task={t} />)}
+        </section>
+      )}
+
+      {tab === "deployed" && (
+        <section data-testid="improvement-section-deployed">
+          {deployedTasks.length === 0 ? <p className="text-sm text-navy-400">デプロイ済みで測定開始待ちのタスクはありません。</p> : deployedTasks.map((t) => <TaskCard key={t.id} task={t} />)}
         </section>
       )}
 
       {tab === "measuring" && (
         <section data-testid="improvement-section-measuring">
-          {measuring.length === 0 ? <p className="text-sm text-navy-400">効果測定中のissueはありません。</p> : measuring.map((i) => <IssueCard key={i.id} issue={i} />)}
+          {measuringTasks.length === 0 ? <p className="text-sm text-navy-400">効果測定中のタスクはありません。</p> : measuringTasks.map((t) => <TaskCard key={t.id} task={t} />)}
         </section>
       )}
 
       {tab === "successful" && (
         <section data-testid="improvement-section-successful">
-          {successful.length === 0 ? <p className="text-sm text-navy-400">成功と確定した改善はまだありません。</p> : successful.map((i) => <IssueCard key={i.id} issue={i} />)}
+          {successfulTasks.length === 0 ? <p className="text-sm text-navy-400">成功と確定した改善はまだありません。</p> : successfulTasks.map((t) => <TaskCard key={t.id} task={t} />)}
+        </section>
+      )}
+
+      {tab === "inconclusive" && (
+        <section data-testid="improvement-section-inconclusive">
+          {inconclusiveTasks.length === 0 ? <p className="text-sm text-navy-400">判定不能のタスクはありません。</p> : inconclusiveTasks.map((t) => <TaskCard key={t.id} task={t} />)}
+        </section>
+      )}
+
+      {tab === "needs_human_planning" && (
+        <section data-testid="improvement-section-needs-human-planning">
+          <p className="text-xs text-navy-400 mb-2">diff上限超過・path allowlist外・branch未用意など、自動実装の安全境界を超えたため人間の計画が必要なタスク。</p>
+          {needsHumanPlanningTasks.length === 0 ? <p className="text-sm text-navy-400">人間の計画待ちのタスクはありません。</p> : needsHumanPlanningTasks.map((t) => <TaskCard key={t.id} task={t} />)}
         </section>
       )}
 
       {tab === "failed" && (
         <section data-testid="improvement-section-failed">
-          {failed.length === 0 ? <p className="text-sm text-navy-400">失敗・ロールバックした改善はありません。</p> : failed.map((i) => <IssueCard key={i.id} issue={i} />)}
+          {failedTasks.length === 0 ? <p className="text-sm text-navy-400">失敗・ロールバックした改善はありません。</p> : failedTasks.map((t) => <TaskCard key={t.id} task={t} />)}
           {memory.length > 0 && (
             <Card className="mt-4"><CardTitle>Improvement Memory(直近50件)</CardTitle>
               <ul className="text-sm text-navy-600 mt-2 space-y-2">

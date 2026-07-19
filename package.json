@@ -115,7 +115,21 @@
     "test:critical-issue-detection": "node scripts/testing/test-critical-issue-detection.mjs",
     "test:seo-issue-detection": "node scripts/testing/test-seo-issue-detection.mjs",
     "test:reliability-issue-detection": "node scripts/testing/test-reliability-issue-detection.mjs",
-    "test:human-approval-required": "node scripts/testing/e2e/human-approval-required.mjs"
+    "test:human-approval-required": "node scripts/testing/e2e/human-approval-required.mjs",
+    "test:approved-task-auto-claim": "node scripts/testing/test-approved-task-auto-claim.mjs",
+    "test:approved-task-to-draft-pr": "node scripts/testing/test-approved-task-to-draft-pr.mjs",
+    "test:duplicate-pr-prevention": "node scripts/testing/test-duplicate-pr-prevention.mjs",
+    "test:stale-task-recovery": "node scripts/testing/test-stale-task-recovery.mjs",
+    "test:workflow-concurrency": "node scripts/testing/test-workflow-concurrency.mjs",
+    "test:independent-pr-ci": "node scripts/testing/test-independent-pr-ci.mjs",
+    "test:untrusted-issue-input": "node scripts/testing/test-untrusted-issue-input.mjs",
+    "test:command-allowlist": "node scripts/testing/test-command-allowlist.mjs",
+    "test:path-allowlist": "node scripts/testing/test-path-allowlist.mjs",
+    "test:max-diff-limit": "node scripts/testing/test-max-diff-limit.mjs",
+    "test:no-secret-access": "node scripts/testing/test-no-secret-access.mjs",
+    "test:post-deploy-measurement": "node scripts/testing/test-post-deploy-measurement.mjs",
+    "test:inconclusive-small-sample": "node scripts/testing/test-inconclusive-small-sample.mjs",
+    "test:improvement-memory-writeback": "node scripts/testing/test-improvement-memory-writeback.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

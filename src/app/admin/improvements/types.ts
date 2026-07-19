@@ -22,6 +22,26 @@ export type IssueRow = {
   autonomy_level: number;
 };
 
+export type TaskMeasurement = {
+  merge_commit?: string | null;
+  deployment_id?: string | null;
+  deployed_at?: string | null;
+  measurement_started_at?: string | null;
+  measurement_ends_at?: string | null;
+  primary_metric?: string | null;
+  guardrail_metrics?: unknown[];
+  baseline_period?: string | null;
+  comparison_period?: string | null;
+  baseline?: { numerator: number; denominator: number } | null;
+  result?: { numerator: number; denominator: number } | null;
+  sample_size?: unknown;
+  effect_size?: number | null;
+  side_effects?: string | null;
+  final_decision?: string | null;
+  final_decision_reason?: string | null;
+  learning?: string | null;
+};
+
 export type TaskRow = {
   id: string;
   issue_id: string;
@@ -31,7 +51,13 @@ export type TaskRow = {
   status: string;
   branch_name: string | null;
   pr_url: string | null;
+  pr_number: number | null;
   autonomy_level: number;
+  claimed_at: string | null;
+  claimed_by: string | null;
+  commit_sha: string | null;
+  ci_run_url: string | null;
+  measurement: TaskMeasurement | null;
   improvement_issues: { title: string; category: string } | null;
 };
 

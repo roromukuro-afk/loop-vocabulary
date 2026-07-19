@@ -13,13 +13,10 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { FORBIDDEN, checkDiffSize, scanForSecrets, containsDestructiveMigration, MAX_CHANGED_FILES, MAX_CHANGED_LINES } from "./safety-checks.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dir, "../..");
-const FORBIDDEN = JSON.parse(readFileSync(resolve(__dir, "forbidden-paths.json"), "utf8"));
-
-const MAX_CHANGED_FILES = 8;
-const MAX_CHANGED_LINES = 200;
 
 function parseArgs(argv) {
   const opts = { base: "origin/main", out: "pr-ci-result.json" };
@@ -79,13 +76,11 @@ async function main() {
   });
 
   // 2. diff上限検査
+  const diffSizeOk = checkDiffSize(diffFiles.length, totalLines);
   checks.push({
     name: "diff-size-limit",
-    passed: diffFiles.length <= MAX_CHANGED_FILES && totalLines <= MAX_CHANGED_LINES,
-    error:
-      diffFiles.length > MAX_CHANGED_FILES || totalLines > MAX_CHANGED_LINES
-        ? `上限超過: files=${diffFiles.length}/${MAX_CHANGED_FILES}, lines=${totalLines}/${MAX_CHANGED_LINES}`
-        : undefined,
+    passed: diffSizeOk,
+    error: !diffSizeOk ? `上限超過: files=${diffFiles.length}/${MAX_CHANGED_FILES}, lines=${totalLines}/${MAX_CHANGED_LINES}` : undefined,
   });
 
   // 3. mainへの直接変更が無いこと(このCI自体はPRブランチ上で動くため、baseブランチ設定ファイル
@@ -96,12 +91,11 @@ async function main() {
 
   // 4. 破壊的migration検査(新規.sqlファイルにDROP/TRUNCATE等が含まれていないか)
   const migrationFiles = diffFiles.filter((f) => f.startsWith("supabase/migrations/") && f.endsWith(".sql"));
-  const destructivePattern = /\b(drop\s+table|drop\s+column|truncate|delete\s+from\s+profiles)\b/i;
   const destructiveMigrations = [];
   for (const f of migrationFiles) {
     try {
       const content = readFileSync(resolve(REPO_ROOT, f), "utf8");
-      if (destructivePattern.test(content)) destructiveMigrations.push(f);
+      if (containsDestructiveMigration(content)) destructiveMigrations.push(f);
     } catch {
       /* ファイルが無い(削除された)場合はスキップ */
     }
@@ -116,8 +110,7 @@ async function main() {
   let secretHit = null;
   if (diffFiles.length > 0) {
     const diffContent = sh("git", ["diff", opts.base, "HEAD"]);
-    const secretPatterns = [/sk-[a-zA-Z0-9]{20,}/, /AKIA[0-9A-Z]{16}/, /-----BEGIN [A-Z ]*PRIVATE KEY-----/, /SUPABASE_SERVICE_ROLE_KEY\s*=\s*['"]/];
-    secretHit = secretPatterns.find((p) => p.test(diffContent)) ?? null;
+    secretHit = scanForSecrets(diffContent);
   }
   checks.push({ name: "no-secret-in-diff", passed: !secretHit, error: secretHit ? "diffにsecretらしき文字列を検出(詳細はログに残さない)" : undefined });
 
