@@ -16,7 +16,11 @@ Disallow: /review
 Disallow: /road
 Disallow: /settings
 Disallow: /share/
+# /setup はHTMLにnoindexメタタグを持つため、Googlebotがクロールしてそれを読める
+# 必要がある。Disallow/Allowが同じ深さの場合Googleは制限の緩い方(Allow)を優先するため、
+# クロールは許可しつつindexはHTML側のnoindexで止める設計(crawlable=true, indexable=false)。
 Disallow: /setup
+Allow: /setup
 Disallow: /stats
 Disallow: /teacher
 Disallow: /test
