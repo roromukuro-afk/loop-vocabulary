@@ -65,8 +65,11 @@ function slugify(title) {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 50);
 }
 
+// Windows では npm/npx は .cmd 経由でしか解決できず、execFileSync に shell:true が要る
+// (scripts/testing/lib/devServer.mjs と同じ理由)。git/ghはネイティブexeのためshell無しで動く。
 function sh(cmd, args, opts = {}) {
-  return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: "utf8", ...opts });
+  const needsShell = process.platform === "win32" && (cmd === "npm" || cmd === "npx");
+  return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: "utf8", shell: needsShell, ...opts });
 }
 
 function pathIsForbidden(path) {
