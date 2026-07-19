@@ -1,0 +1,144 @@
+/**
+ * Loop Autonomous Improvement System: PR上の独立CI(pull_requestトリガー、secretsなし)。
+ * AUTONOMOUS_ENGINEERING_POLICY.md「Engineering AgentとPR Review/CIは論理的に分離する」を実装する。
+ * Engineering Agent自身が実行したテスト結果は信用せず、ここで独立に再実行・検査する。
+ *
+ * Supabaseなどのsecretには一切依存しない(fork PRでも安全に実行できる設計)。
+ * 結果はJSON summaryとしてstdoutとファイルに出力し、GitHub Actionsのartifactとして
+ * アップロードされる想定。DBへの反映は別workflow(workflow_run、信頼コンテキスト)で行う。
+ *
+ * 使い方: node scripts/improvement/pr-ci-checks.mjs [--base=origin/main] [--out=pr-ci-result.json]
+ */
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const __dir = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(__dir, "../..");
+const FORBIDDEN = JSON.parse(readFileSync(resolve(__dir, "forbidden-paths.json"), "utf8"));
+
+const MAX_CHANGED_FILES = 8;
+const MAX_CHANGED_LINES = 200;
+
+function parseArgs(argv) {
+  const opts = { base: "origin/main", out: "pr-ci-result.json" };
+  for (const a of argv) {
+    const m = a.match(/^--([\w-]+)=(.*)$/);
+    if (m) opts[m[1]] = m[2];
+  }
+  return opts;
+}
+
+function sh(cmd, args) {
+  const needsShell = process.platform === "win32" && (cmd === "npm" || cmd === "npx");
+  return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: "utf8", shell: needsShell });
+}
+
+function runCheck(name, fn) {
+  try {
+    fn();
+    return { name, passed: true };
+  } catch (e) {
+    return { name, passed: false, error: e instanceof Error ? e.message.slice(0, 1000) : String(e) };
+  }
+}
+
+function inferCategoryTests(diffFiles) {
+  const tests = new Set();
+  if (diffFiles.some((f) => f.includes("robots.txt") || f.includes("sitemap") || f.match(/page\.tsx$/))) {
+    tests.add("test:canonical-integrity");
+    tests.add("test:indexing-policy");
+  }
+  if (diffFiles.some((f) => f.includes("src/lib/analytics/") || f.includes("api/analytics/"))) {
+    tests.add("test:analytics-production-ingestion");
+    tests.add("test:test-account-exclusion");
+  }
+  if (diffFiles.some((f) => f.includes("src/app/api/"))) {
+    tests.add("test:premium-gating");
+  }
+  return [...tests];
+}
+
+async function main() {
+  const opts = parseArgs(process.argv.slice(2));
+  const checks = [];
+
+  console.log(`--- diff against ${opts.base} ---`);
+  const diffFiles = sh("git", ["diff", "--name-only", opts.base, "HEAD"]).trim().split("\n").filter(Boolean);
+  const diffStat = sh("git", ["diff", "--shortstat", opts.base, "HEAD"]).trim();
+  const totalLines = (diffStat.match(/\d+/g) ?? []).slice(1).reduce((s, n) => s + Number(n), 0);
+  console.log(`files: ${diffFiles.length}, lines: ${totalLines}`);
+
+  // 1. 禁止パス検査
+  const forbiddenHits = diffFiles.filter((f) => FORBIDDEN.forbiddenPathPatterns.some((p) => f.includes(p)));
+  checks.push({
+    name: "forbidden-paths",
+    passed: forbiddenHits.length === 0,
+    error: forbiddenHits.length > 0 ? `禁止パスへの変更: ${forbiddenHits.join(", ")}` : undefined,
+  });
+
+  // 2. diff上限検査
+  checks.push({
+    name: "diff-size-limit",
+    passed: diffFiles.length <= MAX_CHANGED_FILES && totalLines <= MAX_CHANGED_LINES,
+    error:
+      diffFiles.length > MAX_CHANGED_FILES || totalLines > MAX_CHANGED_LINES
+        ? `上限超過: files=${diffFiles.length}/${MAX_CHANGED_FILES}, lines=${totalLines}/${MAX_CHANGED_LINES}`
+        : undefined,
+  });
+
+  // 3. mainへの直接変更が無いこと(このCI自体はPRブランチ上で動くため、baseブランチ設定ファイル
+  //    自体を書き換えていないか= .github/workflows等が禁止パスに含まれることで実質的にカバーされる。
+  //    ここでは追加でCI設定ファイル自体の変更も明示的に検査する)
+  const ciSelfModified = diffFiles.some((f) => f.startsWith(".github/workflows/") || f === "scripts/improvement/pr-ci-checks.mjs");
+  checks.push({ name: "no-ci-self-modification", passed: !ciSelfModified, error: ciSelfModified ? "CI設定・このチェックスクリプト自体を変更している" : undefined });
+
+  // 4. 破壊的migration検査(新規.sqlファイルにDROP/TRUNCATE等が含まれていないか)
+  const migrationFiles = diffFiles.filter((f) => f.startsWith("supabase/migrations/") && f.endsWith(".sql"));
+  const destructivePattern = /\b(drop\s+table|drop\s+column|truncate|delete\s+from\s+profiles)\b/i;
+  const destructiveMigrations = [];
+  for (const f of migrationFiles) {
+    try {
+      const content = readFileSync(resolve(REPO_ROOT, f), "utf8");
+      if (destructivePattern.test(content)) destructiveMigrations.push(f);
+    } catch {
+      /* ファイルが無い(削除された)場合はスキップ */
+    }
+  }
+  checks.push({
+    name: "no-destructive-migration",
+    passed: destructiveMigrations.length === 0,
+    error: destructiveMigrations.length > 0 ? `破壊的操作を含むmigration: ${destructiveMigrations.join(", ")}` : undefined,
+  });
+
+  // 5. secret混入検査
+  let secretHit = null;
+  if (diffFiles.length > 0) {
+    const diffContent = sh("git", ["diff", opts.base, "HEAD"]);
+    const secretPatterns = [/sk-[a-zA-Z0-9]{20,}/, /AKIA[0-9A-Z]{16}/, /-----BEGIN [A-Z ]*PRIVATE KEY-----/, /SUPABASE_SERVICE_ROLE_KEY\s*=\s*['"]/];
+    secretHit = secretPatterns.find((p) => p.test(diffContent)) ?? null;
+  }
+  checks.push({ name: "no-secret-in-diff", passed: !secretHit, error: secretHit ? "diffにsecretらしき文字列を検出(詳細はログに残さない)" : undefined });
+
+  // 6. tsc / build / smoke / カテゴリ別テスト(実際に独立して再実行する)
+  checks.push(runCheck("typecheck", () => sh("npx", ["tsc", "--noEmit"])));
+  checks.push(runCheck("build", () => sh("npm", ["run", "build"])));
+  checks.push(runCheck("test:smoke", () => sh("npm", ["run", "test:smoke"])));
+  for (const t of inferCategoryTests(diffFiles)) {
+    checks.push(runCheck(t, () => sh("npm", ["run", t])));
+  }
+
+  const allPassed = checks.every((c) => c.passed);
+  const summary = { allPassed, diffFiles, totalLines, checks, checkedAt: new Date().toISOString() };
+  writeFileSync(resolve(REPO_ROOT, opts.out), JSON.stringify(summary, null, 2));
+  console.log(JSON.stringify(summary, null, 2));
+
+  console.log(allPassed ? "\n=== pr-ci-checks: ALL PASSED ===" : "\n=== pr-ci-checks: FAILED ===");
+  process.exit(allPassed ? 0 : 1);
+}
+
+main().catch((e) => {
+  console.error("pr-ci-checks crashed:", e);
+  process.exit(1);
+});

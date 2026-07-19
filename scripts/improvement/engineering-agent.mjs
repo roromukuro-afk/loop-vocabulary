@@ -76,6 +76,12 @@ function pathIsForbidden(path) {
   return FORBIDDEN.forbiddenPathPatterns.some((p) => path.includes(p));
 }
 
+function isPathAllowedForCategory(path, category) {
+  const patterns = FORBIDDEN.allowedPathPatternsByCategory?.[category];
+  if (!patterns || patterns.length === 0) return true; // 未定義カテゴリは制限しない(既存挙動を壊さない)
+  return patterns.some((p) => path.includes(p));
+}
+
 async function recordRun(admin, taskId, runType, status, summary, log = {}) {
   const { error } = await admin.from("improvement_runs").insert({
     task_id: taskId,
@@ -117,6 +123,15 @@ async function cmdVerifyTask(admin, taskId) {
     console.error(`❌ target_filesに変更禁止パスが含まれている: ${forbiddenHits.join(", ")}`);
     await admin.from("improvement_tasks").update({ status: "rejected" }).eq("id", taskId);
     await recordRun(admin, taskId, "investigate", "failed", "forbidden path in target_files", { forbiddenHits });
+    process.exit(1);
+  }
+
+  const category = task.improvement_issues?.category;
+  const outOfAllowlist = (task.target_files ?? []).filter((f) => !isPathAllowedForCategory(f, category));
+  if (outOfAllowlist.length > 0) {
+    console.error(`❌ カテゴリ"${category}"のpath allowlist外のtarget_files: ${outOfAllowlist.join(", ")}`);
+    await admin.from("improvement_tasks").update({ status: "needs_human_planning" }).eq("id", taskId);
+    await recordRun(admin, taskId, "investigate", "failed", "target_files outside category allowlist", { outOfAllowlist, category });
     process.exit(1);
   }
 

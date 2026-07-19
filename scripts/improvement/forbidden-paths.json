@@ -14,7 +14,19 @@
     "src/lib/srs/",
     "src/lib/materials/",
     "materials.is_public",
-    "src/app/api/admin/users/"
+    "src/app/api/admin/users/",
+    ".github/workflows/",
+    "AUTONOMY_LEVEL_POLICY.md",
+    "AUTONOMOUS_ENGINEERING_POLICY.md",
+    "AUTONOMOUS_IMPROVEMENT_ARCHITECTURE.md",
+    "scripts/improvement/forbidden-paths.json",
+    "scripts/improvement/claim-and-run.mjs",
+    "scripts/improvement/pr-ci-checks.mjs",
+    "scripts/improvement/reflect-pr-ci-result.mjs",
+    ".env",
+    ".git/config",
+    "src/app/api/auth/",
+    "src/lib/supabase/admin.ts"
   ],
   "forbiddenActionKeywords": [
     "DROP TABLE",
@@ -22,8 +34,44 @@
     "DELETE FROM profiles",
     "vercel --prod",
     "git push origin main",
+    "git push --force",
+    "git remote",
     "gh pr merge",
-    "apply_migration"
+    "apply_migration",
+    "eval(",
+    "child_process.exec("
   ],
-  "note": "AUTONOMOUS_ENGINEERING_POLICY.mdの「自動実行禁止」節と完全に一致させること。supabase/migrations/配下は新規.sqlファイルの追加のみ許可(forbiddenPathPatternsには含めない)。本番へのmigration適用(apply_migration相当のコマンド実行)はforbiddenActionKeywordsで別途縛る。stripe/webhook/route.tsはsrc/app/api/stripe/配下として既にカバーされている。"
+  "commandAllowlist": {
+    "note": "エージェント(engineering-agent.mjs / claim-and-run.mjs)がsh()経由で実行してよいコマンドの固定リスト。issue本文・evidence・外部ページ内容など信頼できない入力からコマンド文字列を組み立てて実行することは一切行わない(コマンド名・主要引数は常にコード内のリテラル)。",
+    "commands": [
+      "git checkout -b <branch> origin/main",
+      "git fetch origin <branch> main",
+      "git checkout <branch>",
+      "git reset --hard origin/<branch>",
+      "git diff --name-only|--shortstat origin/main <ref>",
+      "git add <fixed path>",
+      "git commit -m <fixed message>",
+      "git push -u origin <branch>",
+      "git ls-remote --heads origin <branch>",
+      "git rev-parse HEAD",
+      "npx tsc --noEmit",
+      "npm run build",
+      "npm run <name from package.json scripts のみ>",
+      "gh pr create --draft --base main --head <branch> --title <fixed> --body <fixed>"
+    ]
+  },
+  "allowedPathPatternsByCategory": {
+    "reliability": ["src/app/api/", "src/lib/", "scripts/testing/"],
+    "seo": ["src/app/**/page.tsx", "src/app/**/layout.tsx", "public/robots.txt", "src/app/sitemap.ts", "scripts/testing/"],
+    "content": ["src/app/guide/", "src/app/dictionary/", "src/lib/dictionary/", "scripts/testing/"],
+    "engineering": ["src/", "scripts/testing/"],
+    "activation": ["src/app/", "src/components/", "scripts/testing/"],
+    "retention": ["src/app/", "src/components/", "scripts/testing/"],
+    "acquisition": ["src/app/", "src/components/", "scripts/testing/"],
+    "performance": ["src/app/", "src/components/", "scripts/testing/"],
+    "analytics": ["src/lib/analytics/", "src/app/api/analytics/", "scripts/testing/"],
+    "revenue": ["src/app/premium/", "src/components/", "scripts/testing/"],
+    "_note": "revenueは価格・checkout・Stripe自体はforbiddenPathPatternsで別途ブロックされる(訴求文言・UI提案までがLevel3対象)。privacy/legalはカテゴリとしてここに含めない=常にhuman_only。"
+  },
+  "note": "AUTONOMOUS_ENGINEERING_POLICY.mdの「自動実行禁止」節と完全に一致させること。supabase/migrations/配下は新規.sqlファイルの追加のみ許可(forbiddenPathPatternsには含めない)。本番へのmigration適用(apply_migration相当のコマンド実行)はforbiddenActionKeywordsで別途縛る。.github/workflows/自身とAUTONOMY_LEVEL_POLICY.md等の安全ポリシー文書自体への変更は、エージェント自身のセルフ変更を防ぐため明示的に禁止パスへ含めている。"
 }

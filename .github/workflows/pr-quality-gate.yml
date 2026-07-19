@@ -1,0 +1,56 @@
+name: PR Quality Gate
+
+# 独立CI(pull_requestトリガー)。Engineering Agent自身が実行したテスト結果を信用せず、
+# ここで完全に独立して再検査する(AUTONOMOUS_ENGINEERING_POLICY.md参照)。
+#
+# secretは一切渡さない(fork PR/信頼できないコードでも安全)。permissionsも
+# contents:read のみに絞る。DBへの結果反映はこのworkflowでは行わない —
+# 別workflow(pr-quality-gate-reflect.yml, workflow_run トリガー、信頼コンテキスト)が
+# このworkflowの結果artifactを読んでSupabaseへ反映する。
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-quality-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm ci
+
+      - name: Run independent quality gate checks
+        id: checks
+        continue-on-error: true
+        run: node scripts/improvement/pr-ci-checks.mjs --base=origin/main --out=pr-ci-result.json
+
+      - name: Save PR metadata for the reflect workflow
+        run: |
+          echo '{"pr_number": ${{ github.event.pull_request.number }}, "head_sha": "${{ github.event.pull_request.head.sha }}"}' > pr-meta.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr-ci-result
+          path: |
+            pr-ci-result.json
+            pr-meta.json
+          retention-days: 30
+
+      - name: Fail the check if any gate failed
+        if: steps.checks.outcome == 'failure'
+        run: exit 1

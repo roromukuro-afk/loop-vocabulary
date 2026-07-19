@@ -1,0 +1,53 @@
+name: Improvement Auto-Claim
+
+# Loop Autonomous Improvement System: 承認済みタスクを自動でclaimし、Draft PR作成まで進める。
+# AUTONOMOUS_ENGINEERING_POLICY.md / AUTONOMY_LEVEL_POLICY.md 参照。
+#
+# 意図的にworkflow_dispatchは持たない — 人間がGitHub UIから手動で起動するのではなく、
+# (1) schedule(毎時)による定期実行、または
+# (2) repository_dispatch(外部システム/このリポジトリ自身のスクリプトからのAPI起動)
+# のいずれかでのみ起動する。「承認後は人間が別の手動操作をしない」という要件を、
+# 「人間がworkflow_dispatchボタンを押す」という手動操作を経由せずに満たすための設計。
+#
+# claim_next_improvement_task()(Postgres RPC, FOR UPDATE SKIP LOCKED)により、
+# 複数runnerが同時に起動しても必ず異なるタスクを取得するか、対象が無ければ何もしない。
+# concurrencyグループで同一workflow自体の重複実行も防ぐ(二重start防止の多層防御)。
+#
+# 1回の実行で最大1件のタスクのみを処理する(claim_next_improvement_task自体が1件しか
+# 返さない設計のため、複数タスク処理は構造的に起こり得ない)。
+
+on:
+  schedule:
+    - cron: "0 * * * *" # 毎時0分(UTC)
+  repository_dispatch:
+    types: [improvement-claim]
+
+concurrency:
+  group: improvement-auto-claim
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  claim-and-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm ci
+
+      - name: Claim next approved task and run to Draft PR
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/improvement/claim-and-run.mjs

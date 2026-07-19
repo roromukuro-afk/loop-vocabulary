@@ -1,0 +1,47 @@
+name: PR Quality Gate Reflect
+
+# pr-quality-gate.yml(pull_request, secretsなし)の完了を受けて、その結果をSupabaseへ
+# 反映する。workflow_run トリガーは常にbaseリポジトリの信頼コンテキストで動くため、
+# fork PRであってもここでsecretが漏洩することはない(pull_requestトリガー側には
+# secretを一切渡していないため、攻撃者はfork PR経由でsecretを取得できない)。
+#
+# CI失敗時は improvement_tasks.status を 'ci_failed' にするのみで、
+# 'ready_for_review' には絶対に進めない(Draft PRをCI失敗時にready for reviewへ
+# 変更しないという要件をここで担保する)。
+
+on:
+  workflow_run:
+    workflows: ["PR Quality Gate"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  reflect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm ci
+
+      - name: Download pr-ci-result artifact from the triggering run
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-ci-result
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Reflect CI result into Supabase
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          WORKFLOW_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          CI_RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: node scripts/improvement/reflect-pr-ci-result.mjs
