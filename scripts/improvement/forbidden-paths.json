@@ -1,0 +1,29 @@
+{
+  "forbiddenPathPatterns": [
+    "src/app/api/stripe/",
+    "src/lib/growth/revenueSnapshot.ts",
+    "src/app/premium/PremiumCheckout.tsx",
+    "src/lib/premium/",
+    "public/ads.txt",
+    "src/lib/ads/",
+    "src/components/ads/",
+    "src/app/legal/commercial-transaction/",
+    "src/lib/analytics/eventSchema.ts",
+    "ANALYTICS_PRIVACY_POLICY.md",
+    "src/app/privacy/",
+    "src/lib/srs/",
+    "src/lib/materials/",
+    "materials.is_public",
+    "src/app/api/admin/users/"
+  ],
+  "forbiddenActionKeywords": [
+    "DROP TABLE",
+    "DROP COLUMN",
+    "DELETE FROM profiles",
+    "vercel --prod",
+    "git push origin main",
+    "gh pr merge",
+    "apply_migration"
+  ],
+  "note": "AUTONOMOUS_ENGINEERING_POLICY.mdの「自動実行禁止」節と完全に一致させること。supabase/migrations/配下は新規.sqlファイルの追加のみ許可(forbiddenPathPatternsには含めない)。本番へのmigration適用(apply_migration相当のコマンド実行)はforbiddenActionKeywordsで別途縛る。stripe/webhook/route.tsはsrc/app/api/stripe/配下として既にカバーされている。"
+}

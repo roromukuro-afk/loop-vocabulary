@@ -102,7 +102,20 @@
     "test:growth-rollup-real-data": "node scripts/testing/e2e/growth-rollup-real-data.mjs",
     "test:all-production-domain-redirects": "node scripts/testing/e2e/all-production-domain-redirects.mjs",
     "test:noindex-crawlability": "node scripts/testing/e2e/noindex-crawlability.mjs",
-    "test:ads-txt-live": "node scripts/testing/ads-txt-live.mjs"
+    "test:ads-txt-live": "node scripts/testing/ads-txt-live.mjs",
+    "test:improvement-issue-generation": "node scripts/testing/e2e/improvement-issue-generation.mjs",
+    "test:issue-deduplication": "node scripts/testing/test-issue-deduplication.mjs",
+    "test:priority-scoring": "node scripts/testing/test-priority-scoring.mjs",
+    "test:autonomy-level-policy": "node scripts/testing/test-autonomy-level-policy.mjs",
+    "test:draft-pr-gate": "node scripts/testing/test-draft-pr-gate.mjs",
+    "test:no-direct-main-push": "node scripts/testing/test-no-direct-main-push.mjs",
+    "test:no-autonomous-deploy": "node scripts/testing/test-no-autonomous-deploy.mjs",
+    "test:quality-gates": "node scripts/testing/test-quality-gates.mjs",
+    "test:improvement-memory": "node scripts/testing/test-improvement-memory.mjs",
+    "test:critical-issue-detection": "node scripts/testing/test-critical-issue-detection.mjs",
+    "test:seo-issue-detection": "node scripts/testing/test-seo-issue-detection.mjs",
+    "test:reliability-issue-detection": "node scripts/testing/test-reliability-issue-detection.mjs",
+    "test:human-approval-required": "node scripts/testing/e2e/human-approval-required.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

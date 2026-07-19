@@ -1,0 +1,55 @@
+name: Improvement Agent (manual)
+
+# Loop Autonomous Improvement System: Autonomous Engineering Agent の実行環境。
+# AUTONOMOUS_ENGINEERING_POLICY.md参照。
+#
+# 意図的に `schedule` トリガーは設定していない — 無人自動実行は行わない方針
+# (AUTONOMY_LEVEL_POLICY.md: Level 4/5は未実装)。task_id を人間が明示的に指定して
+# workflow_dispatch から起動した場合にのみ動く。
+#
+# このワークフローが行うのは branch作成・品質ゲート・Draft PR作成までであり、
+# mainへのmerge・本番デプロイは一切行わない(permissionsもcontents:writeと
+# pull-requests:writeのみに限定し、Vercelデプロイ用のsecretsはこのワークフローに渡さない)。
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: "improvement_tasks.id (status='approved'であること)"
+        required: true
+        type: string
+      step:
+        description: "実行するステップ"
+        required: true
+        type: choice
+        default: "quality-gate"
+        options:
+          - verify-task
+          - quality-gate
+          - review
+          - draft-pr
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  run-step:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm ci
+
+      - name: Run engineering-agent step
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/improvement/engineering-agent.mjs ${{ inputs.step }} --task=${{ inputs.task_id }}
