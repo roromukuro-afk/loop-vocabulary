@@ -1,7 +1,11 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default function SetupPage() {
   const env = getSupabaseEnv();
