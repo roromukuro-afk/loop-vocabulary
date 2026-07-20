@@ -7,6 +7,16 @@ name: PR Quality Gate
 # contents:read のみに絞る。DBへの結果反映はこのworkflowでは行わない —
 # 別workflow(pr-quality-gate-reflect.yml, workflow_run トリガー、信頼コンテキスト)が
 # このworkflowの結果artifactを読んでSupabaseへ反映する。
+#
+# NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY はNEXT_PUBLIC_プレフィックスの
+# 規約どおりNext.jsのビルド時にクライアントバンドルへそのまま埋め込まれる値であり、
+# デプロイ済みの本番サイトを見れば誰でも取得できる。secretではないため、ここに直接
+# 書いてもfork PR経由の漏洩リスクは無い(SUPABASE_SERVICE_ROLE_KEY等の真のsecretとは異なる)。
+# ビルド(`npm run build`)がSupabase未設定エラーで落ちないようにするために必要。
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: "https://befjjebsrnsfwhtmydiv.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlZmpqZWJzcm5zZndodG15ZGl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MTk2NDEsImV4cCI6MjA5ODA5NTY0MX0.M9wK6WEFTA8KduqUqfC0c9rRgKNCgOUq2FC9djkdEfU"
 
 on:
   pull_request:
