@@ -44,6 +44,16 @@ jobs:
 
       - run: npm ci
 
+      # scripts/testing/e2e/canonical-integrity.mjs(pr-ci-checks.mjsが呼ぶ独立チェックの一つ)は
+      # 実際にPlaywrightでChromiumを起動する。`npm ci`はnode_modules配下のPlaywright"パッケージ"は
+      # インストールするが、ブラウザバイナリ本体(chrome-headless-shell等)は別途
+      # `playwright install`が必要で、これを行っていなかったため
+      # "browserType.launch: Executable doesn't exist" でクラッシュしていた
+      # (2026-07-20、PR #4の独立PR Quality Gate run #29729753115で発覚)。
+      # Chromiumのみをインストールする(Firefox/WebKitはこのリポジトリのどのテストも使わない)。
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Run independent quality gate checks
         id: checks
         continue-on-error: true
