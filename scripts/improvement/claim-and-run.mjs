@@ -34,6 +34,7 @@ import { dirname, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { pathIsForbiddenForAutomation, isPathAllowedForCategory, checkDiffSize, scanForSecrets, MAX_CHANGED_FILES, MAX_CHANGED_LINES } from "./safety-checks.mjs";
 import { resolveWorkDir, assertClean } from "./workdir.mjs";
+import { processPatchTask } from "./patch-agent.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dir, "../..");
@@ -311,7 +312,27 @@ async function main() {
   }
   console.log(`[claim-and-run] claim成功: task=${task.id} title="${task.title}"`);
 
-  const result = await processClaimedTask(admin, task);
+  const workDir = resolveWorkDir(REPO_ROOT);
+  assertClean(workDir);
+
+  let currentTask = task;
+  if (!currentTask.branch_name && currentTask.patch_spec) {
+    // patch_specを持つ(=決定的な4操作だけで表現可能な)タスクのみ、patch-agentが同じ隔離
+    // worktree上でコード修正→commit→push まで行う。それ以外(patch_spec無し)は従来どおり、
+    // 人間/Claude Codeの対話的セッションが事前にbranchを用意していることが前提のまま。
+    console.log(`[claim-and-run] branch_name未設定・patch_specありのためpatch-agentを先に実行する: task=${currentTask.id}`);
+    const patchResult = await processPatchTask(admin, currentTask, { workDir });
+    if (patchResult.outcome !== "patched") {
+      console.error(`[claim-and-run] patch-agentが失敗した(status更新済み): ${JSON.stringify(patchResult)}`);
+      process.exitCode = 1;
+      return;
+    }
+    const { data: refreshed, error: refetchErr } = await admin.from("improvement_tasks").select("*").eq("id", task.id).maybeSingle();
+    if (refetchErr || !refreshed) throw new Error(`patch適用後のtask再取得に失敗: ${refetchErr?.message ?? "not found"}`);
+    currentTask = refreshed;
+  }
+
+  const result = await processClaimedTask(admin, currentTask, { workDir });
   if (result.outcome === "error") process.exitCode = 1;
 }
 
