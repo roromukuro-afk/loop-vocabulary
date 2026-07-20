@@ -4,11 +4,22 @@
  *
  * 【重要な設計上の境界】このスクリプトは「コードを書く」ことはしない。
  * 承認されたタスクのコード修正(target_filesへの実際の変更)は、事前に
- * `improvement/<taskId>-*` branchへ人間またはClaude Codeが対話的セッションで
+ * `improvement/<taskId>-*` branchへ人間・Claude Codeの対話的セッション、または
+ * scripts/improvement/patch-agent.mjs(決定的パッチのみ扱う別工程)によって
  * push済みであることを前提とする。このスクリプトが自動化するのは、その後の
  * 「品質ゲート実行→自己レビュー→Draft PR作成」という、判断を伴わない機械的な
  * 工程のみである。issue本文やログといった信頼できない入力から任意のコード生成・
  * コマンド実行を行うことは意図的に実装していない(Phase 4の安全方針)。
+ *
+ * 【共有working tree保護】このスクリプトは対象branchの内容を反映するために
+ * `git checkout` / `git reset --hard` を実行する。これを複数セッションが同時に
+ * 作業している共有working tree上で行うと、他セッションの未コミット変更を
+ * 破壊しうる(2026-07-19に実際に発生した事故)。そのため実際にgit操作を行う
+ * working directoryは常に resolveWorkDir() で解決した「専用」ディレクトリに限定する:
+ *   - GitHub Actions上: そのrunnerの使い捨てcheckout(誰とも共有されない)をそのまま使う。
+ *   - ローカル実行: CLAIM_WORKTREE_DIR で明示された専用git worktree/一時cloneを必須とする
+ *     (未設定・共有リポジトリ自身を指す場合は起動を拒否する。scripts/improvement/workdir.mjs参照)。
+ * 加えて、作業ディレクトリがdirtyなら(想定外の残留物があれば)即座に停止する。
  *
  * 起動方法: .github/workflows/improvement-auto-claim.yml から
  * schedule(毎時)またはrepository_dispatch(claim-and-runイベント)で呼ばれる。
@@ -22,6 +33,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { pathIsForbidden, isPathAllowedForCategory, checkDiffSize, scanForSecrets, MAX_CHANGED_FILES, MAX_CHANGED_LINES } from "./safety-checks.mjs";
+import { resolveWorkDir, assertClean } from "./workdir.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dir, "../..");
@@ -48,9 +60,9 @@ function loadEnvLocal() {
   }
 }
 
-function sh(cmd, args, opts = {}) {
+function sh(cwd, cmd, args) {
   const needsShell = process.platform === "win32" && (cmd === "npm" || cmd === "npx");
-  return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: "utf8", shell: needsShell, ...opts });
+  return execFileSync(cmd, args, { cwd, encoding: "utf8", shell: needsShell });
 }
 
 async function recordRun(admin, taskId, runType, status, summary, log = {}) {
@@ -71,12 +83,17 @@ async function recordRun(admin, taskId, runType, status, summary, log = {}) {
  * からも直接呼び出せるよう、RPCによるclaim処理と分離してexportしている
  * (claim自体の排他制御はtest:approved-task-auto-claim/test:workflow-concurrencyで別途検証する)。
  *
+ * opts.workDir を渡さない場合は resolveWorkDir(REPO_ROOT) で解決する
+ * (GitHub Actions外では専用worktreeが無いと例外を投げて即座に停止する)。
  * opts.skipPush=true の場合、品質ゲート・自己レビューまでは本番と全く同じ経路で実行し、
  * `git push`/`gh pr create`(実際のPR作成)のみをスキップして 'ready_for_review' 相当の
  * 到達を返す。テストが実行のたびに実PRを作成しないための安全弁。
  */
 export async function processClaimedTask(admin, task, opts = {}) {
   const skipPush = opts.skipPush === true;
+  const workDir = opts.workDir ?? resolveWorkDir(REPO_ROOT);
+  assertClean(workDir);
+  const g = (cmd, args) => sh(workDir, cmd, args);
 
   // 冪等性: 既にDraft PRが作成済みなら再作成しない
   if (task.pr_url) {
@@ -119,7 +136,7 @@ export async function processClaimedTask(admin, task, opts = {}) {
     // branchの存在確認(git ls-remote)。無ければ「コードがまだ書かれていない」= 人間の作業待ち。
     let branchExists = false;
     try {
-      const out = sh("git", ["ls-remote", "--heads", "origin", branchName]);
+      const out = g("git", ["ls-remote", "--heads", "origin", branchName]);
       branchExists = out.trim().length > 0;
     } catch {
       branchExists = false;
@@ -129,13 +146,13 @@ export async function processClaimedTask(admin, task, opts = {}) {
       return { outcome: "failed", status: "needs_human_planning" };
     }
 
-    sh("git", ["fetch", "origin", branchName, "main"]);
-    sh("git", ["checkout", branchName]);
-    sh("git", ["reset", "--hard", `origin/${branchName}`]);
+    g("git", ["fetch", "origin", branchName, "main"]);
+    g("git", ["checkout", branchName]);
+    g("git", ["reset", "--hard", `origin/${branchName}`]);
 
     // diff上限チェック(origin/mainとの差分)
-    const diffStat = sh("git", ["diff", "--shortstat", "origin/main", `origin/${branchName}`]).trim();
-    const diffFiles = sh("git", ["diff", "--name-only", "origin/main", `origin/${branchName}`]).trim().split("\n").filter(Boolean);
+    const diffStat = g("git", ["diff", "--shortstat", "origin/main", `origin/${branchName}`]).trim();
+    const diffFiles = g("git", ["diff", "--name-only", "origin/main", `origin/${branchName}`]).trim().split("\n").filter(Boolean);
     const lineMatch = diffStat.match(/(\d+) insertion.*?(\d+) deletion/) || diffStat.match(/(\d+) insertion/);
     const totalLines = diffStat
       .match(/\d+/g)
@@ -160,14 +177,14 @@ export async function processClaimedTask(admin, task, opts = {}) {
     }
 
     // secret混入の簡易検査(diffの内容をスキャン)
-    const diffContent = sh("git", ["diff", "origin/main", `origin/${branchName}`]);
+    const diffContent = g("git", ["diff", "origin/main", `origin/${branchName}`]);
     const secretHit = scanForSecrets(diffContent);
     if (secretHit) {
       await failTask(admin, task.id, "rejected", "差分にsecretらしき文字列を検出したため停止(内容はログに残さない)");
       return { outcome: "failed", status: "rejected" };
     }
 
-    const commitSha = sh("git", ["rev-parse", "HEAD"]).trim();
+    const commitSha = g("git", ["rev-parse", "HEAD"]).trim();
     await admin.from("improvement_tasks").update({ status: "implementing", commit_sha: commitSha }).eq("id", task.id);
     await recordRun(admin, task.id, "implement", "succeeded", `branch確認・diff検証OK (${diffFiles.length}ファイル, ${totalLines}行)`, { diffFiles, commitSha });
 
@@ -176,9 +193,9 @@ export async function processClaimedTask(admin, task, opts = {}) {
     const testResults = [];
     for (const t of requiredTests) {
       try {
-        if (t === "typecheck") sh("npx", ["tsc", "--noEmit"]);
-        else if (t === "build") sh("npm", ["run", "build"]);
-        else sh("npm", ["run", t]);
+        if (t === "typecheck") g("npx", ["tsc", "--noEmit"]);
+        else if (t === "build") g("npm", ["run", "build"]);
+        else g("npm", ["run", t]);
         testResults.push({ test: t, passed: true });
       } catch (e) {
         testResults.push({ test: t, passed: false, error: e instanceof Error ? e.message.slice(0, 500) : String(e) });
@@ -220,7 +237,7 @@ export async function processClaimedTask(admin, task, opts = {}) {
       return { outcome: "ready_for_draft_pr", diffFiles, totalLines, commitSha };
     }
 
-    // Draft PR作成
+    // Draft PR作成(gh pr review --approve / gh pr merge等は一切呼ばない。作成のみ)
     const body = [
       `## Issue: ${task.title}`,
       "",
@@ -238,8 +255,8 @@ export async function processClaimedTask(admin, task, opts = {}) {
       "自動生成されました。mainへのmerge・本番デプロイは行われません。人間によるレビュー・承認後にmergeしてください。",
     ].join("\n");
 
-    sh("git", ["push", "-u", "origin", branchName]);
-    const prOutput = sh("gh", ["pr", "create", "--draft", "--base", "main", "--head", branchName, "--title", `[improvement] ${task.title}`, "--body", body]);
+    g("git", ["push", "-u", "origin", branchName]);
+    const prOutput = g("gh", ["pr", "create", "--draft", "--base", "main", "--head", branchName, "--title", `[improvement] ${task.title}`, "--body", body]);
     const prUrl = prOutput.trim().split("\n").pop();
     const prNumberMatch = prUrl?.match(/\/pull\/(\d+)/);
 

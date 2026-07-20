@@ -4,13 +4,17 @@
  * いる前提)を使って本番と同一の経路(禁止パスチェック→category allowlist→branch存在確認→
  * diff上限チェック→secretスキャン→品質ゲート→自己レビュー)で呼び出す。
  *
+ * 【共有working tree保護】このテストは scripts/improvement/workdir.mjs の
+ * createIsolatedWorktree() で作った専用git worktree上でのみ branch作成・commit・
+ * processClaimedTask()の実行(内部でgit checkout/reset --hardを行う)を行う。
+ * 共有working tree(このリポジトリの通常の作業ディレクトリ)のHEAD・working treeの
+ * 状態には一切触れない(2026-07-19に共有tree上での`git reset --hard`が他セッションの
+ * 未コミット作業を破壊した事故の再発防止)。
+ *
  * 実際のPR作成(git push -u / gh pr create)は毎回実PRを作らないよう opts.skipPush=true でスキップし、
  * "ready_for_draft_pr"(=Draft PR作成の一歩手前まで到達)を確認する。実際にpush→PR作成まで到達する
  * ことの証拠は、`repository_dispatch`トリガーによる実行(手動workflow_dispatchを使わない)で別途
  * 示す(完了報告参照)。
- *
- * このテストが作るfixtureブランチはscripts/testing/fixtures/配下の使い捨てファイルのみを変更し、
- * テスト終了後にリモート・ローカルの両方から削除する。
  *
  * 使い方: node scripts/testing/test-approved-task-to-draft-pr.mjs
  */
@@ -20,13 +24,14 @@ import { resolve, dirname } from "node:path";
 import { getAdminClient } from "./lib/supabaseAdmin.mjs";
 import { REPO_ROOT } from "./lib/env.mjs";
 import { processClaimedTask } from "../improvement/claim-and-run.mjs";
+import { createIsolatedWorktree, removeWorktree, assertClean } from "../improvement/workdir.mjs";
 
 let failed = 0;
 function ok(msg) { console.log(`✅ ${msg}`); }
 function fail(msg) { console.error(`❌ FAIL: ${msg}`); failed++; }
 
-function sh(cmd, args) {
-  return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: "utf8" });
+function sh(cwd, cmd, args) {
+  return execFileSync(cmd, args, { cwd, encoding: "utf8" });
 }
 
 async function main() {
@@ -34,20 +39,22 @@ async function main() {
   const stamp = Date.now();
   const branchName = `improvement/test-fixture-${stamp}`;
   const fixtureRelPath = `scripts/testing/fixtures/tmp-${stamp}.md`;
-  const startBranch = sh("git", ["rev-parse", "--abbrev-ref", "HEAD"]).trim();
+
+  // 共有working treeがdirtyな状態でこのテストを開始しない(他セッションの作業を巻き込まないための前提確認)
+  assertClean(REPO_ROOT);
 
   let ids = null;
+  let worktreeDir = null;
   try {
-    // 1. 安全なfixtureブランチを作り、無害な変更をpushする(「事前にコード修正branchが用意されている」
-    //    という processClaimedTask の前提を、実際のgit操作で満たす)
-    sh("git", ["fetch", "origin", "main"]);
-    sh("git", ["checkout", "-b", branchName, "origin/main"]);
-    const fixtureAbsPath = resolve(REPO_ROOT, fixtureRelPath);
+    // 1. 専用worktree上でfixtureブランチを作り、無害な変更をpushする(共有treeのHEADには触れない)
+    worktreeDir = createIsolatedWorktree(REPO_ROOT, "origin/main");
+    sh(worktreeDir, "git", ["checkout", "-b", branchName]);
+    const fixtureAbsPath = resolve(worktreeDir, fixtureRelPath);
     mkdirSync(dirname(fixtureAbsPath), { recursive: true });
     writeFileSync(fixtureAbsPath, `test fixture for test:approved-task-to-draft-pr (${stamp})\n`);
-    sh("git", ["add", fixtureRelPath]);
-    sh("git", ["commit", "-m", `test: improvement fixture ${stamp} (auto-deleted)`]);
-    sh("git", ["push", "-u", "origin", branchName]);
+    sh(worktreeDir, "git", ["add", fixtureRelPath]);
+    sh(worktreeDir, "git", ["commit", "-m", `test: improvement fixture ${stamp} (auto-deleted)`]);
+    sh(worktreeDir, "git", ["push", "-u", "origin", branchName]);
 
     // 2. 承認済みタスクを作る(target_filesはengineeringカテゴリのallowlist内、required_testsは
     //    typecheckのみにしてテストを高速化する)
@@ -86,9 +93,10 @@ async function main() {
     if (taskErr) throw new Error(taskErr.message);
     ids = { issueId: issue.id, taskId: task.id };
 
-    // 3. processClaimedTask()を本番と同一経路(claim後の処理)で呼び出す。skipPush=trueなので
-    //    実際のPR作成は行わない。
-    const result = await processClaimedTask(admin, task, { skipPush: true });
+    // 3. processClaimedTask()を本番と同一経路(claim後の処理)で、専用worktree上で呼び出す。
+    //    skipPush=trueなので実際のPR作成は行わない。workDirを明示するため、
+    //    GitHub Actions外でもCLAIM_WORKTREE_DIR未設定エラーにはならない。
+    const result = await processClaimedTask(admin, task, { skipPush: true, workDir: worktreeDir });
 
     if (result.outcome === "ready_for_draft_pr") {
       ok("承認済みタスクが、禁止パスチェック→category allowlist→branch確認→diff上限→secretスキャン→品質ゲート→自己レビューの全ゲートを通過し、Draft PR作成の一歩手前まで到達する");
@@ -106,10 +114,13 @@ async function main() {
     } else {
       fail(`品質ゲート通過後の状態が想定外: ${JSON.stringify(refreshed)}`);
     }
+
+    // 共有working treeが一切変更されていないことを確認する(このテストの中核となる安全性の証拠)
+    assertClean(REPO_ROOT);
+    ok("テスト実行後も共有working tree(REPO_ROOT)はdirtyになっていない(専用worktreeのみが変更された)");
   } finally {
-    try { sh("git", ["checkout", startBranch]); } catch { /* noop */ }
-    try { sh("git", ["branch", "-D", branchName]); } catch { /* noop */ }
-    try { sh("git", ["push", "origin", "--delete", branchName]); } catch { /* noop(リモートに存在しない場合など) */ }
+    if (worktreeDir) removeWorktree(REPO_ROOT, worktreeDir);
+    try { sh(REPO_ROOT, "git", ["push", "origin", "--delete", branchName]); } catch { /* noop(リモートに存在しない場合など) */ }
     if (ids) {
       await admin.from("improvement_reviews").delete().eq("task_id", ids.taskId);
       await admin.from("improvement_runs").delete().eq("task_id", ids.taskId);
