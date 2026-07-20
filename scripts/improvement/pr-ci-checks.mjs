@@ -83,11 +83,17 @@ async function main() {
     error: !diffSizeOk ? `上限超過: files=${diffFiles.length}/${MAX_CHANGED_FILES}, lines=${totalLines}/${MAX_CHANGED_LINES}` : undefined,
   });
 
-  // 3. mainへの直接変更が無いこと(このCI自体はPRブランチ上で動くため、baseブランチ設定ファイル
-  //    自体を書き換えていないか= .github/workflows等が禁止パスに含まれることで実質的にカバーされる。
-  //    ここでは追加でCI設定ファイル自体の変更も明示的に検査する)
-  const ciSelfModified = diffFiles.some((f) => f.startsWith(".github/workflows/") || f === "scripts/improvement/pr-ci-checks.mjs");
-  checks.push({ name: "no-ci-self-modification", passed: !ciSelfModified, error: ciSelfModified ? "CI設定・このチェックスクリプト自体を変更している" : undefined });
+  // 3. .github/workflows/・scripts/improvement/自身等(selfProtectionPathPatterns)への変更は、
+  //    独立CIでは一律ブロックしない(人間がこの安全システム自身をメンテナンスするPRを
+  //    恒久的に通せなくなってしまうため)。代わりに、自律agent(claim-and-run.mjs/
+  //    engineering-agent.mjs/patch-agent.mjs)自身がpathIsForbiddenForAutomation()で
+  //    これらのパスへの変更を構造的に生成できないようにし、CODEOWNERS必須レビューで
+  //    人間の目を必ず通すことで担保する(forbidden-paths.jsonの_selfProtectionNote参照)。
+  //    ここでは情報として記録するのみで、allPassedには影響させない。
+  const selfProtectionTouched = diffFiles.filter((f) => (FORBIDDEN.selfProtectionPathPatterns ?? []).some((p) => f.includes(p)));
+  if (selfProtectionTouched.length > 0) {
+    console.log(`ℹ️  このPRは自律改善システム自身の安全境界(selfProtectionPathPatterns)に触れている(CODEOWNERSレビュー必須): ${selfProtectionTouched.join(", ")}`);
+  }
 
   // 4. 破壊的migration検査(新規.sqlファイルにDROP/TRUNCATE等が含まれていないか)
   const migrationFiles = diffFiles.filter((f) => f.startsWith("supabase/migrations/") && f.endsWith(".sql"));

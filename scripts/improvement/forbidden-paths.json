@@ -15,22 +15,26 @@
     "src/lib/materials/",
     "materials.is_public",
     "src/app/api/admin/users/",
+    ".env",
+    ".git/config",
+    "src/app/api/auth/",
+    "src/lib/supabase/admin.ts"
+  ],
+  "selfProtectionPathPatterns": [
     ".github/workflows/",
     "AUTONOMY_LEVEL_POLICY.md",
     "AUTONOMOUS_ENGINEERING_POLICY.md",
     "AUTONOMOUS_IMPROVEMENT_ARCHITECTURE.md",
     "scripts/improvement/forbidden-paths.json",
     "scripts/improvement/claim-and-run.mjs",
+    "scripts/improvement/engineering-agent.mjs",
     "scripts/improvement/pr-ci-checks.mjs",
     "scripts/improvement/reflect-pr-ci-result.mjs",
     "scripts/improvement/safety-checks.mjs",
     "scripts/improvement/workdir.mjs",
-    "scripts/improvement/patch-agent.mjs",
-    ".env",
-    ".git/config",
-    "src/app/api/auth/",
-    "src/lib/supabase/admin.ts"
+    "scripts/improvement/patch-agent.mjs"
   ],
+  "_selfProtectionNote": "forbiddenPathPatternsは『誰が変更しても常に禁止』(業務クリティカル: 決済/課金/広告/プライバシー/SRS/認証)。selfProtectionPathPatternsは『自律agent(claim-and-run.mjs/engineering-agent.mjs/patch-agent.mjs)自身による変更のみ禁止』であり、人間によるPRレビュー(CODEOWNERS必須)を経た正規のメンテナンスは許可する。独立PR CI(pr-quality-gate.yml)はforbiddenPathPatternsのみを全PR一律でチェックし、selfProtectionPathPatternsはチェックしない(そうしないと、この安全システム自身をメンテナンスする人間のPRが恒久的にCIをパスできなくなる)。selfProtectionPathPatternsへの変更を防ぐのはCODEOWNERS + 自律agent自身のpathIsForbiddenForAutomation()チェックの役目。",
   "forbiddenActionKeywords": [
     "DROP TABLE",
     "DROP COLUMN",

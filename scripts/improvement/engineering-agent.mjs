@@ -24,7 +24,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
-import { pathIsForbidden, isPathAllowedForCategory } from "./safety-checks.mjs";
+import { pathIsForbiddenForAutomation, isPathAllowedForCategory } from "./safety-checks.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dir, "../..");
@@ -108,7 +108,7 @@ async function cmdVerifyTask(admin, taskId) {
     process.exit(1);
   }
 
-  const forbiddenHits = (task.target_files ?? []).filter((f) => pathIsForbidden(f));
+  const forbiddenHits = (task.target_files ?? []).filter((f) => pathIsForbiddenForAutomation(f));
   if (forbiddenHits.length > 0) {
     console.error(`❌ target_filesに変更禁止パスが含まれている: ${forbiddenHits.join(", ")}`);
     await admin.from("improvement_tasks").update({ status: "rejected" }).eq("id", taskId);
@@ -169,7 +169,7 @@ async function cmdQualityGate(admin, taskId) {
 async function cmdReview(admin, taskId) {
   const task = await loadTask(admin, taskId);
   const diffFiles = sh("git", ["diff", "--name-only", "origin/main"]).trim().split("\n").filter(Boolean);
-  const forbiddenHits = diffFiles.filter((f) => pathIsForbidden(f));
+  const forbiddenHits = diffFiles.filter((f) => pathIsForbiddenForAutomation(f));
 
   const verdict = forbiddenHits.length > 0 ? "changes_requested" : "approved";
   const notes = forbiddenHits.length > 0

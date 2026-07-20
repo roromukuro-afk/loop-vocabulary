@@ -32,7 +32,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
-import { pathIsForbidden, isPathAllowedForCategory, checkDiffSize, scanForSecrets, MAX_CHANGED_FILES, MAX_CHANGED_LINES } from "./safety-checks.mjs";
+import { pathIsForbiddenForAutomation, isPathAllowedForCategory, checkDiffSize, scanForSecrets, MAX_CHANGED_FILES, MAX_CHANGED_LINES } from "./safety-checks.mjs";
 import { resolveWorkDir, assertClean } from "./workdir.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -116,7 +116,7 @@ export async function processClaimedTask(admin, task, opts = {}) {
 
     // カテゴリ別path allowlist + 禁止パスチェック
     const targetFiles = task.target_files ?? [];
-    const forbiddenHits = targetFiles.filter((f) => pathIsForbidden(f));
+    const forbiddenHits = targetFiles.filter((f) => pathIsForbiddenForAutomation(f));
     if (forbiddenHits.length > 0) {
       await failTask(admin, task.id, "rejected", `target_filesに変更禁止パス: ${forbiddenHits.join(", ")}`);
       return { outcome: "failed", status: "rejected" };
@@ -170,7 +170,7 @@ export async function processClaimedTask(admin, task, opts = {}) {
     void lineMatch;
 
     // 再度禁止パスチェック(実際のdiffベース。target_filesの申告と実differが食い違うケースに備える)
-    const actualForbidden = diffFiles.filter((f) => pathIsForbidden(f));
+    const actualForbidden = diffFiles.filter((f) => pathIsForbiddenForAutomation(f));
     if (actualForbidden.length > 0) {
       await failTask(admin, task.id, "rejected", `実際の差分に変更禁止パス: ${actualForbidden.join(", ")}`);
       return { outcome: "failed", status: "rejected" };

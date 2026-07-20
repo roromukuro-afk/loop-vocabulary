@@ -43,7 +43,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
-import { pathIsForbidden, isPathAllowedForCategory, checkDiffSize, scanForSecrets, MAX_CHANGED_FILES, MAX_CHANGED_LINES } from "./safety-checks.mjs";
+import { pathIsForbiddenForAutomation, isPathAllowedForCategory, checkDiffSize, scanForSecrets, MAX_CHANGED_FILES, MAX_CHANGED_LINES } from "./safety-checks.mjs";
 import { resolveWorkDir } from "./workdir.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -93,7 +93,7 @@ function validatePatchSpec(patchSpec, targetFiles, category) {
     if (!SUPPORTED_KINDS.has(op.kind)) throw new Error(`未対応のpatch kind: "${op.kind}"(対応: ${[...SUPPORTED_KINDS].join(", ")})`);
     if (typeof op.file !== "string" || !op.file) throw new Error(`patch操作にfileが指定されていない: ${JSON.stringify(op)}`);
     if (!targetFiles.includes(op.file)) throw new Error(`patch操作のfile "${op.file}" がtask.target_filesに含まれていない`);
-    if (pathIsForbidden(op.file)) throw new Error(`patch操作のfile "${op.file}" が変更禁止パス`);
+    if (pathIsForbiddenForAutomation(op.file)) throw new Error(`patch操作のfile "${op.file}" が変更禁止パス`);
     if (!isPathAllowedForCategory(op.file, category)) throw new Error(`patch操作のfile "${op.file}" がカテゴリ"${category}"のpath allowlist外`);
     touchedFiles.add(op.file);
 
@@ -221,7 +221,7 @@ export async function processPatchTask(admin, task, opts = {}) {
     if (!checkDiffSize(diffFiles.length, totalLines)) {
       throw new Error(`適用後diffが上限超過: files=${diffFiles.length}(上限${MAX_CHANGED_FILES}) lines=${totalLines}(上限${MAX_CHANGED_LINES})`);
     }
-    const actualForbidden = diffFiles.filter((f) => pathIsForbidden(f));
+    const actualForbidden = diffFiles.filter((f) => pathIsForbiddenForAutomation(f));
     if (actualForbidden.length > 0) throw new Error(`適用後diffに変更禁止パス: ${actualForbidden.join(", ")}`);
     const outOfAllowlist = diffFiles.filter((f) => !isPathAllowedForCategory(f, issue.category));
     if (outOfAllowlist.length > 0) throw new Error(`適用後diffがカテゴリ"${issue.category}"のpath allowlist外: ${outOfAllowlist.join(", ")}`);
