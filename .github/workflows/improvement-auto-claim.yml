@@ -15,6 +15,12 @@ name: Improvement Auto-Claim
 #
 # 1回の実行で最大1件のタスクのみを処理する(claim_next_improvement_task自体が1件しか
 # 返さない設計のため、複数タスク処理は構造的に起こり得ない)。
+#
+# Supabase secretは "autonomous-improvement" という専用GitHub Environmentに保存されている
+# (Repository-level secretsではない)。このEnvironmentのdeployment branch policyはprotected
+# branches限定(main)に設定済みのため、mainブランチ上で動くこのworkflowだけがsecretへ
+# アクセスできる。pull_requestトリガーのworkflow(pr-quality-gate.yml)にはこのEnvironment
+# を指定していないため、fork PR経由でこのsecretへ到達する経路は存在しない。
 
 on:
   schedule:
@@ -34,6 +40,7 @@ jobs:
   claim-and-run:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: autonomous-improvement
     steps:
       - uses: actions/checkout@v4
         with:

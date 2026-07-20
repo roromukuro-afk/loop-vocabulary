@@ -8,6 +8,11 @@ name: PR Quality Gate Reflect
 # CI失敗時は improvement_tasks.status を 'ci_failed' にするのみで、
 # 'ready_for_review' には絶対に進めない(Draft PRをCI失敗時にready for reviewへ
 # 変更しないという要件をここで担保する)。
+#
+# Supabase secretは "autonomous-improvement" 専用GitHub Environmentに保存されている
+# (Repository-level secretsではない)。deployment branch policyがprotected branches限定
+# (main)のため、workflow_runは常にbaseリポジトリのmain上のワークフロー定義で動く
+# という前提と合わせて、fork PR経由でこのsecretへ到達する経路は存在しない。
 
 on:
   workflow_run:
@@ -22,6 +27,7 @@ jobs:
   reflect:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: autonomous-improvement
     steps:
       - uses: actions/checkout@v4
 
