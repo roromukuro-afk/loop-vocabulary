@@ -238,13 +238,20 @@ export async function processPatchTask(admin, task, opts = {}) {
 
     // GitHub Actionsのrunnerには`actions/checkout`後もgit commit用のauthor identityが
     // 設定されていない(checkoutはfetch/checkoutのみ行い、新規commitのidentityは設定しない)。
-    // --globalではなく専用worktree内にローカルスコープで設定することで、共有working tree・
-    // 他のgit操作には一切影響しない。
-    sh(workDir, "git", ["config", "user.email", "improvement-agent@loop-vocabulary.app"]);
-    sh(workDir, "git", ["config", "user.name", "Loop Improvement Agent"]);
-
+    //
+    // 【重要】`git config user.name/user.email`(-cを付けない形)は、linked worktree内で
+    // 実行しても`extensions.worktreeConfig`が有効でない限り(このリポジトリでは有効化して
+    // いない)、専用worktree固有の設定にはならず、親リポジトリの共有 `.git/config` を
+    // 直接書き換えてしまう。これは共有working treeで後から人間がcommitする際のauthor
+    // identityまで汚染しかねない重大な副作用のため、絶対に使わない。代わりに `-c` による
+    // command-scoped identity(このgit commit呼び出し1回だけに適用され、どのconfigファイルにも
+    // 一切書き込まない)を使う。
     sh(workDir, "git", ["add", "-A"]);
     sh(workDir, "git", [
+      "-c",
+      "user.name=Loop Improvement Agent",
+      "-c",
+      "user.email=improvement-agent@loop-vocabulary.app",
       "commit",
       "-m",
       `improvement(${issue.category}): ${task.title}\n\npatch-agent.mjsによる決定的パッチ適用(${task.patch_spec.length}操作、${diffFiles.length}ファイル)。\nDraft PR作成・独立CIは別工程(claim-and-run.mjs)で行う。`,
