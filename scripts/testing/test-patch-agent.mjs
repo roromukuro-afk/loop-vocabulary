@@ -11,7 +11,7 @@
 import { getAdminClient } from "./lib/supabaseAdmin.mjs";
 import { REPO_ROOT } from "./lib/env.mjs";
 import { processPatchTask } from "../improvement/patch-agent.mjs";
-import { assertClean } from "../improvement/workdir.mjs";
+import { assertClean, createIsolatedWorktree, removeWorktree } from "../improvement/workdir.mjs";
 import { execFileSync } from "node:child_process";
 
 let failed = 0;
@@ -82,8 +82,10 @@ async function main() {
       patchSpec: [{ kind: "create_file", file: fixturePath, content: `patch-agent test fixture (${stamp})\n` }],
     });
     let branchName = null;
+    let workDir = null;
     try {
-      const result = await processPatchTask(admin, task);
+      workDir = createIsolatedWorktree(REPO_ROOT, "origin/main");
+      const result = await processPatchTask(admin, task, { workDir });
       if (result.outcome === "patched" && result.branchName) {
         ok("create_file: 決定的パッチが適用され、branchがpushされる");
         branchName = result.branchName;
@@ -99,6 +101,7 @@ async function main() {
       assertClean(REPO_ROOT);
       ok("patch-agent実行後も共有working treeはcleanなまま(専用worktreeのみが変更された)");
     } finally {
+      if (workDir) removeWorktree(REPO_ROOT, workDir);
       await cleanup(admin, { issueId, taskId }, branchName);
     }
   }
@@ -118,15 +121,18 @@ async function main() {
         { kind: "insert_after_line_containing", file: fixturePath, anchor: "duplicate anchor line", insert: "inserted" },
       ],
     });
+    let workDir = null;
     try {
-      const result = await processPatchTask(admin, task);
-      if (result.outcome === "failed" && result.status === "needs_human_planning") {
+      workDir = createIsolatedWorktree(REPO_ROOT, "origin/main");
+      const result = await processPatchTask(admin, task, { workDir });
+      if (result.outcome === "failed" && result.status === "needs_human_planning" && /一意でない/.test(result.message ?? "")) {
         ok("insert_after_line_containing: anchorが複数マッチする場合、'needs_human_planning'へ拒否される(曖昧な適用をしない)");
       } else {
         fail(`ambiguous anchorケースの結果が想定外: ${JSON.stringify(result)}`);
       }
       assertClean(REPO_ROOT);
     } finally {
+      if (workDir) removeWorktree(REPO_ROOT, workDir);
       await cleanup(admin, { issueId, taskId }, null);
     }
   }

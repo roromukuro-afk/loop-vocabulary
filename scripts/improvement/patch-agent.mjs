@@ -44,7 +44,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { pathIsForbidden, isPathAllowedForCategory, checkDiffSize, scanForSecrets, MAX_CHANGED_FILES, MAX_CHANGED_LINES } from "./safety-checks.mjs";
-import { resolveWorkDir, createIsolatedWorktree, removeWorktree } from "./workdir.mjs";
+import { resolveWorkDir } from "./workdir.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dir, "../..");
@@ -179,12 +179,15 @@ async function failTask(admin, taskId, status, reason) {
 /**
  * 承認済みタスク1件について、patch_specを検証→専用worktree上で適用→適用後diffを再検証→
  * 品質ゲート(typecheck)→commit・push まで行う。PR作成は行わない(claim-and-run.mjsに委ねる)。
- * opts.workDirを渡さない場合はcreateIsolatedWorktree()で新規作成し、成功・失敗いずれの場合も
- * 必ずremoveWorktree()で片付ける(呼び出し元がworktreeのライフサイクルを管理する必要がない)。
+ *
+ * workDirの解決はclaim-and-run.mjs(processClaimedTask)と同じ規約に統一する:
+ * opts.workDirを渡さない場合は resolveWorkDir(REPO_ROOT) で解決する
+ * (GitHub Actions上ならREPO_ROOTをそのまま使う。ローカルではCLAIM_WORKTREE_DIRが必須で、
+ * 未設定なら例外を投げて即停止する)。worktreeの作成・削除は呼び出し元の責務とする
+ * (main()はcreateIsolatedWorktree/removeWorktreeを自分で管理する。下記main()参照)。
  */
 export async function processPatchTask(admin, task, opts = {}) {
-  let workDir = opts.workDir ?? null;
-  const ownWorktree = !opts.workDir;
+  const workDir = opts.workDir ?? resolveWorkDir(REPO_ROOT);
 
   const { data: issue, error: issueErr } = await admin
     .from("improvement_issues")
@@ -206,11 +209,6 @@ export async function processPatchTask(admin, task, opts = {}) {
   }
 
   try {
-    if (!workDir) {
-      if (!opts.allowLocalWorktree) resolveWorkDir(REPO_ROOT); // GitHub Actions外なら例外を投げて即停止する(claim-and-run.mjsと同じガード)
-      workDir = createIsolatedWorktree(REPO_ROOT, "origin/main");
-    }
-
     const branchName = `improvement/${task.id.slice(0, 8)}-${slugify(task.title)}`;
     sh(workDir, "git", ["checkout", "-b", branchName]);
 
@@ -257,8 +255,6 @@ export async function processPatchTask(admin, task, opts = {}) {
     const message = e instanceof Error ? e.message : String(e);
     await failTask(admin, task.id, "needs_human_planning", `patch-agent失敗(部分適用は破棄): ${message.slice(0, 500)}`);
     return { outcome: "failed", status: "needs_human_planning", message };
-  } finally {
-    if (ownWorktree && workDir) removeWorktree(REPO_ROOT, workDir);
   }
 }
 
