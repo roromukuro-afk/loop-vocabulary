@@ -92,16 +92,19 @@ async function recordRun(admin, taskId, runType, status, summary, log = {}) {
  */
 export async function processClaimedTask(admin, task, opts = {}) {
   const skipPush = opts.skipPush === true;
-  const workDir = opts.workDir ?? resolveWorkDir(REPO_ROOT);
-  assertClean(workDir);
-  const g = (cmd, args) => sh(workDir, cmd, args);
 
-  // 冪等性: 既にDraft PRが作成済みなら再作成しない
+  // 冪等性: 既にDraft PRが作成済みなら再作成しない。この早期returnはgit操作を一切伴わないため、
+  // worktree解決(resolveWorkDir/assertClean)より前に置く(既完了タスクの再処理のためだけに
+  // 専用worktreeを要求しない)。
   if (task.pr_url) {
     console.log(`[claim-and-run] 既にpr_urlが存在するため再作成しない(冪等性): ${task.pr_url}`);
     await admin.from("improvement_tasks").update({ status: "draft_pr" }).eq("id", task.id);
     return { outcome: "already_has_pr", prUrl: task.pr_url };
   }
+
+  const workDir = opts.workDir ?? resolveWorkDir(REPO_ROOT);
+  assertClean(workDir);
+  const g = (cmd, args) => sh(workDir, cmd, args);
 
   try {
     const { data: issue, error: issueErr } = await admin
