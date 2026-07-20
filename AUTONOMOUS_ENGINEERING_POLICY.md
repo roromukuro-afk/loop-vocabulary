@@ -2,12 +2,22 @@
 
 `scripts/improvement/engineering-agent.mjs`が承認済み`improvement_tasks`を実装する際に必ず守る安全制約。このドキュメントに書かれたルールは、対応するコード(`engineering-agent.mjs`の`FORBIDDEN_PATHS`/`FORBIDDEN_ACTIONS`)とテスト(`test:no-direct-main-push`, `test:no-autonomous-deploy`, `test:quality-gates`)の両方で二重に強制する。**ドキュメントだけのルールにしない。**
 
+**重要: 「コード修正」の実行主体について。** `engineering-agent.mjs`/`claim-and-run.mjs`という
+スクリプト自体は、issue本文等の自由記述からコードを生成・変更する処理を一切実装していない
+(`engineering-agent.mjs`冒頭のコメント参照)。下記リストの「コード修正(Edit/Write)」は、
+人間またはClaude Codeの対話的セッションが直接自分のEdit/Writeツールで行う作業を指し、
+無人・スケジュール実行されるものではない。無人実行される`claim-and-run.mjs`(schedule/
+repository_dispatchトリガー)は、事前に用意された修正branchの検証→品質ゲート→Draft PR作成
+のみを行う。決定的で小規模な修正カテゴリに限り、`scripts/improvement/patch-agent.mjs`
+(専用worktree・target file allowlist・固定diffテンプレートのみで動く別工程、任意コード生成は
+一切行わない)が代行できる場合がある。詳細はAUTONOMY_LEVEL_POLICY.md「現在の自動化範囲の内訳」参照。
+
 ## 自動実行してよいこと
 
 - リポジトリ調査(Read/Grep/Glob相当)
 - 関連コード特定
 - `git checkout -b improvement/<taskId>-<slug>` でのbranch作成(**mainからは絶対に直接作業しない**)
-- コード修正(Edit/Write)
+- コード修正(Edit/Write。人間/Claude Codeの対話的セッション、または`patch-agent.mjs`が決定的な修正カテゴリに限り実行。無人スクリプトが任意コードを生成することはない)
 - migration作成(`supabase/migrations/*.sql`の新規ファイル追加のみ。**`apply_migration`は呼ばない** — 本番DBへの適用は人間がPRレビュー後に別途行う)
 - テスト追加
 - `npx tsc --noEmit` / `npm run build` / `npm run lint`

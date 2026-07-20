@@ -189,7 +189,11 @@ export function ImprovementsClient({
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <h1 className="text-xl font-bold text-navy-800" data-testid="admin-improvements-page">Loop Autonomous Improvement System</h1>
-      <p className="text-sm text-navy-500 mt-1">観測→課題発見→原因分析→改善仮説→実装計画→自動コード修正→自動テスト→Draft PR→人間承認→本番反映→効果測定→学習</p>
+      <p className="text-sm text-navy-500 mt-1">観測→課題発見→原因分析→改善仮説→実装計画→コード修正→自動テスト→Draft PR→人間承認→本番反映→効果測定→学習</p>
+      <p className="text-xs text-navy-400 mt-1">
+        「コード修正」は人間/Claude Codeの対話的セッション、または決定的な小規模修正に限定されたpatch-agent.mjsが担う
+        (承認後は自動でDraft PR作成まで進むが、コード自体を無人スクリプトが生成することはない)。
+      </p>
 
       <div className="flex gap-1 overflow-x-auto pb-1 mb-4 mt-4 border-b border-navy-100" data-testid="improvement-tabs">
         {TABS.map((t) => (

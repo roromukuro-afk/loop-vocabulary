@@ -20,9 +20,9 @@
 1. `improvement_issues`作成(category='reliability', severity='critical'または'high')
 2. 影響範囲調査(該当エンドポイントのVercel Runtime Logs/Errors APIから直近のエラー件数・影響URLを収集)
 3. ログ収集(`improvement_issues.evidence`に構造化して保存。個人情報を含むログ本文はそのまま保存せず、件数・reason・pathレベルに要約する)
-4. 再現テスト作成(可能な範囲で。既存のtest:*パターンに沿った新規テストファイルを作成しDraft PRに含める)
-5. 修正案作成(`improvement_tasks`)
-6. autonomy_level=3かつ変更範囲が禁止パスに触れない場合のみ、Draft PR作成まで進める
+4. 再現テストの要否・方針の記録(`improvement_tasks.required_tests`。実際のテストファイル作成はコード修正と同じく人間/Claude Codeまたは`patch-agent.mjs`が担う。無人スクリプトが新規テストコードを生成することはない)
+5. 修正案作成(`improvement_tasks`。まだコードではなく、target_files/change_summary等の計画)
+6. autonomy_level=3かつ変更範囲が禁止パスに触れず、**コード修正済みのbranchが既に用意されている場合のみ**、その先の検証〜Draft PR作成まで無人で進む(コード修正自体の自動化はここに含まれない。AUTONOMY_LEVEL_POLICY.md「現在の自動化範囲の内訳」参照)
 7. rollback推奨(直近のREADY状態のデプロイIDを`improvement_issues.evidence`に記載し、人間が`vercel rollback`しやすいようにする)
 8. `/admin/improvements`の"Critical issues"に常時表示
 

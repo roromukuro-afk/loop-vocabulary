@@ -7,9 +7,29 @@
 | 0 | 監視のみ | analyzerはデータを読むが、issueすら作らない |
 | 1 | 課題検出・レポート | `improvement_issues`は作るが`approval_required=true`かつ`implementation_type='investigation_only'`、実装計画は作らない |
 | 2 | 改善案・Issue作成 | `improvement_issues` + `improvement_hypotheses` + `improvement_tasks`(status='planned')まで作る。実装は人間承認を待つ |
-| 3 | ブランチ・コード修正・Draft PR | 人間が`improvement_tasks.status='approved'`にした後、`engineering-agent.mjs`がbranch作成〜Draft PR作成まで実行する。**mergeはしない** |
+| 3 | ブランチ検証・品質ゲート・Draft PR(コード修正は含まない) | 人間が`improvement_tasks.status='approved'`にした後、`claim-and-run.mjs`(定期実行)/`engineering-agent.mjs`(手動サブコマンド)が既存branchの検証〜Draft PR作成まで実行する。**mergeはしない**。コード修正自体はこれらのスクリプトの範囲外(下記「現在の自動化範囲の内訳」参照) |
 | 4 | 承認後の自動merge/deploy | **未実装。実装禁止。** |
 | 5 | 完全自動 | **未実装。実装禁止。** |
+
+## 現在の自動化範囲の内訳(2026-07-19時点)
+
+Level 3の「承認済みIssueからDraft PRまで」は、内部的には以下の工程に分かれる。
+「承認済みIssueから自動でコード修正・Draft PR作成まで完成している」という一括りの表現は
+誤解を招くため、対外的な報告では必ず工程ごとに完了・未完了を分けて説明すること。
+
+| 工程 | 実装状況 | 実行主体 |
+|---|---|---|
+| Issue検出 | 実装済み | `src/lib/improvement/analyzers/*.ts`(定期cron) |
+| Issue承認 | 実装済み | 人間(`/admin/improvements`のUI操作、`requireAdmin()`必須) |
+| 実装計画(target_files/change_summary等)生成 | 一部実装 | analyzerが`proposedSolution`程度までは示すが、具体的な`target_files`/`change_summary`は人間またはClaude Codeが設計する |
+| **コード修正** | **未実装(自動化されていない)** | 人間/Claude Codeの対話的セッションが直接Edit/Writeで行う。決定的で小規模な修正カテゴリに限り`scripts/improvement/patch-agent.mjs`が代行できる場合がある(別途スコープ限定、下記参照) |
+| branch作成 | 実装済み | `engineering-agent.mjs verify-task`(対話的セッションが起動) |
+| テスト(typecheck/build/smoke等) | 実装済み | `claim-and-run.mjs`/`engineering-agent.mjs quality-gate`(無人実行可) |
+| Draft PR作成 | 実装済み | `claim-and-run.mjs`/`engineering-agent.mjs draft-pr`(無人実行可) |
+
+つまり無人で(人間の追加操作なしに)自動実行されるのは「承認済み・コード修正済みのbranchが
+既に存在する場合の、検証〜Draft PR作成」のみである。コード修正そのものを承認だけで
+無人自動化する仕組みは、`patch-agent.mjs`(決定的・小規模カテゴリ限定)以外には存在しない。
 
 ## カテゴリ別初期値
 

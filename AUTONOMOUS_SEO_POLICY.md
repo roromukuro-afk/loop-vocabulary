@@ -14,13 +14,15 @@ SEOはGrowth OSとは別管理にせず、`improvement_issues`(category='seo')�
 - 薄い辞書ページ・低品質guide(`content.ts`と共通の品質スコアを参照)
 - index対象なのに内容不足 / index不要なのに公開中
 
-## AIが自動でできる範囲(Level 2まで: 改善案を作るがコードは書かない、または軽微な修正はLevel 3でDraft PRまで)
+## AIが自動でできる範囲(Level 2まで: 改善案を作るがコードは書かない、Level 3は軽微な修正のDraft PR化)
 
 - 修正案・書き直し案の作成(`improvement_tasks.proposed_solution`)
 - 内部リンク案
 - metadata案(title/description案)
 - 更新対象リストの作成
-- 軽微な修正(例: canonicalタグの欠落追加、noindexとrobots.txtの矛盾解消)のDraft PR作成
+- 軽微な修正(例: canonicalタグの欠落追加、noindexとrobots.txtの矛盾解消)の**branch検証〜Draft PR作成**
+  (コード修正自体は`patch-agent.mjs`が扱う決定的パターンに合致する場合のみ自動、それ以外は
+  人間/Claude Codeが修正してからbranchをpushする。AUTONOMY_LEVEL_POLICY.md「現在の自動化範囲の内訳」参照)
 
 ## 人間承認が必須(`implementation_type='human_only'`に固定)
 
