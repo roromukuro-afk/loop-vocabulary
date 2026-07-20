@@ -20,6 +20,19 @@
  * - terminal status(merged/rejected/abandoned等)をUPDATEのWHERE句自体で保護し、
  *   対象0件時は理由を区別してraise exceptionする(UPDATE対象0件を成功扱いにしない)。
  *
+ * さらなるレビュー指摘(2026-07-21、improvement_tasks.status制約に'ci_failed'が
+ * 無いという指摘)への対応: 本番Supabaseをpg_constraintで直接確認した結果、
+ * improvement_tasks_status_check には既に 'ci_failed' が含まれていることを確認した
+ * (019_improvement_system.sqlの当初定義には無かったが、021_improvement_claim_and_
+ * measurement.sqlで20値の制約に置き換えられており、'ci_failed'はその時点から
+ * 既に有効)。023はimprovement_tasks.status制約を変更する必要が無く、変更していない。
+ * 前回の使い捨てPostgreSQL検証がこの論点を捉えられなかったのは、テスト用の
+ * improvement_tasksテーブルにstatus列のCHECK制約自体を一切定義していなかったため
+ * (run_type制約のみを再現し、status制約は再現していなかった)。今回、019+021の
+ * 実際のDDLを転記した正確なスキーマ複製に対してmigrationを適用し直し、
+ * 成功CI経路・失敗CI経路(ci_failedへの実際の書き込み)・ci_failedからready_for_review
+ * への回復・原子性(insert強制失敗時のrollback)を実機で再検証済み(いずれもPASS)。
+ *
  * このテストは実DBへ接続しない(migration未適用の本番Supabaseに依存しない)静的検証のみを行う:
  * migration SQLファイルとreflect-pr-ci-result.mjsのソースコードをテキストとして検証する。
  * SQLのコメント行(`--`始まり)は検査対象から除去してから照合する — でないと、コメント中に
@@ -169,6 +182,16 @@ function main() {
         ok("terminal status一覧は少なくともmerged/rejected/abandonedを含んでいる(これらのstatusは上書きされない)");
       } else {
         fail(`terminal status一覧に不足がある: ${missingTerminal.join(", ")}`);
+      }
+      // ci_failedはterminalではない: CI失敗後に修正commitが入りCIが再度成功すれば、
+      // ci_failed → ready_for_review へ正常に回復できなければならない
+      // (2026-07-21: improvement_tasks.status制約に'ci_failed'が無いという指摘があったが、
+      // 読み取り専用調査の結果、021_improvement_claim_and_measurement.sqlで既に許可されて
+      // いることを確認済み。ここではRPC側がci_failedを誤ってterminal扱いしていないことを確認する)
+      if (!terminalValues.includes("ci_failed")) {
+        ok("terminal status一覧に'ci_failed'は含まれていない(ci_failed→ready_for_reviewへの回復が妨げられない)");
+      } else {
+        fail("terminal status一覧に'ci_failed'が含まれている(CI失敗からの回復ができなくなる回帰)");
       }
       if (/where id = p_task_id\s*\r?\n\s*and status <> all \(v_terminal_statuses\)/.test(fnBody)) {
         ok("UPDATE自体のWHERE句がterminal statusを除外している(JS側の事前チェックだけに頼らずDB側でも保護)");

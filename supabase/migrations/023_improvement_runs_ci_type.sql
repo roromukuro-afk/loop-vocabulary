@@ -10,6 +10,15 @@
 --
 -- 既存の許可値はすべて維持し、'ci' のみを追加する。テーブル再作成・既存データ削除・
 -- 列型変更は行わない(制約の置き換えのみ)。
+--
+-- 注記(2026-07-21、レビューで提起・読み取り専用調査で確認): 本migrationは
+-- improvement_runs.run_type のみを変更する。improvement_tasks.status 側の
+-- CHECK制約(improvement_tasks_status_check)は意図的に変更していない —
+-- 019_improvement_system.sql時点では 'ci_failed' を含んでいなかったが、
+-- 021_improvement_claim_and_measurement.sql で既に置き換えられており、
+-- 現行の制約定義(本番DBでpg_constraintから直接確認済み)には 'ci_failed' を含む
+-- 20種類の値が許可されている。reflect_ci_result()がp_new_status='ci_failed'で
+-- improvement_tasks.statusを更新することは、021の時点から既に有効である。
 
 alter table public.improvement_runs drop constraint if exists improvement_runs_run_type_check;
 alter table public.improvement_runs add constraint improvement_runs_run_type_check check (run_type in (
