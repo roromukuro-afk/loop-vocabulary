@@ -122,6 +122,7 @@
     "test:stale-task-recovery": "node scripts/testing/test-stale-task-recovery.mjs",
     "test:workflow-concurrency": "node scripts/testing/test-workflow-concurrency.mjs",
     "test:independent-pr-ci": "node scripts/testing/test-independent-pr-ci.mjs",
+    "test:reflect-ci-result": "node scripts/testing/test-reflect-ci-result.mjs",
     "test:untrusted-issue-input": "node scripts/testing/test-untrusted-issue-input.mjs",
     "test:command-allowlist": "node scripts/testing/test-command-allowlist.mjs",
     "test:path-allowlist": "node scripts/testing/test-path-allowlist.mjs",
