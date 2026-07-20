@@ -13,6 +13,14 @@
  * (コード修正は外部で行われる想定) → 品質ゲート(lint/typecheck/build/test) →
  * 自己レビュー(禁止パス最終確認) → Draft PR作成、というオーケストレーションのみ。
  *
+ * 【共有working tree保護】以前このスクリプトは `git checkout -b` をREPO_ROOT(共有working tree)
+ * へ直接実行しており、実際にtest:draft-pr-gateの実行中に「セッションの作業branchから
+ * 予期せず切り替わる」事故が発生した(2026-07-20)。以降、verify-task は
+ * scripts/improvement/workdir.mjs の ensureTaskWorktree() でtaskId固定の専用worktreeを作成し、
+ * 以降のquality-gate/review/draft-pr(別プロセスの再起動)は requireTaskWorktree() で
+ * 同じworktreeを再発見して使う。共有working treeへは一切 checkout/git操作を行わない。
+ * コード修正(Edit/Write)は、verify-task実行後に表示される専用worktreeのパス配下で行うこと。
+ *
  * 使い方:
  *   node scripts/improvement/engineering-agent.mjs verify-task --task=<id>
  *   node scripts/improvement/engineering-agent.mjs quality-gate --task=<id>
@@ -24,7 +32,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
-import { pathIsForbidden, isPathAllowedForCategory } from "./safety-checks.mjs";
+import { pathIsForbiddenForAutomation, isPathAllowedForCategory } from "./safety-checks.mjs";
+import { ensureTaskWorktree, requireTaskWorktree } from "./workdir.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dir, "../..");
@@ -67,9 +76,10 @@ function slugify(title) {
 
 // Windows では npm/npx は .cmd 経由でしか解決できず、execFileSync に shell:true が要る
 // (scripts/testing/lib/devServer.mjs と同じ理由)。git/ghはネイティブexeのためshell無しで動く。
-function sh(cmd, args, opts = {}) {
+// cwdは常に呼び出し元が明示する(共有working treeへ暗黙にフォールバックしない)。
+function sh(cwd, cmd, args) {
   const needsShell = process.platform === "win32" && (cmd === "npm" || cmd === "npx");
-  return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: "utf8", shell: needsShell, ...opts });
+  return execFileSync(cmd, args, { cwd, encoding: "utf8", shell: needsShell });
 }
 
 async function recordRun(admin, taskId, runType, status, summary, log = {}) {
@@ -108,7 +118,7 @@ async function cmdVerifyTask(admin, taskId) {
     process.exit(1);
   }
 
-  const forbiddenHits = (task.target_files ?? []).filter((f) => pathIsForbidden(f));
+  const forbiddenHits = (task.target_files ?? []).filter((f) => pathIsForbiddenForAutomation(f));
   if (forbiddenHits.length > 0) {
     console.error(`❌ target_filesに変更禁止パスが含まれている: ${forbiddenHits.join(", ")}`);
     await admin.from("improvement_tasks").update({ status: "rejected" }).eq("id", taskId);
@@ -126,27 +136,34 @@ async function cmdVerifyTask(admin, taskId) {
   }
 
   const branchName = `improvement/${taskId.slice(0, 8)}-${slugify(task.title)}`;
-  sh("git", ["fetch", "origin", "main"]);
-  sh("git", ["checkout", "-b", branchName, "origin/main"]);
+  const workDir = ensureTaskWorktree(REPO_ROOT, taskId);
+  // ensureTaskWorktreeは"improvement-tmp-<taskId>"という一時branchで作成する(再実行時に
+  // "-b <branchName>"で衝突しないようにするため)。ここで正式なbranch名へ改名する。
+  try {
+    sh(workDir, "git", ["branch", "-m", branchName]);
+  } catch {
+    /* 既に改名済み(再実行)の場合は無視 */
+  }
 
   await admin.from("improvement_tasks").update({ branch_name: branchName, status: "implementing" }).eq("id", taskId);
-  await recordRun(admin, taskId, "investigate", "succeeded", `branch作成: ${branchName}`, { branchName });
-  console.log(`✅ 承認確認・禁止パスチェック通過。branch作成: ${branchName}`);
-  console.log(`次のステップ: このbranch上でコード修正を行い、変更後 'quality-gate' サブコマンドを実行してください。`);
+  await recordRun(admin, taskId, "investigate", "succeeded", `専用worktree作成・branch作成: ${branchName}`, { branchName, workDir });
+  console.log(`✅ 承認確認・禁止パスチェック通過。専用worktreeを作成した: ${workDir}`);
+  console.log(`次のステップ: このworktree配下(共有working treeではない)でコード修正を行い、変更後 'quality-gate' サブコマンドを実行してください。`);
 }
 
 // ── quality-gate: lint/typecheck/build/testを実行 ──
 async function cmdQualityGate(admin, taskId) {
   const task = await loadTask(admin, taskId);
+  const workDir = requireTaskWorktree(taskId);
   await recordRun(admin, taskId, "test", "running", "quality gate開始");
 
   const requiredTests = task.required_tests?.length ? task.required_tests : ["typecheck", "build", "test:smoke"];
   const results = [];
   for (const t of requiredTests) {
     try {
-      if (t === "typecheck") sh("npx", ["tsc", "--noEmit"]);
-      else if (t === "build") sh("npm", ["run", "build"]);
-      else sh("npm", ["run", t]);
+      if (t === "typecheck") sh(workDir, "npx", ["tsc", "--noEmit"]);
+      else if (t === "build") sh(workDir, "npm", ["run", "build"]);
+      else sh(workDir, "npm", ["run", t]);
       results.push({ test: t, passed: true });
     } catch (e) {
       results.push({ test: t, passed: false, error: e instanceof Error ? e.message : String(e) });
@@ -168,8 +185,9 @@ async function cmdQualityGate(admin, taskId) {
 // ── review: git diffが禁止パスに触れていないか最終確認 + improvement_reviewsへ記録 ──
 async function cmdReview(admin, taskId) {
   const task = await loadTask(admin, taskId);
-  const diffFiles = sh("git", ["diff", "--name-only", "origin/main"]).trim().split("\n").filter(Boolean);
-  const forbiddenHits = diffFiles.filter((f) => pathIsForbidden(f));
+  const workDir = requireTaskWorktree(taskId);
+  const diffFiles = sh(workDir, "git", ["diff", "--name-only", "origin/main"]).trim().split("\n").filter(Boolean);
+  const forbiddenHits = diffFiles.filter((f) => pathIsForbiddenForAutomation(f));
 
   const verdict = forbiddenHits.length > 0 ? "changes_requested" : "approved";
   const notes = forbiddenHits.length > 0
@@ -217,8 +235,9 @@ async function cmdDraftPr(admin, taskId) {
     process.exit(1);
   }
   if (!task.branch_name) throw new Error("branch_nameが記録されていない");
+  const workDir = requireTaskWorktree(taskId);
 
-  sh("git", ["push", "-u", "origin", task.branch_name]);
+  sh(workDir, "git", ["push", "-u", "origin", task.branch_name]);
 
   const body = [
     `## Issue: ${task.improvement_issues?.title ?? task.title}`,
@@ -237,7 +256,7 @@ async function cmdDraftPr(admin, taskId) {
     "人間によるレビュー・承認後にmergeしてください。",
   ].join("\n");
 
-  const prOutput = sh("gh", [
+  const prOutput = sh(workDir, "gh", [
     "pr", "create", "--draft",
     "--base", "main",
     "--head", task.branch_name,
@@ -252,9 +271,10 @@ async function cmdDraftPr(admin, taskId) {
     .update({ status: "draft_pr", pr_url: prUrl, pr_number: prNumberMatch ? Number(prNumberMatch[1]) : null })
     .eq("id", taskId);
   await admin.from("improvement_issues").update({ status: "draft_pr" }).eq("id", task.issue_id);
-  await recordRun(admin, taskId, "draft_pr", "succeeded", `Draft PR作成: ${prUrl}`, { prUrl });
+  await recordRun(admin, taskId, "draft_pr", "succeeded", `Draft PR作成: ${prUrl}`, { prUrl, workDir });
 
   console.log(`✅ Draft PR作成完了: ${prUrl}`);
+  console.log(`(専用worktree "${workDir}" は手動またはremoveWorktree()で削除できる。共有working treeには影響しない。)`);
 }
 
 async function main() {

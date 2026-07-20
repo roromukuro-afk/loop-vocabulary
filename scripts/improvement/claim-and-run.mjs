@@ -32,8 +32,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
-import { pathIsForbidden, isPathAllowedForCategory, checkDiffSize, scanForSecrets, MAX_CHANGED_FILES, MAX_CHANGED_LINES } from "./safety-checks.mjs";
+import { pathIsForbiddenForAutomation, isPathAllowedForCategory, checkDiffSize, scanForSecrets, MAX_CHANGED_FILES, MAX_CHANGED_LINES } from "./safety-checks.mjs";
 import { resolveWorkDir, assertClean } from "./workdir.mjs";
+import { processPatchTask } from "./patch-agent.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dir, "../..");
@@ -91,16 +92,19 @@ async function recordRun(admin, taskId, runType, status, summary, log = {}) {
  */
 export async function processClaimedTask(admin, task, opts = {}) {
   const skipPush = opts.skipPush === true;
-  const workDir = opts.workDir ?? resolveWorkDir(REPO_ROOT);
-  assertClean(workDir);
-  const g = (cmd, args) => sh(workDir, cmd, args);
 
-  // 冪等性: 既にDraft PRが作成済みなら再作成しない
+  // 冪等性: 既にDraft PRが作成済みなら再作成しない。この早期returnはgit操作を一切伴わないため、
+  // worktree解決(resolveWorkDir/assertClean)より前に置く(既完了タスクの再処理のためだけに
+  // 専用worktreeを要求しない)。
   if (task.pr_url) {
     console.log(`[claim-and-run] 既にpr_urlが存在するため再作成しない(冪等性): ${task.pr_url}`);
     await admin.from("improvement_tasks").update({ status: "draft_pr" }).eq("id", task.id);
     return { outcome: "already_has_pr", prUrl: task.pr_url };
   }
+
+  const workDir = opts.workDir ?? resolveWorkDir(REPO_ROOT);
+  assertClean(workDir);
+  const g = (cmd, args) => sh(workDir, cmd, args);
 
   try {
     const { data: issue, error: issueErr } = await admin
@@ -116,7 +120,7 @@ export async function processClaimedTask(admin, task, opts = {}) {
 
     // カテゴリ別path allowlist + 禁止パスチェック
     const targetFiles = task.target_files ?? [];
-    const forbiddenHits = targetFiles.filter((f) => pathIsForbidden(f));
+    const forbiddenHits = targetFiles.filter((f) => pathIsForbiddenForAutomation(f));
     if (forbiddenHits.length > 0) {
       await failTask(admin, task.id, "rejected", `target_filesに変更禁止パス: ${forbiddenHits.join(", ")}`);
       return { outcome: "failed", status: "rejected" };
@@ -170,7 +174,7 @@ export async function processClaimedTask(admin, task, opts = {}) {
     void lineMatch;
 
     // 再度禁止パスチェック(実際のdiffベース。target_filesの申告と実differが食い違うケースに備える)
-    const actualForbidden = diffFiles.filter((f) => pathIsForbidden(f));
+    const actualForbidden = diffFiles.filter((f) => pathIsForbiddenForAutomation(f));
     if (actualForbidden.length > 0) {
       await failTask(admin, task.id, "rejected", `実際の差分に変更禁止パス: ${actualForbidden.join(", ")}`);
       return { outcome: "failed", status: "rejected" };
@@ -237,7 +241,7 @@ export async function processClaimedTask(admin, task, opts = {}) {
       return { outcome: "ready_for_draft_pr", diffFiles, totalLines, commitSha };
     }
 
-    // Draft PR作成(gh pr review --approve / gh pr merge等は一切呼ばない。作成のみ)
+    // Draft PR作成のみ(承認・マージ相当のコマンドは一切呼ばない。test:no-automated-pr-approval/test:no-automated-mergeで監査する)
     const body = [
       `## Issue: ${task.title}`,
       "",
@@ -311,7 +315,27 @@ async function main() {
   }
   console.log(`[claim-and-run] claim成功: task=${task.id} title="${task.title}"`);
 
-  const result = await processClaimedTask(admin, task);
+  const workDir = resolveWorkDir(REPO_ROOT);
+  assertClean(workDir);
+
+  let currentTask = task;
+  if (!currentTask.branch_name && currentTask.patch_spec) {
+    // patch_specを持つ(=決定的な4操作だけで表現可能な)タスクのみ、patch-agentが同じ隔離
+    // worktree上でコード修正→commit→push まで行う。それ以外(patch_spec無し)は従来どおり、
+    // 人間/Claude Codeの対話的セッションが事前にbranchを用意していることが前提のまま。
+    console.log(`[claim-and-run] branch_name未設定・patch_specありのためpatch-agentを先に実行する: task=${currentTask.id}`);
+    const patchResult = await processPatchTask(admin, currentTask, { workDir });
+    if (patchResult.outcome !== "patched") {
+      console.error(`[claim-and-run] patch-agentが失敗した(status更新済み): ${JSON.stringify(patchResult)}`);
+      process.exitCode = 1;
+      return;
+    }
+    const { data: refreshed, error: refetchErr } = await admin.from("improvement_tasks").select("*").eq("id", task.id).maybeSingle();
+    if (refetchErr || !refreshed) throw new Error(`patch適用後のtask再取得に失敗: ${refetchErr?.message ?? "not found"}`);
+    currentTask = refreshed;
+  }
+
+  const result = await processClaimedTask(admin, currentTask, { workDir });
   if (result.outcome === "error") process.exitCode = 1;
 }
 

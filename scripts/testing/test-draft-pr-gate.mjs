@@ -10,6 +10,7 @@ import { execFileSync } from "child_process";
 import { resolve } from "path";
 import { getAdminClient } from "./lib/supabaseAdmin.mjs";
 import { REPO_ROOT } from "./lib/env.mjs";
+import { resolveTaskWorktreeDir, removeWorktree } from "../improvement/workdir.mjs";
 
 let failed = 0;
 function ok(msg) { console.log(`✅ ${msg}`); }
@@ -64,12 +65,14 @@ async function createIssueAndTask(admin, { status, targetFiles }) {
   return { issueId: issue.id, taskId: task.id };
 }
 
-async function cleanup(admin, ids, branchName) {
+async function cleanup(admin, ids, { hasWorktree = false } = {}) {
   if (ids.taskId) await admin.from("improvement_tasks").delete().eq("id", ids.taskId);
   if (ids.issueId) await admin.from("improvement_issues").delete().eq("id", ids.issueId);
-  if (branchName) {
-    try { execFileSync("git", ["checkout", "main"], { cwd: REPO_ROOT, stdio: "ignore" }); } catch { /* noop */ }
-    try { execFileSync("git", ["branch", "-D", branchName], { cwd: REPO_ROOT, stdio: "ignore" }); } catch { /* noop */ }
+  // engineering-agent.mjs(verify-task)はもはや共有working treeを一切操作しない
+  // (taskId固定の専用git worktreeを作るだけ)。そのworktreeだけを削除する。
+  if (hasWorktree && ids.taskId) {
+    const workDir = resolveTaskWorktreeDir(ids.taskId);
+    removeWorktree(REPO_ROOT, workDir);
   }
 }
 
@@ -119,9 +122,7 @@ async function main() {
         fail(`成功後の状態が想定外: ${JSON.stringify(refreshed)}`);
       }
     } finally {
-      // branch nameはスクリプト側のslugify実装依存のため、実際に記録された値で削除する
-      const { data: finalRow } = await admin.from("improvement_tasks").select("branch_name").eq("id", ids.taskId).maybeSingle();
-      await cleanup(admin, ids, finalRow?.branch_name);
+      await cleanup(admin, ids, { hasWorktree: true });
     }
   }
 

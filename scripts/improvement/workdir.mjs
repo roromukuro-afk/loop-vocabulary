@@ -91,6 +91,44 @@ export function createIsolatedWorktree(repoRoot, branchRef = "origin/main") {
   return dir;
 }
 
+/**
+ * engineering-agent.mjs用: taskIdから決定的な専用worktreeパスを導出する。
+ * verify-task/quality-gate/review/draft-pr は別々のCLI起動(別プロセス)になるため、
+ * 状態をDBへ持たせる代わりに「taskIdから常に同じ一時ディレクトリパスが求まる」ことで、
+ * 各サブコマンドが同じ専用worktreeを再発見できるようにする(共有working treeには一切触れない)。
+ */
+export function resolveTaskWorktreeDir(taskId) {
+  return join(tmpdir(), `improvement-task-${taskId}`);
+}
+
+/** verify-task用: 既に存在すればそのまま再利用し(冪等)、無ければ新規作成する。 */
+export function ensureTaskWorktree(repoRoot, taskId, branchRef = "origin/main") {
+  const dir = resolveTaskWorktreeDir(taskId);
+  if (existsSync(dir)) return dir;
+  shIn(repoRoot, "git", ["worktree", "add", dir, "-b", `improvement-tmp-${taskId}`, branchRef]);
+  const nodeModulesSrc = resolve(repoRoot, "node_modules");
+  if (existsSync(nodeModulesSrc)) {
+    try {
+      symlinkSync(nodeModulesSrc, join(dir, "node_modules"), "junction");
+    } catch {
+      /* symlink失敗は致命的ではない */
+    }
+  }
+  return dir;
+}
+
+/** quality-gate/review/draft-pr用: verify-taskが既に作成済みのworktreeを要求する(無ければ例外)。 */
+export function requireTaskWorktree(taskId) {
+  const dir = resolveTaskWorktreeDir(taskId);
+  if (!existsSync(dir)) {
+    throw new Error(
+      `専用worktree "${dir}" が存在しない。共有working treeを直接操作しないため、` +
+        `先に "engineering-agent.mjs verify-task --task=${taskId}" を実行してworktreeを作成すること。`,
+    );
+  }
+  return dir;
+}
+
 export function removeWorktree(repoRoot, dir) {
   // node_modules junction/symlinkを先に「リンクそのもの」として外す(rmSyncはシンボリックリンクを
   // unlinkするだけでリンク先を再帰的に辿らない)。これを怠ると、`git worktree remove` がworktree
