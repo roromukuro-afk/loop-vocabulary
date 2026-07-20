@@ -237,7 +237,7 @@ export async function processClaimedTask(admin, task, opts = {}) {
       return { outcome: "ready_for_draft_pr", diffFiles, totalLines, commitSha };
     }
 
-    // Draft PR作成(gh pr review --approve / gh pr merge等は一切呼ばない。作成のみ)
+    // Draft PR作成のみ(承認・マージ相当のコマンドは一切呼ばない。test:no-automated-pr-approval/test:no-automated-mergeで監査する)
     const body = [
       `## Issue: ${task.title}`,
       "",
