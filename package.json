@@ -132,6 +132,7 @@
     "test:improvement-memory-writeback": "node scripts/testing/test-improvement-memory-writeback.mjs",
     "test:worktree-isolation": "node scripts/testing/test-worktree-isolation.mjs",
     "test:patch-agent": "node scripts/testing/test-patch-agent.mjs",
+    "test:patch-agent-git-identity-isolation": "node scripts/testing/test-patch-agent-git-identity-isolation.mjs",
     "test:no-automated-pr-approval": "node scripts/testing/test-no-automated-pr-approval.mjs",
     "test:no-automated-merge": "node scripts/testing/test-no-automated-merge.mjs",
     "test:no-auto-ready-for-review": "node scripts/testing/test-no-auto-ready-for-review.mjs"
