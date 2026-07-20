@@ -1,0 +1,43 @@
+# Loop Autonomous Improvement System: 安全上重要な領域は必ず人間(@roromukuro-afk)のレビューを
+# 経由する。main branch protectionの"Require review from Code Owners"と組み合わせて機能する
+# (AUTONOMY_LEVEL_POLICY.md / AUTONOMOUS_ENGINEERING_POLICY.md参照)。
+#
+# 自律改善システム自体の安全境界(workflow定義・スクリプト・migration)と、
+# 決済・認証・プライバシー/法務・広告・SRSなど、自動化の対象外(常にhuman_only)の領域を対象にする。
+
+# 自律改善システム自身(workflowファイル・スクリプト・安全ポリシー文書)
+/.github/workflows/ @roromukuro-afk
+/scripts/improvement/ @roromukuro-afk
+/AUTONOMY_LEVEL_POLICY.md @roromukuro-afk
+/AUTONOMOUS_ENGINEERING_POLICY.md @roromukuro-afk
+/AUTONOMOUS_IMPROVEMENT_ARCHITECTURE.md @roromukuro-afk
+/AUTONOMOUS_SEO_POLICY.md @roromukuro-afk
+/AUTONOMOUS_RELIABILITY_POLICY.md @roromukuro-afk
+/IMPROVEMENT_MEMORY_POLICY.md @roromukuro-afk
+/IMPROVEMENT_ISSUE_SCHEMA.md @roromukuro-afk
+
+# DBスキーマ(破壊的変更・RLS・権限)
+/supabase/migrations/ @roromukuro-afk
+
+# 決済・課金
+/src/app/api/stripe/ @roromukuro-afk
+/src/app/premium/ @roromukuro-afk
+/src/lib/premium/ @roromukuro-afk
+/src/lib/growth/revenueSnapshot.ts @roromukuro-afk
+
+# 認証・セキュリティ
+/src/app/api/auth/ @roromukuro-afk
+/src/lib/supabase/admin.ts @roromukuro-afk
+
+# プライバシー・法務
+/src/app/privacy/ @roromukuro-afk
+/src/app/legal/ @roromukuro-afk
+/ANALYTICS_PRIVACY_POLICY.md @roromukuro-afk
+
+# 広告(AdSense/ads.txt)
+/public/ads.txt @roromukuro-afk
+/src/lib/ads/ @roromukuro-afk
+/src/components/ads/ @roromukuro-afk
+
+# SRS(学習アルゴリズムの中核)
+/src/lib/srs/ @roromukuro-afk
