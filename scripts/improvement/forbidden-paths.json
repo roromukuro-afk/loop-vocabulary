@@ -24,6 +24,8 @@
     "scripts/improvement/pr-ci-checks.mjs",
     "scripts/improvement/reflect-pr-ci-result.mjs",
     "scripts/improvement/safety-checks.mjs",
+    "scripts/improvement/workdir.mjs",
+    "scripts/improvement/patch-agent.mjs",
     ".env",
     ".git/config",
     "src/app/api/auth/",
@@ -58,7 +60,10 @@
       "npx tsc --noEmit",
       "npm run build",
       "npm run <name from package.json scripts のみ>",
-      "gh pr create --draft --base main --head <branch> --title <fixed> --body <fixed>"
+      "gh pr create --draft --base main --head <branch> --title <fixed> --body <fixed>",
+      "git add -A (patch-agent.mjs、専用worktree内のみ)",
+      "git commit -m <fixed template>(patch-agent.mjs)",
+      "git worktree add|remove(workdir.mjs、専用worktree作成・削除専用)"
     ]
   },
   "allowedPathPatternsByCategory": {
