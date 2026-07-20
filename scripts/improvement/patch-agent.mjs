@@ -236,6 +236,13 @@ export async function processPatchTask(admin, task, opts = {}) {
       throw new Error(`typecheck不通過: ${e instanceof Error ? e.message.slice(0, 500) : String(e)}`);
     }
 
+    // GitHub Actionsのrunnerには`actions/checkout`後もgit commit用のauthor identityが
+    // 設定されていない(checkoutはfetch/checkoutのみ行い、新規commitのidentityは設定しない)。
+    // --globalではなく専用worktree内にローカルスコープで設定することで、共有working tree・
+    // 他のgit操作には一切影響しない。
+    sh(workDir, "git", ["config", "user.email", "improvement-agent@loop-vocabulary.app"]);
+    sh(workDir, "git", ["config", "user.name", "Loop Improvement Agent"]);
+
     sh(workDir, "git", ["add", "-A"]);
     sh(workDir, "git", [
       "commit",
