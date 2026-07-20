@@ -187,8 +187,6 @@ async function failTask(admin, taskId, status, reason) {
  * (main()はcreateIsolatedWorktree/removeWorktreeを自分で管理する。下記main()参照)。
  */
 export async function processPatchTask(admin, task, opts = {}) {
-  const workDir = opts.workDir ?? resolveWorkDir(REPO_ROOT);
-
   const { data: issue, error: issueErr } = await admin
     .from("improvement_issues")
     .select("id, category, implementation_type")
@@ -209,6 +207,7 @@ export async function processPatchTask(admin, task, opts = {}) {
   }
 
   try {
+    const workDir = opts.workDir ?? resolveWorkDir(REPO_ROOT);
     const branchName = `improvement/${task.id.slice(0, 8)}-${slugify(task.title)}`;
     sh(workDir, "git", ["checkout", "-b", branchName]);
 
