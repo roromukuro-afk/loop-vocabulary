@@ -17,7 +17,7 @@
  *   即座に停止する(多重実行・想定外の残留状態での誤爆を防ぐ)。
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, symlinkSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -92,6 +92,15 @@ export function createIsolatedWorktree(repoRoot, branchRef = "origin/main") {
 }
 
 export function removeWorktree(repoRoot, dir) {
+  // node_modules junction/symlinkを先に「リンクそのもの」として外す(rmSyncはシンボリックリンクを
+  // unlinkするだけでリンク先を再帰的に辿らない)。これを怠ると、`git worktree remove` がworktree
+  // ディレクトリを再帰削除する際にjunctionを辿り、共有REPO_ROOTのnode_modulesの実体を
+  // 巻き込んで削除してしまうリスクがある(Windows junctionは削除ツールによって挙動が割れるため)。
+  try {
+    rmSync(join(dir, "node_modules"), { force: true });
+  } catch {
+    /* 存在しない場合等は無視 */
+  }
   try {
     shIn(repoRoot, "git", ["worktree", "remove", "--force", dir]);
   } catch {
