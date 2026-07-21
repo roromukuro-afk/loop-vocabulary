@@ -63,24 +63,27 @@ async function main() {
   }
 
   const newStatus = ciPassed ? "ready_for_review" : "ci_failed";
-
-  await admin
-    .from("improvement_tasks")
-    .update({ status: newStatus, ci_run_url: ciRunUrl })
-    .eq("id", task.id);
-
   const failedChecks = (result.checks ?? []).filter((c) => !c.passed).map((c) => ({ name: c.name, error: c.error }));
 
-  await admin.from("improvement_runs").insert({
-    task_id: task.id,
-    run_type: "ci",
-    status: ciPassed ? "succeeded" : "failed",
-    finished_at: new Date().toISOString(),
-    summary: ciPassed
+  // improvement_tasksのstatus/ci_run_url更新と、improvement_runsへのCI実行履歴insertを
+  // reflect_ci_result() 1回のRPC呼び出し(=1トランザクション)に一体化する。DBサーバ側で
+  // 原子的に実行されるため、insert側だけが失敗してstatus更新だけが残る部分成功が起きない
+  // (023_improvement_runs_ci_type.sql参照)。戻り値のerrorは必ず確認し、失敗時は
+  // 「成功ログを出して正常終了する」ことがないよう、ここで例外を投げてjob自体を失敗させる。
+  const { error: rpcError } = await admin.rpc("reflect_ci_result", {
+    p_task_id: task.id,
+    p_new_status: newStatus,
+    p_ci_run_url: ciRunUrl,
+    p_run_status: ciPassed ? "succeeded" : "failed",
+    p_run_summary: ciPassed
       ? `独立PR CI: 全${result.checks?.length ?? 0}チェックPASS`
       : `独立PR CI: ${failedChecks.length}件失敗 → ci_failed(ready_for_reviewへは進めない)`,
-    log: { workflowConclusion, ciRunUrl, diffFiles: result.diffFiles, totalLines: result.totalLines, failedChecks },
+    p_run_log: { workflowConclusion, ciRunUrl, diffFiles: result.diffFiles, totalLines: result.totalLines, failedChecks },
+    p_finished_at: new Date().toISOString(),
   });
+  if (rpcError) {
+    throw new Error(`reflect_ci_result RPC failed (task=${task.id}): ${rpcError.message}`);
+  }
 
   console.log(`[reflect] task=${task.id} status→${newStatus} (workflow_conclusion=${workflowConclusion}, allPassed=${result.allPassed})`);
 }
