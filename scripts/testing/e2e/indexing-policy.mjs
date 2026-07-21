@@ -31,7 +31,7 @@ const INDEX_PAGES = [
   "/materials",
   "/materials/eiken",
   "/guide",
-  "/guide/how-to-memorize-english-words",
+  "/guide/eitango-oboeru-houhou",
   "/reports",
   "/premium",
   "/about",

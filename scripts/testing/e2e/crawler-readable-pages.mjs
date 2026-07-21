@@ -23,7 +23,7 @@ const PORT = Number(process.env.TEST_PORT || 3799);
 const PAGES = [
   { path: "/", minText: 2000, needsJsonLd: true },
   { path: "/guide", minText: 3000, needsJsonLd: true },
-  { path: "/guide/how-to-memorize-english-words", minText: 1500, needsJsonLd: true },
+  { path: "/guide/eitango-oboeru-houhou", minText: 1500, needsJsonLd: true },
   { path: "/guide/eiken-vocabulary-study", minText: 1500, needsJsonLd: true },
   { path: "/materials", minText: 3000, needsJsonLd: true },
   { path: "/materials/highschool", minText: 1500, needsJsonLd: true },

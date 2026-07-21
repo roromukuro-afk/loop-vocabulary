@@ -62,7 +62,7 @@ async function main() {
       fail(`adRoutePolicy: 広告が誤って許可されているルート: ${wronglyAllowed.join(", ")}`);
     }
 
-    const shouldBeAllowed = ["/", "/materials", "/materials/toeic", "/guide", "/guide/how-to-memorize-english-words", "/dictionary/analyze"];
+    const shouldBeAllowed = ["/", "/materials", "/materials/toeic", "/guide", "/guide/eitango-oboeru-houhou", "/dictionary/analyze"];
     const wronglyBlocked = shouldBeAllowed.filter((p) => !isAdsAllowedPath(p));
     if (wronglyBlocked.length === 0) {
       ok("adRoutePolicy: 許可対象ルート（/, /materials, /guide, /dictionary/[word]）は引き続き許可されている");

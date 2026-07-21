@@ -10,7 +10,7 @@ const PORT = Number(process.env.TEST_PORT || 3799);
 
 // 「結論:」ブロックを追加した10記事
 const ENHANCED_SLUGS = [
-  "how-to-memorize-english-words",
+  "eitango-oboeru-houhou",
   "spaced-repetition-english-vocabulary",
   "flashcards-vs-multiple-choice",
   "eiken-vocabulary-study",

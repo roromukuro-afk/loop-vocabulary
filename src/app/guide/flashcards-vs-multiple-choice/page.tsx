@@ -229,7 +229,7 @@ export default function FlashcardsVsMultipleChoicePage() {
           <div className="text-sm font-bold text-navy-700 mb-3">関連ガイド</div>
           <div className="space-y-2">
             {[
-              { href: "/guide/how-to-memorize-english-words", tag: "学習法", title: "英単語の覚え方【「わかる」と「思い出せる」は違う】" },
+              { href: "/guide/eitango-oboeru-houhou", tag: "学習法", title: "英単語の覚え方・効率的な記憶術【自己想起×忘却曲線】" },
               { href: "/guide/spaced-repetition-english-vocabulary", tag: "学習法", title: "忘却曲線と復習タイミングの科学" },
               { href: "/guide/ai-vocabulary-learning", tag: "AI活用", title: "AIを使った英単語学習法" },
             ].map((r) => (

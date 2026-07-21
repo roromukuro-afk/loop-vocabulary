@@ -195,7 +195,7 @@ export default function AiVocabularyLearningPage() {
           <div className="text-sm font-bold text-navy-700 mb-3">関連ガイド</div>
           <div className="space-y-2">
             {[
-              { href: "/guide/how-to-memorize-english-words", tag: "学習法", title: "英単語の覚え方【「わかる」と「思い出せる」は違う】" },
+              { href: "/guide/eitango-oboeru-houhou", tag: "学習法", title: "英単語の覚え方・効率的な記憶術【自己想起×忘却曲線】" },
               { href: "/guide/university-exam-vocabulary", tag: "大学受験", title: "大学受験 直前期の英単語復習法" },
               { href: "/guide/eiken-vocabulary-study", tag: "英検", title: "英検単語の復習方法【全級共通の学習法】" },
             ].map((r) => (

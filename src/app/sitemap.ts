@@ -11,7 +11,6 @@ const GUIDE_SLUGS = [
   "printable-english-vocabulary-test",
   "juku-vocabulary-test",
   "high-school-english-vocabulary-test",
-  "how-to-memorize-english-words",
   "spaced-repetition-english-vocabulary",
   "flashcards-vs-multiple-choice",
   "eiken-vocabulary-study",

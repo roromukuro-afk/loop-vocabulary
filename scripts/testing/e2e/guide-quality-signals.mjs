@@ -8,7 +8,7 @@ import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 const PORT = Number(process.env.TEST_PORT || 3799);
 
 const REWRITTEN_GUIDES = [
-  "how-to-memorize-english-words",
+  "eitango-oboeru-houhou",
   "spaced-repetition-english-vocabulary",
   "flashcards-vs-multiple-choice",
   "ai-vocabulary-learning",
