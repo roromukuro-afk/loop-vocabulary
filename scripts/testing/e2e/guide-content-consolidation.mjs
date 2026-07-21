@@ -31,6 +31,9 @@ const UNHEDGED_CLAIM_PHRASES = [
   "記憶に定着することが証明",
   "確実に覚え",
   "完全に覚え",
+  "しか鍛えられず",
+  "しか鍛えていない",
+  "それ以上は時間対効果が下がりやすい",
 ];
 
 function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; }
@@ -120,14 +123,49 @@ async function main() {
       fail(`主ページに断定表現が残っている: ${foundClaims.join(", ")}`);
     }
 
-    // ---- 4. 出典リンクが実在し、正しい形式で機能する ----
+    // ---- 3.5 Open Graph descriptionの手法数が、実際にページ内に表示されている手法カード数と一致 ----
+    // (「6つ」のようなハードコードされた数字の残存を防ぐため、固定値と比較するのではなく
+    // 実際にDOMへ描画された「実践のコツ」ラベルの出現数と突き合わせる)
+    const ogDescription = await page.locator('meta[property="og:description"]').getAttribute("content").catch(() => null);
+    const methodCardCount = (bodyText.match(/実践のコツ/g) || []).length;
+    const ogMethodCountMatch = ogDescription?.match(/(\d+)つのアプローチ/);
+    if (ogMethodCountMatch && Number(ogMethodCountMatch[1]) === methodCardCount && methodCardCount > 0) {
+      ok(`Open Graph descriptionの手法数(${ogMethodCountMatch[1]})が、実際の手法カード数(${methodCardCount})と一致している`);
+    } else {
+      fail(`Open Graph descriptionの手法数とページ内の実際の手法数が不一致: OG="${ogMethodCountMatch?.[1]}", 実際=${methodCardCount}`);
+    }
+
+    // ---- 4. 出典リンクが実在し、正しい形式で機能する（DOIリンクを優先、解説ページは併記） ----
+    const doiLink = page.locator('a[href*="doi.org/10.1177/1529100612453266"]');
+    const doiHref = await doiLink.first().getAttribute("href").catch(() => null);
+    const doiTarget = await doiLink.first().getAttribute("target").catch(() => null);
+    if (doiHref && doiTarget === "_blank") {
+      ok(`DOIリンクが新規タブで開く実リンクとして存在する (${doiHref})`);
+    } else {
+      fail(`DOIリンクが見つからない、または不正: href=${doiHref}, target=${doiTarget}`);
+    }
+
     const citationLink = page.locator('a[href*="psychologicalscience.org"]');
     const citationHref = await citationLink.first().getAttribute("href").catch(() => null);
     const citationTarget = await citationLink.first().getAttribute("target").catch(() => null);
     if (citationHref && citationTarget === "_blank") {
-      ok(`出典リンクが新規タブで開く実リンクとして存在する (${citationHref})`);
+      ok(`解説ページへの出典リンクが新規タブで開く実リンクとして存在する (${citationHref})`);
     } else {
       fail(`出典リンクが見つからない、または不正: href=${citationHref}, target=${citationTarget}`);
+    }
+
+    // ---- 4.5 Dunlosky論文の正式タイトル（副題含む）とDOIが実際の表示文に含まれている ----
+    if (bodyText.includes("Promising Directions From Cognitive and Educational Psychology") && bodyText.includes("10.1177/1529100612453266")) {
+      ok("Dunlosky論文の正式タイトル（副題含む）とDOIがページの表示文に含まれている");
+    } else {
+      fail("Dunlosky論文の正式タイトル（副題）またはDOIがページの表示文に見つからない");
+    }
+
+    // ---- 4.6 出典の対象範囲が自己想起・分散学習の2手法に限定されている旨の記述がある ----
+    if (bodyText.includes("上記論文で直接検証されたものではありません")) {
+      ok("出典が自己想起・分散学習にのみ対応し、他の手法の効果を一括して裏付けていない旨が明記されている");
+    } else {
+      fail("出典の対象範囲を限定する記述が見つからない");
     }
 
     // ---- 5. GuideBylineによる対象者・出典・最終更新日・更新履歴の明示 ----
