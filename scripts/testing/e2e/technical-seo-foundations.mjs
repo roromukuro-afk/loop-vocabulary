@@ -18,11 +18,11 @@
  * 使い方: node scripts/testing/e2e/technical-seo-foundations.mjs
  */
 import { chromium } from "playwright";
+import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { loadEnv, requireEnv, REPO_ROOT } from "../lib/env.mjs";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
-import { getAdminClient } from "../lib/supabaseAdmin.mjs";
 import { collectErrors } from "./lib/login.mjs";
 import { gotoReady } from "./lib/nav.mjs";
 import { toSafeLastModified } from "../../../src/lib/seo/sitemapDates.ts";
@@ -59,7 +59,12 @@ function testToSafeLastModified() {
 
 async function main() {
   loadEnv();
-  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
+  // NEXT_PUBLIC_*(secretではない)のみを要求する。SUPABASE_SERVICE_ROLE_KEYは
+  // pr-quality-gate.yml(独立PR CI、fork PRでも安全なようsecretsを一切渡さない設計)
+  // では利用できないため、公開教材の読み取りには anon key + RLS("materials public read":
+  // is_public=true かつ license_status in ('approved','original') は誰でもSELECT可能、
+  // 本番で実在確認済み)を使う。
+  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"]);
 
   console.log("\n--- 1. toSafeLastModified 単体検証 ---");
   testToSafeLastModified();
@@ -99,8 +104,19 @@ async function main() {
 
     // ── 3. /materials/[id] のcanonical(query有無で不変) ──
     console.log("\n--- 3. /materials/[id] のcanonicalが教材本体URLを指す(?level=を含めない) ---");
-    const admin = getAdminClient();
-    const { data: material, error: materialErr } = await admin
+    // /materials/[id]のgenerateMetadata・sitemap.tsの教材取得は、いずれも既存実装として
+    // createAdminClient()(SUPABASE_SERVICE_ROLE_KEY、真のsecret)を使っている(このPRでは
+    // 教材データ取得の実装方式自体は変更していない)。独立PR Quality Gate(pr-quality-gate.yml)
+    // はfork PRでも安全なようsecretsを一切渡さない設計のため、そちらの環境ではこの2箇所は
+    // 実行時に空メタデータ/空配列にフォールバックする(既存のtry/catch挙動、このPR起因ではない)。
+    // そのため、この特定のライブレンダリング検証はSUPABASE_SERVICE_ROLE_KEYが利用可能な
+    // 環境(ローカル・信頼コンテキストのCI)でのみ実施し、無い場合は失敗ではなく
+    // 「未確認」として明示的にスキップする。
+    const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+      auth: { persistSession: false },
+    });
+    const { data: material, error: materialErr } = await anon
       .from("materials")
       .select("id, updated_at")
       .eq("is_public", true)
@@ -110,6 +126,12 @@ async function main() {
       fail(`公開教材の取得に失敗: ${materialErr.message}`);
     } else if (!material) {
       console.log("⚠️ 公開教材(is_public=true)が1件も存在しないため、/materials/[id]のcanonical検証をスキップします");
+    } else if (!hasServiceRoleKey) {
+      console.log(
+        "⚠️ 未確認: SUPABASE_SERVICE_ROLE_KEYが無い環境のため、/materials/[id]のgenerateMetadataが" +
+          "実データを取得できず検証不能(独立PR Quality Gateの意図的なsecretless設計。既存のtry/catch挙動で" +
+          "このPR起因ではない)。ローカル(.env.local)またはservice roleが渡される信頼コンテキストで別途確認してください。",
+      );
     } else {
       // materials/[id]のcanonicalはNEXT_PUBLIC_SITE_URLが設定されていればそれを使う実装
       // (アプリ側と同じ解決規則。ローカル環境ではhttp://localhost:3000になりうるため、
@@ -173,7 +195,14 @@ async function main() {
       }
     }
 
-    if (material) {
+    if (material && !hasServiceRoleKey) {
+      console.log(
+        "⚠️ 未確認: SUPABASE_SERVICE_ROLE_KEYが無い環境のため、sitemap.ts側の教材取得も" +
+          "空配列にフォールバックし、/materials/[id]のsitemapエントリ自体が生成されない" +
+          "(独立PR Quality Gateの意図的なsecretless設計、既存のtry/catch挙動でこのPR起因ではない)。" +
+          "ローカルまたはservice roleが渡される信頼コンテキストで別途確認してください。",
+      );
+    } else if (material) {
       const materialBlock = blockFor(`/materials/${material.id}`);
       if (!materialBlock) {
         fail(`sitemap.xmlに/materials/${material.id}のエントリが見つからない`);
