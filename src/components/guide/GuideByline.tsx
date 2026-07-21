@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 type ChangelogEntry = { date: string; note: string };
 
 export function GuideByline({
@@ -8,8 +10,8 @@ export function GuideByline({
 }: {
   /** 対象者（例: "高校生・大学受験生向け"） */
   targetAudience: string;
-  /** 出典・参考文献。特定の論文引用がない場合は、一般的に確立された研究領域である旨を明記する */
-  sources: string;
+  /** 出典・参考文献。特定の論文引用がない場合は、一般的に確立された研究領域である旨を明記する。実在する出典へのリンクを含めてよい */
+  sources: ReactNode;
   /** 最終更新日（YYYY-MM-DD） */
   lastUpdated: string;
   /** 更新履歴（新しい順） */

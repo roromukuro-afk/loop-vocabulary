@@ -34,6 +34,7 @@
     "test:dictionary-programmatic-quality": "node scripts/testing/e2e/dictionary-programmatic-quality.mjs",
     "test:teacher-seo-pages": "node scripts/testing/e2e/teacher-seo-pages.mjs",
     "test:guide-aeo-blocks": "node scripts/testing/e2e/guide-aeo-blocks.mjs",
+    "test:guide-content-consolidation": "node scripts/testing/e2e/guide-content-consolidation.mjs",
     "test:vocab-check-share-card": "node scripts/testing/e2e/vocab-check-share-card.mjs",
     "test:short-video-content-queue": "node scripts/testing/test-short-video-content-queue.mjs",
     "test:reports-page": "node scripts/testing/e2e/reports-page.mjs",

@@ -11,7 +11,7 @@
  * 環境に関わらず常に検証する（こちらが低価値コンテンツ対策の本質のため）。
  *
  * 1. 広告表示を許可したルート（/, /materials, /materials/highschool, /guide,
- *    /guide/how-to-memorize-english-words）でAdSense本体スクリプト
+ *    /guide/eitango-oboeru-houhou）でAdSense本体スクリプト
  *    （adsbygoogle.js）が読み込まれる（NEXT_PUBLIC_ADSENSE_CLIENT設定時のみ検証）
  * 2. 独自コンテンツが薄い/法務系ページ（/terms, /privacy, /login, /signup, /faq,
  *    /dictionary）ではAdSense本体スクリプトが読み込まれない
@@ -34,7 +34,7 @@ import { gotoReady } from "./lib/nav.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 
-const ADS_ALLOWED_PATHS = ["/", "/materials", "/materials/highschool", "/guide", "/guide/how-to-memorize-english-words"];
+const ADS_ALLOWED_PATHS = ["/", "/materials", "/materials/highschool", "/guide", "/guide/eitango-oboeru-houhou"];
 const ADS_DISALLOWED_PATHS = ["/terms", "/privacy", "/login", "/signup", "/faq", "/dictionary"];
 
 function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; }

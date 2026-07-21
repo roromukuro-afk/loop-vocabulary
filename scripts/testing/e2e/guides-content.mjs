@@ -23,7 +23,7 @@ import { gotoReady } from "./lib/nav.mjs";
 const PORT = Number(process.env.TEST_PORT || 3799);
 
 const NEW_GUIDES = [
-  { slug: "how-to-memorize-english-words", titleIncludes: "英単語の覚え方" },
+  { slug: "eitango-oboeru-houhou", titleIncludes: "英単語の覚え方" },
   { slug: "spaced-repetition-english-vocabulary", titleIncludes: "忘却曲線" },
   { slug: "flashcards-vs-multiple-choice", titleIncludes: "フラッシュカード" },
   { slug: "eiken-vocabulary-study", titleIncludes: "英検単語" },
@@ -138,7 +138,7 @@ async function main() {
 
     // ---- 7. 教材LPから新規ガイド記事への導線 ----
     await gotoReady(page, `${baseUrl}/materials/highschool`);
-    const highschoolToGuide = page.locator('a[href="/guide/school-test-vocabulary"], a[href="/guide/how-to-memorize-english-words"]');
+    const highschoolToGuide = page.locator('a[href="/guide/school-test-vocabulary"], a[href="/guide/eitango-oboeru-houhou"]');
     if ((await highschoolToGuide.count()) > 0) {
       ok("/materials/highschool から新規ガイド記事への導線がある");
     } else {
@@ -159,10 +159,10 @@ async function main() {
 
     // ---- 8. モバイル幅での表示崩れ確認（代表1記事） ----
     await page.setViewportSize({ width: 375, height: 812 });
-    await gotoReady(page, `${baseUrl}/guide/how-to-memorize-english-words`);
+    await gotoReady(page, `${baseUrl}/guide/eitango-oboeru-houhou`);
     const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
-    if (!hasOverflow) ok("/guide/how-to-memorize-english-words: モバイル幅(375px)で横スクロールが発生していない");
-    else fail("/guide/how-to-memorize-english-words: モバイル幅(375px)で横スクロールが発生している");
+    if (!hasOverflow) ok("/guide/eitango-oboeru-houhou: モバイル幅(375px)で横スクロールが発生していない");
+    else fail("/guide/eitango-oboeru-houhou: モバイル幅(375px)で横スクロールが発生している");
     await page.setViewportSize({ width: 1280, height: 800 });
 
     if (errors.length === 0) ok("操作中に console error / 5xx なし");

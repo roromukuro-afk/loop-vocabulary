@@ -48,6 +48,9 @@ function inferCategoryTests(diffFiles) {
     tests.add("test:indexing-policy");
     tests.add("test:technical-seo-foundations");
   }
+  if (diffFiles.some((f) => f.includes("src/app/guide/") || f.includes("src/components/guide/") || f === "next.config.js")) {
+    tests.add("test:guide-content-consolidation");
+  }
   if (diffFiles.some((f) => f.includes("src/lib/analytics/") || f.includes("api/analytics/"))) {
     tests.add("test:analytics-production-ingestion");
     tests.add("test:test-account-exclusion");

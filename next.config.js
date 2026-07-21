@@ -28,12 +28,25 @@ const nextConfig = {
       "loop-vocabulary-roromukuro-5711s-projects.vercel.app",
       "loop-vocabulary-git-main-roromukuro-5711s-projects.vercel.app",
     ];
-    return legacyVercelHosts.map((host) => ({
+    const hostRedirects = legacyVercelHosts.map((host) => ({
       source: "/:path*",
       has: [{ type: "host", value: host }],
       destination: "https://loop-vocabulary.app/:path*",
       permanent: true,
     }));
+
+    // 2026-07-21: 「英単語の覚え方【自己想起の科学】」(旧 /guide/how-to-memorize-english-words)
+    // は内容重複のため /guide/eitango-oboeru-houhou へ統合した。既存の外部リンク・共有URLを
+    // 404にしないよう、旧URLは統合先へ308(permanent)で1回のみリダイレクトする。
+    const guideRedirects = [
+      {
+        source: "/guide/how-to-memorize-english-words",
+        destination: "/guide/eitango-oboeru-houhou",
+        permanent: true,
+      },
+    ];
+
+    return [...hostRedirects, ...guideRedirects];
   },
 };
 module.exports = nextConfig;

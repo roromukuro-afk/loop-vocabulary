@@ -240,7 +240,7 @@ export default function Eiken1KyuPage() {
             {[
               { href: "/guide/eiken-jun1-tango", tag: "英検準1級", title: "英検準1級 単語対策【合格に必要な語彙数と学習戦略】" },
               { href: "/guide/toeic-tango", tag: "TOEIC", title: "TOEIC頻出単語・語彙対策【スコア別必須リスト】" },
-              { href: "/guide/eitango-oboeru-houhou", tag: "学習法", title: "英単語の覚え方・効率的な記憶術【科学的アプローチ】" },
+              { href: "/guide/eitango-oboeru-houhou", tag: "学習法", title: "英単語の覚え方・効率的な記憶術【自己想起×忘却曲線】" },
             ].map((r) => (
               <Link key={r.href} href={r.href} className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
                 <div className="text-[11px] text-sky-600 font-semibold mb-0.5">{r.tag}</div>

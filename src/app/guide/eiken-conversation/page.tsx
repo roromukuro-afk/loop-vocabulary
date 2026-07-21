@@ -284,7 +284,7 @@ export default function EikenConversationPage() {
           <div className="space-y-2">
             {[
               { href: "/guide/business-english-tango", tag: "ビジネス英語", title: "ビジネス英語の必須単語300選と実践的な覚え方" },
-              { href: "/guide/eitango-oboeru-houhou", tag: "学習法", title: "英単語の覚え方・効率的な記憶術【科学的アプローチ】" },
+              { href: "/guide/eitango-oboeru-houhou", tag: "学習法", title: "英単語の覚え方・効率的な記憶術【自己想起×忘却曲線】" },
               { href: "/guide/ielts-tango", tag: "IELTS", title: "IELTSの英単語学習法【アカデミック語彙を効率的に覚える】" },
             ].map((r) => (
               <Link key={r.href} href={r.href} className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">

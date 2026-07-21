@@ -21,7 +21,7 @@ const SITE_URL = "https://loop-vocabulary.app";
 // 静的フォルダとして実装されている記事(新規ラウンドで追加分)
 const STATIC_GUIDE_SLUGS = [
   "vocabulary-quiz-pdf-for-teachers",
-  "how-to-memorize-english-words",
+  "eitango-oboeru-houhou",
   "spaced-repetition-english-vocabulary",
   "flashcards-vs-multiple-choice",
   "eiken-vocabulary-study",

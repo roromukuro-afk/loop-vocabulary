@@ -195,7 +195,7 @@ export default function SpacedRepetitionPage() {
           <div className="text-sm font-bold text-navy-700 mb-3">関連ガイド</div>
           <div className="space-y-2">
             {[
-              { href: "/guide/how-to-memorize-english-words", tag: "学習法", title: "英単語の覚え方【「わかる」と「思い出せる」は違う】" },
+              { href: "/guide/eitango-oboeru-houhou", tag: "学習法", title: "英単語の覚え方・効率的な記憶術【自己想起×忘却曲線】" },
               { href: "/guide/eitango-ichinichi-nanko", tag: "学習法", title: "英単語は1日何個が最適？続く適正量の決め方" },
               { href: "/guide/tangocho-erabikata", tag: "単語帳", title: "英単語帳の選び方と正しい使い方" },
             ].map((r) => (

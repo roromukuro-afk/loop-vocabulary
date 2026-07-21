@@ -44,13 +44,6 @@ const GUIDES = [
     readTime: "4分",
   },
   {
-    slug: "how-to-memorize-english-words",
-    title: "英単語の覚え方【「わかる」と「思い出せる」は違う】",
-    description: "再認と想起の違いを理解して、自己想起（アクティブリコール）を使った忘れにくい覚え方に切り替える方法。",
-    tag: "学習法",
-    readTime: "5分",
-  },
-  {
     slug: "spaced-repetition-english-vocabulary",
     title: "忘却曲線と英単語の復習タイミング【SRSの仕組みを解説】",
     description: "SRS（間隔反復システム）が「いつ・何を」復習させているのか、毎日何をすればいいか迷わない組み立て方。",
@@ -164,8 +157,8 @@ const GUIDES = [
   },
   {
     slug: "eitango-oboeru-houhou",
-    title: "英単語の覚え方・効率的な記憶術【科学的アプローチ】",
-    description: "SRS・語源・例文記憶・ニーモニックなど、認知科学に基づく英単語の覚え方を徹底解説。忘却曲線を攻略しよう。",
+    title: "英単語の覚え方・効率的な記憶術【自己想起×忘却曲線】",
+    description: "自己想起（アクティブリコール）・忘却曲線に沿った復習を軸に、語源・例文記憶・ニーモニックなど7つのアプローチを徹底解説。",
     tag: "学習法",
     readTime: "7分",
   },
@@ -341,7 +334,7 @@ const CATEGORY_ORDER = [
 
 // 初めての方向けに、まず読むとよい3記事をおすすめとして固定表示する。
 const FEATURED_SLUGS = [
-  "how-to-memorize-english-words",
+  "eitango-oboeru-houhou",
   "spaced-repetition-english-vocabulary",
   "tangocho-erabikata",
 ];

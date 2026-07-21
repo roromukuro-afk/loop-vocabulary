@@ -138,7 +138,7 @@ export const PILOT_WORDS: PilotWord[] = [
     relatedWords: ["improvement（名詞：改善）", "enhance（動詞：高める）", "upgrade（動詞：向上させる）"],
     antonyms: ["worsen（悪化させる）", "decline（衰える）"],
     examLevels: ["英検2級", "TOEIC", "高校基礎"],
-    relatedGuideSlug: "how-to-memorize-english-words", sourceType: "material_licensed",
+    relatedGuideSlug: "eitango-oboeru-houhou", sourceType: "material_licensed",
   }),
   defineWord({
     slug: "support", word: "support", ipa: "/səˈpɔːrt/", pos: "動詞・名詞",
@@ -257,7 +257,7 @@ export const PILOT_WORDS: PilotWord[] = [
     relatedWords: ["beneficial（形容詞：有益な）", "advantage（名詞：利点）", "gain（名詞：利益）"],
     antonyms: ["drawback（欠点）", "disadvantage（不利益）"],
     examLevels: ["高校基礎", "TOEIC", "共通テスト標準"],
-    relatedGuideSlug: "how-to-memorize-english-words", sourceType: "material_licensed",
+    relatedGuideSlug: "eitango-oboeru-houhou", sourceType: "material_licensed",
   }),
   defineWord({
     slug: "apply", word: "apply", ipa: "/əˈplaɪ/", pos: "動詞",
@@ -461,7 +461,7 @@ export const PILOT_WORDS: PilotWord[] = [
     relatedWords: ["significance（名詞：重要性）", "significantly（副詞：著しく）", "considerable（形容詞：かなりの）"],
     antonyms: ["insignificant（取るに足らない）", "minor（軽微な）"],
     examLevels: ["高校基礎", "TOEIC基礎〜標準", "大学受験標準"],
-    relatedGuideSlug: "how-to-memorize-english-words", sourceType: "material_licensed",
+    relatedGuideSlug: "eitango-oboeru-houhou", sourceType: "material_licensed",
   }),
   defineWord({
     slug: "approach", word: "approach", ipa: "/əˈproʊtʃ/", pos: "動詞・名詞",
@@ -665,7 +665,7 @@ export const PILOT_WORDS: PilotWord[] = [
     relatedWords: ["challenging（形容詞：やりがいのある）", "difficulty（名詞：困難）", "obstacle（名詞：障害）"],
     antonyms: ["ease（容易さ）"],
     examLevels: ["英検2級", "大学受験標準"],
-    relatedGuideSlug: "how-to-memorize-english-words", sourceType: "material_licensed",
+    relatedGuideSlug: "eitango-oboeru-houhou", sourceType: "material_licensed",
   }),
   defineWord({
     slug: "achieve", word: "achieve", ipa: "/əˈtʃiːv/", pos: "動詞",

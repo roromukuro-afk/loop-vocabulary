@@ -308,9 +308,9 @@ export default async function HighschoolMaterialsLandingPage() {
             <div className="text-[11px] text-sky-600 font-semibold mb-0.5">定期テスト</div>
             <div className="text-sm font-semibold text-navy-800">定期テスト前の英単語復習法【教科書・プリントの単語整理】</div>
           </Link>
-          <Link href="/guide/how-to-memorize-english-words" className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
+          <Link href="/guide/eitango-oboeru-houhou" className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
             <div className="text-[11px] text-sky-600 font-semibold mb-0.5">学習法</div>
-            <div className="text-sm font-semibold text-navy-800">英単語の覚え方【「わかる」と「思い出せる」は違う】</div>
+            <div className="text-sm font-semibold text-navy-800">英単語の覚え方・効率的な記憶術【自己想起×忘却曲線】</div>
           </Link>
         </div>
       </div>
