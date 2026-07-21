@@ -4,16 +4,20 @@
  * canonicalが無い、sitemap.xmlの全URLのlastModifiedが常にリクエスト時刻になっている、
  * viewportのmaximumScale:1がピンチズームを妨げている)。
  *
- * 1. /terms が独自のtitle・canonical(https://loop-vocabulary.app/terms)を持つ
+ * 1. toSafeLastModified・normalizeSiteUrl の単体検証(サーバ起動不要、純粋関数)
+ * 2. materials/[id]・sitemap.tsが実際にnormalizeSiteUrl()を経由している(静的ソース検証)
+ * 3. /terms が独自のtitle・canonical(https://loop-vocabulary.app/terms)を持つ
  *    (トップページのtitle/canonicalを継承していない)
- * 2. /materials/[id] のcanonicalが教材本体URL(queryなし)を指す
+ * 4. /materials/[id] のcanonicalが教材本体URL(queryなし)を指す
  *    (?level=等のqueryを付けてアクセスしても同じcanonicalになる)
- * 3. sitemap.xml で、更新日時の信頼できるデータソースを持たない静的ページ
+ * 5. sitemap.xml で、更新日時の信頼できるデータソースを持たない静的ページ
  *    (/about, /privacy, /terms等)は lastmod を省略しており、
  *    公開教材URLは materials.updated_at 由来の実際の値を lastmod に持つ
  *    (すべてのURLが同一の「今」になっていない)
- * 4. viewport meta に maximum-scale が含まれない(ピンチズーム可能)
- * 5. robots.txt・sitemapの既存の除外方針(主要ページのクロール許可)が壊れていない
+ * 6. robots.txt・sitemapの既存の除外方針(主要ページのクロール許可)が壊れていない
+ * 7. viewport meta に maximum-scale が含まれない(ピンチズーム可能)
+ * 8. NEXT_PUBLIC_SITE_URLが末尾スラッシュ付きでも、教材canonical・sitemap URLに
+ *    二重スラッシュが発生しない(専用のセカンドサーバで実際にbuildして検証)
  *
  * 使い方: node scripts/testing/e2e/technical-seo-foundations.mjs
  */
@@ -26,13 +30,18 @@ import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { collectErrors } from "./lib/login.mjs";
 import { gotoReady } from "./lib/nav.mjs";
 import { toSafeLastModified } from "../../../src/lib/seo/sitemapDates.ts";
+import { normalizeSiteUrl } from "../../../src/lib/seo/siteUrl.ts";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
+// 末尾スラッシュ付きNEXT_PUBLIC_SITE_URLでの実機検証専用の別ポート
+// (NEXT_PUBLIC_*はNext.jsのbuild時に静的に埋め込まれるため、既存サーバの使い回しでは
+// 検証できない。専用portで別途build+startする)
+const TRAILING_SLASH_PORT = PORT + 1;
 
 function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; }
 function ok(msg) { console.log(`✅ ${msg}`); }
 
-// ── 1. toSafeLastModified の単体検証(サーバ起動不要、純粋関数) ──
+// ── 1. toSafeLastModified / normalizeSiteUrl の単体検証(サーバ起動不要、純粋関数) ──
 function testToSafeLastModified() {
   const cases = [
     { input: "2026-07-12T00:00:00.000Z", expectDefined: true, label: "有効なISO文字列" },
@@ -43,7 +52,6 @@ function testToSafeLastModified() {
     { input: 12345, expectDefined: false, label: "数値(文字列/Dateではない)" },
     { input: "", expectDefined: false, label: "空文字列" },
   ];
-  let allOk = true;
   for (const c of cases) {
     const result = toSafeLastModified(c.input);
     const isDefined = result instanceof Date && !Number.isNaN(result.getTime());
@@ -51,10 +59,75 @@ function testToSafeLastModified() {
       ok(`toSafeLastModified(${c.label}) は期待どおり ${c.expectDefined ? "有効なDateを返す" : "undefinedを返す"}`);
     } else {
       fail(`toSafeLastModified(${c.label}) の結果が想定外 (expectDefined=${c.expectDefined}, actual=${result})`);
-      allOk = false;
     }
   }
-  return allOk;
+}
+
+function testNormalizeSiteUrl() {
+  const cases = [
+    { input: "https://loop-vocabulary.app", expected: "https://loop-vocabulary.app" },
+    { input: "https://loop-vocabulary.app/", expected: "https://loop-vocabulary.app" },
+    { input: "https://loop-vocabulary.app///", expected: "https://loop-vocabulary.app" },
+    { input: undefined, expected: "https://loop-vocabulary.app" },
+    { input: "", expected: "https://loop-vocabulary.app" },
+  ];
+  for (const c of cases) {
+    const result = normalizeSiteUrl(c.input);
+    if (result === c.expected) {
+      ok(`normalizeSiteUrl(${JSON.stringify(c.input)}) === "${c.expected}"`);
+    } else {
+      fail(`normalizeSiteUrl(${JSON.stringify(c.input)}) が想定外: "${result}" (期待値: "${c.expected}")`);
+    }
+  }
+  // https:// 自体の // を誤って剥がさないこと(末尾スラッシュのみを対象とする回帰確認)
+  const untouched = normalizeSiteUrl("https://loop-vocabulary.app/materials");
+  if (untouched === "https://loop-vocabulary.app/materials") {
+    ok("normalizeSiteUrl はパス途中のスラッシュやhttps://自体のスラッシュには影響しない");
+  } else {
+    fail(`normalizeSiteUrl がパスを不正に変更した: "${untouched}"`);
+  }
+}
+
+// ── 2. materials/[id]・sitemap.tsが実際にnormalizeSiteUrl()を経由している(静的ソース検証) ──
+function testSourceUsesNormalizeSiteUrl() {
+  const materialsSrc = readFileSync(resolve(REPO_ROOT, "src/app/materials/[id]/page.tsx"), "utf8");
+  const sitemapSrc = readFileSync(resolve(REPO_ROOT, "src/app/sitemap.ts"), "utf8");
+
+  // 生の "process.env.NEXT_PUBLIC_SITE_URL ?? ..." / "|| ..." パターンが
+  // normalizeSiteUrl()を経由せず残っていないこと(正規化を迂回する経路が復活していないか)
+  const rawPatternRe = /process\.env\.NEXT_PUBLIC_SITE_URL\s*(\?\?|\|\|)/;
+  if (rawPatternRe.test(materialsSrc)) {
+    fail("src/app/materials/[id]/page.tsx に、normalizeSiteUrl()を経由しない生のNEXT_PUBLIC_SITE_URL参照が残っている(二重スラッシュ対策が迂回されている可能性)");
+  } else {
+    ok("src/app/materials/[id]/page.tsx に、normalizeSiteUrl()を経由しない生のNEXT_PUBLIC_SITE_URL参照は残っていない");
+  }
+  if (rawPatternRe.test(sitemapSrc)) {
+    fail("src/app/sitemap.ts に、normalizeSiteUrl()を経由しない生のNEXT_PUBLIC_SITE_URL参照が残っている(二重スラッシュ対策が迂回されている可能性)");
+  } else {
+    ok("src/app/sitemap.ts に、normalizeSiteUrl()を経由しない生のNEXT_PUBLIC_SITE_URL参照は残っていない");
+  }
+
+  const materialsCallCount = (materialsSrc.match(/normalizeSiteUrl\(/g) ?? []).length;
+  if (materialsCallCount >= 2) {
+    ok(`src/app/materials/[id]/page.tsx はnormalizeSiteUrl()を${materialsCallCount}箇所(canonical用・BreadcrumbList用)で使っている`);
+  } else {
+    fail(`src/app/materials/[id]/page.tsx でのnormalizeSiteUrl()呼び出しが想定より少ない(${materialsCallCount}箇所)`);
+  }
+  if (/const base = normalizeSiteUrl\(process\.env\.NEXT_PUBLIC_SITE_URL\)/.test(sitemapSrc)) {
+    ok("src/app/sitemap.ts の base はnormalizeSiteUrl()経由で組み立てられている");
+  } else {
+    fail("src/app/sitemap.ts の base がnormalizeSiteUrl()経由になっていない");
+  }
+}
+
+/** URLリストに "https://" 直後を除く二重スラッシュが無いことを確認する */
+function assertNoDoubleSlash(urls, label) {
+  const bad = urls.filter((u) => u.replace(/^https?:\/\//, "").includes("//"));
+  if (bad.length === 0) {
+    ok(`${label}: 二重スラッシュを含むURLは無い(${urls.length}件確認)`);
+  } else {
+    fail(`${label}: 二重スラッシュを含むURLがある: ${bad.join(", ")}`);
+  }
 }
 
 async function main() {
@@ -66,17 +139,43 @@ async function main() {
   // 本番で実在確認済み)を使う。
   requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"]);
 
-  console.log("\n--- 1. toSafeLastModified 単体検証 ---");
+  console.log("\n--- 1. toSafeLastModified / normalizeSiteUrl 単体検証 ---");
   testToSafeLastModified();
+  testNormalizeSiteUrl();
 
+  console.log("\n--- 2. materials/[id]・sitemap.tsがnormalizeSiteUrl()を経由している(静的ソース検証) ---");
+  testSourceUsesNormalizeSiteUrl();
+
+  // /materials/[id]のgenerateMetadata・sitemap.tsの教材取得は、いずれも既存実装として
+  // createAdminClient()(SUPABASE_SERVICE_ROLE_KEY、真のsecret)を使っている(このPRでは
+  // 教材データ取得の実装方式自体は変更していない)。独立PR Quality Gate(pr-quality-gate.yml)
+  // はfork PRでも安全なようsecretsを一切渡さない設計のため、そちらの環境ではこの箇所は
+  // 実行時に空メタデータ/空配列にフォールバックする(既存のtry/catch挙動、このPR起因ではない)。
+  // そのため、この特定のライブレンダリング検証はSUPABASE_SERVICE_ROLE_KEYが利用可能な
+  // 環境(ローカル・信頼コンテキストのCI)でのみ実施し、無い場合は失敗ではなく
+  // 「未確認」として明示的にスキップする。
+  const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    auth: { persistSession: false },
+  });
+  const { data: material, error: materialErr } = await anon
+    .from("materials")
+    .select("id, updated_at")
+    .eq("is_public", true)
+    .limit(1)
+    .maybeSingle();
+  if (materialErr) fail(`公開教材の取得に失敗: ${materialErr.message}`);
+  else if (!material) console.log("⚠️ 公開教材(is_public=true)が1件も存在しないため、教材関連の検証をスキップします");
+
+  // ══════════════ サーバ1: 既存の(TEST_PORTの)build+startで検証 ══════════════
   const dev = await ensureDevServer(PORT);
   const baseUrl = dev.url;
   console.log(`Dev server: ${baseUrl} (startedByUs=${dev.startedByUs})`);
 
   const browser = await chromium.launch();
   try {
-    // ── 2. /terms の独自metadata ──
-    console.log("\n--- 2. /terms が独自title・canonicalを持つ(トップページの値を継承していない) ---");
+    // ── 3. /terms の独自metadata ──
+    console.log("\n--- 3. /terms が独自title・canonicalを持つ(トップページの値を継承していない) ---");
     const page1 = await browser.newPage();
     const errors1 = collectErrors(page1);
     await gotoReady(page1, `${baseUrl}/terms`);
@@ -102,41 +201,19 @@ async function main() {
     else fail(`/terms表示中にエラー検出: ${errors1.join(" | ")}`);
     await page1.close();
 
-    // ── 3. /materials/[id] のcanonical(query有無で不変) ──
-    console.log("\n--- 3. /materials/[id] のcanonicalが教材本体URLを指す(?level=を含めない) ---");
-    // /materials/[id]のgenerateMetadata・sitemap.tsの教材取得は、いずれも既存実装として
-    // createAdminClient()(SUPABASE_SERVICE_ROLE_KEY、真のsecret)を使っている(このPRでは
-    // 教材データ取得の実装方式自体は変更していない)。独立PR Quality Gate(pr-quality-gate.yml)
-    // はfork PRでも安全なようsecretsを一切渡さない設計のため、そちらの環境ではこの2箇所は
-    // 実行時に空メタデータ/空配列にフォールバックする(既存のtry/catch挙動、このPR起因ではない)。
-    // そのため、この特定のライブレンダリング検証はSUPABASE_SERVICE_ROLE_KEYが利用可能な
-    // 環境(ローカル・信頼コンテキストのCI)でのみ実施し、無い場合は失敗ではなく
-    // 「未確認」として明示的にスキップする。
-    const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
-    const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-      auth: { persistSession: false },
-    });
-    const { data: material, error: materialErr } = await anon
-      .from("materials")
-      .select("id, updated_at")
-      .eq("is_public", true)
-      .limit(1)
-      .maybeSingle();
-    if (materialErr) {
-      fail(`公開教材の取得に失敗: ${materialErr.message}`);
-    } else if (!material) {
-      console.log("⚠️ 公開教材(is_public=true)が1件も存在しないため、/materials/[id]のcanonical検証をスキップします");
-    } else if (!hasServiceRoleKey) {
+    // ── 4. /materials/[id] のcanonical(query有無で不変) ──
+    console.log("\n--- 4. /materials/[id] のcanonicalが教材本体URLを指す(?level=を含めない) ---");
+    if (material && !hasServiceRoleKey) {
       console.log(
         "⚠️ 未確認: SUPABASE_SERVICE_ROLE_KEYが無い環境のため、/materials/[id]のgenerateMetadataが" +
           "実データを取得できず検証不能(独立PR Quality Gateの意図的なsecretless設計。既存のtry/catch挙動で" +
           "このPR起因ではない)。ローカル(.env.local)またはservice roleが渡される信頼コンテキストで別途確認してください。",
       );
-    } else {
+    } else if (material) {
       // materials/[id]のcanonicalはNEXT_PUBLIC_SITE_URLが設定されていればそれを使う実装
       // (アプリ側と同じ解決規則。ローカル環境ではhttp://localhost:3000になりうるため、
       // 本番URLを決め打ちしない)
-      const siteUrlForTest = process.env.NEXT_PUBLIC_SITE_URL || "https://loop-vocabulary.app";
+      const siteUrlForTest = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL);
       const expectedCanonical = `${siteUrlForTest}/materials/${material.id}`;
 
       const page2 = await browser.newPage();
@@ -170,8 +247,8 @@ async function main() {
       else fail(`/materials/[id]表示中にエラー検出: ${errors2.join(" | ")}`);
     }
 
-    // ── 4. sitemap.xml の lastmod 方針 ──
-    console.log("\n--- 4. sitemap.xmlのlastmod: 静的ページは省略、公開教材は実際のupdated_at ---");
+    // ── 5. sitemap.xml の lastmod 方針 ──
+    console.log("\n--- 5. sitemap.xmlのlastmod: 静的ページは省略、公開教材は実際のupdated_at ---");
     const sitemapRes = await fetch(`${baseUrl}/sitemap.xml`);
     const sitemapXml = await sitemapRes.text();
     if (sitemapXml.startsWith("<?xml")) ok("sitemap.xmlは妥当なXML宣言で始まる");
@@ -238,8 +315,8 @@ async function main() {
       fail(`lastmodを持つ${allLastmods.length}件のURLがすべて同一の値になっている: ${[...uniqueLastmods][0]}`);
     }
 
-    // ── 5. 既存の robots.txt / sitemap 方針が壊れていないこと ──
-    console.log("\n--- 5. robots.txt・sitemapの既存方針(主要ページのクロール許可)が壊れていない ---");
+    // ── 6. 既存の robots.txt / sitemap 方針が壊れていないこと ──
+    console.log("\n--- 6. robots.txt・sitemapの既存方針(主要ページのクロール許可)が壊れていない ---");
     const robotsTxt = readFileSync(resolve(REPO_ROOT, "public/robots.txt"), "utf8");
     const mustNotBeBlocked = ["/guide", "/dictionary", "/grammar", "/materials", "/vocab-check"];
     const blocked = mustNotBeBlocked.filter((p) => new RegExp(`Disallow:\\s*${p.replace(/\//g, "\\/")}(\\/|$)`).test(robotsTxt));
@@ -264,8 +341,8 @@ async function main() {
       fail(`sitemap.xmlにURLの重複がある: ${[...new Set(dupLocs)].join(", ")}`);
     }
 
-    // ── 6. viewport: maximum-scale が無い(ピンチズーム可能) ──
-    console.log("\n--- 6. viewport metaにmaximum-scaleが含まれない(ピンチズーム可能) ---");
+    // ── 7. viewport: maximum-scale が無い(ピンチズーム可能) ──
+    console.log("\n--- 7. viewport metaにmaximum-scaleが含まれない(ピンチズーム可能) ---");
     const page4 = await browser.newPage();
     await gotoReady(page4, `${baseUrl}/`);
     const viewportContent = await page4.locator('meta[name="viewport"]').getAttribute("content").catch(() => null);
@@ -281,10 +358,89 @@ async function main() {
     }
     await page4.close();
   } catch (e) {
-    fail(`予期しない例外: ${e.message}`);
+    fail(`予期しない例外(サーバ1): ${e.message}`);
   } finally {
     await browser.close();
     stopDevServer(dev);
+  }
+
+  // ══════════════ サーバ2: 末尾スラッシュ付きNEXT_PUBLIC_SITE_URLで別途build+start ══════════════
+  // NEXT_PUBLIC_*はNext.jsのbuild時に静的に埋め込まれるため、末尾スラッシュの挙動を
+  // 実際に確認するには専用のbuild+startが必要。SUPABASE_SERVICE_ROLE_KEYが無い環境
+  // (独立PR Quality Gate)では教材データ自体が取得できず検証不能なため、その場合は
+  // 専用サーバの起動自体をスキップする(ビルド時間の浪費を避ける)。
+  if (!material) {
+    console.log("\n--- 8. スキップ: 公開教材が無いため末尾スラッシュ検証は実施しない ---");
+  } else if (!hasServiceRoleKey) {
+    console.log(
+      "\n--- 8. 未確認: SUPABASE_SERVICE_ROLE_KEYが無い環境のため、末尾スラッシュ検証用の" +
+        "専用サーバは起動しない(教材データを取得できず検証にならないため)。ローカルまたは" +
+        "service roleが渡される信頼コンテキストで別途確認してください。 ---",
+    );
+  } else {
+    console.log("\n--- 8. NEXT_PUBLIC_SITE_URLが末尾スラッシュ付きでも二重スラッシュが発生しない(専用サーバで実機検証) ---");
+    const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    process.env.NEXT_PUBLIC_SITE_URL = "https://loop-vocabulary.app/"; // 末尾スラッシュを意図的に付与
+    let dev2;
+    const browser2 = await chromium.launch();
+    try {
+      dev2 = await ensureDevServer(TRAILING_SLASH_PORT);
+      const baseUrl2 = dev2.url;
+      console.log(`Trailing-slash検証用サーバ: ${baseUrl2} (startedByUs=${dev2.startedByUs})`);
+
+      const page5 = await browser2.newPage();
+      await gotoReady(page5, `${baseUrl2}/materials/${material.id}`);
+      const canonicalTrailing = await page5.locator('link[rel="canonical"]').getAttribute("href").catch(() => null);
+      const ogUrlTrailing = await page5.locator('meta[property="og:url"]').getAttribute("content").catch(() => null);
+      const expected = `https://loop-vocabulary.app/materials/${material.id}`;
+      if (canonicalTrailing === expected) {
+        ok(`末尾スラッシュ付きNEXT_PUBLIC_SITE_URLでも/materials/[id]のcanonicalは二重スラッシュにならない: ${canonicalTrailing}`);
+      } else {
+        fail(`末尾スラッシュ付きNEXT_PUBLIC_SITE_URLで/materials/[id]のcanonicalが想定外(二重スラッシュの疑い): ${canonicalTrailing}`);
+      }
+      if (ogUrlTrailing === expected) {
+        ok(`末尾スラッシュ付きNEXT_PUBLIC_SITE_URLでもog:urlは二重スラッシュにならない: ${ogUrlTrailing}`);
+      } else {
+        fail(`末尾スラッシュ付きNEXT_PUBLIC_SITE_URLでog:urlが想定外: ${ogUrlTrailing}`);
+      }
+      await page5.close();
+
+      const page6 = await browser2.newPage();
+      await gotoReady(page6, `${baseUrl2}/materials/${material.id}?level=中学基礎`);
+      const canonicalTrailingWithQuery = await page6.locator('link[rel="canonical"]').getAttribute("href").catch(() => null);
+      if (canonicalTrailingWithQuery === expected) {
+        ok("末尾スラッシュ付きNEXT_PUBLIC_SITE_URL・?level=付きアクセスでも、query無し・二重スラッシュ無しのcanonicalを維持する");
+      } else {
+        fail(`末尾スラッシュ付き環境での?level=付きアクセス時のcanonicalが想定外: ${canonicalTrailingWithQuery}`);
+      }
+      await page6.close();
+
+      const sitemapRes2 = await fetch(`${baseUrl2}/sitemap.xml`);
+      const sitemapXml2 = await sitemapRes2.text();
+      const locs2 = [...sitemapXml2.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+      assertNoDoubleSlash(locs2, "末尾スラッシュ付きNEXT_PUBLIC_SITE_URLでのsitemap.xml");
+      const dup2 = locs2.filter((u, i) => locs2.indexOf(u) !== i);
+      if (dup2.length === 0) {
+        ok("末尾スラッシュ付きNEXT_PUBLIC_SITE_URLでもsitemap.xmlにURL重複が発生しない");
+      } else {
+        fail(`末尾スラッシュ付きNEXT_PUBLIC_SITE_URLでsitemap.xmlにURL重複が発生した: ${[...new Set(dup2)].join(", ")}`);
+      }
+      // lastmod方針(静的ページ省略・教材は実データ)がこの環境でも維持されていること
+      const urlBlocks2 = [...sitemapXml2.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]);
+      const staticBlock2 = urlBlocks2.find((b) => /<loc>[^<]*\/about<\/loc>/.test(b));
+      if (staticBlock2 && !/<lastmod>/.test(staticBlock2)) {
+        ok("末尾スラッシュ付き環境でも/aboutはlastmodを省略している(方針維持)");
+      } else {
+        fail("末尾スラッシュ付き環境で/aboutのlastmod省略方針が崩れている");
+      }
+    } catch (e) {
+      fail(`予期しない例外(サーバ2・末尾スラッシュ検証): ${e.message}`);
+    } finally {
+      await browser2.close();
+      if (dev2) stopDevServer(dev2);
+      if (originalSiteUrl === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+      else process.env.NEXT_PUBLIC_SITE_URL = originalSiteUrl;
+    }
   }
 
   if (process.exitCode) {

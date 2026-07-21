@@ -8,6 +8,7 @@ import { ImportMaterialButton } from "./ImportMaterialButton";
 import { MaterialViewTracker } from "./MaterialViewTracker";
 import { PronounceButton } from "@/components/ui/PronounceButton";
 import { getPresetMeta } from "@/lib/materials/presetMeta";
+import { normalizeSiteUrl } from "@/lib/seo/siteUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -35,8 +36,9 @@ export async function generateMetadata({
       data.description ??
       `${data.title}の単語をLoop Vocabularyで無料学習。${subtitle}。AIが苦手単語を分析してスキマ時間に効率暗記。スマホ対応・会員登録不要で単語一覧を閲覧可能。`;
     // canonicalは常にquery(?level=等)を含まない教材本体URLを指す
-    // (末尾/二重slashが出ないよう siteUrl は末尾スラッシュ無し・idは先頭スラッシュ無しの前提で結合)
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
+    // (NEXT_PUBLIC_SITE_URLが末尾スラッシュ付きで設定されていても二重スラッシュにならないよう
+    // normalizeSiteUrl()で正規化してから結合する)
+    const siteUrl = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL);
     const canonicalUrl = `${siteUrl}/materials/${id}`;
     return {
       title,
@@ -201,7 +203,7 @@ export default async function MaterialDetailPage({
   const levelCls = LEVEL_COLOR[material.level ?? ""] ?? "bg-sky-50 text-navy-700";
   const preset = getPresetMeta(material.id);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
+  const siteUrl = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL);
   const breadcrumbLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { LESSONS } from "@/lib/grammar/lessons";
 import { PILOT_WORDS } from "@/lib/dictionaryWords/pilotWords";
 import { toSafeLastModified } from "@/lib/seo/sitemapDates";
+import { normalizeSiteUrl } from "@/lib/seo/siteUrl";
 
 const GUIDE_SLUGS = [
   "vocabulary-quiz-pdf-for-teachers",
@@ -49,8 +50,9 @@ const GUIDE_SLUGS = [
 ] as const;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
+  // NEXT_PUBLIC_SITE_URLが末尾スラッシュ付きで設定されていても、以降の全URLで
+  // "//materials/xxx"のような二重スラッシュが発生しないよう正規化してから使う。
+  const base = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL);
 
   // 公開教材ごとのlastModifiedは、実際のコンテンツ更新時のみ更新されるDBカラム
   // (materials.updated_at、trg_touch_materialsトリガーでUPDATE時にnow()がセットされる。
