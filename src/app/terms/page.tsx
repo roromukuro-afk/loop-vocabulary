@@ -1,5 +1,17 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { SUPPORT_EMAIL } from "@/lib/support";
+
+export const metadata: Metadata = {
+  title: "利用規約 | Loop Vocabulary",
+  description: "Loop Vocabulary（英単語学習アプリ）の利用規約。利用対象・禁止事項・著作権・広告と課金・アカウント削除について。",
+  alternates: { canonical: "https://loop-vocabulary.app/terms" },
+  openGraph: {
+    title: "利用規約 | Loop Vocabulary",
+    description: "Loop Vocabulary（英単語学習アプリ）の利用規約。利用対象・禁止事項・著作権・広告と課金・アカウント削除について。",
+    url: "https://loop-vocabulary.app/terms",
+  },
+};
 
 export default function TermsPage() {
   return (

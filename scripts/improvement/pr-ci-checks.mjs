@@ -46,6 +46,7 @@ function inferCategoryTests(diffFiles) {
   if (diffFiles.some((f) => f.includes("robots.txt") || f.includes("sitemap") || f.match(/page\.tsx$/))) {
     tests.add("test:canonical-integrity");
     tests.add("test:indexing-policy");
+    tests.add("test:technical-seo-foundations");
   }
   if (diffFiles.some((f) => f.includes("src/lib/analytics/") || f.includes("api/analytics/"))) {
     tests.add("test:analytics-production-ingestion");

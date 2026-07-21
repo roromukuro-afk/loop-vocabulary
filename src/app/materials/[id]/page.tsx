@@ -34,10 +34,15 @@ export async function generateMetadata({
     const description =
       data.description ??
       `${data.title}の単語をLoop Vocabularyで無料学習。${subtitle}。AIが苦手単語を分析してスキマ時間に効率暗記。スマホ対応・会員登録不要で単語一覧を閲覧可能。`;
+    // canonicalは常にquery(?level=等)を含まない教材本体URLを指す
+    // (末尾/二重slashが出ないよう siteUrl は末尾スラッシュ無し・idは先頭スラッシュ無しの前提で結合)
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
+    const canonicalUrl = `${siteUrl}/materials/${id}`;
     return {
       title,
       description,
-      openGraph: { title, description },
+      alternates: { canonical: canonicalUrl },
+      openGraph: { title, description, url: canonicalUrl },
     };
   } catch {
     return {};
