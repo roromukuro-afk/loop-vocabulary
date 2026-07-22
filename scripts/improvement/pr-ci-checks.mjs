@@ -54,6 +54,9 @@ function inferCategoryTests(diffFiles) {
   if (diffFiles.some((f) => f.includes("src/app/guide/") || f.includes("scripts/testing/lib/staticGuideFolderSlugs.mjs"))) {
     tests.add("test:guide-route-collision");
   }
+  if (diffFiles.some((f) => f.includes("src/app/guide/chugaku-eigo-tango/"))) {
+    tests.add("test:chugaku-eigo-tango-content");
+  }
   if (diffFiles.some((f) => f.includes("src/lib/analytics/") || f.includes("api/analytics/"))) {
     tests.add("test:analytics-production-ingestion");
     tests.add("test:test-account-exclusion");
