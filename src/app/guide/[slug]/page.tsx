@@ -1734,28 +1734,22 @@ LEAPをテーマ単位で回しつつ、覚えにくい単語をLoop Vocabulary�
 };
 
 /**
- * ルーティング競合の修正(2026-07-22): eiken-2kyu-tango は
- * src/app/guide/eiken-2kyu-tango/page.tsx として専用の静的フォルダルートが
- * 実装済みで、内容もこのARTICLESエントリの完全な上位互換(結論ブロック・FAQ・
- * FAQPage JSON-LD付き)であることを確認済みのため、動的ルート側の静的生成対象
- * から除外する。同一URLを静的フォルダルートと動的ルートの両方が
- * generateStaticParams()経由で静的生成しようとすると、ビルドのたびに
- * どちらの出力が実際に配信されるかが不安定になり、test:guide-aeo-blocksが
- * 断続的に失敗する原因になっていた(結論ブロックを含む静的版と含まない
- * 動的版が交互に配信される)。
+ * ルーティング競合の修正: 静的フォルダルートと動的ルート(このファイルの
+ * generateStaticParams())が同一URLを静的生成しようとすると、ビルドのたびに
+ * どちらの出力が実際に配信されるか不安定になる。以下のslugは、静的フォルダ側が
+ * 動的ARTICLESエントリの内容を包含する(情報・機能の欠落なし)ことを確認した上で、
+ * 動的側の静的生成対象から除外している。
  *
- * 調査の結果、同種の重複(静的フォルダ・ARTICLES双方に同じslugが存在する)は
- * 他に7件確認されている: business-english-tango, chugaku-eigo-tango,
- * daigaku-juken-tango, eiken-conversation, eiken-jun1-tango, ielts-tango,
- * toeic-tango。このうちeiken-conversation・ielts-tangoは、静的フォルダ側に
- * 教材インポート導線(GuideMaterialCTA)が実装されておらず、単純に動的ルート側を
- * 無効化すると導線が失われるため、内容面の対応が必要。残り5件も静的フォルダが
- * 内容面で優位に見えるが、今回のPRはeiken-2kyu-tangoの断続的テスト失敗の
- * 修正に限定し、意図的に対象外としている(オーナー判断待ち)。
- * そのため、除外は静的フォルダ全件との自動突き合わせではなく、
- * レビュー済みのslugだけを明示的に列挙する方式にしている。
+ * - eiken-2kyu-tango(2026-07-22確認): 結論ブロック・FAQ・FAQPage JSON-LD付きの
+ *   上位互換。
+ * - chugaku-eigo-tango(2026-07-22確認): 動的版固有だった月別学習スケジュールを
+ *   静的版へ統合済み。教材CTA(GuideMaterialCTA)は静的版が動的版を包含。
+ *
+ * 他の保留slug(business-english-tango, daigaku-juken-tango, eiken-conversation,
+ * eiken-jun1-tango, ielts-tango, toeic-tango)は今回の対象外(オーナー判断待ち、
+ * scripts/testing/e2e/guide-route-collision.mjsのKNOWN_DEFERRED_COLLISIONS参照)。
  */
-const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango"]);
+const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango"]);
 
 export async function generateStaticParams() {
   return Object.keys(ARTICLES)

@@ -1,20 +1,18 @@
 /**
- * chugaku-eigo-tango 静的ガイドページへの月別スケジュール統合の検証
- * (2026-07-22: 動的ルート版(src/app/guide/[slug]/page.tsx の
+ * chugaku-eigo-tango 専用静的ページの検証。
+ *
+ * (2026-07-22) 動的ルート版(src/app/guide/[slug]/page.tsx の
  * ARTICLES["chugaku-eigo-tango"])にのみ存在した月別学習スケジュールを、
- * 静的フォルダ版(src/app/guide/chugaku-eigo-tango/page.tsx)へ統合した)。
+ * 静的フォルダ版(src/app/guide/chugaku-eigo-tango/page.tsx)へ統合した上で、
+ * chugaku-eigo-tango を DYNAMIC_ROUTE_EXCLUDED_SLUGS に登録し、静的版を
+ * 正式ルートとして固定した(ルーティング競合を解消済み)。
  *
- * 禁止語の不在チェックだけに頼らず、実際のSSR/ブラウザ表示を検証する。
+ * そのため本テストは、/guide/chugaku-eigo-tango が常に専用静的ページとして
+ * 配信されることを必須条件として検証する。動的版が配信された場合は、
+ * 既知の許容状態ではなく明確な回帰として扱いFAILする。
  *
- * 重要な注意: chugaku-eigo-tango は、静的フォルダルートと動的ルート
- * (src/app/guide/[slug]/page.tsx の generateStaticParams())の両方が
- * 同一URLを静的生成しようとする、既知の未解決ルーティング競合が残っている
- * (KNOWN_DEFERRED_COLLISIONS、別PRで意図的に保留)。このため `npm run build`
- * のたびに、どちらの版の出力が実際に配信されるかが非決定的である
- * (複数回のクリーンビルドで実際に確認済み: 4回中3回は動的版が勝つ観測もあった)。
- * 本テストはこの状態を「無理に成功扱いにしない」ため、動的版が配信された
- * ビルドを検出した場合は、静的版のコンテンツ確認をスキップし、その旨を
- * 明確にログした上で失敗として扱う(ルーティング競合の修正自体は別スコープ)。
+ * 静的ビルド成果物(.html)を直接読むのではなく、実際のURLへのリクエストと
+ * ブラウザ表示を検証する(禁止語の不在チェックのみに頼らない)。
  *
  * 使い方: node scripts/testing/e2e/chugaku-eigo-tango-content.mjs
  */
@@ -41,7 +39,6 @@ const UNHEDGED_CLAIM_PHRASES = [
 
 function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; }
 function ok(msg) { console.log(`✅ ${msg}`); }
-function warn(msg) { console.log(`⚠️  ${msg}`); }
 
 async function main() {
   const dev = await ensureDevServer(PORT);
@@ -59,44 +56,26 @@ async function main() {
     if (res && res.status() === 200) ok(`/guide/${SLUG} が200で表示される`);
     else fail(`/guide/${SLUG} のステータスが200ではない (${res?.status()})`);
 
+    // ---- 2. 常に専用静的ページのtitleと完全一致し、動的版titleが混入していない ----
     const title = await page.title();
-
-    // ---- 0. 既知のルーティング競合により、このビルドで動的版が配信されていないか判定 ----
-    // (chugaku-eigo-tango は KNOWN_DEFERRED_COLLISIONS に残っており、本PRのスコープ外。
-    //  無理に成功扱いにせず、その旨を明確にログした上でFAILとして報告する)
-    if (title.includes(DYNAMIC_TITLE_MARKER)) {
-      warn(
-        `このビルドでは既知のルーティング競合(chugaku-eigo-tangoはKNOWN_DEFERRED_COLLISIONSに残存、` +
-          `本PRのスコープ外)により動的ルート版が配信されたため、静的版へ統合した内容を確認できません。` +
-          `title="${title}"`
-      );
-      fail(
-        "既知のルーティング競合により動的版が配信されたため、本テストで静的版の内容確認ができなかった " +
-          "(静的ページのソース自体は別途確認済み。再実行するか、ルーティング競合修正後に再確認してください)"
-      );
-      console.log("\n=== test:chugaku-eigo-tango-content: FAILED (ルーティング競合により静的版を確認できず) ===");
-      return;
-    }
-
-    // ---- 2. title・canonical・H1が変更されていない ----
-    if (title === STATIC_TITLE) {
-      ok(`titleが変更されていない: "${title}"`);
+    if (title === STATIC_TITLE && !title.includes(DYNAMIC_TITLE_MARKER)) {
+      ok(`titleが静的版と完全一致している: "${title}"`);
     } else {
-      fail(`titleが想定と異なる（変更されている可能性）: "${title}"`);
+      fail(`titleが静的版と一致しない(ルーティング競合の回帰の可能性): "${title}"`);
     }
 
     const canonical = await page.locator('link[rel="canonical"]').getAttribute("href").catch(() => null);
     if (canonical === `${SITE_URL}/guide/${SLUG}`) {
-      ok(`canonicalが自己参照で変更されていない (${canonical})`);
+      ok(`canonicalが自己参照 (${canonical})`);
     } else {
       fail(`canonicalが想定と異なる: "${canonical}"`);
     }
 
     const h1 = await page.locator("h1").textContent().catch(() => "");
     if (h1?.includes("中学英語の単語を") && h1.includes("完璧に覚える方法") && !h1.includes(DYNAMIC_TITLE_MARKER)) {
-      ok(`H1が変更されていない: "${h1.trim()}"`);
+      ok(`H1が静的版のまま: "${h1.trim()}"`);
     } else {
-      fail(`H1が想定と異なる（変更されている可能性）: "${h1}"`);
+      fail(`H1が想定と異なる(ルーティング競合の回帰の可能性): "${h1}"`);
     }
 
     // ---- 3. 月別スケジュールセクションが表示される ----
@@ -146,7 +125,7 @@ async function main() {
       "カテゴリ別 中学必須単語リスト",
       "中学単語を定着させる4つのコツ",
       "高校受験・英検3級との対応",
-      "接続詞・前置詞", // Aにのみあった3つ目のカテゴリ(統合作業で失われていないか)
+      "接続詞・前置詞", // 静的版にのみあった3つ目のカテゴリ(統合作業で失われていないか)
     ];
     const missingSections = preservedSections.filter((s) => !bodyText.includes(s));
     if (missingSections.length === 0) {
@@ -172,14 +151,20 @@ async function main() {
     if ((await vocabCheckLink.count()) > 0) ok("/vocab-check へのCTAが維持されている");
     else fail("/vocab-check へのCTAが見つからない");
 
-    // ---- 9. JSON-LD (Article・BreadcrumbList) が出力されている ----
+    // ---- 9. JSON-LD (Article・BreadcrumbList・dateModified) が正しく出力されている ----
     const html = await page.content();
     const hasArticleLd = html.includes('"@type":"Article"');
     const hasBreadcrumbLd = html.includes('"@type":"BreadcrumbList"');
+    const hasDateModified = html.includes('"dateModified":"2026-07-22"');
     if (hasArticleLd && hasBreadcrumbLd) {
       ok("Article・BreadcrumbList JSON-LDが出力されている");
     } else {
       fail(`JSON-LDが不足している (Article=${hasArticleLd}, Breadcrumb=${hasBreadcrumbLd})`);
+    }
+    if (hasDateModified) {
+      ok("Article JSON-LDにdateModified(2026-07-22)が出力されている");
+    } else {
+      fail("Article JSON-LDにdateModified(2026-07-22)が見つからない");
     }
 
     // ---- 10. mobile幅で横スクロールが発生しない ----
