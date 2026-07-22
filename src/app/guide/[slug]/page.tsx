@@ -1734,28 +1734,34 @@ LEAPをテーマ単位で回しつつ、覚えにくい単語をLoop Vocabulary�
 };
 
 /**
- * ルーティング競合の修正(2026-07-22): eiken-2kyu-tango は
- * src/app/guide/eiken-2kyu-tango/page.tsx として専用の静的フォルダルートが
- * 実装済みで、内容もこのARTICLESエントリの完全な上位互換(結論ブロック・FAQ・
- * FAQPage JSON-LD付き)であることを確認済みのため、動的ルート側の静的生成対象
+ * ルーティング競合の修正(2026-07-22〜): 以下のslugは専用の静的フォルダルート
+ * (src/app/guide/<slug>/page.tsx)が実装済みで、内容もこのARTICLESエントリの
+ * 安全な上位互換であることを個別に確認済みのため、動的ルート側の静的生成対象
  * から除外する。同一URLを静的フォルダルートと動的ルートの両方が
  * generateStaticParams()経由で静的生成しようとすると、ビルドのたびに
  * どちらの出力が実際に配信されるかが不安定になり、test:guide-aeo-blocksが
- * 断続的に失敗する原因になっていた(結論ブロックを含む静的版と含まない
- * 動的版が交互に配信される)。
+ * 断続的に失敗する原因になっていた。
+ *
+ * - eiken-2kyu-tango: 静的フォルダ版は結論ブロック・FAQ・FAQPage JSON-LD付きの
+ *   上位互換(2026-07-22確認)。
+ * - chugaku-eigo-tango: 静的フォルダ版はGuideMaterialCTAの教材3件が動的版の2件を
+ *   包含する上位互換で、情報・機能の欠落なし(2026-07-22確認)。
+ * - daigaku-juken-tango: 静的フォルダ版はJSON-LDにdateModifiedまで含み、
+ *   GuideMaterialCTAの教材3件が動的版と完全一致。情報・機能の欠落なし
+ *   (2026-07-22確認)。
  *
  * 調査の結果、同種の重複(静的フォルダ・ARTICLES双方に同じslugが存在する)は
- * 他に7件確認されている: business-english-tango, chugaku-eigo-tango,
- * daigaku-juken-tango, eiken-conversation, eiken-jun1-tango, ielts-tango,
- * toeic-tango。このうちeiken-conversation・ielts-tangoは、静的フォルダ側に
- * 教材インポート導線(GuideMaterialCTA)が実装されておらず、単純に動的ルート側を
- * 無効化すると導線が失われるため、内容面の対応が必要。残り5件も静的フォルダが
- * 内容面で優位に見えるが、今回のPRはeiken-2kyu-tangoの断続的テスト失敗の
- * 修正に限定し、意図的に対象外としている(オーナー判断待ち)。
+ * 他に5件残っている: business-english-tango, eiken-conversation,
+ * eiken-jun1-tango, ielts-tango, toeic-tango。このうちeiken-conversation・
+ * ielts-tangoは、静的フォルダ側に教材インポート導線(GuideMaterialCTA)が
+ * 実装されておらず、単純に動的ルート側を無効化すると導線が失われるため、
+ * 内容面の対応が必要。残り3件も静的フォルダ側に教材リンク1件の欠落や
+ * JSON-LD日付欠落があり、今回のPRのスコープ(内容面で安全に除外できるslugの
+ * みの解消)を超えるため、意図的に対象外としている(オーナー判断待ち)。
  * そのため、除外は静的フォルダ全件との自動突き合わせではなく、
  * レビュー済みのslugだけを明示的に列挙する方式にしている。
  */
-const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango"]);
+const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango"]);
 
 export async function generateStaticParams() {
   return Object.keys(ARTICLES)
