@@ -57,6 +57,16 @@ function inferCategoryTests(diffFiles) {
   if (diffFiles.some((f) => f.includes("src/app/guide/chugaku-eigo-tango/"))) {
     tests.add("test:chugaku-eigo-tango-content");
   }
+  if (
+    diffFiles.some(
+      (f) =>
+        f === "scripts/testing/e2e/crawler-readable-pages.mjs" ||
+        f === "scripts/testing/e2e/crawler-server-cleanup.mjs" ||
+        f === "scripts/testing/lib/devServer.mjs"
+    )
+  ) {
+    tests.add("test:crawler-server-cleanup");
+  }
   if (diffFiles.some((f) => f.includes("src/lib/analytics/") || f.includes("api/analytics/"))) {
     tests.add("test:analytics-production-ingestion");
     tests.add("test:test-account-exclusion");
