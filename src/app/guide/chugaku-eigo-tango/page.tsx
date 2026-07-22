@@ -69,6 +69,16 @@ const TIPS = [
   { num: "04", title: "毎日10語・継続優先", desc: "一気に100語やるより毎日10語を3ヶ月続けるほうが格段に定着する。SRSが「忘れそうなタイミング」を自動管理するので、続けることに集中すればOK。" },
 ];
 
+// 月別スケジュールの数値は、統合前の動的ルート版(src/app/guide/[slug]/page.tsx の
+// ARTICLES["chugaku-eigo-tango"])に記載されていた目標語数・1日の学習量をそのまま
+// 保持している。「3ヶ月で完全習得できます」という動的版の断定表現は、根拠を示さない
+// 言い切りのため、進み具合に応じて調整できる目安である旨のヘッジ表現に修正した。
+const SCHEDULE = [
+  { month: "1ヶ月目", target: "目安 400語（新規中心）", pace: "1日15語ペースが目安", note: "まずは基本動詞・頻出語から新規登録を進める。" },
+  { month: "2ヶ月目", target: "目安 累計800語（復習を含む）", pace: "1日15語ペースが目安", note: "新規登録と並行して、1ヶ月目に覚えた語の復習がSRSの「復習待ち」に増えてくる。復習を優先してこなす。" },
+  { month: "3ヶ月目", target: "目安 累計1,200語完了", pace: "1日10語＋復習が目安", note: "新規ペースを少し落とし、復習中心に切り替えて抜けている語を減らしていく。" },
+];
+
 const JSON_LD = {
   "@context": "https://schema.org",
   "@type": "Article",
@@ -77,6 +87,7 @@ const JSON_LD = {
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-12-01",
+  "dateModified": "2026-07-22",
   "url": "https://loop-vocabulary.app/guide/chugaku-eigo-tango",
 };
 
@@ -158,6 +169,29 @@ export default function ChugakuEigoPage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* 月別スケジュール */}
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-2">3か月で進める中学英単語学習スケジュール</h2>
+          <p className="text-xs text-navy-500 mb-4">
+            下記は新規学習と復習のバランスの目安です。学習時間や理解度に応じて自由に調整してください。具体的な覚え方は上記の4つのコツを参照してください。
+          </p>
+          <div className="space-y-3">
+            {SCHEDULE.map((s, i) => (
+              <div key={s.month} className="flex gap-3">
+                <div className="shrink-0 w-8 h-8 rounded-full bg-teal-700 text-white font-black text-xs flex items-center justify-center">{i + 1}</div>
+                <div>
+                  <div className="font-bold text-navy-800 text-sm">{s.month}：{s.target}</div>
+                  <div className="text-xs text-teal-700 font-medium mt-0.5">{s.pace}</div>
+                  <p className="text-xs text-navy-600 mt-0.5 leading-relaxed">{s.note}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-navy-500 mt-3 border-t border-navy-100 pt-3">
+            数値はあくまで目安です。忙しい時期は新規語数を減らし、余裕がある時期は増やすなど、無理のないペースに調整しましょう。
+          </p>
         </div>
 
         {/* 高校・英検との対応 */}
