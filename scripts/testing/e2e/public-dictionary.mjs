@@ -150,7 +150,7 @@ async function main() {
     await context.close();
   } finally {
     await browser.close();
-    stopDevServer(dev.proc);
+    stopDevServer(dev);
   }
 
   console.log(process.exitCode ? "\n=== test:public-dictionary: FAILED ===" : "\n=== test:public-dictionary RESULT: all checks passed ===");
