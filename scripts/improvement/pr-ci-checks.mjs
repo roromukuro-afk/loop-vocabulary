@@ -67,6 +67,15 @@ function inferCategoryTests(diffFiles) {
   ) {
     tests.add("test:crawler-server-cleanup");
   }
+  if (
+    diffFiles.some(
+      (f) =>
+        f === "scripts/testing/e2e/public-dictionary.mjs" ||
+        f === "scripts/testing/e2e/public-dictionary-server-cleanup.mjs"
+    )
+  ) {
+    tests.add("test:public-dictionary-server-cleanup");
+  }
   if (diffFiles.some((f) => f.includes("src/lib/analytics/") || f.includes("api/analytics/"))) {
     tests.add("test:analytics-production-ingestion");
     tests.add("test:test-account-exclusion");
