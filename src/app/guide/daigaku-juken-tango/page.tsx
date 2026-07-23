@@ -73,7 +73,7 @@ const JSON_LD = {
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-09-01",
-  "dateModified": "2026-07-23",
+  "dateModified": "2026-07-24",
   "url": "https://loop-vocabulary.app/guide/daigaku-juken-tango",
 };
 
@@ -198,7 +198,7 @@ export default function DaigakuJukenPage() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-sky-700 mt-3 font-medium">1日合計30分のスキマ学習で、1ヶ月に400〜500語を習得できます。</p>
+          <p className="text-xs text-sky-700 mt-3 font-medium">1日合計30分は学習時間の一例です。実際に身につく語数は、既習度や復習回数、学習方法によって異なります。</p>
         </div>
 
         {/* 単語帳の選び方 */}
@@ -218,11 +218,11 @@ export default function DaigakuJukenPage() {
             </li>
             <li className="text-sm text-navy-700 leading-relaxed flex gap-2">
               <span className="text-navy-400">▸</span>
-              <span><strong>DUO 3.0</strong>：1つの例文に複数の重要語を詰め込んだストーリー仕立てで、文脈の中でまとめて覚えたい人に向いている構成。</span>
+              <span><strong>DUO 3.0</strong>：560本の例文に複数の重要単語・熟語をまとめた構成で、文脈の中で語句を覚えたい人に向いている。</span>
             </li>
           </ul>
           <p className="text-xs text-navy-500 leading-relaxed border-t border-navy-100 pt-3 mt-3">
-            どの単語帳を使う場合でも、自分でつまずいた語や、授業・過去問で確認した語を書き出して、学習用の単語帳へまとめておくと後から復習しやすくなります。Loop VocabularyではCSVでまとめて追加する使い方もできます。
+            どの単語帳を使う場合でも、自分でつまずいた語や、授業・過去問で確認した語を書き出して、学習用の単語帳へまとめておくと後から復習しやすくなります。Loop VocabularyのPremiumでは、自分で整理した単語リストをCSVからまとめて追加できます。使用する語句や内容は、自分で利用できる範囲のものにしてください。
           </p>
         </div>
 

@@ -42,7 +42,7 @@ const STATIC_ONLY_HEADINGS = [
 ];
 const STATIC_ONLY_PHRASES = [
   "ミニマルフレーズ", // システム英単語の説明(静的版の独自表現)
-  "ストーリー仕立て", // DUO 3.0の説明(静的版の独自表現)
+  "560本の例文", // DUO 3.0の説明(静的版の独自表現、2026-07-24レビューで「ストーリー仕立て」から修正)
   "つまずいた語", // CSV機能の一般化した説明(静的版の独自表現)
   "最初から高い目標を設定せず", // 継続のコツ(静的版の独自表現)
 ];
@@ -134,12 +134,30 @@ async function main() {
       "これだけで完全習得できる",
       "必ず定着する",
       "最小の復習回数で最大の定着率",
+      "1ヶ月に400〜500語を習得できます", // 2026-07-24レビューで削除した断定表現(回帰防止)
+      "ストーリー仕立て", // 2026-07-24レビューで修正したDUO 3.0の旧表現(回帰防止)
     ];
     const foundUnverifiedClaims = unverifiedClaimPhrases.filter((p) => bodyText.includes(p));
     if (foundUnverifiedClaims.length === 0) {
       ok("未確認・根拠の弱い断定表現が本文に含まれていない");
     } else {
       fail(`未確認・根拠の弱い断定表現が見つかった: ${foundUnverifiedClaims.join(", ")}`);
+    }
+
+    // ---- 6b. CSVインポート機能の説明がPremium限定・ユーザー自身が整理した
+    //          データを対象とする表現になっている(2026-07-24レビュー対応) ----
+    const oldCsvPhrase = "Loop VocabularyではCSVでまとめて追加する使い方もできます";
+    if (bodyText.includes(oldCsvPhrase)) {
+      fail(`CSV機能の旧文言が残っている(Premium限定であることが不明確): "${oldCsvPhrase}"`);
+    } else {
+      ok("CSV機能の旧文言(Premium限定であることが不明確な表現)が残っていない");
+    }
+    if (bodyText.includes("Premium") && bodyText.includes("自分で整理した単語リスト")) {
+      ok("CSV機能がPremium限定であること、ユーザー自身が整理した単語リストが対象であることの両方が本文に明示されている");
+    } else {
+      fail(
+        `CSV機能の説明がPremium限定・ユーザー自身が整理したデータである旨を満たしていない (Premium含む=${bodyText.includes("Premium")}, 自分で整理した単語リスト含む=${bodyText.includes("自分で整理した単語リスト")})`
+      );
     }
 
     // ---- 7. GuideMaterialCTAの既存3教材が維持されている ----
@@ -164,7 +182,7 @@ async function main() {
     const hasArticleLd = html.includes('"@type":"Article"');
     const hasBreadcrumbLd = html.includes('"@type":"BreadcrumbList"');
     const hasDatePublished = html.includes('"datePublished":"2024-09-01"');
-    const hasDateModified = html.includes('"dateModified":"2026-07-23"');
+    const hasDateModified = html.includes('"dateModified":"2026-07-24"');
     if (hasArticleLd && hasBreadcrumbLd) {
       ok("Article・BreadcrumbList JSON-LDが出力されている");
     } else {
@@ -176,9 +194,9 @@ async function main() {
       fail("Article JSON-LDのdatePublished(2024-09-01)が見つからない(変更された可能性)");
     }
     if (hasDateModified) {
-      ok("Article JSON-LDにdateModified(2026-07-23)が出力されている");
+      ok("Article JSON-LDにdateModified(2026-07-24)が出力されている");
     } else {
-      fail("Article JSON-LDにdateModified(2026-07-23)が見つからない");
+      fail("Article JSON-LDにdateModified(2026-07-24)が見つからない");
     }
 
     // ---- 10. mobile幅で横スクロールが発生しない ----
