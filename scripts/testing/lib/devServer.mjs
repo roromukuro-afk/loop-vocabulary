@@ -14,6 +14,11 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+// この関数は、負のPID(=プロセスグループ全体へのシグナル送信)を、POSIXで
+// detached:trueとして起動したowned processに対してのみ使う。detached:trueで
+// 起動したプロセスはグループリーダーになり、そのPIDがそのままプロセスグループID
+// になる(POSIXのsetsid相当)。他プロセスのPIDやポート番号の部分一致でまとめて
+// killするような広い操作は行わない。
 function killTree(proc) {
   if (!proc || proc.killed || proc.pid == null) return;
   if (process.platform === "win32") {
@@ -24,8 +29,24 @@ function killTree(proc) {
     } catch {
       // 既に終了している等は無視
     }
-  } else {
-    proc.kill();
+    return;
+  }
+
+  // POSIX: sh -c 経由だと proc.kill() は sh のみを止め、その子であるnpm/next
+  // サーバー本体が残留する(Ubuntu上のGitHub Actionsで確認済み)。spawnCmd()側で
+  // detached:trueで起動しているため、このプロセスはグループリーダー(pgid===pid)
+  // になっている。負のPIDをprocess.kill()へ渡すとPOSIXのkill(2)の仕様により
+  // 単一プロセスではなくプロセスグループ全体へシグナルが送られるため、
+  // sh・npm・next(その子孫)をまとめて終了できる。
+  try {
+    process.kill(-proc.pid, "SIGTERM");
+  } catch {
+    // グループkillに失敗した場合のみ、プロセス単体への安全なフォールバック
+    try {
+      proc.kill("SIGTERM");
+    } catch {
+      // 既に終了している等は無視
+    }
   }
 }
 
@@ -33,7 +54,7 @@ function spawnCmd(cmdline) {
   const isWin = process.platform === "win32";
   return isWin
     ? spawn(cmdline, { cwd: REPO_ROOT, stdio: "ignore", windowsHide: true, shell: true })
-    : spawn("sh", ["-c", cmdline], { cwd: REPO_ROOT, stdio: "ignore" });
+    : spawn("sh", ["-c", cmdline], { cwd: REPO_ROOT, stdio: "ignore", detached: true });
 }
 
 /**

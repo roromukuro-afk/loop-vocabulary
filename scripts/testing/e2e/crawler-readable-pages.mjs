@@ -48,7 +48,8 @@ function stripToText(html) {
 }
 
 async function main() {
-  const { url: baseUrl, proc } = await ensureDevServer(PORT);
+  const server = await ensureDevServer(PORT);
+  const baseUrl = server.url;
   let failed = 0;
 
   try {
@@ -96,7 +97,7 @@ async function main() {
       console.log("\n=== crawler-readable-pages: ALL CHECKS PASSED ===");
     }
   } finally {
-    stopDevServer(proc);
+    stopDevServer(server);
   }
 }
 
