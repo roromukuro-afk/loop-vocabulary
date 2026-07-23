@@ -25,13 +25,12 @@ const GUIDE_DIR = join(REPO_ROOT, "src", "app", "guide");
 const DYNAMIC_ROUTE_FILE = join(GUIDE_DIR, "[slug]", "page.tsx");
 
 // これまでのPRで、動的ルート側の静的生成対象から除外したslug。
-const FIXED_SLUGS = ["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango"];
+const FIXED_SLUGS = ["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango", "business-english-tango"];
 
 // 静的フォルダ・ARTICLES双方に存在することを確認済みだが、静的フォルダ側の
 // 教材インポート導線(GuideMaterialCTA)欠落等の理由で、今回のPRでは意図的に
 // 除外していないslug(オーナー判断待ちとしてPRで報告済み)。
 const KNOWN_DEFERRED_COLLISIONS = [
-  "business-english-tango",
   "eiken-conversation",
   "eiken-jun1-tango",
   "ielts-tango",

@@ -6,11 +6,11 @@ import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
 export const metadata: Metadata = {
-  title: "ビジネス英語 必須単語300選と実践的な覚え方 | Loop Vocabulary",
+  title: "ビジネス英語の必須単語・表現と実践的な覚え方 | Loop Vocabulary",
   description: "会議・メール・プレゼンで使えるビジネス英語の頻出単語と表現を厳選。TOEIC 800点以上にも対応した語彙学習戦略を解説します。",
   alternates: { canonical: "https://loop-vocabulary.app/guide/business-english-tango" },
   openGraph: {
-    title: "ビジネス英語 必須単語300選と実践的な覚え方",
+    title: "ビジネス英語の必須単語・表現と実践的な覚え方",
     description: "会議・メール・プレゼンで使えるビジネス英語の頻出単語と表現を厳選。",
     url: "https://loop-vocabulary.app/guide/business-english-tango",
     type: "article",
@@ -79,7 +79,7 @@ const SCENES = [
       { en: "provisional", jp: "仮の・暫定的な" },
       { en: "mutual", jp: "相互の" },
     ],
-    tip: "契約書・NDL・覚書に頻出。法的ニュアンスが重要なため、語源理解（「liab」＝bind）が役立つ。",
+    tip: "契約書・NDA・覚書に頻出。法的な文書は言い回しの正確な意味を押さえておくことが重要。",
   },
   {
     icon: "📈",
@@ -100,11 +100,12 @@ const SCENES = [
 const JSON_LD = {
   "@context": "https://schema.org",
   "@type": "Article",
-  "headline": "ビジネス英語 必須単語300選と実践的な覚え方",
+  "headline": "ビジネス英語の必須単語・表現と実践的な覚え方",
   "description": "会議・メール・プレゼンで使えるビジネス英語の頻出単語と表現を厳選。",
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-11-01",
+  "dateModified": "2026-07-24",
   "url": "https://loop-vocabulary.app/guide/business-english-tango",
 };
 
@@ -112,7 +113,7 @@ export default function BusinessEnglishPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="business-english-tango" />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"ビジネス英語 必須単語300選と実践的な覚え方","item":"https://loop-vocabulary.app/guide/business-english-tango"}]}) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"ビジネス英語の必須単語・表現と実践的な覚え方","item":"https://loop-vocabulary.app/guide/business-english-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       {/* ヘッダー */}
@@ -122,7 +123,7 @@ export default function BusinessEnglishPage() {
           <div className="inline-block text-[11px] px-2 py-0.5 rounded-full bg-slate-500/30 border border-slate-400/30 text-slate-200 font-semibold mb-3">
             ビジネス英語
           </div>
-          <h1 className="text-2xl font-black leading-tight">ビジネス英語 必須単語300選</h1>
+          <h1 className="text-2xl font-black leading-tight">ビジネス英語<br />必須単語・表現の覚え方</h1>
           <p className="mt-2 text-sm text-slate-300 max-w-sm mx-auto">メール・会議・プレゼン・交渉シーン別に厳選。TOEIC 800点以上にも対応。</p>
         </div>
       </div>
@@ -133,11 +134,11 @@ export default function BusinessEnglishPage() {
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <h2 className="font-black text-navy-800 text-lg mb-3">なぜビジネス英語の語彙が重要か</h2>
           <p className="text-sm text-navy-700 leading-relaxed">
-            グローバルビジネスでは、「英語が読めること」より「英語で仕事を動かせること」が求められます。会議での発言・メール返信・プレゼン資料など、実務で使える語彙は学校英語と一部異なります。ビジネス特有の表現を集中的に覚えることで、英語コミュニケーションの質が一段階上がります。
+            グローバルビジネスでは、「英語が読めること」より「英語で仕事を動かせること」が求められます。会議での発言・メール返信・プレゼン資料など、実務で使える語彙は学校英語と一部異なります。ビジネス特有の表現を集中的に覚えることで、英語コミュニケーションの質を高めやすくなります。
           </p>
           <div className="mt-4 grid grid-cols-3 gap-3">
             {[
-              { label: "必要語彙数", value: "約3,000〜5,000語" },
+              { label: "必要語彙数の目安", value: "約3,000〜5,000語" },
               { label: "TOEIC目安", value: "730〜860点" },
               { label: "シーン数", value: "5シーン別" },
             ].map((s) => (
@@ -147,6 +148,9 @@ export default function BusinessEnglishPage() {
               </div>
             ))}
           </div>
+          <p className="text-[11px] text-navy-500 leading-relaxed mt-3">
+            上記はあくまで一般的な目安です。必要な語彙数やTOEICスコアの水準は、業種・職種・業務内容によって異なります。TOEICのスコア自体は、ビジネス英語を実際に運用できることを保証するものではありません。
+          </p>
         </div>
 
         {/* シーン別語彙 */}
@@ -173,15 +177,65 @@ export default function BusinessEnglishPage() {
           </div>
         </div>
 
+        {/* KPI・財務語彙 */}
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-3">KPI・財務語彙の使い分け</h2>
+          <p className="text-sm text-navy-700 leading-relaxed mb-3">
+            ビジネス英語では、似た意味の数値関連の語をペアで整理しておくと、会議やレポートで意味を取り違えにくくなります。
+          </p>
+          <ul className="space-y-2">
+            <li className="text-sm text-navy-700 leading-relaxed flex gap-2">
+              <span className="text-navy-400">▸</span>
+              <span><strong>revenue（収益）</strong> vs <strong>profit（利益）</strong>：revenueは売上全体、profitはコストを差し引いた後の金額。</span>
+            </li>
+            <li className="text-sm text-navy-700 leading-relaxed flex gap-2">
+              <span className="text-navy-400">▸</span>
+              <span><strong>gross（総〜）</strong> vs <strong>net（純〜）</strong>：gross profit（粗利）、net profit（純利益）のように使う。</span>
+            </li>
+            <li className="text-sm text-navy-700 leading-relaxed flex gap-2">
+              <span className="text-navy-400">▸</span>
+              <span><strong>forecast（予測）</strong> vs <strong>projection（見込み）</strong>：forecastは過去データを基準にした予測、projectionは仮定を置いた見込みという使い分けが一般的。</span>
+            </li>
+            <li className="text-sm text-navy-700 leading-relaxed flex gap-2">
+              <span className="text-navy-400">▸</span>
+              <span><strong>YoY（前年比）</strong>・<strong>QoQ（前四半期比）</strong>・<strong>MoM（前月比）</strong>：レポートや決算資料で頻出の略語。</span>
+            </li>
+          </ul>
+        </div>
+
+        {/* ビジネスメールで差がつく動詞 */}
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-3">ビジネスメールで差がつく動詞</h2>
+          <p className="text-sm text-navy-700 leading-relaxed mb-3">
+            日常表現をよりフォーマルな語に置き換えると、メールや文書の印象が変わります。
+          </p>
+          <div className="space-y-1.5">
+            {[
+              { plain: "tell", biz: "inform / notify" },
+              { plain: "need", biz: "require / necessitate" },
+              { plain: "use", biz: "utilize / leverage" },
+              { plain: "start", biz: "initiate / commence" },
+              { plain: "end", biz: "conclude / terminate" },
+              { plain: "help", biz: "facilitate / assist" },
+            ].map((v) => (
+              <div key={v.plain} className="flex items-center gap-2 text-xs">
+                <span className="font-mono text-navy-500 w-16 shrink-0">{v.plain}</span>
+                <span className="text-navy-400">→</span>
+                <span className="font-mono font-bold text-navy-800">{v.biz}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* 覚え方のコツ */}
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <h2 className="font-black text-navy-800 text-lg mb-4">ビジネス英語を速く身につける4つのコツ</h2>
           <div className="space-y-4">
             {[
-              { num: "01", title: "コロケーションで覚える", desc: "「negotiate」単体ではなく「negotiate a deal / negotiate terms」のように名詞とセットで登録。フレーズ単位で学ぶと実践でそのまま使える。" },
-              { num: "02", title: "英語メールで実践確認", desc: "実際に受け取ったビジネスメールや社内文書から知らない表現を抽出。Loop VocabularyのAI抽出機能（プレミアム）でそのまま単語帳に追加できる。" },
+              { num: "01", title: "コロケーションで覚える", desc: "「negotiate」単体ではなく「negotiate a deal / negotiate terms」のように名詞とセットで登録。フレーズ単位で学ぶと実践でも使いやすくなる。" },
+              { num: "02", title: "自分の資料で実践確認", desc: "自分で利用できるメールや資料から、知らない表現を抜き出して確認する。Loop VocabularyのAI抽出機能（プレミアム）を使うと、選んだ語句をまとめて単語帳へ追加できる。" },
               { num: "03", title: "TOEICと並走する", desc: "TOEIC Part 6・7の長文にはビジネスシーンが頻出。問題演習で出会った単語をその日のうちにSRS登録する習慣をつける。" },
-              { num: "04", title: "AI解説で使い方まで確認", desc: "「liaise（連絡を取り合う）」など日本語に馴訳しにくい語は、AI解説でコンテキストを複数確認。ニュアンスが定着してから使うと安心。" },
+              { num: "04", title: "AI解説で使い方まで確認", desc: "「liaise（連絡を取り合う）」など日本語に訳しにくい語は、AI解説でコンテキストを複数確認する方法もある。" },
             ].map((tip) => (
               <div key={tip.num} className="flex gap-3">
                 <div className="shrink-0 w-8 h-8 rounded-full bg-slate-800 text-white font-black text-xs flex items-center justify-center">{tip.num}</div>
@@ -199,10 +253,10 @@ export default function BusinessEnglishPage() {
           <h2 className="font-black text-navy-800 mb-3">Loop Vocabulary でビジネス英語を管理する</h2>
           <ul className="space-y-2.5">
             {[
-              { icon: "✨", text: "英文メール・議事録を貼り付けてAI自動抽出（プレミアム）。業務の中で自然に語彙を増やせる。" },
+              { icon: "✨", text: "自分で利用できる英文メールや資料を貼り付けてAI抽出（プレミアム）。気になった語句を選んで単語帳へ追加できる。" },
               { icon: "📁", text: "「メール用語」「会議フレーズ」など用途別に単語帳を分けて管理。シーン別に素早く復習できる。" },
-              { icon: "🔄", text: "SRSが「忘れそうなタイミング」で自動出題。毎朝5分の復習だけで業務英語が定着。" },
-              { icon: "📄", text: "小テストPDF（プレミアム）で部署内の英語学習会にも活用可能。" },
+              { icon: "🔄", text: "SRSが「忘れそうなタイミング」で自動出題。毎朝5分など、無理なく続けられる時間を決めて復習するのがおすすめ。定着度は既習度・使用頻度・復習回数によって異なる。" },
+              { icon: "📄", text: "小テストPDF（プレミアム）で、自分の復習用に小テスト形式で確認できる。" },
             ].map((item) => (
               <li key={item.icon} className="flex gap-2.5 text-sm text-navy-700">
                 <span className="shrink-0">{item.icon}</span>
@@ -220,7 +274,7 @@ export default function BusinessEnglishPage() {
         {/* CTA */}
         <div className="bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-6 text-white text-center">
           <div className="font-black text-lg mb-1">Loop Vocabulary でビジネス英語を始める</div>
-          <p className="text-sm text-navy-300 mb-4">SRS×AI解説×英文自動抽出。業務メールから単語帳を作れます。</p>
+          <p className="text-sm text-navy-300 mb-4">SRS×AI解説×AI抽出。自分の資料から単語帳を作れます。</p>
           <div className="flex gap-3 justify-center">
             <Link
               href="/signup"
@@ -257,6 +311,7 @@ export default function BusinessEnglishPage() {
         <GuideMaterialCTA
           heading="ビジネス英語の単語帳を無料でインポート"
           materials={[
+            { id: "96d6e5a2-c0f5-48b1-8eed-14a91424790f", title: "TOEIC頻出基礎単語" },
             { id: "00000000-0000-0000-0000-000000000031", title: "TOEIC 頻出単語 2500" },
           ]}
         />
