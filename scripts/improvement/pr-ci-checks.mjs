@@ -60,6 +60,15 @@ function inferCategoryTests(diffFiles) {
   if (
     diffFiles.some(
       (f) =>
+        f.includes("src/app/guide/daigaku-juken-tango/") ||
+        f === "scripts/testing/e2e/daigaku-juken-tango-content.mjs"
+    )
+  ) {
+    tests.add("test:daigaku-juken-tango-content");
+  }
+  if (
+    diffFiles.some(
+      (f) =>
         f === "scripts/testing/e2e/crawler-readable-pages.mjs" ||
         f === "scripts/testing/e2e/crawler-server-cleanup.mjs" ||
         f === "scripts/testing/lib/devServer.mjs"

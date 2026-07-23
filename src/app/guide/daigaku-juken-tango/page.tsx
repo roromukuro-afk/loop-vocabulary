@@ -73,7 +73,7 @@ const JSON_LD = {
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-09-01",
-  "dateModified": "2026-07-12",
+  "dateModified": "2026-07-23",
   "url": "https://loop-vocabulary.app/guide/daigaku-juken-tango",
 };
 
@@ -133,7 +133,7 @@ export default function DaigakuJukenPage() {
           <h2 className="font-black text-navy-800 text-lg mb-4">なぜSRS（間隔反復）で覚えるのか</h2>
           <div className="bg-navy-50 rounded-xl p-4 mb-4">
             <p className="text-sm text-navy-700 leading-relaxed">
-              エビングハウスの忘却曲線によると、人は1時間後に約56%、1週間後に77%を忘れます。SRS（Spaced Repetition System）は「忘れそうなタイミング」を計算して出題することで、最小の復習回数で最大の定着率を実現します。
+              エビングハウスの忘却曲線によると、人は1時間後に約56%、1週間後に77%を忘れます。SRS（Spaced Repetition System）は「忘れそうなタイミング」を計算して出題することで、効率よく記憶を定着させやすくなります。
             </p>
           </div>
           <div className="space-y-3">
@@ -152,6 +152,17 @@ export default function DaigakuJukenPage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* 単語を深く理解する方法 */}
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-3">英単語を深く理解する方法</h2>
+          <p className="text-sm text-navy-700 leading-relaxed">
+            英単語は意味を1つ覚えただけでは、入試の長文の中で「知っているはずなのに気づけない」状態になりがちです。語源・例文・ニュアンスをあわせて確認しておくと、初見の単語でも意味を推測しやすくなり、文中での使われ方も掴みやすくなります。
+          </p>
+          <p className="text-sm text-navy-700 leading-relaxed mt-3">
+            Loop Vocabularyには、単語ごとに例文・語源・覚え方（語呂合わせなど）・ニュアンスや入試での出方をAIが解説する機能があり、気になった語をその場で深掘りする使い方ができます。
+          </p>
         </div>
 
         {/* よくある失敗 */}
@@ -188,6 +199,52 @@ export default function DaigakuJukenPage() {
             ))}
           </div>
           <p className="text-xs text-sky-700 mt-3 font-medium">1日合計30分のスキマ学習で、1ヶ月に400〜500語を習得できます。</p>
+        </div>
+
+        {/* 単語帳の選び方 */}
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-3">単語帳の選び方</h2>
+          <p className="text-sm text-navy-700 leading-relaxed mb-3">
+            大学受験向けの定番単語帳は、それぞれ構成の考え方が異なります。自分の覚え方に合うものを選ぶと続けやすくなります。
+          </p>
+          <ul className="space-y-2">
+            <li className="text-sm text-navy-700 leading-relaxed flex gap-2">
+              <span className="text-navy-400">▸</span>
+              <span><strong>ターゲット1900</strong>：出る順（頻出度順）に並んでいるため、まず「よく出る語」から効率よく取り組みたい人に向いている構成。</span>
+            </li>
+            <li className="text-sm text-navy-700 leading-relaxed flex gap-2">
+              <span className="text-navy-400">▸</span>
+              <span><strong>システム英単語</strong>：短いフレーズ（ミニマルフレーズ）で意味とセットになっており、単語単体よりも「使われ方」を短いまとまりで覚えたい人に向いている構成。</span>
+            </li>
+            <li className="text-sm text-navy-700 leading-relaxed flex gap-2">
+              <span className="text-navy-400">▸</span>
+              <span><strong>DUO 3.0</strong>：1つの例文に複数の重要語を詰め込んだストーリー仕立てで、文脈の中でまとめて覚えたい人に向いている構成。</span>
+            </li>
+          </ul>
+          <p className="text-xs text-navy-500 leading-relaxed border-t border-navy-100 pt-3 mt-3">
+            どの単語帳を使う場合でも、自分でつまずいた語や、授業・過去問で確認した語を書き出して、学習用の単語帳へまとめておくと後から復習しやすくなります。Loop VocabularyではCSVでまとめて追加する使い方もできます。
+          </p>
+        </div>
+
+        {/* 継続するためのコツ */}
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-3">継続するためのコツ</h2>
+          <p className="text-sm text-navy-700 leading-relaxed mb-3">
+            英単語学習は一気に詰め込むよりも、無理なく続けられるかどうかが結果を左右します。次のようなことを意識してみましょう。
+          </p>
+          <ul className="space-y-1.5 mb-3">
+            {[
+              "最初から高い目標を設定せず、1日5〜10語など小さな目標から始める",
+              "毎日同じ時間帯に取り組む習慣にする（通学中・寝る前など）",
+              "新しい語より、間違えた語の復習を優先する",
+              "自分の学習状況を記録として見える形にしておく",
+            ].map((tip) => (
+              <li key={tip} className="text-xs text-navy-600 flex items-start gap-1.5"><span className="text-navy-400 mt-0.5">▸</span>{tip}</li>
+            ))}
+          </ul>
+          <p className="text-xs text-navy-500 leading-relaxed border-t border-navy-100 pt-3">
+            Loop Vocabularyでは、学習を続けた日数（ストリーク）や直近の正答率をグラフで確認できるほか、間違えた語を自動で「苦手リスト」にまとめ、次のバッジまでの進捗も表示されるので、続けていることを実感しやすくなっています。
+          </p>
         </div>
 
         {/* Amazon書籍 */}

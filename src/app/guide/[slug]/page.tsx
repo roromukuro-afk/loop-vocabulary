@@ -1744,12 +1744,16 @@ LEAPをテーマ単位で回しつつ、覚えにくい単語をLoop Vocabulary�
  *   上位互換。
  * - chugaku-eigo-tango(2026-07-22確認): 動的版固有だった月別学習スケジュールを
  *   静的版へ統合済み。教材CTA(GuideMaterialCTA)は静的版が動的版を包含。
+ * - daigaku-juken-tango(2026-07-23確認): 動的版固有だった単語帳の選び方・
+ *   継続のコツを、製品機能として裏付けが取れた範囲(CSV機能・AI解説機能・
+ *   ストリーク/正答率グラフ/苦手リスト/バッジ進捗)に限定して静的版へ統合済み。
+ *   教材CTA(GuideMaterialCTA)は静的版が動的版を包含。
  *
- * 他の保留slug(business-english-tango, daigaku-juken-tango, eiken-conversation,
- * eiken-jun1-tango, ielts-tango, toeic-tango)は今回の対象外(オーナー判断待ち、
+ * 他の保留slug(business-english-tango, eiken-conversation, eiken-jun1-tango,
+ * ielts-tango, toeic-tango)は今回の対象外(オーナー判断待ち、
  * scripts/testing/e2e/guide-route-collision.mjsのKNOWN_DEFERRED_COLLISIONS参照)。
  */
-const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango"]);
+const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango"]);
 
 export async function generateStaticParams() {
   return Object.keys(ARTICLES)
