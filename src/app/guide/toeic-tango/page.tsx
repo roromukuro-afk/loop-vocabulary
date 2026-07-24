@@ -8,7 +8,7 @@ import { ExamInfoDisclaimer } from "@/components/guide/ExamInfoDisclaimer";
 
 export const metadata: Metadata = {
   title: "TOEIC頻出単語の覚え方【スコア帯別ガイド】| Loop Vocabulary",
-  description: "TOEIC L&Rテストで頻出する単語・フレーズをスコア帯別に整理して解説。語彙学習の進め方と効率的な覚え方を紹介。",
+  description: "TOEIC L&Rテストで使われる単語・フレーズの学習方法を解説。スコア帯を一つの目安として、語彙を整理・復習する方法を紹介。",
   alternates: { canonical: "https://loop-vocabulary.app/guide/toeic-tango" },
 };
 
@@ -20,7 +20,7 @@ const SCORE_BANDS = [
     badge: "bg-sky-100 text-sky-700",
     topics: ["日常業務（メール・電話・会議）", "基本動詞（submit/discuss/schedule）", "オフィス用語（department/deadline/agenda）"],
     words: ["submit（提出する）", "arrange（手配する）", "notify（通知する）", "confirm（確認する）", "available（利用可能な）"],
-    tip: "まずは「日常ビジネス動詞100語」を重点的に。apply / confirm / request などの頻出コロケーションをセットで覚えましょう。",
+    tip: "まずは、メール・電話・会議で見かける基本的なビジネス動詞を重点的に確認しましょう。apply / confirm / request などの頻出コロケーションをセットで覚えましょう。",
   },
   {
     score: "600〜730点",
@@ -29,7 +29,7 @@ const SCORE_BANDS = [
     badge: "bg-emerald-100 text-emerald-700",
     topics: ["職場のやり取り（異議・提案・依頼）", "財務・数字（profit/revenue/budget）", "人事・採用（recruitment/promotion/evaluation）"],
     words: ["revenue（収益）", "provisional（暫定の）", "negotiate（交渉する）", "eligible（適格な）", "outstanding（優れた・未払いの）"],
-    tip: "Part5（文法）と連動する語彙問題が増える。名詞・動詞・形容詞・副詞の4品詞セット学習が効果的。",
+    tip: "Part5では、語彙だけでなく品詞の知識が選択肢の判断に役立つことがあります。名詞・動詞・形容詞・副詞を関連づけて確認しましょう。",
   },
   {
     score: "730〜860点",
@@ -52,7 +52,7 @@ const SCORE_BANDS = [
 ];
 
 const TIPS = [
-  { icon: "📰", title: "英語ビジネスメールを読む習慣をつける", desc: "BBC Business, Bloomberg, TechCrunch などを週2〜3記事。知らない単語をその場でアプリに登録しておくと、後から復習につなげやすくなる。" },
+  { icon: "📰", title: "英語のビジネス記事を読む習慣をつける", desc: "英語のビジネス記事を読み、分からなかった語句を記録しておくと、後から復習へつなげやすくなる。媒体（例: BBC Business, Bloomberg, TechCrunchなど）や頻度は自分の学習状況に合わせて選ぶとよい。" },
   { icon: "🔄", title: "同義語（パラフレーズ）を意識して学ぶ", desc: "TOEICでは、本文と設問・選択肢で言い換え表現が使われることがある。「purchase = buy」「notify = inform」のような対で覚える。" },
   { icon: "🎧", title: "シャドーイングで語彙を定着させる", desc: "音と意味をセットで練習すると想起速度の向上につながることがあり、Part3・4の速い会話でも意味を捉えやすくなることがある。" },
   { icon: "📊", title: "スコア帯を目安に目標語彙数を設定する", desc: "「今月200語追加」のように具体的な数を目標にすると、進捗が管理しやすくなる。" },
@@ -63,7 +63,7 @@ const JSON_LD = {
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "TOEIC頻出単語の覚え方【スコア帯別ガイド】",
-  "description": "TOEIC L&Rテストで頻出する単語・フレーズをスコア帯別に整理して解説。語彙学習の進め方と効率的な覚え方を紹介。",
+  "description": "TOEIC L&Rテストで使われる単語・フレーズの学習方法を解説。スコア帯を一つの目安として、語彙を整理・復習する方法を紹介。",
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-10-01",
@@ -108,7 +108,7 @@ export default function ToeicTangoPage() {
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
         <div className="text-[10px] font-bold uppercase tracking-widest text-navy-400 mb-3">TOEIC対策ガイド</div>
         <h1 className="text-2xl font-black leading-tight">TOEIC頻出単語<br />スコア帯別ガイド</h1>
-        <p className="mt-2 text-sm text-navy-300">スコア帯別の頻出語彙から効率的な覚え方まで</p>
+        <p className="mt-2 text-sm text-navy-300">スコア帯を目安に整理した語彙学習例と復習方法を紹介</p>
         <div className="mt-4 flex justify-center gap-3">
           <div className="bg-white/10 rounded-xl px-3 py-2 text-xs">600点 〜 990点</div>
           <div className="bg-white/10 rounded-xl px-3 py-2 text-xs">ビジネス英語</div>
@@ -119,7 +119,7 @@ export default function ToeicTangoPage() {
       <div className="max-w-2xl mx-auto px-4 mt-6 space-y-5">
         <div className="bg-white rounded-2xl border border-navy-100 p-5">
           <p className="text-base font-semibold text-navy-800 leading-relaxed">
-            結論: TOEICの語彙対策では、目標スコア帯に出やすい語彙をまとめて覚え、Part5の語彙問題や長文の読解でも思い出せるよう繰り返し復習する方法があります。必要な語彙量は現在の実力や目標スコア、学習状況によって異なるため、下記のスコア帯別の目安を参考に、自分に合った範囲から取り組むことをおすすめします。
+            結論: TOEICの語彙対策では、問題演習で出会った語句や現在の弱点に関係する語彙を整理し、Part5の語彙問題や長文の読解でも思い出せるよう繰り返し復習する方法があります。必要な学習量は現在の実力や目標、学習状況によって異なるため、模試や問題演習の結果を参考に、自分に合った範囲から取り組むことをおすすめします。
           </p>
         </div>
 
