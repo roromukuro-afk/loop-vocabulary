@@ -7,7 +7,7 @@ import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
 export const metadata: Metadata = {
   title: "ビジネス英語の必須単語・表現と実践的な覚え方 | Loop Vocabulary",
-  description: "会議・メール・プレゼンで使えるビジネス英語の頻出単語と表現を厳選。TOEIC 800点以上にも対応した語彙学習戦略を解説します。",
+  description: "会議・メール・プレゼンで使えるビジネス英語の頻出単語と表現を厳選。TOEICのビジネス語彙対策にも役立つ学習方法を解説します。",
   alternates: { canonical: "https://loop-vocabulary.app/guide/business-english-tango" },
   openGraph: {
     title: "ビジネス英語の必須単語・表現と実践的な覚え方",
@@ -124,7 +124,7 @@ export default function BusinessEnglishPage() {
             ビジネス英語
           </div>
           <h1 className="text-2xl font-black leading-tight">ビジネス英語<br />必須単語・表現の覚え方</h1>
-          <p className="mt-2 text-sm text-slate-300 max-w-sm mx-auto">メール・会議・プレゼン・交渉シーン別に厳選。TOEIC 800点以上にも対応。</p>
+          <p className="mt-2 text-sm text-slate-300 max-w-sm mx-auto">メール・会議・プレゼン・交渉シーン別に厳選。TOEICのビジネス語彙対策にも。</p>
         </div>
       </div>
 
@@ -233,7 +233,7 @@ export default function BusinessEnglishPage() {
           <div className="space-y-4">
             {[
               { num: "01", title: "コロケーションで覚える", desc: "「negotiate」単体ではなく「negotiate a deal / negotiate terms」のように名詞とセットで登録。フレーズ単位で学ぶと実践でも使いやすくなる。" },
-              { num: "02", title: "自分の資料で実践確認", desc: "自分で利用できるメールや資料から、知らない表現を抜き出して確認する。Loop VocabularyのAI抽出機能（プレミアム）を使うと、選んだ語句をまとめて単語帳へ追加できる。" },
+              { num: "02", title: "自分の資料で実践確認", desc: "個人情報・顧客情報・社内機密を含まない、自分で利用できる英文テキストから、確認したい表現を抜き出す。Loop VocabularyのAI抽出機能（プレミアム）では、選んだ語句を単語帳へ追加できます。" },
               { num: "03", title: "TOEICと並走する", desc: "TOEIC Part 6・7の長文にはビジネスシーンが頻出。問題演習で出会った単語をその日のうちにSRS登録する習慣をつける。" },
               { num: "04", title: "AI解説で使い方まで確認", desc: "「liaise（連絡を取り合う）」など日本語に訳しにくい語は、AI解説でコンテキストを複数確認する方法もある。" },
             ].map((tip) => (
@@ -253,7 +253,8 @@ export default function BusinessEnglishPage() {
           <h2 className="font-black text-navy-800 mb-3">Loop Vocabulary でビジネス英語を管理する</h2>
           <ul className="space-y-2.5">
             {[
-              { icon: "✨", text: "自分で利用できる英文メールや資料を貼り付けてAI抽出（プレミアム）。気になった語句を選んで単語帳へ追加できる。" },
+              { icon: "✨", text: "個人情報・顧客情報・社内機密を含まない英文テキストを貼り付けてAI抽出（プレミアム）。気になった語句を選んで単語帳へ追加できる。" },
+              { icon: "⚠️", text: "AI抽出を利用する際は、個人情報・顧客情報・社内機密を含む文章を入力しないでください。" },
               { icon: "📁", text: "「メール用語」「会議フレーズ」など用途別に単語帳を分けて管理。シーン別に素早く復習できる。" },
               { icon: "🔄", text: "SRSが「忘れそうなタイミング」で自動出題。毎朝5分など、無理なく続けられる時間を決めて復習するのがおすすめ。定着度は既習度・使用頻度・復習回数によって異なる。" },
               { icon: "📄", text: "小テストPDF（プレミアム）で、自分の復習用に小テスト形式で確認できる。" },
@@ -274,7 +275,7 @@ export default function BusinessEnglishPage() {
         {/* CTA */}
         <div className="bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-6 text-white text-center">
           <div className="font-black text-lg mb-1">Loop Vocabulary でビジネス英語を始める</div>
-          <p className="text-sm text-navy-300 mb-4">SRS×AI解説×AI抽出。自分の資料から単語帳を作れます。</p>
+          <p className="text-sm text-navy-300 mb-4">SRS×AI解説×AI抽出。入力して差し支えない英文テキストから単語帳を作れます。</p>
           <div className="flex gap-3 justify-center">
             <Link
               href="/signup"
