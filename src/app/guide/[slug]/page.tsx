@@ -1754,12 +1754,21 @@ LEAPをテーマ単位で回しつつ、覚えにくい単語をLoop Vocabulary�
  *   「必須単語300選」というtitle/H1の数値表現は、実際に掲載している語句数と
  *   一致しないため削除。AI自動抽出・小テストPDF等の製品説明は実装確認の上、
  *   Premium限定である旨・個人利用の範囲である旨を明示する表現へ修正。
+ * - eiken-conversation(2026-07-24確認): 動的版固有だった旅行語彙
+ *   (transit/fare/vacancy/concierge/bill/takeout)を空港・交通/ホテル/
+ *   レストランの3分類に整理して統合済み。教材CTA(元々静的版になし)を
+ *   動的版と同じ2件(日常英会話 基礎フレーズ・loop学びなおし英単語①)へ新規追加。
+ *   根拠のない数値(日常フレーズ約300語/旅行英語約150語/学習期間2〜3ヶ月)は
+ *   ページ内容から機械的に確認できる件数(4場面/20件/4つの学習方法)へ修正。
+ *   英会話表現の訳・ニュアンス(I hear you./Would you mind...?/Fair enough./
+ *   Absolutely./My bad./Could-Can)を監査し修正。音声読み上げ・AI解説等の
+ *   製品説明はブラウザ依存・モック開示を踏まえた表現へ修正。
  *
- * 他の保留slug(eiken-conversation, eiken-jun1-tango, ielts-tango,
- * toeic-tango)は今回の対象外(オーナー判断待ち、
+ * 他の保留slug(eiken-jun1-tango, ielts-tango, toeic-tango)は今回の対象外
+ * (オーナー判断待ち、
  * scripts/testing/e2e/guide-route-collision.mjsのKNOWN_DEFERRED_COLLISIONS参照)。
  */
-const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango", "business-english-tango"]);
+const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango", "business-english-tango", "eiken-conversation"]);
 
 export async function generateStaticParams() {
   return Object.keys(ARTICLES)

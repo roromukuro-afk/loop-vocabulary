@@ -41,6 +41,7 @@
     "test:chugaku-eigo-tango-content": "node scripts/testing/e2e/chugaku-eigo-tango-content.mjs",
     "test:daigaku-juken-tango-content": "node scripts/testing/e2e/daigaku-juken-tango-content.mjs",
     "test:business-english-tango-content": "node scripts/testing/e2e/business-english-tango-content.mjs",
+    "test:eiken-conversation-content": "node scripts/testing/e2e/eiken-conversation-content.mjs",
     "test:vocab-check-share-card": "node scripts/testing/e2e/vocab-check-share-card.mjs",
     "test:short-video-content-queue": "node scripts/testing/test-short-video-content-queue.mjs",
     "test:reports-page": "node scripts/testing/e2e/reports-page.mjs",
