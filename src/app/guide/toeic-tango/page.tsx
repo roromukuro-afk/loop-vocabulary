@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 const SCORE_BANDS = [
   {
     score: "〜600点",
-    vocab: "約3,000語",
+    theme: "基礎語彙・職場表現",
     color: "from-sky-500 to-sky-600",
     badge: "bg-sky-100 text-sky-700",
     topics: ["日常業務（メール・電話・会議）", "基本動詞（submit/discuss/schedule）", "オフィス用語（department/deadline/agenda）"],
@@ -24,7 +24,7 @@ const SCORE_BANDS = [
   },
   {
     score: "600〜730点",
-    vocab: "約5,000語",
+    theme: "語彙の拡張・財務・人事",
     color: "from-emerald-500 to-emerald-600",
     badge: "bg-emerald-100 text-emerald-700",
     topics: ["職場のやり取り（異議・提案・依頼）", "財務・数字（profit/revenue/budget）", "人事・採用（recruitment/promotion/evaluation）"],
@@ -33,7 +33,7 @@ const SCORE_BANDS = [
   },
   {
     score: "730〜860点",
-    vocab: "約7,000語",
+    theme: "応用語彙・法務・物流",
     color: "from-amber-500 to-amber-600",
     badge: "bg-amber-100 text-amber-700",
     topics: ["法務・契約（comply/regulation/liability）", "マーケティング（launch/brand/campaign）", "物流・サプライチェーン（shipment/inventory/procurement）"],
@@ -42,7 +42,7 @@ const SCORE_BANDS = [
   },
   {
     score: "860点〜",
-    vocab: "約10,000語",
+    theme: "発展語彙・抽象表現",
     color: "from-purple-500 to-purple-600",
     badge: "bg-purple-100 text-purple-700",
     topics: ["学術・専門用語（pharmaceutical/litigation/endorse）", "抽象概念（leverage/synergy/stakeholder）", "慣用表現（cut corners/get the ball rolling）"],
@@ -53,7 +53,7 @@ const SCORE_BANDS = [
 
 const TIPS = [
   { icon: "📰", title: "英語ビジネスメールを読む習慣をつける", desc: "BBC Business, Bloomberg, TechCrunch などを週2〜3記事。知らない単語をその場でアプリに登録しておくと、後から復習につなげやすくなる。" },
-  { icon: "🔄", title: "同義語（パラフレーズ）を意識して学ぶ", desc: "TOEICは言い換えで惑わす問題が多い。「purchase = buy」「notify = inform」のような対で覚える。" },
+  { icon: "🔄", title: "同義語（パラフレーズ）を意識して学ぶ", desc: "TOEICでは、本文と設問・選択肢で言い換え表現が使われることがある。「purchase = buy」「notify = inform」のような対で覚える。" },
   { icon: "🎧", title: "シャドーイングで語彙を定着させる", desc: "音と意味をセットで練習すると想起速度の向上につながることがあり、Part3・4の速い会話でも意味を捉えやすくなることがある。" },
   { icon: "📊", title: "スコア帯を目安に目標語彙数を設定する", desc: "「今月200語追加」のように具体的な数を目標にすると、進捗が管理しやすくなる。" },
   { icon: "🔍", title: "類義語のニュアンスを確認する", desc: "「rise」と「raise」のように似た意味の単語は、Loop VocabularyのAI解説（ニュアンス解説）で使い分けを確認できる。出力内容は辞書など他の情報源でも合わせて確認するとよい。" },
@@ -74,7 +74,7 @@ const JSON_LD = {
 const FAQ_ITEMS = [
   {
     q: "TOEICの単語対策はスコア帯によって変えるべきですか？",
-    a: "はい。600点までは日常業務の基本動詞、730点前後からは財務・人事などビジネス頻出語、860点以降は法務・マーケティング等の専門語彙と、出題される語彙の傾向がスコア帯ごとに変わっていきます。今のスコア帯に合った語彙から優先して覚えるのが効率的です。",
+    a: "ETS・IIBCによるスコア帯別の公式単語リストは確認できないため、模試や問題演習で分からなかった語句を記録し、現在の弱点に合わせて学習範囲を調整する方法があります。",
   },
   {
     q: "TOEICの単語は何周すれば覚えられますか？",
@@ -82,7 +82,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "TOEICの単語帳とビジネス英語の単語、両方やるべきですか？",
-    a: "TOEICの出題語彙とビジネスシーンで実際に使う語彙は重なる部分が多いため、TOEIC単語帳をベースにしつつ、実務で頻出する表現も合わせて覚えると、スコアと実務力の両方に効果的です。",
+    a: "TOEICの出題語彙とビジネスシーンで実際に使う語彙は重なる部分が多いため、TOEIC単語帳をベースにしつつ、実務で頻出する表現も合わせて覚えるのは、TOEIC対策と実務表現の学習を関連づける一つの方法です。",
   },
 ];
 
@@ -130,21 +130,16 @@ export default function ToeicTangoPage() {
           <p className="text-sm text-navy-600 leading-relaxed">
             TOEIC L&Rテストでは、Part5（文法・語彙）で語彙力が直接問われるほか、Part3・4（会話・説明）やPart7（長文）の読解・聴解にも語彙力が関わっていると言われています。目標スコアに応じて優先して覚える語彙を選ぶと、学習の進め方を決めやすくなります。
           </p>
-          <div className="mt-3 grid grid-cols-4 gap-2 text-center">
-            {[
-              { num: "600点", sub: "3,000語" },
-              { num: "730点", sub: "5,000語" },
-              { num: "860点", sub: "7,000語" },
-              { num: "990点", sub: "10,000語+" },
-            ].map((s) => (
-              <div key={s.num} className="bg-navy-50 rounded-xl p-2">
-                <div className="text-sm font-black text-navy-700">{s.num}</div>
-                <div className="text-[10px] text-navy-500">{s.sub}</div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+            {SCORE_BANDS.map((b) => (
+              <div key={b.score} className="bg-navy-50 rounded-xl p-2">
+                <div className="text-sm font-black text-navy-700">{b.score}</div>
+                <div className="text-[10px] text-navy-500">{b.theme}</div>
               </div>
             ))}
           </div>
           <p className="mt-2 text-[11px] text-navy-400 leading-relaxed">
-            ※ 上記の語彙数は、市販教材や過去の学習法で広く言及されている目安であり、ETS・IIBCが公式に発表している数値ではありません。スコアは語彙力以外の要素にも左右されるため、あくまで学習の目安としてご利用ください。
+            ※ この記事では、特定のスコアと必要とされる語彙の数を直接対応づけません。学習内容は、現在の理解度や模試・問題演習の結果に合わせて調整してください。
           </p>
           <div className="mt-4">
             <ExamInfoDisclaimer kind="toeic" />
@@ -152,16 +147,19 @@ export default function ToeicTangoPage() {
         </div>
 
         {/* スコア帯別単語 */}
-        <h2 className="font-black text-navy-800 text-lg px-1">スコア帯別 頻出単語</h2>
+        <div className="px-1">
+          <h2 className="font-black text-navy-800 text-lg">スコア帯を目安にした語彙学習例</h2>
+          <p className="text-xs text-navy-500 mt-1">以下は公式の出題区分ではなく、学習内容を整理するための一例です。</p>
+        </div>
         {SCORE_BANDS.map((b) => (
           <div key={b.score} className="bg-white rounded-2xl border border-navy-100 overflow-hidden">
             <div className={`bg-gradient-to-r ${b.color} px-5 py-4 text-white`}>
               <div className="font-black text-lg">{b.score}</div>
-              <div className="text-sm opacity-80">語彙数の目安：{b.vocab}</div>
+              <div className="text-sm opacity-80">学習テーマ例：{b.theme}</div>
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <div className="text-[11px] font-bold text-navy-700 mb-2">頻出トピック</div>
+                <div className="text-[11px] font-bold text-navy-700 mb-2">学習テーマ例</div>
                 <ul className="space-y-1">
                   {b.topics.map((t) => (
                     <li key={t} className="text-xs text-navy-600 flex gap-2">
@@ -171,7 +169,7 @@ export default function ToeicTangoPage() {
                 </ul>
               </div>
               <div>
-                <div className="text-[11px] font-bold text-navy-700 mb-2">このレベルの頻出単語</div>
+                <div className="text-[11px] font-bold text-navy-700 mb-2">語彙例</div>
                 <div className="flex flex-wrap gap-2">
                   {b.words.map((w) => (
                     <span key={w} className={`text-xs px-2 py-1 rounded-full font-medium ${b.badge}`}>{w}</span>
@@ -227,7 +225,7 @@ export default function ToeicTangoPage() {
                 </tr>
                 <tr>
                   <td className="py-2 pr-3 font-semibold">大学受験</td>
-                  <td className="py-2">長文読解・語彙問題。頻出度ランクが明確</td>
+                  <td className="py-2">大学・試験方式によって扱う語彙や文章の傾向が異なる</td>
                 </tr>
               </tbody>
             </table>

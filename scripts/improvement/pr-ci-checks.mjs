@@ -83,6 +83,7 @@ function inferCategoryTests(diffFiles) {
     )
   ) {
     tests.add("test:toeic-tango-content");
+    tests.add("test:guide-aeo-blocks");
   }
   if (
     diffFiles.some(
