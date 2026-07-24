@@ -1748,12 +1748,18 @@ LEAPをテーマ単位で回しつつ、覚えにくい単語をLoop Vocabulary�
  *   継続のコツを、製品機能として裏付けが取れた範囲(CSV機能・AI解説機能・
  *   ストリーク/正答率グラフ/苦手リスト/バッジ進捗)に限定して静的版へ統合済み。
  *   教材CTA(GuideMaterialCTA)は静的版が動的版を包含。
+ * - business-english-tango(2026-07-24確認): 動的版固有だったKPI・財務語彙の
+ *   使い分け、ビジネスメールの動詞アップグレード表を統合済み。教材CTAは
+ *   動的版と同じ2件(TOEIC頻出基礎単語・TOEIC 頻出単語 2500)へ揃えた。
+ *   「必須単語300選」というtitle/H1の数値表現は、実際に掲載している語句数と
+ *   一致しないため削除。AI自動抽出・小テストPDF等の製品説明は実装確認の上、
+ *   Premium限定である旨・個人利用の範囲である旨を明示する表現へ修正。
  *
- * 他の保留slug(business-english-tango, eiken-conversation, eiken-jun1-tango,
- * ielts-tango, toeic-tango)は今回の対象外(オーナー判断待ち、
+ * 他の保留slug(eiken-conversation, eiken-jun1-tango, ielts-tango,
+ * toeic-tango)は今回の対象外(オーナー判断待ち、
  * scripts/testing/e2e/guide-route-collision.mjsのKNOWN_DEFERRED_COLLISIONS参照)。
  */
-const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango"]);
+const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango", "business-english-tango"]);
 
 export async function generateStaticParams() {
   return Object.keys(ARTICLES)
