@@ -78,6 +78,16 @@ function inferCategoryTests(diffFiles) {
   if (
     diffFiles.some(
       (f) =>
+        f.includes("src/app/guide/toeic-tango/") ||
+        f === "scripts/testing/e2e/toeic-tango-content.mjs"
+    )
+  ) {
+    tests.add("test:toeic-tango-content");
+    tests.add("test:guide-aeo-blocks");
+  }
+  if (
+    diffFiles.some(
+      (f) =>
         f === "scripts/testing/e2e/crawler-readable-pages.mjs" ||
         f === "scripts/testing/e2e/crawler-server-cleanup.mjs" ||
         f === "scripts/testing/lib/devServer.mjs"
