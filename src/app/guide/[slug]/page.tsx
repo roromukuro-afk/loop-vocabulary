@@ -1754,6 +1754,12 @@ LEAPをテーマ単位で回しつつ、覚えにくい単語をLoop Vocabulary�
  *   「必須単語300選」というtitle/H1の数値表現は、実際に掲載している語句数と
  *   一致しないため削除。AI自動抽出・小テストPDF等の製品説明は実装確認の上、
  *   Premium限定である旨・個人利用の範囲である旨を明示する表現へ修正。
+ * - toeic-tango(2026-07-24確認): reports/exam-info-audit.md記載のスラッグ衝突を
+ *   根本解消。IIBC・ETSはスコア別必要語彙数を公式発表していないことをWeb検索で
+ *   確認した上で、「語彙力がスコアの30〜40%を左右」「最短ルート」「最短合格への
+ *   道」「600点突破のために3,000語」等、断定的・保証的な表現を削除しEXAM_INFO_
+ *   SOURCE_POLICY.mdに沿って軟化。動的版固有だった他試験との比較表を統合し、
+ *   教材CTAを動的版と同じ2件(TOEIC頻出基礎単語・TOEIC 頻出単語 2500)へ揃えた。
  * - eiken-conversation(2026-07-24確認): 動的版固有だった旅行語彙
  *   (transit/fare/vacancy/concierge/bill/takeout)を空港・交通/ホテル/
  *   レストランの3分類に整理して統合済み。教材CTA(元々静的版になし)を
@@ -1764,11 +1770,11 @@ LEAPをテーマ単位で回しつつ、覚えにくい単語をLoop Vocabulary�
  *   Absolutely./My bad./Could-Can)を監査し修正。音声読み上げ・AI解説等の
  *   製品説明はブラウザ依存・モック開示を踏まえた表現へ修正。
  *
- * 他の保留slug(eiken-jun1-tango, ielts-tango, toeic-tango)は今回の対象外
+ * 他の保留slug(eiken-jun1-tango, ielts-tango)は今回の対象外
  * (オーナー判断待ち、
  * scripts/testing/e2e/guide-route-collision.mjsのKNOWN_DEFERRED_COLLISIONS参照)。
  */
-const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango", "business-english-tango", "eiken-conversation"]);
+const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango", "business-english-tango", "toeic-tango", "eiken-conversation"]);
 
 export async function generateStaticParams() {
   return Object.keys(ARTICLES)

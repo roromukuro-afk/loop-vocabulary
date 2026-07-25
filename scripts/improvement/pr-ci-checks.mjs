@@ -83,6 +83,17 @@ function inferCategoryTests(diffFiles) {
     )
   ) {
     tests.add("test:eiken-conversation-content");
+    tests.add("test:guide-aeo-blocks");
+  }
+  if (
+    diffFiles.some(
+      (f) =>
+        f.includes("src/app/guide/toeic-tango/") ||
+        f === "scripts/testing/e2e/toeic-tango-content.mjs"
+    )
+  ) {
+    tests.add("test:toeic-tango-content");
+    tests.add("test:guide-aeo-blocks");
   }
   if (
     diffFiles.some(
