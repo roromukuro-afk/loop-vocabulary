@@ -78,6 +78,16 @@ function inferCategoryTests(diffFiles) {
   if (
     diffFiles.some(
       (f) =>
+        f.includes("src/app/guide/eiken-conversation/") ||
+        f === "scripts/testing/e2e/eiken-conversation-content.mjs"
+    )
+  ) {
+    tests.add("test:eiken-conversation-content");
+    tests.add("test:guide-aeo-blocks");
+  }
+  if (
+    diffFiles.some(
+      (f) =>
         f.includes("src/app/guide/toeic-tango/") ||
         f === "scripts/testing/e2e/toeic-tango-content.mjs"
     )

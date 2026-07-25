@@ -3,13 +3,14 @@ import Link from "next/link";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
+import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 
 export const metadata: Metadata = {
-  title: "英会話に効く英単語の覚え方【使えるフレーズ・旅行英語を習得】| Loop Vocabulary",
+  title: "英会話でよく使う英単語の覚え方【場面別フレーズ・旅行英語】| Loop Vocabulary",
   description: "日常英会話・旅行英語・ビジネス会話で実際に使える単語とフレーズの覚え方を解説。感情表現・口語表現・依頼表現など場面別に厳選。SRSで会話フレーズを定着させる方法も紹介。",
   alternates: { canonical: "https://loop-vocabulary.app/guide/eiken-conversation" },
   openGraph: {
-    title: "英会話に効く英単語の覚え方【場面別フレーズ・旅行英語】",
+    title: "英会話でよく使う英単語の覚え方【場面別フレーズ・旅行英語】",
     description: "日常英会話・旅行英語で使えるフレーズと語彙の覚え方を場面別に解説。",
     url: "https://loop-vocabulary.app/guide/eiken-conversation",
     type: "article",
@@ -30,10 +31,10 @@ const SCENES = [
     badge: "bg-emerald-100 text-emerald-700",
     phrases: [
       { en: "That makes sense.", jp: "なるほど、理解できた" },
-      { en: "Absolutely.", jp: "全くその通り" },
+      { en: "Absolutely.", jp: "もちろん・その通り" },
       { en: "No worries.", jp: "大丈夫、気にしないで" },
-      { en: "Fair enough.", jp: "まあ、そうだね" },
-      { en: "I hear you.", jp: "おっしゃる通り" },
+      { en: "Fair enough.", jp: "それなら納得だね" },
+      { en: "I hear you.", jp: "言いたいことは分かるよ" },
     ],
   },
   {
@@ -69,10 +70,44 @@ const SCENES = [
     badge: "bg-violet-100 text-violet-700",
     phrases: [
       { en: "Could you...?", jp: "〜していただけますか？" },
-      { en: "Would you mind...?", jp: "〜してもいいですか？" },
+      { en: "Would you mind helping me?", jp: "手伝っていただけますか？" },
       { en: "How about...?", jp: "〜はどうですか？" },
       { en: "Why don't we...?", jp: "〜しませんか？" },
-      { en: "I was wondering if...", jp: "もし〜できますでしょうか" },
+      { en: "I was wondering if...", jp: "〜していただけないかと思いまして" },
+    ],
+  },
+];
+
+const TRAVEL_CATEGORIES = [
+  {
+    title: "空港・交通",
+    icon: "✈️",
+    words: [
+      { en: "departure / arrival", jp: "出発 / 到着" },
+      { en: "gate", jp: "搭乗口" },
+      { en: "transit", jp: "乗り継ぎ" },
+      { en: "fare", jp: "運賃" },
+    ],
+  },
+  {
+    title: "ホテル",
+    icon: "🏨",
+    words: [
+      { en: "check-in / check-out", jp: "チェックイン / チェックアウト" },
+      { en: "reservation", jp: "予約" },
+      { en: "vacancy", jp: "空室" },
+      { en: "concierge", jp: "コンシェルジュ" },
+    ],
+  },
+  {
+    title: "レストラン",
+    icon: "🍽️",
+    words: [
+      { en: "menu", jp: "メニュー" },
+      { en: "recommendation", jp: "おすすめ" },
+      { en: "allergy", jp: "アレルギー" },
+      { en: "bill（英）/ check（米）", jp: "会計・勘定" },
+      { en: "takeaway（英）/ takeout（米）", jp: "持ち帰り" },
     ],
   },
 ];
@@ -82,25 +117,25 @@ const TIPS = [
     num: "01",
     icon: "🗂️",
     title: "フレーズ単位で登録する",
-    desc: "単語1語ではなく「No worries.」「That makes sense.」のようにフレーズごと Loop Vocabulary に登録。文脈ごと記憶することで実際の会話でも即座に出てくる。",
+    desc: "単語1語ではなく「No worries.」「That makes sense.」のようにフレーズごと Loop Vocabulary に登録する方法もあります。文脈ごと覚えることで、会話の中でも使いやすくなることがあります。",
   },
   {
     num: "02",
     icon: "🎧",
     title: "音声で発音を耳に入れる",
-    desc: "英会話では発音が重要。単語を登録したら音声読み上げボタンで正しい発音を確認。聞き慣れることでネイティブの英語が聞き取りやすくなる。",
+    desc: "英会話では発音を耳で確認することも役立ちます。対応するブラウザでは、単語を登録した後に音声読み上げボタンで発音を確認できます。音声は発音確認の一つの手がかりとして使いましょう。",
   },
   {
     num: "03",
     icon: "📓",
     title: "日常で出会った表現を即登録",
-    desc: "ドラマ・映画・英語ニュースで「これ何だろう？」と思った表現をその場で Loop Vocabulary に登録。出会った瞬間が記憶の第一歩。",
+    desc: "ドラマ・映画・英語ニュースで「これ何だろう？」と思った表現をその場で Loop Vocabulary に登録しておくと、後から復習しやすくなります。",
   },
   {
     num: "04",
     icon: "✍️",
     title: "アウトプットで定着させる",
-    desc: "覚えたフレーズを英語日記・SNS投稿・メモで使う。「読める」より「書ける・言える」状態にするには出力練習が不可欠。",
+    desc: "覚えたフレーズを英語日記・SNS投稿・メモで使ってみましょう。読むだけでなく書く・言う練習も、定着を助ける方法の一つです。",
   },
 ];
 
@@ -114,11 +149,12 @@ const CYCLE = [
 const JSON_LD = {
   "@context": "https://schema.org",
   "@type": "Article",
-  "headline": "英会話に効く英単語の覚え方【使えるフレーズ・旅行英語を習得】",
+  "headline": "英会話でよく使う英単語の覚え方【場面別フレーズ・旅行英語】",
   "description": "日常英会話・旅行英語・ビジネス会話で実際に使える単語とフレーズの覚え方を解説。",
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-12-15",
+  "dateModified": "2026-07-24",
   "url": "https://loop-vocabulary.app/guide/eiken-conversation",
 };
 
@@ -126,7 +162,7 @@ export default function EikenConversationPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <GuideTracker slug="eiken-conversation" />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"英会話に効く英単語の覚え方【使えるフレーズ・旅行英語を習得】","item":"https://loop-vocabulary.app/guide/eiken-conversation"}]}) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"英会話でよく使う英単語の覚え方【場面別フレーズ・旅行英語】","item":"https://loop-vocabulary.app/guide/eiken-conversation"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       {/* ヘッダー */}
@@ -136,8 +172,8 @@ export default function EikenConversationPage() {
           <div className="inline-block text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/30 border border-emerald-400/30 text-emerald-200 font-semibold mb-3">
             英会話
           </div>
-          <h1 className="text-2xl font-black leading-tight">英会話に効く<br />英単語の覚え方</h1>
-          <p className="mt-2 text-sm text-emerald-200 max-w-sm mx-auto">日常会話・旅行・ビジネスで使えるフレーズと語彙を場面別に完全解説</p>
+          <h1 className="text-2xl font-black leading-tight">英会話でよく使う<br />英単語の覚え方</h1>
+          <p className="mt-2 text-sm text-emerald-200 max-w-sm mx-auto">日常会話・旅行・ビジネスで使えるフレーズと語彙を場面別に紹介</p>
         </div>
       </div>
 
@@ -147,13 +183,13 @@ export default function EikenConversationPage() {
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           <h2 className="font-black text-navy-800 text-lg mb-3">英会話の語彙は「教科書英語」と何が違う？</h2>
           <p className="text-sm text-navy-700 leading-relaxed">
-            テストで高得点でも英会話が苦手な人が多い理由は、<strong>知識として単語を知っているが瞬時に口から出てこない</strong>から。英会話に必要なのは丸暗記でなく「フレーズ単位での使い慣れ」です。相づち・感情表現・依頼フレーズを場面別に覚えるのが最短ルートです。
+            テストで高得点でも英会話が苦手な人が多い理由は、<strong>知識として単語を知っているが瞬時に口から出てこない</strong>から。英会話に必要なのは丸暗記でなく「フレーズ単位での使い慣れ」です。相づち・感情表現・依頼フレーズを場面別に覚えるのも一つの方法です。
           </p>
           <div className="mt-4 grid grid-cols-3 gap-3">
             {[
-              { label: "日常フレーズ", value: "約300語" },
-              { label: "旅行英語", value: "約150語" },
-              { label: "学習期間目安", value: "2〜3ヶ月" },
+              { label: "学習シーン", value: "4場面" },
+              { label: "場面別フレーズ", value: "20件" },
+              { label: "学習方法", value: "4つ" },
             ].map((s) => (
               <div key={s.label} className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
                 <div className="text-xs font-black text-emerald-800">{s.value}</div>
@@ -178,6 +214,32 @@ export default function EikenConversationPage() {
                     <div key={p.en} className="flex items-start gap-2 text-xs">
                       <span className="font-semibold text-navy-800 flex-1">{p.en}</span>
                       <span className="text-navy-500 text-right shrink-0">{p.jp}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 旅行英語 必須語彙 */}
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-3">旅行英語 必須語彙</h2>
+          <p className="text-sm text-navy-700 leading-relaxed mb-4">
+            旅行中に使う可能性のある基本表現を、場面別に整理しました。
+          </p>
+          <div className="space-y-4">
+            {TRAVEL_CATEGORIES.map((cat) => (
+              <div key={cat.title} className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">{cat.icon}</span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-700">{cat.title}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {cat.words.map((w) => (
+                    <div key={w.en} className="flex items-start gap-2 text-xs">
+                      <span className="font-semibold text-navy-800 flex-1">{w.en}</span>
+                      <span className="text-navy-500 text-right shrink-0">{w.jp}</span>
                     </div>
                   ))}
                 </div>
@@ -220,7 +282,7 @@ export default function EikenConversationPage() {
             ))}
           </div>
           <p className="text-xs text-emerald-700 mt-4 font-medium text-center">
-            このサイクルを繰り返すことで「知ってる」が「使える」に変わります
+            このサイクルを繰り返すことで、フレーズを使いやすくなることがあります（定着度には個人差があります）。
           </p>
         </div>
 
@@ -230,8 +292,8 @@ export default function EikenConversationPage() {
           <div className="space-y-2">
             {[
               { formal: "I understand.", casual: "Got it. / I see.", note: "口語では短く切る" },
-              { formal: "I apologize.", casual: "Sorry! / My bad.", note: "謝罪は口語でも通じる" },
-              { formal: "Could you assist me?", casual: "Can you help me?", note: "Couldより Can が自然" },
+              { formal: "I apologize.", casual: "Sorry! / My bad.", note: "Sorry!は一般的なカジュアル表現、My bad.はさらにくだけた表現（親しい間柄向け）" },
+              { formal: "Could you assist me?", casual: "Can you help me?", note: "Canは日常的で直接的、Couldはより丁寧に聞こえることがある。相手や場面に応じて使い分ける。" },
               { formal: "I am unable to attend.", casual: "I can't make it.", note: "make it = 都合がつく" },
             ].map((r) => (
               <div key={r.formal} className="bg-navy-50 rounded-xl p-3">
@@ -261,7 +323,7 @@ export default function EikenConversationPage() {
         {/* CTA */}
         <div className="bg-gradient-to-r from-emerald-700 to-teal-800 rounded-2xl p-6 text-white text-center">
           <div className="font-black text-lg mb-1">Loop Vocabulary でフレーズを定着させる</div>
-          <p className="text-sm text-emerald-200 mb-4">場面別フレーズをSRSで自動管理。AI例文で使い方まで深掘りできます。</p>
+          <p className="text-sm text-emerald-200 mb-4">場面別フレーズをSRSで自動管理。AI解説は使い方を確認する目安として活用できます。</p>
           <div className="flex gap-3 justify-center">
             <Link
               href="/signup"
@@ -283,7 +345,7 @@ export default function EikenConversationPage() {
           <div className="text-sm font-bold text-navy-700 mb-3">関連ガイド</div>
           <div className="space-y-2">
             {[
-              { href: "/guide/business-english-tango", tag: "ビジネス英語", title: "ビジネス英語の必須単語300選と実践的な覚え方" },
+              { href: "/guide/business-english-tango", tag: "ビジネス英語", title: "ビジネス英語の必須単語・表現と実践的な覚え方" },
               { href: "/guide/eitango-oboeru-houhou", tag: "学習法", title: "英単語の覚え方・効率的な記憶術【自己想起×忘却曲線】" },
               { href: "/guide/ielts-tango", tag: "IELTS", title: "IELTSの英単語学習法【アカデミック語彙を効率的に覚える】" },
             ].map((r) => (
@@ -294,6 +356,14 @@ export default function EikenConversationPage() {
             ))}
           </div>
         </div>
+
+        <GuideMaterialCTA
+          heading="日常英会話の単語帳を無料でインポート"
+          materials={[
+            { id: "00000000-0000-0000-0000-000000000036", title: "日常英会話 基礎フレーズ" },
+            { id: "00000000-0000-0000-0000-000000000051", title: "loop学びなおし英単語①【日常生活】" },
+          ]}
+        />
 
         <div className="text-center">
           <Link href="/" className="text-sm text-navy-500 underline">← トップページ</Link>
