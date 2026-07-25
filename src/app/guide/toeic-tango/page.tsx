@@ -67,7 +67,7 @@ const JSON_LD = {
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-10-01",
-  "dateModified": "2026-07-24",
+  "dateModified": "2026-07-25",
   "url": "https://loop-vocabulary.app/guide/toeic-tango",
 };
 

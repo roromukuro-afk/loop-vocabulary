@@ -249,7 +249,7 @@ async function main() {
     const hasArticleLd = html.includes('"@type":"Article"');
     const hasBreadcrumbLd = html.includes('"@type":"BreadcrumbList"');
     const hasDatePublished = html.includes('"datePublished":"2024-10-01"');
-    const hasDateModified = html.includes('"dateModified":"2026-07-24"');
+    const hasDateModified = html.includes('"dateModified":"2026-07-25"');
     if (hasArticleLd && hasBreadcrumbLd) {
       ok("Article・BreadcrumbList JSON-LDが出力されている");
     } else {
@@ -261,9 +261,9 @@ async function main() {
       fail("Article JSON-LDのdatePublished(2024-10-01)が見つからない");
     }
     if (hasDateModified) {
-      ok("Article JSON-LDにdateModified(2026-07-24)が出力されている");
+      ok("Article JSON-LDにdateModified(2026-07-25)が出力されている");
     } else {
-      fail("Article JSON-LDにdateModified(2026-07-24)が見つからない");
+      fail("Article JSON-LDにdateModified(2026-07-25)が見つからない");
     }
 
     // ---- 11. ExamInfoDisclaimer(出典注記・最終確認日)が表示されている ----
