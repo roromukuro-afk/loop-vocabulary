@@ -1,18 +1,25 @@
 /**
  * キャンペーン計測（Growth OS）E2E検証。
  *
+ * 重要: このテストは /api/analytics/events へのPOSTをPlaywrightのpage.route()で
+ * 横取りし、「クライアントが送信しようとしたペイロード」を検証する（sanitize前）。
+ * API側のsanitizeProperties通過後に実際にDBへ保存される内容の検証は
+ * scripts/testing/test-analytics-event-sanitize.mjs（実装のisAllowedEventName/
+ * sanitizePropertiesを直接importする単体テスト）が担当する。両方が揃って初めて
+ * 「クライアントが正しい値を送り、かつサーバーがそれを保持する」ことを保証する。
+ *
  * 検証対象:
  * 1. トップページのUTM付きURLアクセス → 「無料で始める」CTAクリックで
  *    signup_cta_click イベントが発火し、campaign(トップレベル)とproperties内の
- *    utm_source/utm_medium/utm_contentが正しく渡ること。
- * 2. 同じUTMコンテキストのまま/vocab-check_check?を完了した場合、
- *    vocab_check_completedのpropertiesにもutm_source/utm_medium/utm_contentが
- *    含まれること（既存のvariant/correct/totalに加えて）。
+ *    utm_source/utm_medium/utm_campaign/utm_contentが正しく渡ること。
+ * 2. 同じUTMコンテキストのまま/vocab-checkを完了した場合、vocab_check_completedの
+ *    propertiesにもutm_source/utm_medium/utm_campaign/utm_contentが含まれること
+ *    （既存のvariant/correct/totalに加えて）。
  * 3. メールアドレス・user_id等の個人情報がpropertiesに含まれないこと（ホワイトリスト
- *    方式のsanitizePropertiesが機能していることの回帰確認）。
- *
- * /api/analytics/events へのPOSTをPlaywrightのpage.route()で横取りし、実際に
- * クライアントが送信するペイロードを直接検証する（本物のDB書き込みには依存しない）。
+ *    方式のsanitizePropertiesが機能していることの回帰確認。実際のsanitize通過後の
+ *    検証は上記の単体テスト側で行う）。
+ * 4. 同一タブでUTM無し(direct)訪問した後にUTM付きURLへ遷移した場合、キャッシュされた
+ *    directではなく新しいUTM値が採用されること(detectTrafficSourceの優先順位)。
  *
  * 使い方: node scripts/testing/e2e/campaign-funnel-tracking.mjs
  */
@@ -81,8 +88,13 @@ async function main() {
       if (cta.campaign === "first_50") ok("signup_cta_click.campaign(トップレベル)がutm_campaignから伝播する");
       else fail(`campaignフィールドが想定通りでない: ${JSON.stringify(cta.campaign)}`);
 
-      if (cta.properties?.utm_source === "x" && cta.properties?.utm_medium === "social" && cta.properties?.utm_content === "x_a_01") {
-        ok("signup_cta_click.properties に utm_source/utm_medium/utm_content が渡る");
+      if (
+        cta.properties?.utm_source === "x" &&
+        cta.properties?.utm_medium === "social" &&
+        cta.properties?.utm_campaign === "first_50" &&
+        cta.properties?.utm_content === "x_a_01"
+      ) {
+        ok("signup_cta_click.properties に utm_source/utm_medium/utm_campaign/utm_content が渡る");
       } else {
         fail(`UTM propertiesが想定通りでない: ${JSON.stringify(cta.properties)}`);
       }
@@ -126,8 +138,13 @@ async function main() {
       } else {
         fail(`correct/totalが想定通りでない: ${JSON.stringify(completed.properties)}`);
       }
-      if (completed.properties?.utm_source === "x" && completed.properties?.utm_content === "x_a_01") {
-        ok("vocab_check_completed.properties にも utm_source/utm_content が渡る");
+      if (
+        completed.properties?.utm_source === "x" &&
+        completed.properties?.utm_medium === "social" &&
+        completed.properties?.utm_campaign === "first_50" &&
+        completed.properties?.utm_content === "x_a_01"
+      ) {
+        ok("vocab_check_completed.properties にも utm_source/utm_medium/utm_campaign/utm_content が渡る");
       } else {
         fail(`vocab_check_completedのUTM propertiesが想定通りでない: ${JSON.stringify(completed.properties)}`);
       }
@@ -137,6 +154,34 @@ async function main() {
     else fail(`/vocab-check 完了操作中にエラー検出: ${vcErrors.join(" | ")}`);
 
     await vcContext.close();
+
+    // ---------- 3. 同一タブでdirect訪問後にUTM付きURLへ遷移した場合、新しいUTMが優先される ----------
+    const priorityContext = await browser.newContext();
+    const priorityPage = await priorityContext.newPage();
+    const priorityErrors = collectErrors(priorityPage);
+    const priorityCaptured = await interceptAnalyticsEvents(priorityPage);
+
+    // 1回目: UTM無しで訪問(direct/noneがsessionStorageにキャッシュされる想定)
+    await gotoReady(priorityPage, `${baseUrl}/`);
+    // 2回目: 同一タブ内でUTM付きURLへ遷移(sessionStorageは維持される)
+    await gotoReady(priorityPage, `${baseUrl}/?utm_source=instagram&utm_medium=social&utm_campaign=first_50&utm_content=ig_priority_test`);
+
+    await Promise.all([
+      priorityPage.waitForURL(/\/signup/, { timeout: 10000 }),
+      priorityPage.locator("header").getByText("無料で始める", { exact: true }).click(),
+    ]);
+
+    const priorityCta = findEvent(priorityCaptured, "signup_cta_click")[0];
+    if (priorityCta && priorityCta.campaign === "first_50" && priorityCta.properties?.utm_source === "instagram") {
+      ok("direct訪問後にUTM付きURLへ遷移した場合、キャッシュされたdirectではなく新しいUTM(instagram/first_50)が採用される");
+    } else {
+      fail(`セッションキャッシュより新しいUTMが優先されていない: ${JSON.stringify(priorityCta)}`);
+    }
+
+    if (priorityErrors.length === 0) ok("direct→UTM遷移の操作中にconsole error/5xxなし");
+    else fail(`direct→UTM遷移の操作中にエラー検出: ${priorityErrors.join(" | ")}`);
+
+    await priorityContext.close();
   } finally {
     await browser.close();
     stopDevServer(dev);

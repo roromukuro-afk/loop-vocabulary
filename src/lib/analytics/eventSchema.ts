@@ -51,9 +51,20 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
     category: "vocab_check",
     properties: { variant: "string", answered: "number", total: "number" },
   },
+  // utm_*: キャンペーン起点の語彙力チェック完了を計測するため、diagnostics完了時点の
+  // UTM値もproperties側に保存する(トップレベルcampaign列とは別に、イベント単位で
+  // source/medium/content込みの完全なアトリビューションを残す)。
   vocab_check_completed: {
     category: "vocab_check",
-    properties: { variant: "string", correct: "number", total: "number" },
+    properties: {
+      variant: "string",
+      correct: "number",
+      total: "number",
+      utm_source: "string",
+      utm_medium: "string",
+      utm_campaign: "string",
+      utm_content: "string",
+    },
   },
   vocab_check_result_viewed: {
     category: "vocab_check",

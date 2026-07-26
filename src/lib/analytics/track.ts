@@ -46,6 +46,34 @@ type TrafficSource = { source: string; medium: string; campaign: string; content
 
 function detectTrafficSource(): TrafficSource {
   if (typeof window === "undefined") return { source: "direct", medium: "none", campaign: "", content: "" };
+
+  // 優先順位:
+  // 1. 現在のURLにUTMがあれば、それを採用してキャッシュを更新する(同一タブでdirect訪問後に
+  //    UTM付きリンクへ遷移した場合等、古いキャッシュ値を優先して新しいキャンペーンの
+  //    アトリビューションを取りこぼさないため)。
+  // 2. 現在のURLにUTMが無ければ、このセッションで既に判定済みのキャッシュを使う。
+  // 3. どちらも無ければreferrer/direct判定。
+  const params = new URLSearchParams(window.location.search);
+  const utmSource = params.get("utm_source");
+
+  if (utmSource) {
+    const utmMedium = params.get("utm_medium");
+    const utmCampaign = (params.get("utm_campaign") ?? "").slice(0, 100);
+    const utmContent = (params.get("utm_content") ?? "").slice(0, 100);
+    const result: TrafficSource = {
+      source: utmSource.slice(0, 100),
+      medium: (utmMedium ?? "campaign").slice(0, 100),
+      campaign: utmCampaign,
+      content: utmContent,
+    };
+    try {
+      sessionStorage.setItem(SOURCE_STORAGE_KEY, JSON.stringify(result));
+    } catch {
+      /* noop */
+    }
+    return result;
+  }
+
   try {
     const cached = sessionStorage.getItem(SOURCE_STORAGE_KEY);
     if (cached) {
@@ -57,38 +85,23 @@ function detectTrafficSource(): TrafficSource {
     /* noop */
   }
 
-  const params = new URLSearchParams(window.location.search);
-  const utmSource = params.get("utm_source");
-  const utmMedium = params.get("utm_medium");
-  const utmCampaign = (params.get("utm_campaign") ?? "").slice(0, 100);
-  const utmContent = (params.get("utm_content") ?? "").slice(0, 100);
   let result: TrafficSource;
-
-  if (utmSource) {
-    result = {
-      source: utmSource.slice(0, 100),
-      medium: (utmMedium ?? "campaign").slice(0, 100),
-      campaign: utmCampaign,
-      content: utmContent,
-    };
+  const ref = document.referrer;
+  if (!ref) {
+    result = { source: "direct", medium: "none", campaign: "", content: "" };
   } else {
-    const ref = document.referrer;
-    if (!ref) {
-      result = { source: "direct", medium: "none", campaign: "", content: "" };
-    } else {
-      try {
-        const refHost = new URL(ref).host;
-        if (refHost.includes("google.")) result = { source: "google", medium: "organic", campaign: "", content: "" };
-        else if (refHost.includes("bing.")) result = { source: "bing", medium: "organic", campaign: "", content: "" };
-        else if (refHost.includes("chatgpt.com") || refHost.includes("openai.com"))
-          result = { source: "chatgpt", medium: "ai_search", campaign: "", content: "" };
-        else if (refHost.includes("perplexity.ai")) result = { source: "perplexity", medium: "ai_search", campaign: "", content: "" };
-        else if (refHost.includes("x.com") || refHost.includes("twitter.com"))
-          result = { source: "x", medium: "social", campaign: "", content: "" };
-        else result = { source: refHost.slice(0, 100), medium: "referral", campaign: "", content: "" };
-      } catch {
-        result = { source: "unknown", medium: "referral", campaign: "", content: "" };
-      }
+    try {
+      const refHost = new URL(ref).host;
+      if (refHost.includes("google.")) result = { source: "google", medium: "organic", campaign: "", content: "" };
+      else if (refHost.includes("bing.")) result = { source: "bing", medium: "organic", campaign: "", content: "" };
+      else if (refHost.includes("chatgpt.com") || refHost.includes("openai.com"))
+        result = { source: "chatgpt", medium: "ai_search", campaign: "", content: "" };
+      else if (refHost.includes("perplexity.ai")) result = { source: "perplexity", medium: "ai_search", campaign: "", content: "" };
+      else if (refHost.includes("x.com") || refHost.includes("twitter.com"))
+        result = { source: "x", medium: "social", campaign: "", content: "" };
+      else result = { source: refHost.slice(0, 100), medium: "referral", campaign: "", content: "" };
+    } catch {
+      result = { source: "unknown", medium: "referral", campaign: "", content: "" };
     }
   }
 
@@ -127,10 +140,16 @@ export function trackEvent(
     }
   }
 
-  // utm_source/utm_medium/utm_contentはイベントごとのproperties whitelist
+  // utm_source/utm_medium/utm_campaign/utm_contentはイベントごとのproperties whitelist
   // (eventSchema.ts)で許可されたイベントにのみ実際に保存される。未許可のイベントでは
-  // sanitizePropertiesが黙って除外するため、ここで無条件にマージしても安全。
-  const mergedProperties = { ...properties, utm_source: source, utm_medium: medium, utm_content: content };
+  // API側のsanitizePropertiesが黙って除外するため、ここで無条件にマージしても安全。
+  const mergedProperties = {
+    ...properties,
+    utm_source: source,
+    utm_medium: medium,
+    utm_campaign: campaign,
+    utm_content: content,
+  };
   void sendPayload([buildPayload(eventName, mergedProperties, anonymousSessionId, source, campaign)]);
 }
 
