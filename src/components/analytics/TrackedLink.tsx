@@ -13,8 +13,10 @@ type TrackableEvent = { [K in keyof typeof analytics]: (typeof analytics)[K] ext
  * サーバー→クライアントへ関数propsは渡せないため、イベント名(文字列)と
  * 引数(シリアライズ可能な値)だけを渡し、実際の呼び出しはクライアント側で行う。
  *
- * growthEvent/growthProperties は任意: 指定すると既存のGA4イベント(event/args)に加えて、
- * Supabase側のGrowth OSイベント(trackEvent)も同じクリックで発火する。
+ * event/args は任意: 既存のGA4イベント関数(src/lib/analytics/events.ts)と対応付ける場合に指定する。
+ * growthEvent/growthProperties も任意: 指定すると、GA4対応関数の有無に関わらず
+ * Supabase側のGrowth OSイベント(trackEvent)を同じクリックで発火する
+ * (UTM値はtrackEvent内部で自動付与されるため、ここで渡す必要はない)。
  */
 export function TrackedLink({
   href,
@@ -27,7 +29,7 @@ export function TrackedLink({
   ...rest
 }: {
   href: string;
-  event: TrackableEvent;
+  event?: TrackableEvent;
   args?: unknown[];
   growthEvent?: keyof typeof EVENT_SCHEMAS;
   growthProperties?: Record<string, string | number | boolean>;
@@ -39,8 +41,10 @@ export function TrackedLink({
       href={href}
       className={className}
       onClick={() => {
-        const fn = analytics[event] as TrackFn;
-        fn(...(args as never[]));
+        if (event) {
+          const fn = analytics[event] as TrackFn;
+          fn(...(args as never[]));
+        }
         if (growthEvent) trackEvent(growthEvent, growthProperties ?? {});
       }}
       {...rest}

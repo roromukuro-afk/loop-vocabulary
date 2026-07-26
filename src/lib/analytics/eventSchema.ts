@@ -76,6 +76,18 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   },
 
   // ── 登録・オンボーディング ─────────────────────────────
+  // signup_cta_click: トップページの「無料で始める」CTAクリック(サインアップページ到達前)。
+  // どの導線経由か(location)と、そのクリック時点のUTM値を合わせて記録する。
+  signup_cta_click: {
+    category: "onboarding",
+    properties: {
+      location: "string",
+      utm_source: "string",
+      utm_medium: "string",
+      utm_campaign: "string",
+      utm_content: "string",
+    },
+  },
   signup_started: { category: "onboarding", properties: { method: "string" } },
   signup_completed: { category: "onboarding", properties: { method: "string" } },
   onboarding_started: { category: "onboarding", properties: {} },

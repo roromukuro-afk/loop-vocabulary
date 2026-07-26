@@ -2,6 +2,7 @@ import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { Button } from "@/components/ui/Button";
 import { LandingPageTracker } from "./LandingPageTracker";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 
 type PublicStats = {
   materialCounts: { exam_type: string; count: number }[];
@@ -152,7 +153,9 @@ export default async function LandingPage() {
           </div>
           <div className="flex gap-2">
             <Link href="/login"><Button variant="ghost" size="sm">ログイン</Button></Link>
-            <Link href="/signup"><Button size="sm">無料で始める</Button></Link>
+            <TrackedLink href="/signup" growthEvent="signup_cta_click" growthProperties={{ location: "header" }}>
+              <Button size="sm">無料で始める</Button>
+            </TrackedLink>
           </div>
         </div>
       </header>
@@ -183,11 +186,11 @@ export default async function LandingPage() {
               仕上げの4択で確認、AIが語源・ニュアンスをその場で解説。
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <Link href="/signup">
+              <TrackedLink href="/signup" growthEvent="signup_cta_click" growthProperties={{ location: "hero" }}>
                 <Button size="lg" className="w-full sm:w-auto px-10 font-black">
                   無料で始める →
                 </Button>
-              </Link>
+              </TrackedLink>
               <Link href="/dictionary">
                 <Button size="lg" variant="ghost" className="w-full sm:w-auto text-navy-300 hover:text-white border border-white/10 hover:bg-white/10">
                   辞書だけ試す（登録不要）
@@ -462,9 +465,14 @@ export default async function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/signup" className="mt-7 block text-center bg-navy-100 hover:bg-navy-200 text-navy-800 font-bold py-3 rounded-xl transition-colors text-sm">
+              <TrackedLink
+                href="/signup"
+                growthEvent="signup_cta_click"
+                growthProperties={{ location: "pricing" }}
+                className="mt-7 block text-center bg-navy-100 hover:bg-navy-200 text-navy-800 font-bold py-3 rounded-xl transition-colors text-sm"
+              >
                 無料で始める
-              </Link>
+              </TrackedLink>
             </div>
 
             {/* プレミアムプラン */}
@@ -630,11 +638,11 @@ export default async function LandingPage() {
             英単語学習は「続けられるか」がすべて。<br />
             Loop Vocabularyは忘却曲線で、あなたの継続を全力でサポートします。
           </p>
-          <Link href="/signup">
+          <TrackedLink href="/signup" growthEvent="signup_cta_click" growthProperties={{ location: "footer_cta" }}>
             <Button size="lg" className="px-14 text-lg font-black shadow-lg shadow-sky-500/20">
               無料で始める →
             </Button>
-          </Link>
+          </TrackedLink>
           <div className="mt-6 flex items-center justify-center gap-4 text-xs text-navy-500">
             <span>✓ クレジットカード不要</span>
             <span>✓ 30秒で登録完了</span>
