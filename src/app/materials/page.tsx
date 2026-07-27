@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { createClient } from "@/lib/supabase/server";
 import { getPresetMeta } from "@/lib/materials/presetMeta";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 
 export const dynamic = "force-dynamic";
 
@@ -323,12 +324,14 @@ export default async function MaterialsPage({
           <div className="text-xs text-sky-800">
             <span className="font-bold">無料登録</span>すると単語帳にインポートして学習を記録できます
           </div>
-          <Link
+          <TrackedLink
             href="/signup"
+            growthEvent="signup_cta_click"
+            growthProperties={{ cta_location: "material" }}
             className="shrink-0 px-3 py-1.5 bg-sky-600 text-white text-xs font-bold rounded-xl hover:bg-sky-700 transition-colors"
           >
             無料で始める
-          </Link>
+          </TrackedLink>
         </div>
       )}
 

@@ -5,6 +5,7 @@
 import Script from "next/script";
 import { usePathname } from "next/navigation";
 import { isAdsAllowedPath } from "@/lib/ads/adRoutePolicy";
+import { buildAutoAdsInitScript } from "@/lib/ads/autoAdsInitScript";
 
 export function AdSenseLoader({ client }: { client?: string }) {
   const pathname = usePathname();
@@ -20,7 +21,7 @@ export function AdSenseLoader({ client }: { client?: string }) {
         crossOrigin="anonymous"
       />
       <Script id="adsense-auto-ads" strategy="afterInteractive">
-        {`(window.adsbygoogle=window.adsbygoogle||[]).push({google_ad_client:"${client}",enable_page_level_ads:true});`}
+        {buildAutoAdsInitScript(client)}
       </Script>
     </>
   );

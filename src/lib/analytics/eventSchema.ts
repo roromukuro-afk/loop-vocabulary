@@ -51,9 +51,20 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
     category: "vocab_check",
     properties: { variant: "string", answered: "number", total: "number" },
   },
+  // utm_*: キャンペーン起点の語彙力チェック完了を計測するため、diagnostics完了時点の
+  // UTM値もproperties側に保存する(トップレベルcampaign列とは別に、イベント単位で
+  // source/medium/content込みの完全なアトリビューションを残す)。
   vocab_check_completed: {
     category: "vocab_check",
-    properties: { variant: "string", correct: "number", total: "number" },
+    properties: {
+      variant: "string",
+      correct: "number",
+      total: "number",
+      utm_source: "string",
+      utm_medium: "string",
+      utm_campaign: "string",
+      utm_content: "string",
+    },
   },
   vocab_check_result_viewed: {
     category: "vocab_check",
@@ -76,6 +87,22 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   },
 
   // ── 登録・オンボーディング ─────────────────────────────
+  // signup_cta_click: 各種ページの「無料で始める」系CTAクリック(サインアップページ到達前)。
+  // どの導線経由か(cta_location)と、該当する場合は記事/教材の識別子(guide_slug/material_id)、
+  // そのクリック時点のUTM値を合わせて記録する。guide_slug/material_idは事前定義された
+  // 安全な識別子のみを許可し、自由記述(タイトル文言等)は送らない。
+  signup_cta_click: {
+    category: "onboarding",
+    properties: {
+      cta_location: "string",
+      guide_slug: "string",
+      material_id: "string",
+      utm_source: "string",
+      utm_medium: "string",
+      utm_campaign: "string",
+      utm_content: "string",
+    },
+  },
   signup_started: { category: "onboarding", properties: { method: "string" } },
   signup_completed: { category: "onboarding", properties: { method: "string" } },
   onboarding_started: { category: "onboarding", properties: {} },

@@ -219,7 +219,11 @@ export function VocabCheckRunner() {
             <div className="mt-4 flex gap-2 justify-center">
               <Link
                 href="/signup"
-                onClick={() => { trackVocabCheckCtaClick("general", "signup"); trackEvent("vocab_check_signup_clicked", { variant: "general" }); }}
+                onClick={() => {
+                  trackVocabCheckCtaClick("general", "signup");
+                  trackEvent("vocab_check_signup_clicked", { variant: "general" });
+                  trackEvent("signup_cta_click", { cta_location: "vocab_check_result" });
+                }}
                 className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
               >
                 無料で単語帳を作る →

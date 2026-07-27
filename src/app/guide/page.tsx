@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 
 export const metadata: Metadata = {
   title: "英単語学習ガイド | Loop Vocabulary",
@@ -430,12 +431,14 @@ export default function GuidePage() {
         <div className="bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-5 text-white text-center mt-6">
           <div className="font-black text-lg mb-1">今すぐ無料で始める</div>
           <p className="text-sm text-navy-300 mb-4">単語帳作成・忘却曲線復習・AI解説が全部無料</p>
-          <Link
+          <TrackedLink
             href="/signup"
+            growthEvent="signup_cta_click"
+            growthProperties={{ cta_location: "guide" }}
             className="inline-block px-6 py-3 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
           >
             無料登録 →
-          </Link>
+          </TrackedLink>
         </div>
 
         <div className="flex justify-center gap-4 text-sm flex-wrap pt-2">
