@@ -5,9 +5,23 @@ name: Analytics Production Canary
 # だけを実行し、PR headは一切checkoutしない。SUPABASE_SERVICE_ROLE_KEYは
 # "autonomous-improvement" GitHub Environment secretからのみ取得する(このEnvironment
 # のdeployment branch policyはprotected branchesのみに制限されている)。
-# scripts/testing/e2e/analytics-production-ingestion.mjs は既知のテストイベントを
-# 本番へ送信し、そのテストイベントが is_test_event=true として保存されることだけを
-# 確認する(ユーザーデータは読まない)。
+#
+# ここで実行する3テストは、テストスクリプト自身が直接secretを参照していなくても、
+# 起動する/api/analytics/eventsやgetAdminClient()が内部でSUPABASE_SERVICE_ROLE_KEYを
+# 使って実際にDBへ書き込むため、secretを一切渡さない独立PR CI(pr-quality-gate.yml)
+# では構造的に成功できない。そのためこのtrusted workflowへ集約する
+# (2026-07-27、PR #18のquality-gateでtest:analytics-rejection-reasonsが
+# insert_failedで落ちたことをきっかけに移設):
+# - test:analytics-production-ingestion: 既知のテストイベントを本番へ送信し、
+#   is_test_event=true として保存されることだけを確認する(ユーザーデータは読まない)。
+# - test:analytics-rejection-reasons: bot/origin/rate_limit/invalid_event/duplicateの
+#   各拒否理由コードに加え、正常系(accepted)の実際のDB insertも検証する。
+# - test:test-account-exclusion: Growth OS集計からテストアカウント/テストイベントが
+#   除外されていることのソースコード監査(こちらは実際にはDBアクセス不要だが、
+#   analytics関連の検証として同じtrusted workflowでまとめて実行する)。
+#
+# 3テストは個別のstepとして順番に実行する(continue-on-errorは付けない)。いずれかが
+# 失敗すればそこでjobは失敗し、後続stepは自動的にスキップされる(無制限リトライなし)。
 
 on:
   workflow_dispatch: {}
@@ -20,7 +34,7 @@ permissions:
 jobs:
   canary:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment: autonomous-improvement
     steps:
       - uses: actions/checkout@v4
@@ -38,3 +52,15 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run test:analytics-production-ingestion
+
+      - name: Run analytics rejection reasons check
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run test:analytics-rejection-reasons
+
+      - name: Run test-account exclusion audit
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run test:test-account-exclusion

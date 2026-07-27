@@ -130,16 +130,23 @@ function inferCategoryTests(diffFiles) {
     tests.add("test:public-dictionary-server-cleanup");
   }
   if (diffFiles.some((f) => f.includes("src/lib/analytics/") || f.includes("api/analytics/"))) {
-    // production Supabaseへの管理者権限接続(getAdminClient経由)を必要とする既存の
-    // analytics系テストは、この独立CI(真のsecretを一切渡さない設計)では構造的に
-    // 実行できないため、ここでは選ばない。本番ingestionの生存確認は別workflow
-    // (analytics-production-canary.yml、"autonomous-improvement" Environment secret
-    // 使用、PRの必須チェックではない)が専任で担当する。ここではsecret不要の範囲で
-    // 検証できるテストだけを選ぶ。
-    tests.add("test:analytics-rejection-reasons");
-    // 以下はPR #18(cta_location/UTM周りの計測修正)がmainへ統合された後に利用可能になる
-    // secretlessテスト。まだ存在しない場合は静かにスキップする(存在チェックにより、
-    // 統合後は自動的にこの独立CIでも実行されるようになる)。
+    // test:analytics-production-ingestion / test:analytics-rejection-reasons /
+    // test:test-account-exclusion はいずれも、テストスクリプト自身が直接secretを
+    // 参照していなくても、起動する/api/analytics/eventsやgetAdminClient()が内部で
+    // SUPABASE_SERVICE_ROLE_KEYを使ってDBへ実際に書き込む(createAdminClient()経由)。
+    // この独立CI(真のsecretを一切渡さない設計のpull_requestトリガー)では、
+    // "accepted"系の成功パスがinsert_failedで恒常的に失敗するため、3つとも選ばない
+    // (2026-07-27、PR #18のquality-gateでtest:analytics-rejection-reasonsが
+    // insert_failedで落ちたことで判明。この3テストはtrusted workflow
+    // analytics-production-canary.ymlへ移し、そちらで"autonomous-improvement"
+    // Environment secretを使って実行する)。
+    // ここではDBへの実書き込みを一切伴わない、真にsecretlessなテストだけを選ぶ:
+    // - test:analytics-event-sanitize: 実サーバーのeventSchema.tsを直接importする
+    //   純粋な単体テスト(ネットワーク・DB接続なし)
+    // - test:campaign-funnel-tracking: /api/analytics/eventsへのリクエストを
+    //   Playwrightのpage.route()で横取りし、実際のDB書き込みには到達しない
+    // まだmainに存在しない場合は静かにスキップする(scriptExists()の存在チェックにより、
+    // 該当PRの統合後は自動的にこの独立CIでも実行されるようになる)。
     for (const t of ["test:analytics-event-sanitize", "test:campaign-funnel-tracking"]) {
       if (scriptExists(t)) tests.add(t);
     }
