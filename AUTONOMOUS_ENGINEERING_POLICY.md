@@ -73,4 +73,4 @@ improvement_tasks.status = 'approved' (人間が承認)
 
 `.github/workflows/improvement-agent.yml`は`workflow_dispatch`トリガーのみを持つ(`schedule`トリガーは意図的に設定しない)。実行には`task_id`の入力を必須とし、人間が明示的にどのタスクを実行するか指定した場合にのみ動く。ワークフロー自体もmainブランチへの書き込み権限は`contents: write`を最小スコープで持つのみで、`pull-requests: write`はDraft PR作成のためだけに使う。mainブランチへのforce-pushやbranch protectionの変更権限は付与しない。
 
-<!-- protected-path-gate 実運用検証マーカー: このコメント行はprotected-path-gate.ymlの実地検証(test/protected-path-gate-live)のためだけに追加した、意味を変えない確認用コメントです。 -->
+<!-- protected-path-gate 実運用検証マーカー: このコメント行はprotected-path-gate.ymlの実地検証(test/protected-path-gate-live)のためだけに追加した、意味を変えない確認用コメントです。  -->
