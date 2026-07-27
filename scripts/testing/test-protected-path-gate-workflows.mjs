@@ -11,11 +11,16 @@
  *   PR head向けの`pull_request`ではない
  * - protected-path-gate.ymlのpermissionsが必要最小限(contents/pull-requests/issues
  *   はread、statusesはwrite。それ以外にwrite権限が無い)
- * - analytics-production-canaryは"autonomous-improvement" Environmentと
- *   SUPABASE_SERVICE_ROLE_KEYを使い、PRトリガー(pull_request/pull_request_target)
- *   では起動しない(workflow_dispatch/scheduleのみ)。DB書き込みを伴う3テスト
+ * - analytics-production-canaryは"autonomous-improvement" Environmentの
+ *   secrets(SUPABASE_SERVICE_ROLE_KEY)とvariables(NEXT_PUBLIC_SUPABASE_ANON_KEY)を
+ *   使い、PRトリガー(pull_request/pull_request_target)では起動しない
+ *   (workflow_dispatch/scheduleのみ)。DB書き込みを伴う3テスト
  *   (test:analytics-production-ingestion / test:analytics-rejection-reasons /
  *   test:test-account-exclusion)を順番に実行する
+ * - pr-quality-gate.ymlはNEXT_PUBLIC_SUPABASE_ANON_KEYのEnvironment variable
+ *   (vars.*)もSUPABASE_SERVICE_ROLE_KEYも参照しない
+ * - analytics-production-canary.ymlのpreflight stepは環境変数の値そのものを
+ *   echoしない(空チェックのみ)
  * - pr-ci-checks.mjsからReview API承認ロジックが削除されている
  * - pr-ci-checks.mjsのanalytics関連カテゴリテストの選択(inferCategoryTests)から、
  *   DBへ実際に書き込みうる3テスト(test:analytics-production-ingestion /
@@ -140,6 +145,25 @@ if (/secrets\.SUPABASE_SERVICE_ROLE_KEY/.test(canary)) {
   bad("analytics-production-canary.ymlがSUPABASE_SERVICE_ROLE_KEYを参照していない");
 }
 
+if (/vars\.NEXT_PUBLIC_SUPABASE_ANON_KEY/.test(canary)) {
+  ok("analytics-production-canary.ymlはNEXT_PUBLIC_SUPABASE_ANON_KEYを'autonomous-improvement' Environment variable(vars.*)経由で使う");
+} else {
+  bad("analytics-production-canary.ymlがNEXT_PUBLIC_SUPABASE_ANON_KEYをEnvironment variable経由で参照していない");
+}
+
+{
+  // preflight stepが環境変数の値そのものをechoしていないことを確認する(空チェックのみ)。
+  const preflightMatch = canaryRaw.match(/- name:[^\n]*Preflight[^\n]*\n(?:[^\n]*\n)*?(?=\n\s*-\s|\Z)/i);
+  const preflight = preflightMatch ? preflightMatch[0] : "";
+  if (preflight && !/echo\s+"?\$NEXT_PUBLIC_SUPABASE_ANON_KEY"?\b/.test(preflight) && !/echo\s+"?\$SUPABASE_SERVICE_ROLE_KEY"?\b/.test(preflight)) {
+    ok("analytics-production-canary.ymlのpreflight stepは環境変数の値そのものをechoしない(空チェックのみ)");
+  } else if (!preflight) {
+    bad("analytics-production-canary.ymlにpreflight stepが見つからない");
+  } else {
+    bad("analytics-production-canary.ymlのpreflight stepが環境変数の値をechoしている恐れがある");
+  }
+}
+
 if (!/^\s*pull_request/m.test(canary)) {
   ok("analytics-production-canary.ymlはpull_request/pull_request_targetでは起動しない(PRの必須チェックではない)");
 } else {
@@ -225,6 +249,12 @@ if (!/PR_HEAD_SHA/.test(qualityGate) && !/checkProtectedPathApproval/.test(quali
   ok("pr-quality-gate.ymlに承認確認用の環境変数・ロジックが残っていない");
 } else {
   bad("pr-quality-gate.ymlに承認確認用の設定が残っている");
+}
+
+if (!/vars\.NEXT_PUBLIC_SUPABASE_ANON_KEY/.test(qualityGate) && !/secrets\.SUPABASE_SERVICE_ROLE_KEY/.test(qualityGate)) {
+  ok("pr-quality-gate.ymlはNEXT_PUBLIC_SUPABASE_ANON_KEY(Environment variable)もSUPABASE_SERVICE_ROLE_KEYも参照しない(canaryだけがEnvironment secret/variableを使う)");
+} else {
+  bad("pr-quality-gate.ymlがcanary専用のEnvironment secret/variableを参照している");
 }
 
 console.log(fail ? `\n=== test:protected-path-gate-workflows: ${fail}件失敗 ===` : "\n=== test:protected-path-gate-workflows RESULT: all checks passed ===");
