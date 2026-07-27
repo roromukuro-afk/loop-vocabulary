@@ -173,7 +173,15 @@ export function EikenVocabRunner() {
             <div className="font-black text-base">英検合格に向けて語彙を効率的に増やす</div>
             <p className="text-xs text-navy-300 mt-1">SRS（忘却曲線）で英検頻出単語を体系的に記憶。合格まで最短ルートで進もう。</p>
             <div className="mt-4 flex gap-2 justify-center">
-              <Link href="/signup" onClick={() => { trackVocabCheckCtaClick("eiken", "signup"); trackEvent("vocab_check_signup_clicked", { variant: "eiken" }); }} className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">無料で始める →</Link>
+              <Link
+                href="/signup"
+                onClick={() => {
+                  trackVocabCheckCtaClick("eiken", "signup");
+                  trackEvent("vocab_check_signup_clicked", { variant: "eiken" });
+                  trackEvent("signup_cta_click", { cta_location: "vocab_check_result" });
+                }}
+                className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
+              >無料で始める →</Link>
               <Link href="/guide/eiken-2kyu-tango" onClick={() => trackVocabCheckCtaClick("eiken", "guide")} className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">英検2級ガイド</Link>
             </div>
           </div>

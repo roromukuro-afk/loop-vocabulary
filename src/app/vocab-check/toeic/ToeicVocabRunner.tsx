@@ -173,7 +173,15 @@ export function ToeicVocabRunner() {
             <div className="font-black text-base">TOEIC語彙を体系的に学ぶ</div>
             <p className="text-xs text-navy-300 mt-1">SRS（忘却曲線）でTOEIC頻出語を効率的に記憶。AI解説でコロケーションも確認。</p>
             <div className="mt-4 flex gap-2 justify-center">
-              <Link href="/signup" onClick={() => { trackVocabCheckCtaClick("toeic", "signup"); trackEvent("vocab_check_signup_clicked", { variant: "toeic" }); }} className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">無料で始める →</Link>
+              <Link
+                href="/signup"
+                onClick={() => {
+                  trackVocabCheckCtaClick("toeic", "signup");
+                  trackEvent("vocab_check_signup_clicked", { variant: "toeic" });
+                  trackEvent("signup_cta_click", { cta_location: "vocab_check_result" });
+                }}
+                className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
+              >無料で始める →</Link>
               <Link href="/guide/toeic-tango" onClick={() => trackVocabCheckCtaClick("toeic", "guide")} className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">学習ガイドを読む</Link>
             </div>
           </div>

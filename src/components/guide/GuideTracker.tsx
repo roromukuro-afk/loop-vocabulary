@@ -4,7 +4,7 @@ import { trackGuideRead, trackGuideCtaClick, trackGuideShareClick } from "@/lib/
 import { trackEvent } from "@/lib/analytics/track";
 
 /**
- * 記事表示イベントに加えて、記事内リンク（/vocab-check・/dictionary・/premium・
+ * 記事表示イベントに加えて、記事内リンク（/signup・/vocab-check・/dictionary・/premium・
  * 他のguide記事・Xシェア）のクリックを委譲リスナーで検出する。
  * 37以上ある個別記事ファイルを1件ずつ書き換えずに済むよう、ここ1箇所にまとめている。
  */
@@ -19,7 +19,9 @@ export function GuideTracker({ slug }: { slug: string }) {
       const href = a?.getAttribute("href");
       if (!href) return;
 
-      if (href.includes("twitter.com/intent") || href.includes("x.com/intent")) {
+      if (href.startsWith("/signup")) {
+        trackEvent("signup_cta_click", { cta_location: "guide", guide_slug: slug });
+      } else if (href.includes("twitter.com/intent") || href.includes("x.com/intent")) {
         trackGuideShareClick(slug);
       } else if (href.startsWith("/vocab-check")) {
         trackGuideCtaClick(slug, "vocab_check");

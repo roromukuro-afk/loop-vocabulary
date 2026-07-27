@@ -153,7 +153,7 @@ export default async function LandingPage() {
           </div>
           <div className="flex gap-2">
             <Link href="/login"><Button variant="ghost" size="sm">ログイン</Button></Link>
-            <TrackedLink href="/signup" growthEvent="signup_cta_click" growthProperties={{ location: "header" }}>
+            <TrackedLink href="/signup" growthEvent="signup_cta_click" growthProperties={{ cta_location: "header" }}>
               <Button size="sm">無料で始める</Button>
             </TrackedLink>
           </div>
@@ -186,7 +186,7 @@ export default async function LandingPage() {
               仕上げの4択で確認、AIが語源・ニュアンスをその場で解説。
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <TrackedLink href="/signup" growthEvent="signup_cta_click" growthProperties={{ location: "hero" }}>
+              <TrackedLink href="/signup" growthEvent="signup_cta_click" growthProperties={{ cta_location: "hero" }}>
                 <Button size="lg" className="w-full sm:w-auto px-10 font-black">
                   無料で始める →
                 </Button>
@@ -468,7 +468,7 @@ export default async function LandingPage() {
               <TrackedLink
                 href="/signup"
                 growthEvent="signup_cta_click"
-                growthProperties={{ location: "pricing" }}
+                growthProperties={{ cta_location: "pricing" }}
                 className="mt-7 block text-center bg-navy-100 hover:bg-navy-200 text-navy-800 font-bold py-3 rounded-xl transition-colors text-sm"
               >
                 無料で始める
@@ -638,7 +638,7 @@ export default async function LandingPage() {
             英単語学習は「続けられるか」がすべて。<br />
             Loop Vocabularyは忘却曲線で、あなたの継続を全力でサポートします。
           </p>
-          <TrackedLink href="/signup" growthEvent="signup_cta_click" growthProperties={{ location: "footer_cta" }}>
+          <TrackedLink href="/signup" growthEvent="signup_cta_click" growthProperties={{ cta_location: "footer_cta" }}>
             <Button size="lg" className="px-14 text-lg font-black shadow-lg shadow-sky-500/20">
               無料で始める →
             </Button>

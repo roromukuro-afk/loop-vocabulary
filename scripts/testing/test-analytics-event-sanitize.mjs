@@ -44,10 +44,10 @@ const PII_AND_UNKNOWN_PROBE = {
   random_unlisted_key: "should not survive",
 };
 
-// ── signup_cta_click ──────────────────────────────────────
+// ── signup_cta_click: header(cta_locationのみ) ────────────
 {
   const raw = {
-    location: "header",
+    cta_location: "header",
     utm_source: "x",
     utm_medium: "social",
     utm_campaign: "first_50",
@@ -57,10 +57,66 @@ const PII_AND_UNKNOWN_PROBE = {
   const sanitized = sanitizeProperties("signup_cta_click", raw);
   assertEqual(
     sanitized,
-    { location: "header", utm_source: "x", utm_medium: "social", utm_campaign: "first_50", utm_content: "x_a_01" },
-    "signup_cta_click: sanitize後にlocation/utm_source/utm_medium/utm_campaign/utm_contentが残る"
+    { cta_location: "header", utm_source: "x", utm_medium: "social", utm_campaign: "first_50", utm_content: "x_a_01" },
+    "signup_cta_click(header): sanitize後にcta_location/utm_source/utm_medium/utm_campaign/utm_contentが残り、guide_slug/material_idは含まれない"
   );
-  assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "signup_cta_click: sanitize後にemail/user_id/password/未許可キーが残らない");
+  assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "signup_cta_click(header): sanitize後にemail/user_id/password/未許可キーが残らない");
+}
+
+// ── signup_cta_click: guide(cta_location+guide_slug) ──────
+{
+  const raw = {
+    cta_location: "guide",
+    guide_slug: "toeic-tango",
+    material_id: "should-not-appear-since-not-a-material-cta",
+    utm_source: "x",
+    utm_medium: "social",
+    utm_campaign: "first_50",
+    utm_content: "x_a_01",
+    ...PII_AND_UNKNOWN_PROBE,
+  };
+  const sanitized = sanitizeProperties("signup_cta_click", raw);
+  assertEqual(
+    sanitized,
+    {
+      cta_location: "guide",
+      guide_slug: "toeic-tango",
+      material_id: "should-not-appear-since-not-a-material-cta",
+      utm_source: "x",
+      utm_medium: "social",
+      utm_campaign: "first_50",
+      utm_content: "x_a_01",
+    },
+    "signup_cta_click(guide): schemaで許可されたキーはguide_slug/material_idどちらも型が合えば残る(呼び出し側がmaterial_idを送らなければ実際には現れない)"
+  );
+  assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "signup_cta_click(guide): sanitize後にemail/user_id/password/未許可キーが残らない");
+}
+
+// ── signup_cta_click: material(cta_location+material_id、guide_slug無し) ──
+{
+  const raw = {
+    cta_location: "material",
+    material_id: "10000000-0000-0000-0000-000000000109",
+    utm_source: "x",
+    utm_medium: "social",
+    utm_campaign: "first_50",
+    utm_content: "x_a_01",
+    ...PII_AND_UNKNOWN_PROBE,
+  };
+  const sanitized = sanitizeProperties("signup_cta_click", raw);
+  assertEqual(
+    sanitized,
+    {
+      cta_location: "material",
+      material_id: "10000000-0000-0000-0000-000000000109",
+      utm_source: "x",
+      utm_medium: "social",
+      utm_campaign: "first_50",
+      utm_content: "x_a_01",
+    },
+    "signup_cta_click(material): sanitize後にcta_location/material_id/utm_*が残り、guide_slugは(送っていないので)含まれない"
+  );
+  assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "signup_cta_click(material): sanitize後にemail/user_id/password/未許可キーが残らない");
 }
 
 // ── vocab_check_completed ─────────────────────────────────

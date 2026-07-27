@@ -6,6 +6,7 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/server";
 import { ImportMaterialButton } from "./ImportMaterialButton";
 import { MaterialViewTracker } from "./MaterialViewTracker";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 import { PronounceButton } from "@/components/ui/PronounceButton";
 import { getPresetMeta } from "@/lib/materials/presetMeta";
 import { normalizeSiteUrl } from "@/lib/seo/siteUrl";
@@ -316,13 +317,15 @@ export default async function MaterialDetailPage({
             importedBookId={importedBook?.id ?? null}
           />
         ) : (
-          <Link
+          <TrackedLink
             href={`/signup?next=/materials/${material.id}`}
+            growthEvent="signup_cta_click"
+            growthProperties={{ cta_location: "material", material_id: material.id }}
             data-testid="material-signup-cta"
             className="block w-full text-center bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-4 rounded-2xl transition-colors text-sm"
           >
             無料登録して単語帳にインポート
-          </Link>
+          </TrackedLink>
         )}
       </div>
 
