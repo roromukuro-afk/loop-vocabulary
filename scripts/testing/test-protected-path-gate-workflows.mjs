@@ -13,10 +13,21 @@
  *   はread、statusesはwrite。それ以外にwrite権限が無い)
  * - analytics-production-canaryは"autonomous-improvement" Environmentと
  *   SUPABASE_SERVICE_ROLE_KEYを使い、PRトリガー(pull_request/pull_request_target)
- *   では起動しない(workflow_dispatch/scheduleのみ)
+ *   では起動しない(workflow_dispatch/scheduleのみ)。DB書き込みを伴う3テスト
+ *   (test:analytics-production-ingestion / test:analytics-rejection-reasons /
+ *   test:test-account-exclusion)を順番に実行する
  * - pr-ci-checks.mjsからReview API承認ロジックが削除されている
- * - pr-ci-checks.mjsのanalytics関連カテゴリテストからsecret必須のtest:
- *   analytics-production-ingestion / test:test-account-exclusion が外れている
+ * - pr-ci-checks.mjsのanalytics関連カテゴリテストの選択(inferCategoryTests)から、
+ *   DBへ実際に書き込みうる3テスト(test:analytics-production-ingestion /
+ *   test:analytics-rejection-reasons / test:test-account-exclusion)がすべて
+ *   実際の選択呼び出し(tests.add(...))として外れている(理由説明のコメント文中に
+ *   テスト名が出てくること自体は許容し、`tests.add("...")` という実際の呼び出しの
+ *   有無だけを見る)
+ * - pr-ci-checks.mjs / pr-quality-gate.ymlのどちらもSUPABASE_SERVICE_ROLE_KEYへの
+ *   実際のアクセス構文(`process.env.SUPABASE_SERVICE_ROLE_KEY` / `secrets.SUPABASE_SERVICE_ROLE_KEY`)
+ *   を持たない(analytics-production-canary.ymlだけがこれを参照する)
+ * - pr-ci-checks.mjsはanalytics差分でtest:analytics-event-sanitize/
+ *   test:campaign-funnel-trackingを(存在する場合のみ)選択する条件付きロジックを持つ
  * - pr-quality-gate.ymlのpermissionsがcontents:readのみに戻っている(承認ロジックは
  *   protected-path-gate.yml側へ完全に分離された)
  *
@@ -141,29 +152,62 @@ if (/workflow_dispatch/.test(canary) && /schedule:/.test(canary)) {
   bad("analytics-production-canary.ymlのtriggerがworkflow_dispatch/scheduleになっていない");
 }
 
-if (/test:analytics-production-ingestion/.test(canary)) {
-  ok("analytics-production-canary.ymlはtest:analytics-production-ingestionを実行する");
-} else {
-  bad("analytics-production-canary.ymlがtest:analytics-production-ingestionを実行していない");
+{
+  const dbDependentTests = ["test:analytics-production-ingestion", "test:analytics-rejection-reasons", "test:test-account-exclusion"];
+  const missing = dbDependentTests.filter((t) => !new RegExp(`npm run ${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(canary));
+  if (missing.length === 0) {
+    ok("analytics-production-canary.ymlはDB書き込みを伴う3テスト(production-ingestion/rejection-reasons/test-account-exclusion)を順番に実行する");
+  } else {
+    bad(`analytics-production-canary.ymlに含まれていないテストがある: ${missing.join(", ")}`);
+  }
+
+  // 各テストstepにcontinue-on-error: trueが付いていないこと(付いていると、途中失敗しても
+  // 後続テストが実行され続け、"失敗したら停止"にならない)
+  const stepsWithContinueOnError = canary.match(/- name:[^\n]*\n(?:[^\n]*\n)*?continue-on-error:\s*true/g) ?? [];
+  if (stepsWithContinueOnError.length === 0) {
+    ok("analytics-production-canary.ymlの各テストstepにcontinue-on-errorが付いていない(途中失敗で即座にjobが失敗する。無制限リトライも無い)");
+  } else {
+    bad("analytics-production-canary.ymlのテストstepにcontinue-on-errorが付いている(失敗を握りつぶしてしまう)");
+  }
 }
 
-// ── pr-ci-checks.mjs: Review API承認ロジックの削除・secretless analyticsテストへの切り替え ──
+// ── pr-ci-checks.mjs: Review API承認ロジックの削除・DB依存analyticsテストの完全除外 ──
 if (!/checkProtectedPathApproval/.test(prCiChecks) && !/protectedPathApproval\.mjs/.test(prCiChecks)) {
   ok("pr-ci-checks.mjsからReview API承認ロジック(checkProtectedPathApproval)が削除されている");
 } else {
   bad("pr-ci-checks.mjsにReview API承認ロジックがまだ残っている");
 }
 
-if (!/test:analytics-production-ingestion/.test(prCiChecks) && !/test:test-account-exclusion/.test(prCiChecks)) {
-  ok("pr-ci-checks.mjsのカテゴリ別テストからsecret必須のtest:analytics-production-ingestion/test:test-account-exclusionが外れている");
-} else {
-  bad("pr-ci-checks.mjsにsecret必須のanalyticsテストがまだ含まれている(untrusted CIで構造的に失敗し続ける)");
+{
+  // コメント文中に理由説明としてテスト名が出てくること自体は許容し、実際の選択呼び出し
+  // (tests.add("...")) が無いことだけを確認する。
+  const dbDependentTests = ["test:analytics-production-ingestion", "test:analytics-rejection-reasons", "test:test-account-exclusion"];
+  const stillSelected = dbDependentTests.filter((t) => new RegExp(`tests\\.add\\("${t}"\\)`).test(prCiChecks));
+  if (stillSelected.length === 0) {
+    ok("pr-ci-checks.mjsのinferCategoryTestsは、DBへ実際に書き込みうる3テスト(production-ingestion/rejection-reasons/test-account-exclusion)をいずれも選択しない(理由説明のコメントに名前が出てくるのは許容)");
+  } else {
+    bad(`pr-ci-checks.mjsが依然としてDB依存テストを選択している: ${stillSelected.join(", ")}`);
+  }
 }
 
-if (/test:analytics-rejection-reasons/.test(prCiChecks)) {
-  ok("pr-ci-checks.mjsはsecret不要のtest:analytics-rejection-reasonsをanalytics変更時に実行する");
-} else {
-  bad("pr-ci-checks.mjsにsecretless analyticsテストの代替が追加されていない");
+{
+  // SUPABASE_SERVICE_ROLE_KEYへの実際のアクセス構文(process.env.*)が無いことを確認する
+  // (コメント文中に環境変数名が出てくること自体は許容する)
+  if (!/process\.env\.SUPABASE_SERVICE_ROLE_KEY/.test(prCiChecks)) {
+    ok("pr-ci-checks.mjsはSUPABASE_SERVICE_ROLE_KEYへの実アクセス構文(process.env.*)を持たない");
+  } else {
+    bad("pr-ci-checks.mjsがSUPABASE_SERVICE_ROLE_KEYを直接参照している");
+  }
+}
+
+{
+  const secretlessTests = ["test:analytics-event-sanitize", "test:campaign-funnel-tracking"];
+  const missing = secretlessTests.filter((t) => !prCiChecks.includes(t));
+  if (missing.length === 0 && /scriptExists\(t\)/.test(prCiChecks)) {
+    ok("pr-ci-checks.mjsはanalytics差分でtest:analytics-event-sanitize/test:campaign-funnel-trackingを、存在確認(scriptExists)付きで選択する");
+  } else {
+    bad(`pr-ci-checks.mjsのsecretless analyticsテスト選択ロジックが想定通りでない(missing=${JSON.stringify(missing)})`);
+  }
 }
 
 // ── pr-quality-gate.yml: 承認ロジックはprotected-path-gate.ymlへ完全分離された ──
