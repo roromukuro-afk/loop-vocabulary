@@ -3,13 +3,16 @@
  * AUTONOMOUS_ENGINEERING_POLICY.md「Engineering AgentとPR Review/CIは論理的に分離する」を実装する。
  * Engineering Agent自身が実行したテスト結果は信用せず、ここで独立に再実行・検査する。
  *
- * Supabaseなどの真のリポジトリsecret(SUPABASE_SERVICE_ROLE_KEY等)には一切依存しない
- * (fork PRでも安全に実行できる設計)。禁止パス変更の承認確認にのみ、GitHub Actionsが
- * 実行ごとに自動発行する読み取り専用GITHUB_TOKEN(secretsとして登録された真のsecretではなく、
- * fork PRでもGitHub自身が自動的に読み取り専用へ制限する一時トークン)を使う
- * (protectedPathApproval.mjs参照)。結果はJSON summaryとしてstdoutとファイルに出力し、
- * GitHub Actionsのartifactとしてアップロードされる想定。DBへの反映は別workflow
- * (workflow_run、信頼コンテキスト)で行う。
+ * Supabaseなどの真のリポジトリsecretには一切依存しない(fork PRでも安全に実行できる設計)。
+ * 結果はJSON summaryとしてstdoutとファイルに出力し、GitHub Actionsのartifactとして
+ * アップロードされる想定。DBへの反映は別workflow(workflow_run、信頼コンテキスト)で行う。
+ *
+ * forbiddenPathPatterns/selfProtectionPathPatternsへの変更の最終承認判断は、この
+ * pull_requestトリガーの独立CI(PR headのコードをcheckout・実行する、信頼できない
+ * コンテキスト)では一切行わない。承認判断は base/main 側のコードだけで動く別workflow
+ * (.github/workflows/protected-path-gate.yml、pull_request_target/issue_comment)が
+ * 専任で担当する。ここでは禁止パスへの変更を検出して情報として記録するのみ(allPassed
+ * には影響させない)。
  *
  * 使い方: node scripts/improvement/pr-ci-checks.mjs [--base=origin/main] [--out=pr-ci-result.json]
  */
@@ -18,7 +21,6 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { FORBIDDEN, checkDiffSize, scanForSecrets, containsDestructiveMigration, MAX_CHANGED_FILES, MAX_CHANGED_LINES } from "./safety-checks.mjs";
-import { checkProtectedPathApproval } from "./protectedPathApproval.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dir, "../..");
@@ -44,6 +46,14 @@ function runCheck(name, fn) {
   } catch (e) {
     return { name, passed: false, error: e instanceof Error ? e.message.slice(0, 1000) : String(e) };
   }
+}
+
+let packageJsonScriptsCache;
+function scriptExists(name) {
+  if (!packageJsonScriptsCache) {
+    packageJsonScriptsCache = JSON.parse(readFileSync(resolve(REPO_ROOT, "package.json"), "utf8")).scripts ?? {};
+  }
+  return Object.prototype.hasOwnProperty.call(packageJsonScriptsCache, name);
 }
 
 function inferCategoryTests(diffFiles) {
@@ -120,8 +130,19 @@ function inferCategoryTests(diffFiles) {
     tests.add("test:public-dictionary-server-cleanup");
   }
   if (diffFiles.some((f) => f.includes("src/lib/analytics/") || f.includes("api/analytics/"))) {
-    tests.add("test:analytics-production-ingestion");
-    tests.add("test:test-account-exclusion");
+    // production Supabaseへの管理者権限接続(getAdminClient経由)を必要とする既存の
+    // analytics系テストは、この独立CI(真のsecretを一切渡さない設計)では構造的に
+    // 実行できないため、ここでは選ばない。本番ingestionの生存確認は別workflow
+    // (analytics-production-canary.yml、"autonomous-improvement" Environment secret
+    // 使用、PRの必須チェックではない)が専任で担当する。ここではsecret不要の範囲で
+    // 検証できるテストだけを選ぶ。
+    tests.add("test:analytics-rejection-reasons");
+    // 以下はPR #18(cta_location/UTM周りの計測修正)がmainへ統合された後に利用可能になる
+    // secretlessテスト。まだ存在しない場合は静かにスキップする(存在チェックにより、
+    // 統合後は自動的にこの独立CIでも実行されるようになる)。
+    for (const t of ["test:analytics-event-sanitize", "test:campaign-funnel-tracking"]) {
+      if (scriptExists(t)) tests.add(t);
+    }
   }
   if (diffFiles.some((f) => f.includes("src/app/api/"))) {
     tests.add("test:premium-gating");
@@ -139,30 +160,17 @@ async function main() {
   const totalLines = (diffStat.match(/\d+/g) ?? []).slice(1).reduce((s, n) => s + Number(n), 0);
   console.log(`files: ${diffFiles.length}, lines: ${totalLines}`);
 
-  // 1. 禁止パス検査。
-  // forbiddenPathPatterns自体・マッチ判定は一切変更しない(誰が変更しても既定で失敗)。
-  // ただし、GitHub Pull Request Reviews APIでCODEOWNERSオーナーが現在のHEAD SHAへ
-  // 明示的にAPPROVEDレビューを行っている場合に限り、監査可能な例外として通す
-  // (PR本文の自己申告やラベル付与だけでは通らない。新しいpush後は再承認が必要。
-  // 詳細はprotectedPathApproval.mjsのコメント参照)。
+  // 1. 禁止パス検出(情報記録のみ)。
+  // forbiddenPathPatterns自体・マッチ判定は一切変更しない。この独立CIはPR headの
+  // コードをcheckout・実行する信頼できないコンテキストであり、ここで承認可否を
+  // 判断すると、PR側のコード(このスクリプト自身を含む)が自分自身のゲート判定を
+  // 書き換えられてしまう。そのため承認可否の最終判断はここでは行わず、base/main側
+  // だけで動く protected-path-gate.yml(pull_request_target/issue_comment)に一任する。
+  // ここではallPassedに影響させず、検出結果のみをsummaryに記録する。
   const forbiddenHits = diffFiles.filter((f) => FORBIDDEN.forbiddenPathPatterns.some((p) => f.includes(p)));
-  let forbiddenPassed = forbiddenHits.length === 0;
-  let forbiddenError;
   if (forbiddenHits.length > 0) {
-    const approval = await checkProtectedPathApproval({
-      repo: process.env.GITHUB_REPOSITORY,
-      prNumber: process.env.PR_NUMBER,
-      headSha: process.env.PR_HEAD_SHA,
-      token: process.env.GH_TOKEN,
-    });
-    forbiddenPassed = approval.approved;
-    if (approval.approved) {
-      console.log(`✅ protected-path-approval: ${approval.reason}`);
-    } else {
-      forbiddenError = `禁止パスへの変更: ${forbiddenHits.join(", ")} (${approval.reason})`;
-    }
+    console.log(`ℹ️  禁止パスへの変更を検出(最終承認可否はprotected-path-gate.ymlが判断する): ${forbiddenHits.join(", ")}`);
   }
-  checks.push({ name: "forbidden-paths", passed: forbiddenPassed, error: forbiddenError });
 
   // 2. diff上限検査。自律agent(claim-and-run.mjs/patch-agent.mjs)が作るbranchは常に
   //    `improvement/<taskIdの先頭8文字>-<slug>` という命名規則に従う(3スクリプト共通)。
@@ -228,7 +236,15 @@ async function main() {
   }
 
   const allPassed = checks.every((c) => c.passed);
-  const summary = { allPassed, diffFiles, totalLines, checks, checkedAt: new Date().toISOString() };
+  const summary = {
+    allPassed,
+    diffFiles,
+    totalLines,
+    checks,
+    forbiddenPathsTouched: forbiddenHits,
+    protectedPathApprovalNote: "forbidden-paths/selfProtection-pathsの最終承認可否は protected-path-gate.yml(base/main側の信頼workflow)が判断する。ここでの検出は情報記録のみ。",
+    checkedAt: new Date().toISOString(),
+  };
   writeFileSync(resolve(REPO_ROOT, opts.out), JSON.stringify(summary, null, 2));
   console.log(JSON.stringify(summary, null, 2));
 
