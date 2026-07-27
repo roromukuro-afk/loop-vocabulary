@@ -8,6 +8,12 @@ name: PR Quality Gate
 # 別workflow(pr-quality-gate-reflect.yml, workflow_run トリガー、信頼コンテキスト)が
 # このworkflowの結果artifactを読んでSupabaseへ反映する。
 #
+# forbiddenPathPatterns/selfProtectionPathPatternsへの変更の承認可否は、この
+# pull_requestトリガー(PR headのコードをcheckout・実行する、信頼できないコンテキスト)
+# では一切判断しない。pr-ci-checks.mjsは検出結果を情報として記録するのみで、最終承認
+# 判断は base/main側だけで動く .github/workflows/protected-path-gate.yml
+# (pull_request_target/issue_comment)が専任で担当する。
+#
 # NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY はNEXT_PUBLIC_プレフィックスの
 # 規約どおりNext.jsのビルド時にクライアントバンドルへそのまま埋め込まれる値であり、
 # デプロイ済みの本番サイトを見れば誰でも取得できる。secretではないため、ここに直接

@@ -124,6 +124,8 @@
     "test:no-direct-main-push": "node scripts/testing/test-no-direct-main-push.mjs",
     "test:no-autonomous-deploy": "node scripts/testing/test-no-autonomous-deploy.mjs",
     "test:quality-gates": "node scripts/testing/test-quality-gates.mjs",
+    "test:protected-path-gate": "node scripts/testing/test-protected-path-gate.mjs",
+    "test:protected-path-gate-workflows": "node scripts/testing/test-protected-path-gate-workflows.mjs",
     "test:improvement-memory": "node scripts/testing/test-improvement-memory.mjs",
     "test:critical-issue-detection": "node scripts/testing/test-critical-issue-detection.mjs",
     "test:seo-issue-detection": "node scripts/testing/test-seo-issue-detection.mjs",
