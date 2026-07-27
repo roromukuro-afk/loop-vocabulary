@@ -1,0 +1,40 @@
+name: Analytics Production Canary
+
+# 本番analytics取り込みパイプライン(/api/analytics/events → Supabase)の生存確認。
+# PRの必須チェックではない(post-deploy canary)。default branch(main)の固定コード
+# だけを実行し、PR headは一切checkoutしない。SUPABASE_SERVICE_ROLE_KEYは
+# "autonomous-improvement" GitHub Environment secretからのみ取得する(このEnvironment
+# のdeployment branch policyはprotected branchesのみに制限されている)。
+# scripts/testing/e2e/analytics-production-ingestion.mjs は既知のテストイベントを
+# 本番へ送信し、そのテストイベントが is_test_event=true として保存されることだけを
+# 確認する(ユーザーデータは読まない)。
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 18 * * *" # 毎日 UTC 18:00 (JST 03:00)
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: autonomous-improvement
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm ci
+
+      - name: Run analytics production ingestion canary
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run test:analytics-production-ingestion

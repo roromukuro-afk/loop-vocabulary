@@ -1,0 +1,74 @@
+name: Protected Path Gate
+
+# base/mainのworkflow定義・スクリプトだけで動く信頼workflow。PR headのコードは
+# 一切checkout・実行しない。forbiddenPathPatterns(業務クリティカル: 決済/課金/
+# 広告/プライバシー/SRS/認証/analytics schema等)とselfProtectionPathPatterns
+# (このシステム自身の安全境界: .github/workflows/・scripts/improvement/・安全
+# ポリシー文書。承認判定コードであるこのworkflow自身とprotectedPathGate.mjsも含む)
+# の両方を保護対象とする。GitHub Issue CommentによるOWNERの明示承認コマンド
+# (/approve-protected-paths <SHA> / /revoke-protected-paths <SHA>)だけを正式な
+# 承認記録として扱う。PR本文・labelは一切参照しない。
+#
+# セキュリティ設計:
+# - pull_request_target / issue_comment はどちらも、GitHub Actions自身の仕様により
+#   常にbase branch(main)上のworkflow定義で実行される(PR側で書き換えたこの
+#   workflowファイル自体は反映されない)。
+# - actions/checkoutはrefを指定しない = このworkflowが動いているbase branchを
+#   checkoutする。PR headのSHAを明示的にcheckoutすることは一切ない。
+# - npm ci・npm run等、PR側のnpm scriptやpackage.jsonの内容には一切依存しない
+#   (protectedPathGate.mjsはNode組み込み機能とグローバルfetchのみで動く)。
+# - 変更ファイル一覧・issueコメント一覧はすべてGitHub REST APIから読み取るだけ。
+#   PR側のshell・workflowファイルを実行することは一切ない。
+# - 真のリポジトリsecretは一切参照しない。使うのはgithub.tokenコンテキストの
+#   実行ごとの一時トークンのみ。production DBへは接続しない。
+# - permissionsは必要最小限(contents:read / pull-requests:read / issues:read /
+#   statuses:write)。
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  statuses: write
+
+concurrency:
+  group: protected-path-gate-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    # issue_commentはPull Requestへのコメントのときだけ処理する(通常issueへの
+    # コメントでは github.event.issue.pull_request が存在しないため無視される)。
+    if: github.event_name == 'pull_request_target' || github.event.issue.pull_request != null
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # refを指定しない = このworkflow実行を積んでいるbase branch(main)をcheckoutする。
+      # PR headは一切checkoutしない。
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Determine PR number
+        id: pr
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
+            echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run protected-path-gate
+        env:
+          # 真のリポジトリsecretではなく、Actionsが実行ごとに自動発行する読み取り専用
+          # トークン(github.tokenコンテキスト)。statuses:write権限の範囲でのみ使う。
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: node scripts/improvement/protectedPathGate.mjs
