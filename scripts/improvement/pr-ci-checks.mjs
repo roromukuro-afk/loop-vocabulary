@@ -3,9 +3,13 @@
  * AUTONOMOUS_ENGINEERING_POLICY.md「Engineering AgentとPR Review/CIは論理的に分離する」を実装する。
  * Engineering Agent自身が実行したテスト結果は信用せず、ここで独立に再実行・検査する。
  *
- * Supabaseなどのsecretには一切依存しない(fork PRでも安全に実行できる設計)。
- * 結果はJSON summaryとしてstdoutとファイルに出力し、GitHub Actionsのartifactとして
- * アップロードされる想定。DBへの反映は別workflow(workflow_run、信頼コンテキスト)で行う。
+ * Supabaseなどの真のリポジトリsecret(SUPABASE_SERVICE_ROLE_KEY等)には一切依存しない
+ * (fork PRでも安全に実行できる設計)。禁止パス変更の承認確認にのみ、GitHub Actionsが
+ * 実行ごとに自動発行する読み取り専用GITHUB_TOKEN(secretsとして登録された真のsecretではなく、
+ * fork PRでもGitHub自身が自動的に読み取り専用へ制限する一時トークン)を使う
+ * (protectedPathApproval.mjs参照)。結果はJSON summaryとしてstdoutとファイルに出力し、
+ * GitHub Actionsのartifactとしてアップロードされる想定。DBへの反映は別workflow
+ * (workflow_run、信頼コンテキスト)で行う。
  *
  * 使い方: node scripts/improvement/pr-ci-checks.mjs [--base=origin/main] [--out=pr-ci-result.json]
  */
@@ -14,6 +18,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { FORBIDDEN, checkDiffSize, scanForSecrets, containsDestructiveMigration, MAX_CHANGED_FILES, MAX_CHANGED_LINES } from "./safety-checks.mjs";
+import { checkProtectedPathApproval } from "./protectedPathApproval.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dir, "../..");
@@ -134,13 +139,30 @@ async function main() {
   const totalLines = (diffStat.match(/\d+/g) ?? []).slice(1).reduce((s, n) => s + Number(n), 0);
   console.log(`files: ${diffFiles.length}, lines: ${totalLines}`);
 
-  // 1. 禁止パス検査
+  // 1. 禁止パス検査。
+  // forbiddenPathPatterns自体・マッチ判定は一切変更しない(誰が変更しても既定で失敗)。
+  // ただし、GitHub Pull Request Reviews APIでCODEOWNERSオーナーが現在のHEAD SHAへ
+  // 明示的にAPPROVEDレビューを行っている場合に限り、監査可能な例外として通す
+  // (PR本文の自己申告やラベル付与だけでは通らない。新しいpush後は再承認が必要。
+  // 詳細はprotectedPathApproval.mjsのコメント参照)。
   const forbiddenHits = diffFiles.filter((f) => FORBIDDEN.forbiddenPathPatterns.some((p) => f.includes(p)));
-  checks.push({
-    name: "forbidden-paths",
-    passed: forbiddenHits.length === 0,
-    error: forbiddenHits.length > 0 ? `禁止パスへの変更: ${forbiddenHits.join(", ")}` : undefined,
-  });
+  let forbiddenPassed = forbiddenHits.length === 0;
+  let forbiddenError;
+  if (forbiddenHits.length > 0) {
+    const approval = await checkProtectedPathApproval({
+      repo: process.env.GITHUB_REPOSITORY,
+      prNumber: process.env.PR_NUMBER,
+      headSha: process.env.PR_HEAD_SHA,
+      token: process.env.GH_TOKEN,
+    });
+    forbiddenPassed = approval.approved;
+    if (approval.approved) {
+      console.log(`✅ protected-path-approval: ${approval.reason}`);
+    } else {
+      forbiddenError = `禁止パスへの変更: ${forbiddenHits.join(", ")} (${approval.reason})`;
+    }
+  }
+  checks.push({ name: "forbidden-paths", passed: forbiddenPassed, error: forbiddenError });
 
   // 2. diff上限検査。自律agent(claim-and-run.mjs/patch-agent.mjs)が作るbranchは常に
   //    `improvement/<taskIdの先頭8文字>-<slug>` という命名規則に従う(3スクリプト共通)。

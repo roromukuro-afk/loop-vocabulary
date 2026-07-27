@@ -3,10 +3,18 @@ name: PR Quality Gate
 # 独立CI(pull_requestトリガー)。Engineering Agent自身が実行したテスト結果を信用せず、
 # ここで完全に独立して再検査する(AUTONOMOUS_ENGINEERING_POLICY.md参照)。
 #
-# secretは一切渡さない(fork PR/信頼できないコードでも安全)。permissionsも
-# contents:read のみに絞る。DBへの結果反映はこのworkflowでは行わない —
-# 別workflow(pr-quality-gate-reflect.yml, workflow_run トリガー、信頼コンテキスト)が
-# このworkflowの結果artifactを読んでSupabaseへ反映する。
+# 真のリポジトリsecret(SUPABASE_SERVICE_ROLE_KEY等)は一切渡さない(fork PR/信頼できない
+# コードでも安全。scripts/testing/test-independent-pr-ci.mjsが、リポジトリsecretへの
+# アクセス構文がこのファイルに一切現れないことを回帰テストしている)。
+# permissionsは contents:read に加え、禁止パス変更の承認確認(protectedPathApproval.mjs)
+# のためだけに pull-requests:read を付与する。この権限はPRのレビュー一覧を読むためだけに
+# 使い、書き込み・secretへのアクセスは一切含まない。GH_TOKENにはgithub.tokenコンテキストの
+# 値(GitHub Actionsが実行ごとに自動発行する読み取り専用の一時トークンで、登録済みリポジトリ
+# secretとは別物)を渡す。fork PRではGitHubが自動的にこのトークンを読み取り専用へ制限するため、
+# この変更でfork PR経由の漏洩リスクは増えない。
+# DBへの結果反映はこのworkflowでは行わない — 別workflow(pr-quality-gate-reflect.yml,
+# workflow_run トリガー、信頼コンテキスト)がこのworkflowの結果artifactを読んで
+# Supabaseへ反映する。
 #
 # NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY はNEXT_PUBLIC_プレフィックスの
 # 規約どおりNext.jsのビルド時にクライアントバンドルへそのまま埋め込まれる値であり、
@@ -24,6 +32,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: pr-quality-gate-${{ github.event.pull_request.number }}
@@ -57,6 +66,12 @@ jobs:
       - name: Run independent quality gate checks
         id: checks
         continue-on-error: true
+        env:
+          # 禁止パス変更の承認確認(protectedPathApproval.mjs)にのみ使う読み取り専用トークン。
+          # github.tokenコンテキストの値(実行ごとに自動発行される一時トークン)を渡す。
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node scripts/improvement/pr-ci-checks.mjs --base=origin/main --out=pr-ci-result.json
 
       - name: Save PR metadata for the reflect workflow
