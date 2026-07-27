@@ -5,6 +5,12 @@ name: Analytics Production Canary
 # だけを実行し、PR headは一切checkoutしない。SUPABASE_SERVICE_ROLE_KEYは
 # "autonomous-improvement" GitHub Environment secretからのみ取得する(このEnvironment
 # のdeployment branch policyはprotected branchesのみに制限されている)。
+# NEXT_PUBLIC_SUPABASE_ANON_KEYは同じEnvironmentのvariable(公開クライアントキーであり
+# secretではない。pr-quality-gate.ymlに既に平文で記載されている値と同一)から取得する。
+#
+# 2026-07-27の初回実行がtest:analytics-production-ingestionの`npm run build`段階で
+# SUPABASE_NOT_CONFIGURED(/dictionary/[word]の静的生成に必要なNEXT_PUBLIC_SUPABASE_ANON_KEY
+# 未設定)により失敗したため、このEnvironment variableを追加した。
 #
 # ここで実行する3テストは、テストスクリプト自身が直接secretを参照していなくても、
 # 起動する/api/analytics/eventsやgetAdminClient()が内部でSUPABASE_SERVICE_ROLE_KEYを
@@ -36,6 +42,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: autonomous-improvement
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,20 +57,25 @@ jobs:
 
       - run: npm ci
 
+      # 値そのものは一切表示せず、3つの環境変数が空でないことだけを確認する。
+      # 不足があれば変数名だけを表示してjobを失敗させる(secretをechoしない)。
+      - name: Preflight - verify required env vars are present
+        run: |
+          missing=""
+          [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && missing="$missing NEXT_PUBLIC_SUPABASE_URL"
+          [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] && missing="$missing NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing="$missing SUPABASE_SERVICE_ROLE_KEY"
+          if [ -n "$missing" ]; then
+            echo "Missing required env var(s):$missing"
+            exit 1
+          fi
+          echo "All required env vars are present (values not shown)."
+
       - name: Run analytics production ingestion canary
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run test:analytics-production-ingestion
 
       - name: Run analytics rejection reasons check
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run test:analytics-rejection-reasons
 
       - name: Run test-account exclusion audit
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run test:test-account-exclusion
