@@ -8,6 +8,7 @@
  */
 
 const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
+const REQUEST_TIMEOUT_MS = 10 * 1000; // 接続は成立したが応答が返らないケースに備えた上限
 
 // 同一URLを短時間に繰り返し送信しない簡易デデュープ/レートリミット。
 //
@@ -99,11 +100,17 @@ export async function submitUrlsToIndexNow(urls: string[]): Promise<SubmitIndexN
     urlList: toSubmit,
   };
 
+  // 接続自体は成立したが応答が返ってこない("stall")ケースに備え、AbortSignal.timeout()で
+  // 上限を設ける。これが無いと、cronルート/管理画面からの手動トリガーがプラットフォームの
+  // 関数タイムアウトまでハングし続け、約束している{ok:false}の即時返却ができなくなる。
+  const timeoutSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+
   try {
     const res = await fetch(INDEXNOW_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8" },
       body: JSON.stringify(payload),
+      signal: timeoutSignal,
     });
 
     // 成功(仕様上は200または202)のURLのみ「送信済み」として記録する。
@@ -121,8 +128,15 @@ export async function submitUrlsToIndexNow(urls: string[]): Promise<SubmitIndexN
     console.error(`[indexnow] submission failed: status=${res.status} body=${body.slice(0, 500)}`);
     return { ok: false, status: res.status, error: `indexnow responded with status ${res.status}`, submittedCount: 0, skippedCount: skipped };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[indexnow] submission threw a network error: ${message}`);
+    // AbortSignal.timeout()による中断はDOMException("TimeoutError")として現れる。
+    // 通常のネットワーク失敗と区別できるよう、メッセージにその旨を明示する。
+    const isTimeout = err instanceof Error && err.name === "TimeoutError";
+    const message = isTimeout
+      ? `request timed out after ${REQUEST_TIMEOUT_MS}ms`
+      : err instanceof Error
+        ? err.message
+        : String(err);
+    console.error(`[indexnow] submission ${isTimeout ? "timed out" : "threw a network error"}: ${message}`);
     return { ok: false, error: message, submittedCount: 0, skippedCount: skipped };
   }
 }

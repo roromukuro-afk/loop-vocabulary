@@ -109,6 +109,30 @@ function installFetchStub(impl) {
   assert(result.ok === false && result.status === 400, "非2xxレスポンス時はok:false, statusにそのままのコードを返す", JSON.stringify(result));
 }
 
+// ── 3c. リクエストがstall(応答が返らない)した場合、AbortSignalでタイムアウトしthrowしない ──
+{
+  process.env.INDEXNOW_KEY = "test-key-timeout";
+  installFetchStub(async (_url, init) => {
+    // 実際の10秒待機はテストを遅くするため、init.signalがAbortSignal.timeout()由来である
+    // ことだけ確認し、その場でタイムアウト時と同じ形のDOMException("TimeoutError")を投げて
+    // submit.ts側のタイムアウト検知ロジック(err.name === "TimeoutError")を検証する。
+    assert(init?.signal instanceof AbortSignal, "fetchにAbortSignalが渡される(タイムアウト用)");
+    throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+  });
+  const { submitUrlsToIndexNow } = await import(
+    `../../src/lib/indexnow/submit.ts?t=${Date.now()}-3c`
+  );
+  let threw = false;
+  let result;
+  try {
+    result = await submitUrlsToIndexNow(["https://loop-vocabulary.app/about"]);
+  } catch {
+    threw = true;
+  }
+  assert(threw === false, "リクエストがタイムアウトしてもthrowしない");
+  assert(result?.ok === false && typeof result?.error === "string" && result.error.includes("timed out"), "タイムアウト時はok:falseとタイムアウトを示すerrorを返す", JSON.stringify(result));
+}
+
 // ── 4. 同一URLの10分以内の再送信はスキップする(デデュープ) ────
 {
   process.env.INDEXNOW_KEY = "test-key-dedupe";
