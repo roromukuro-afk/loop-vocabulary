@@ -249,6 +249,20 @@ const GUIDES = [
     readTime: "6分",
   },
   {
+    slug: "affect-vs-effect",
+    title: "affect と effect の違い【品詞で見分ける完全ガイド】",
+    description: "原則『affectは動詞・effectは名詞』という品詞の違い1つで見分ける方法を、例文・よくある間違い・例外つきで解説。",
+    tag: "英文法",
+    readTime: "4分",
+  },
+  {
+    slug: "apply-for-vs-apply-to",
+    title: "apply for と apply to の違い【前置詞の使い分けを完全解説】",
+    description: "『何を求めているか(for)』か『どこに対してか(to)』かという1つの軸で、前置詞の使い分けを例文つきで解説。",
+    tag: "英文法",
+    readTime: "4分",
+  },
+  {
     slug: "eiken-2kyu-tango-nanko",
     title: "英検2級は単語何個で受かる？必要語彙数の真実",
     description: "合格に必要な語彙は約5,000語。級別の必要語彙数一覧と、なぜ語彙が合否を分けるのか、最短で覚える方法を解説。",
