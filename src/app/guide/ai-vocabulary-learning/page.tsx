@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideByline } from "@/components/guide/GuideByline";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
@@ -75,6 +76,10 @@ const FAQ_LD = {
 export default function AiVocabularyLearningPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+      <div className="max-w-2xl mx-auto px-4 pt-3">
+        <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "学習ガイド", href: "/guide" }, { label: "AIを使った英単語学習法" }]} />
+      </div>
+
       <GuideTracker slug={SLUG} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(BREADCRUMB_LD) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />

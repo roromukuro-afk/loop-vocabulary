@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
@@ -95,6 +96,10 @@ const JSON_LD = {
 export default function EikenJun1Page() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+      <div className="max-w-2xl mx-auto px-4 pt-3">
+        <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "学習ガイド", href: "/guide" }, { label: "英検準1級 単語対策【合格に必要な語彙数と学習戦略】" }]} />
+      </div>
+
       <GuideTracker slug="eiken-jun1-tango" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"英検準1級 単語対策【合格に必要な語彙数と学習戦略】","item":"https://loop-vocabulary.app/guide/eiken-jun1-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
