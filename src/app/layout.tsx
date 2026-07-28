@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { AdSenseLoader } from "@/components/ads/AdSenseLoader";
+import { toFundingChoicesPublisherId } from "@/lib/ads/consentManagement";
 import "./globals.css";
 
 const APP_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
@@ -95,6 +96,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja">
       <head>
         <meta name="google-adsense-account" content="ca-pub-5148247638505100" />
+        {ADSENSE_CLIENT && (
+          <>
+            {/*
+              Google Funding Choices（AdSense「プライバシーとメッセージ」）の同意管理タグ。
+              AdSense管理画面でEEA/UK/CH向けメッセージを作成・公開すると、このタグを起点に
+              Google側が地域判定・同意UI表示・IAB TCF同意シグナルの記録までを自動的に行う。
+              adsbygoogle.js（AdSenseLoader）は同意シグナルをここから読み取って、パーソナライズ/
+              非パーソナライズ広告を出し分けるため、AdSense本体スクリプトより前に読み込む。
+              広告そのもの(AdSenseLoaderのルート制限)とは独立してサイト全体に読み込む。
+              同意状態は広告非表示ルート（/privacy 等）でも保持・変更できる必要があるため。
+            */}
+            <script
+              async
+              src={`https://fundingchoicesmessages.google.com/i/${toFundingChoicesPublisherId(ADSENSE_CLIENT)}?ers=1`}
+            />
+            <script
+              dangerouslySetInnerHTML={{
+                __html:
+                  "(function() {function signalGooglefcPresent() {if (!window.frames['googlefcPresent']) {if (document.body) {const iframe = document.createElement('iframe'); iframe.style = 'width: 0; height: 0; border: none; z-index: -1000; left: -1000px; top: -1000px;'; iframe.style.display = 'none'; iframe.name = 'googlefcPresent'; document.body.appendChild(iframe);} else {setTimeout(signalGooglefcPresent, 0);}}}signalGooglefcPresent();})();",
+              }}
+            />
+          </>
+        )}
         {GA_ID && (
           <>
             {/* GA4 must be in <head> for Google Search Console verification */}
