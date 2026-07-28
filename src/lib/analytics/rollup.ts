@@ -24,7 +24,7 @@ import {
   type ProfileBillingRow,
   type RevenueSnapshotRow,
 } from "@/lib/growth/revenueSnapshot";
-import { trackServerEvent } from "./trackServerEvent";
+import { insertOncePerUserMilestoneEvent } from "./trackServerEvent";
 
 type Admin = SupabaseClient;
 
@@ -733,10 +733,21 @@ export async function computeRetentionCohorts(
 // 増やさない)。
 //
 // このcronは直近7日を毎回再計算するcomputeDailyMetrics等と違い、日次ローリング窓ではなく
-// 「一度でも条件を満たしたら生涯そのユーザーについて1回だけ」発火する必要がある
-// (一度D1/D7に到達したユーザーは翌日以降も判定条件を満たし続けるため、素朴に毎日発火すると
-// 重複してしまう)。そのため発火前に analytics_events から既に return_next_day/return_day_7を
-// 持つuser_idの集合を取得し、そこに無いユーザーにのみ新規発火する(=冪等)。
+// 「一度でも条件を満たしたら生涯そのユーザーについて1回だけ」発火する必要がある。
+//
+// 【重複防止の方式】以前は「発火前にanalytics_eventsから既存のreturn_next_day/
+// return_day_7 の user_id 集合を1回のBULK_FETCH_LIMITで取得し、メモリ上のSetで
+// 判定する」方式だったが、これには2つの問題があった:
+//   1. 既存イベントがBULK_FETCH_LIMIT(20,000件)を超えると、超過分が「未発火」と
+//      誤判定され重複発火する。
+//   2. insertOncePerUserMilestoneEvent()呼び出し(旧trackServerEvent())が実際に
+//      失敗しても、呼び出し側はそれを検知せずalreadyFired/成功件数に加算していた
+//      (DB挿入失敗を成功扱いする不具合)。
+// 現在は、候補ユーザー全員に対して insertOncePerUserMilestoneEvent() を呼び、
+// 実際に新規挿入できた場合("inserted")のみ成功件数に加算する。重複判定自体は
+// DB側の部分ユニークインデックス(analytics_events_once_per_user_milestone_uniq)
+// + Postgres関数内のON CONFLICT ... DO NOTHINGが原子的に行うため、既存イベント数に
+// 依存せず正しく動作し、同時実行されたcron同士の競合も安全に処理される。
 // ─────────────────────────────────────────────────────────────
 
 const RETURN_EVENT_DEFS = [
@@ -765,46 +776,43 @@ export async function computeReturnEvents(
 
   const today = todayJST();
 
-  // 既にreturn_next_day/return_day_7を発火済みのuser_idを取得し、二重発火を防ぐ
-  const { data: existingEventRows, error: eventsErr } = await admin
-    .from("analytics_events")
-    .select("event_name, user_id")
-    .in("event_name", ["return_next_day", "return_day_7"])
-    .not("user_id", "is", null)
-    .limit(BULK_FETCH_LIMIT);
-  if (eventsErr) throw new Error(`analytics_events(return events)取得失敗: ${eventsErr.message}`);
-
-  const alreadyFired: Record<string, Set<string>> = {
-    return_next_day: new Set<string>(),
-    return_day_7: new Set<string>(),
-  };
-  for (const row of existingEventRows ?? []) {
-    const name = row.event_name as string;
-    const uid = row.user_id as string;
-    if (name in alreadyFired) alreadyFired[name].add(uid);
-  }
-
   const firedCounts: Record<string, number> = { return_next_day: 0, return_day_7: 0 };
+  const failedCounts: Record<string, number> = { return_next_day: 0, return_day_7: 0 };
+  const failures: { eventName: string; userId: string; error: string }[] = [];
 
   for (const { offset, eventName } of RETURN_EVENT_DEFS) {
     for (const p of nonTestProfiles) {
       const uid = p.id as string;
-      if (alreadyFired[eventName].has(uid)) continue; // 既に発火済み → 生涯1回の原則で二重発火しない
       const signupDate = toJstDateString(new Date(p.created_at as string));
       const targetDate = jstDatePlusDays(signupDate, offset);
       if (targetDate > today) continue; // まだこのoffsetに到達していない
       if (!activeUserDaySet.has(`${uid}|${targetDate}`)) continue; // 未到達(条件を満たしていない)
-      await trackServerEvent(eventName, { userId: uid });
-      alreadyFired[eventName].add(uid); // 同一cron実行内での重複発火も防ぐ
-      firedCounts[eventName] += 1;
+
+      const result = await insertOncePerUserMilestoneEvent(eventName, uid);
+      if (result.status === "inserted") {
+        firedCounts[eventName] += 1;
+      } else if (result.status === "failed") {
+        // 挿入が実際に失敗した場合は成功扱いにしない。次回cron実行時に再試行される
+        // (DB側の部分ユニークインデックスがある限り、再試行しても重複挿入にはならない)。
+        failedCounts[eventName] += 1;
+        failures.push({ eventName, userId: uid, error: result.error });
+      }
+      // status === "already_exists" は正常な冪等スキップであり、カウントしない
+      // (前回のcron実行で既に発火済み、または本ラウンド内の後続イテレーションでの
+      // 再訪問 — RETURN_EVENT_DEFSの各offsetは同一ユーザーを高々1回しか処理しないため
+      // 後者は起こらないが、念のためDB側でも安全に無視される)。
     }
   }
 
   return {
-    ok: true,
+    ok: failedCounts.return_next_day === 0 && failedCounts.return_day_7 === 0,
     detail: {
       return_next_day_fired: firedCounts.return_next_day,
       return_day_7_fired: firedCounts.return_day_7,
+      return_next_day_failed: failedCounts.return_next_day,
+      return_day_7_failed: failedCounts.return_day_7,
+      // 失敗理由は先頭10件のみ記録(cron結果ログが肥大化しないよう)
+      failures: failures.slice(0, 10),
     },
   };
 }

@@ -50,9 +50,6 @@ export async function POST(
   if (e1 || !book)
     return NextResponse.json({ error: "book_create_failed" }, { status: 500 });
 
-  // wordbook_created: 公開教材を自分の単語帳としてインポートする「意図的な作成」操作
-  await trackServerEvent("wordbook_created", { userId: user.id, properties: { source_type: "material" } });
-
   type MWord = { word: string; meaning: string; pos: string | null; example: string | null; example_ja: string | null; importance: number | null };
   const mwords: MWord[] = [];
   let offset = 0;
@@ -106,6 +103,11 @@ export async function POST(
   }
 
   await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + rows.length);
+
+  // wordbook_created: 単語帳作成・単語一括挿入まですべて成功し、cleanup経路(book削除)に
+  // 入らないことが確定してから発火する。途中で失敗した場合はbookごと削除されるため、
+  // ここより前で発火すると存在しない単語帳のイベントが残ってしまう。
+  await trackServerEvent("wordbook_created", { userId: user.id, properties: { source_type: "material" } });
 
   return NextResponse.json({ bookId: book.id, count: rows.length });
 }

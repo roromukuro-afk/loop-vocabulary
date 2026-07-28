@@ -81,6 +81,15 @@ export async function GET(req: NextRequest) {
     try {
       const result = await category.run();
       computed[category.name] = result.detail;
+      // 例外を投げずに result.ok === false を返すカテゴリ(例: computeReturnEvents が
+      // DB挿入の部分的失敗を検知した場合)も、投げられた例外と同じくerrorsへ計上する。
+      // これをしないと、呼び出し元のレスポンス ok: errors.length === 0 が
+      // 実際には一部失敗しているのに true になってしまう(偽のok:true)。
+      if (!result.ok) {
+        const message = `category "${category.name}" reported ok:false (see detail in computed.${category.name})`;
+        console.error(`[growth-rollup] ${message}`);
+        errors.push({ category: category.name, message });
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       console.error(`[growth-rollup] category "${category.name}" failed:`, message);

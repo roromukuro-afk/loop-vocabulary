@@ -173,6 +173,34 @@ async function main() {
       bad(`return_next_day/return_day_7の総行数が2回目実行で変化した (${rowsAfterRun1.length} -> ${rowsAfterRun2.length})`);
     }
     if (!mismatch) ok(`2回目実行後もanalytics_eventsの行数(${rowsAfterRun2.length}件)・内訳が変化していない(冪等)`);
+
+    console.log("\n--- growth-rollup cronを2つ同時実行(並行実行での重複防止チェック) ---");
+    // insertOncePerUserMilestoneEvent()はDB側の部分ユニークインデックス+
+    // Postgres関数のON CONFLICT DO NOTHINGで原子性を保証しているため、
+    // 2つのcronリクエストが同時に同じユーザーへ挿入を試みても重複しないはず。
+    const [res3, res4] = await Promise.all([
+      fetch(`${baseUrl}/api/cron/growth-rollup`, { headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` } }),
+      fetch(`${baseUrl}/api/cron/growth-rollup`, { headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` } }),
+    ]);
+    const [body3, body4] = await Promise.all([
+      res3.json().catch((e) => ({ parseError: String(e) })),
+      res4.json().catch((e) => ({ parseError: String(e) })),
+    ]);
+    if (res3.status === 200 && res4.status === 200) ok("並行実行した2つのcronリクエストが両方とも正常完了した");
+    else bad(`並行実行のいずれかが失敗: status3=${res3.status} status4=${res4.status} body3=${JSON.stringify(body3)} body4=${JSON.stringify(body4)}`);
+
+    const rowsAfterConcurrent = await fetchReturnEventRows(admin);
+    const countsAfterConcurrent = countByUserEvent(rowsAfterConcurrent);
+    let concurrentDup = false;
+    for (const [key, count] of countsAfterConcurrent) {
+      if (count > 1) { concurrentDup = true; bad(`${key}: 並行実行後に${count}件の重複行がある`); }
+    }
+    if (!concurrentDup) ok("並行実行後も(event_name,user_id)ペアの重複行は無い(DB側atomic insertが機能している)");
+    if (rowsAfterConcurrent.length === rowsAfterRun2.length) {
+      ok(`並行実行は新規発火対象が既にないため行数は変化しない(${rowsAfterRun2.length}件のまま)`);
+    } else {
+      bad(`並行実行後に行数が想定外に変化した (${rowsAfterRun2.length} -> ${rowsAfterConcurrent.length})`);
+    }
   } finally {
     stopDevServer(dev);
   }
