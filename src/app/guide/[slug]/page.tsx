@@ -1981,7 +1981,7 @@ function renderContent(content: string) {
           <thead className="bg-navy-50">
             <tr>
               {headers.split("|").filter(Boolean).map((h, i) => (
-                <th key={i} className="px-3 py-2 text-left font-semibold text-navy-700 border-b border-navy-200">{h.trim()}</th>
+                <th key={i} className="px-3 py-2 text-left font-semibold text-navy-700 border-b border-navy-200">{renderInline(h.trim())}</th>
               ))}
             </tr>
           </thead>
@@ -1989,7 +1989,7 @@ function renderContent(content: string) {
             {rows.map((row, ri) => (
               <tr key={ri} className="border-b border-navy-100 last:border-0">
                 {row.split("|").filter(Boolean).map((cell, ci) => (
-                  <td key={ci} className="px-3 py-2 text-navy-600">{cell.trim()}</td>
+                  <td key={ci} className="px-3 py-2 text-navy-600">{renderInline(cell.trim())}</td>
                 ))}
               </tr>
             ))}
