@@ -94,7 +94,8 @@ export function ExamCountdownPlanner() {
   const daysRemaining = useMemo(() => (examDate ? daysUntil(examDate) : undefined), [examDate]);
   const wordCount = useMemo(() => {
     const n = Number(wordCountInput);
-    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+    const floored = Math.floor(n);
+    return Number.isFinite(n) && floored >= 1 ? floored : null;
   }, [wordCountInput]);
 
   const plan = useMemo(() => {
@@ -195,11 +196,17 @@ export function ExamCountdownPlanner() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-navy-50 rounded-xl p-4">
-                <div className="text-xs font-bold text-navy-500 mb-1">最短ペース（試験前日まで学習）</div>
+                <div className="text-xs font-bold text-navy-500 mb-1">
+                  {plan.daysRemaining === 0 ? "最短ペース（本日中に学習）" : "最短ペース（試験前日まで学習）"}
+                </div>
                 <div className="text-2xl font-black text-navy-800">
                   1日 {plan.dailyWordsNoBuffer.toLocaleString()} 語
                 </div>
-                <div className="text-[11px] text-navy-500 mt-1">{plan.learningDaysNoBuffer}日間で学習する場合</div>
+                <div className="text-[11px] text-navy-500 mt-1">
+                  {plan.daysRemaining === 0
+                    ? "試験当日のため、本日中にすべて学習する必要があります"
+                    : `${plan.learningDaysNoBuffer}日間で学習する場合`}
+                </div>
               </div>
               <div className="bg-sky-50 rounded-xl p-4 border border-sky-200">
                 <div className="text-xs font-bold text-sky-700 mb-1">
