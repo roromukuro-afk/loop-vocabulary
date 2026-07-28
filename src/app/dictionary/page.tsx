@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/server";
 import { DictionarySearch } from "./DictionarySearch";
@@ -56,6 +57,7 @@ export default async function DictionaryPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
       />
       <DictionaryPageTracker showLoginPrompt={!user} />
+      <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "辞書検索" }]} className="mb-2" />
       <h1 className="text-xl font-bold text-navy-800">辞書検索</h1>
       <p className="text-sm text-navy-500 mt-1">
         {user

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TrackedLink } from "@/components/analytics/TrackedLink";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 
 export const metadata: Metadata = {
   title: "英単語学習ガイド | Loop Vocabulary",
@@ -345,6 +346,12 @@ const CATEGORIZED_GUIDES = CATEGORY_ORDER.map((category) => ({
   guides: GUIDES.filter((g) => TAG_TO_CATEGORY[g.tag] === category),
 }));
 
+// カテゴリごとのハブ（クラスタまとめ）ページ。今のところ「記憶法・忘却曲線（SRS）」のみ。
+// 一覧の構造(GUIDES/CATEGORIZED_GUIDES)は変更せず、該当カテゴリの先頭にリンクを1本追加するだけ。
+const CATEGORY_PILLAR_LINKS: Record<string, { href: string; label: string }> = {
+  "記憶法・忘却曲線（SRS）": { href: "/guide/eitango-no-oboekata", label: "🔗 このカテゴリのまとめを見る" },
+};
+
 const LIST_JSON_LD = {
   "@context": "https://schema.org",
   "@type": "ItemList",
@@ -363,6 +370,9 @@ export default function GuidePage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(LIST_JSON_LD) }} />
+      <div className="max-w-2xl mx-auto px-4 pt-3">
+        <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "学習ガイド" }]} />
+      </div>
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
         <div className="text-xs font-bold uppercase tracking-widest text-sky-300 mb-3">Loop Vocabulary</div>
         <h1 className="text-2xl font-black leading-tight">英単語学習ガイド</h1>
@@ -410,6 +420,16 @@ export default function GuidePage() {
         {CATEGORIZED_GUIDES.map(({ category, guides }) => (
           <section key={category} id={`category-${category}`} data-testid="guide-category-section" className="scroll-mt-4">
             <h2 className="text-base font-black text-navy-800 px-1 mb-2">{category}</h2>
+            {CATEGORY_PILLAR_LINKS[category] && (
+              <Link
+                href={CATEGORY_PILLAR_LINKS[category].href}
+                data-testid="guide-category-pillar-link"
+                className="mb-3 flex items-center justify-between gap-2 bg-sky-50 border border-sky-100 rounded-xl px-4 py-2.5 text-sm font-semibold text-sky-700 hover:bg-sky-100 transition-colors"
+              >
+                <span>{CATEGORY_PILLAR_LINKS[category].label}</span>
+                <span className="shrink-0">→</span>
+              </Link>
+            )}
             <div className="space-y-3">
               {guides.map((g) => (
                 <Link key={g.slug} href={`/guide/${g.slug}`} className="block">

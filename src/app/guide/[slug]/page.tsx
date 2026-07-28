@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
@@ -2026,6 +2027,9 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
 
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+      <div className="max-w-2xl mx-auto px-4 pt-3">
+        <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "学習ガイド", href: "/guide" }, { label: article.title }]} />
+      </div>
       <GuideTracker slug={slug} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
