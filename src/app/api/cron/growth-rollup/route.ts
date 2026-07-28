@@ -9,6 +9,7 @@ import {
   computeContentPerformance,
   computeRevenue,
   computeRetentionCohorts,
+  computeReturnEvents,
   type CategoryResult,
 } from "@/lib/analytics/rollup";
 
@@ -73,6 +74,7 @@ export async function GET(req: NextRequest) {
     { name: "content_performance", run: () => computeContentPerformance(admin, days, testAccountIds) },
     { name: "revenue", run: () => computeRevenue(admin, days, testAccountIds) },
     { name: "retention_cohorts", run: () => computeRetentionCohorts(admin, testAccountIds) },
+    { name: "return_events", run: () => computeReturnEvents(admin, testAccountIds) },
   );
 
   for (const category of categories) {

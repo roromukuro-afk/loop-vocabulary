@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { trackWordCountMilestones } from "@/lib/analytics/trackServerEvent";
+import { trackWordCountMilestones, trackServerEvent } from "@/lib/analytics/trackServerEvent";
 
 const CHUNK = 100;
 const PAGE_SIZE = 1000;
@@ -49,6 +49,9 @@ export async function POST(
     .single();
   if (e1 || !book)
     return NextResponse.json({ error: "book_create_failed" }, { status: 500 });
+
+  // wordbook_created: 公開教材を自分の単語帳としてインポートする「意図的な作成」操作
+  await trackServerEvent("wordbook_created", { userId: user.id, properties: { source_type: "material" } });
 
   type MWord = { word: string; meaning: string; pos: string | null; example: string | null; example_ja: string | null; importance: number | null };
   const mwords: MWord[] = [];

@@ -107,6 +107,8 @@
     "test:revenue-metrics": "node scripts/testing/test-revenue-metrics.mjs",
     "test:weekly-growth-report": "node scripts/testing/test-weekly-growth-report.mjs",
     "test:growth-rollup-cron": "node scripts/testing/e2e/growth-rollup-cron.mjs",
+    "test:growth-rollup-return-events": "node scripts/testing/e2e/growth-rollup-return-events.mjs",
+    "test:wordbook-created-event": "node scripts/testing/e2e/wordbook-created-event.mjs",
     "test:growth-dashboard-auth": "node scripts/testing/e2e/growth-dashboard-auth.mjs",
     "test:analytics-production-ingestion": "node scripts/testing/e2e/analytics-production-ingestion.mjs",
     "test:analytics-rejection-reasons": "node scripts/testing/e2e/analytics-rejection-reasons.mjs",

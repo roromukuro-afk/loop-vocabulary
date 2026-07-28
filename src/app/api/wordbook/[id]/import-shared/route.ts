@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { trackServerEvent } from "@/lib/analytics/trackServerEvent";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     source_type: "shared",
   }).select("id").single();
   if (bookErr || !newBook) return NextResponse.json({ error: bookErr?.message }, { status: 500 });
+
+  // wordbook_created: 他ユーザーの共有単語帳を自分用にコピーする「意図的な作成」操作
+  await trackServerEvent("wordbook_created", { userId: user.id, properties: { source_type: "shared" } });
 
   // 共有元の単語を取得
   const { data: words } = await admin.from("words").select("word, meaning, pos, phonetic, importance").eq("word_book_id", id).limit(5000);

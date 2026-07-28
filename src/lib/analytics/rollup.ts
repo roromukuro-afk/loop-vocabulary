@@ -24,6 +24,7 @@ import {
   type ProfileBillingRow,
   type RevenueSnapshotRow,
 } from "@/lib/growth/revenueSnapshot";
+import { trackServerEvent } from "./trackServerEvent";
 
 type Admin = SupabaseClient;
 
@@ -720,4 +721,90 @@ export async function computeRetentionCohorts(
   }
 
   return { ok: true, detail: { users: userSignup.size, rowsWritten: rows.length, notYetReachedCount } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// return_next_day / return_day_7: サーバー計算のリテンションイベント。
+//
+// 定義はcomputeRetentionCohorts(D1/D7)と完全に同じ: 非テストユーザーについて
+// targetDate = signupDate(JST, profiles.created_at) + offset日 を求め、
+// targetDate <= today(JST) かつ その日の daily_stats.studied_count > 0 の行があれば
+// 「返ってきた」とみなす(jstDatePlusDays等の既存日付ヘルパーのみを使い、独自の日付計算は
+// 増やさない)。
+//
+// このcronは直近7日を毎回再計算するcomputeDailyMetrics等と違い、日次ローリング窓ではなく
+// 「一度でも条件を満たしたら生涯そのユーザーについて1回だけ」発火する必要がある
+// (一度D1/D7に到達したユーザーは翌日以降も判定条件を満たし続けるため、素朴に毎日発火すると
+// 重複してしまう)。そのため発火前に analytics_events から既に return_next_day/return_day_7を
+// 持つuser_idの集合を取得し、そこに無いユーザーにのみ新規発火する(=冪等)。
+// ─────────────────────────────────────────────────────────────
+
+const RETURN_EVENT_DEFS = [
+  { offset: 1, eventName: "return_next_day" as const },
+  { offset: 7, eventName: "return_day_7" as const },
+];
+
+export async function computeReturnEvents(
+  admin: Admin,
+  testAccountIds: Set<string>,
+): Promise<CategoryResult> {
+  const [{ data: profilesRows, error: profErr }, { data: dsRows, error: dsErr }] = await Promise.all([
+    admin.from("profiles").select("id, created_at, is_test_account").limit(BULK_FETCH_LIMIT),
+    admin.from("daily_stats").select("user_id, day, studied_count").gt("studied_count", 0).limit(BULK_FETCH_LIMIT),
+  ]);
+  if (profErr) throw new Error(`profiles取得失敗: ${profErr.message}`);
+  if (dsErr) throw new Error(`daily_stats取得失敗: ${dsErr.message}`);
+
+  const nonTestProfiles = (profilesRows ?? []).filter((p) => !p.is_test_account && !testAccountIds.has(p.id as string));
+  const activeUserDaySet = new Set<string>();
+  for (const row of dsRows ?? []) {
+    const uid = row.user_id as string;
+    if (testAccountIds.has(uid)) continue;
+    activeUserDaySet.add(`${uid}|${row.day as string}`);
+  }
+
+  const today = todayJST();
+
+  // 既にreturn_next_day/return_day_7を発火済みのuser_idを取得し、二重発火を防ぐ
+  const { data: existingEventRows, error: eventsErr } = await admin
+    .from("analytics_events")
+    .select("event_name, user_id")
+    .in("event_name", ["return_next_day", "return_day_7"])
+    .not("user_id", "is", null)
+    .limit(BULK_FETCH_LIMIT);
+  if (eventsErr) throw new Error(`analytics_events(return events)取得失敗: ${eventsErr.message}`);
+
+  const alreadyFired: Record<string, Set<string>> = {
+    return_next_day: new Set<string>(),
+    return_day_7: new Set<string>(),
+  };
+  for (const row of existingEventRows ?? []) {
+    const name = row.event_name as string;
+    const uid = row.user_id as string;
+    if (name in alreadyFired) alreadyFired[name].add(uid);
+  }
+
+  const firedCounts: Record<string, number> = { return_next_day: 0, return_day_7: 0 };
+
+  for (const { offset, eventName } of RETURN_EVENT_DEFS) {
+    for (const p of nonTestProfiles) {
+      const uid = p.id as string;
+      if (alreadyFired[eventName].has(uid)) continue; // 既に発火済み → 生涯1回の原則で二重発火しない
+      const signupDate = toJstDateString(new Date(p.created_at as string));
+      const targetDate = jstDatePlusDays(signupDate, offset);
+      if (targetDate > today) continue; // まだこのoffsetに到達していない
+      if (!activeUserDaySet.has(`${uid}|${targetDate}`)) continue; // 未到達(条件を満たしていない)
+      await trackServerEvent(eventName, { userId: uid });
+      alreadyFired[eventName].add(uid); // 同一cron実行内での重複発火も防ぐ
+      firedCounts[eventName] += 1;
+    }
+  }
+
+  return {
+    ok: true,
+    detail: {
+      return_next_day_fired: firedCounts.return_next_day,
+      return_day_7_fired: firedCounts.return_day_7,
+    },
+  };
 }
