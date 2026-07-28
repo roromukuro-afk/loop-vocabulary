@@ -10,6 +10,7 @@ type UserWordRow  = { material_id: string; mastery: number };
 export const metadata: Metadata = {
   title: "学習ロード | Loop Vocabulary",
   description: "入門から上級まで、レベル順に単語を体系的に学ぼう。",
+  robots: { index: false, follow: true },
 };
 
 export const dynamic = "force-dynamic";

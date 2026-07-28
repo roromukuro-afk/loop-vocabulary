@@ -6,6 +6,10 @@ import { StudyWeekGraph } from "./StudyWeekGraph";
 import { StreakTracker } from "./StreakTracker";
 import { todayJST, daysAgoJST } from "@/lib/utils/date";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function StatsPage() {

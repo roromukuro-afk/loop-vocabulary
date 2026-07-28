@@ -6,6 +6,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { todayStartJstISO } from "@/lib/utils/date";
 import { SRS_V2, isSrsV2Enabled } from "@/lib/srs";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 // 一度に取得する上限行数。現状(2026-07時点)の総単語数は1,000件台のため

@@ -3,6 +3,10 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { AiPanel } from "./AiPanel";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function AiPage({ searchParams }: { searchParams: Promise<{ word?: string; meaning?: string }> }) {

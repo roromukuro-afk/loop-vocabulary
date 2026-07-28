@@ -3,6 +3,10 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { PdfTestBuilder } from "./PdfTestBuilder";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function PdfPage({

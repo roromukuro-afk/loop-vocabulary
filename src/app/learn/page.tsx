@@ -7,6 +7,7 @@ import { LearnRunner } from "./LearnRunner";
 export const metadata: Metadata = {
   title: "レッスンモード | Loop Vocabulary",
   description: "新単語を導入→クイズの流れで学ぶ。音声読み上げ付きで自然に記憶に定着。",
+  robots: { index: false, follow: true },
 };
 
 export const dynamic = "force-dynamic";

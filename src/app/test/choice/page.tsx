@@ -4,6 +4,10 @@ import { ChoiceTestRunner } from "./ChoiceTestRunner";
 import { AppShell } from "@/components/layout/AppShell";
 import { resolveScopeLabel } from "@/lib/learning/scopeLabel";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function ChoiceTestPage({

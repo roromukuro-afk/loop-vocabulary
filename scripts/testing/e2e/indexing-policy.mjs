@@ -7,10 +7,65 @@
  * 3. sitemap.xmlにnoindex対象のURLが含まれていない
  * 4. robots.txtがnoindex対象の主要パスをDisallowしている
  * 5. index対象ページはcanonicalが自己参照になっている
+ * 6. requireUser()/requireAdmin()保護下の個人・管理ページ(SEO_INDEXING_POLICY.mdの
+ *    TODOで「件数が多いため今回はスコープ外」としていた15ページ以上)に、
+ *    明示的なrobots noindexメタデータが実際にソースへ存在する(静的チェック)。
+ *    これらは未ログインアクセスがまず/loginへリダイレクトされるため、6は
+ *    live fetchではなくソースコードの静的検証で行う(1のようなHTML実測は
+ *    ログインセッションが無いと実行できないため)。
  *
  * 使い方: node scripts/testing/e2e/indexing-policy.mjs
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { resolve, dirname } from "node:path";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
+
+const __dir = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(__dir, "../../..");
+
+// requireUser()/requireAdmin()保護下で、未ログイン時に/loginへリダイレクトされる
+// ため live fetch でnoindexメタを直接確認できないページ群。ソースの静的チェック対象。
+const AUTH_PROTECTED_SOURCE_FILES = [
+  "src/app/dashboard/page.tsx",
+  "src/app/settings/page.tsx",
+  "src/app/review/page.tsx",
+  "src/app/pdf/page.tsx",
+  "src/app/wordbooks/page.tsx",
+  "src/app/wordbooks/[id]/page.tsx",
+  "src/app/wordbooks/[id]/add/page.tsx",
+  "src/app/wordbooks/[id]/csv-import/page.tsx",
+  "src/app/weak/page.tsx",
+  "src/app/stats/page.tsx",
+  "src/app/road/page.tsx",
+  "src/app/plan/page.tsx",
+  "src/app/learn/page.tsx",
+  "src/app/extract/page.tsx",
+  "src/app/ai/page.tsx",
+  "src/app/ranking/page.tsx",
+  "src/app/account/delete/page.tsx",
+  "src/app/teacher/page.tsx",
+  "src/app/teacher/[classId]/page.tsx",
+  "src/app/admin/page.tsx",
+  "src/app/admin/ai/page.tsx",
+  "src/app/admin/growth/page.tsx",
+  "src/app/admin/growth/reports/page.tsx",
+  "src/app/admin/import/page.tsx",
+  "src/app/admin/improvements/page.tsx",
+  "src/app/admin/materials/page.tsx",
+  "src/app/admin/srs/page.tsx",
+  "src/app/admin/stats/page.tsx",
+  "src/app/admin/seed/layout.tsx",
+  "src/app/admin/seed-vocab/layout.tsx",
+  "src/app/share/[code]/page.tsx",
+  "src/app/join/[code]/page.tsx",
+  "src/app/test/page.tsx",
+  "src/app/test/attack/page.tsx",
+  "src/app/test/choice/page.tsx",
+  "src/app/test/input/page.tsx",
+  "src/app/test/listening/page.tsx",
+  "src/app/test/typing/page.tsx",
+];
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 
@@ -132,6 +187,30 @@ async function main() {
       ok("robots.txtにSitemap行がある");
     } else {
       fail("robots.txtにSitemap行が見つからない");
+    }
+
+    // 6. requireUser()/requireAdmin()保護下ページの静的noindexチェック
+    const NOINDEX_META_RE = /robots:\s*\{\s*index:\s*false/;
+    let missingCount = 0;
+    for (const relPath of AUTH_PROTECTED_SOURCE_FILES) {
+      const absPath = resolve(REPO_ROOT, relPath);
+      let src;
+      try {
+        src = readFileSync(absPath, "utf-8");
+      } catch {
+        fail(`${relPath}: ファイルが見つからない(パスが変わった可能性)`);
+        missingCount++;
+        continue;
+      }
+      if (NOINDEX_META_RE.test(src)) {
+        ok(`${relPath}: robots noindexメタデータをソースで確認`);
+      } else {
+        fail(`${relPath}: robots noindexメタデータが見つからない`);
+        missingCount++;
+      }
+    }
+    if (missingCount === 0) {
+      ok(`認証保護ページ${AUTH_PROTECTED_SOURCE_FILES.length}件すべてにnoindexメタデータを確認(SEO_INDEXING_POLICY.md TODO解消)`);
     }
 
     console.log(process.exitCode ? "\n=== test:indexing-policy: FAILED ===" : "\n=== test:indexing-policy RESULT: all checks passed ===");

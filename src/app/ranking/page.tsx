@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "週間ランキング | Loop Vocabulary",
   description: "今週の英単語学習数ランキング。ユーザーの週間学習語数を集計して表示します。",
+  robots: { index: false, follow: true },
 };
 
 const MEDALS = ["🥇", "🥈", "🥉"];

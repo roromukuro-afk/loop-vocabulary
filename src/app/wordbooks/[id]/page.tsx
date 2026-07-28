@@ -10,6 +10,10 @@ import { AiSuggestButton } from "@/components/wordbooks/AiSuggestButton";
 import { DeleteWordbookButton } from "@/components/wordbooks/DeleteWordbookButton";
 import { QuickAddWord } from "./QuickAddWord";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function WordBookDetailPage({ params }: { params: Promise<{ id: string }> }) {
