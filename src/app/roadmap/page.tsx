@@ -4,6 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "英語学習ロードマップ【ゼロから英検1級・TOEIC900点まで】| Loop Vocabulary",
   description: "英語ゼロから英検1級・TOEIC900点・ビジネス英語まで、段階的に上達するための英語学習ロードマップを徹底解説。各レベルで必要な単語数・学習期間・おすすめ教材を紹介。",
+  alternates: { canonical: "https://loop-vocabulary.app/roadmap" },
 };
 
 const STAGES = [
