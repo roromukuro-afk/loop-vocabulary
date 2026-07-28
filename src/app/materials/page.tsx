@@ -286,7 +286,7 @@ export default async function MaterialsPage({
   if (sp.q) {
     return (
       <AppShell>
-        <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "教材一覧" }]} className="mb-3" />
+        <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "教材・単語帳" }]} className="mb-3" />
         <h1 className="text-xl font-bold text-navy-800 mb-4">教材・参考書</h1>
         <SearchBar defaultValue={sp.q} />
         <p className="text-sm text-navy-500 mt-3 mb-3">
@@ -316,7 +316,7 @@ export default async function MaterialsPage({
   // カテゴリ別表示
   return (
     <AppShell>
-      <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "教材一覧" }]} className="mb-3" />
+      <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "教材・単語帳" }]} className="mb-3" />
       <h1 className="text-xl font-bold text-navy-800">教材・参考書</h1>
       <p className="text-sm text-navy-500 mt-1 mb-4">
         英検・TOEIC・大学受験など許諾済み教材の単語をまとめて学習できます
