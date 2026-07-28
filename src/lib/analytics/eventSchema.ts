@@ -109,9 +109,22 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   first_word_added: { category: "onboarding", properties: {} },
   five_words_added: { category: "onboarding", properties: {} },
   ten_words_added: { category: "onboarding", properties: {} },
+  // wordbook_created: ユーザーが「意図的に」単語帳を作った時のみ発火する(自動プロビジョニング
+  // される既定単語帳=ensure-defaultは含まない。詳細はCreateWordBookForm.tsx/
+  // import-shared/route.ts/material/[id]/import/route.tsの呼び出し箇所コメント参照)。
+  // source_typeはword_booksテーブルの既存source_type列と同じ語彙("custom"/"shared"/"material")
+  // のみを許可する。単語帳タイトルはプライバシー方針(ANALYTICS_PRIVACY_POLICY.md)で
+  // 送信禁止のため、titleプロパティは絶対に追加しないこと。
+  wordbook_created: { category: "onboarding", properties: { source_type: "string" } },
+  first_test_started: { category: "onboarding", properties: {} },
   first_test_completed: { category: "onboarding", properties: {} },
   first_review_completed: { category: "onboarding", properties: {} },
   activation_completed: { category: "onboarding", properties: {} },
+  // return_next_day / return_day_7: サーバー側cron(computeReturnEvents@rollup.ts)が
+  // profiles.created_at(JST)起点でD1/D7到達済みかを判定して発火する。ユーザーごとに
+  // 生涯1回だけ(idempotent)。クライアントからは送信しない。
+  return_next_day: { category: "onboarding", properties: {} },
+  return_day_7: { category: "onboarding", properties: {} },
 
   // ── 学習 ──────────────────────────────────────────────
   study_session_started: { category: "learning", properties: { mode: "string" } },

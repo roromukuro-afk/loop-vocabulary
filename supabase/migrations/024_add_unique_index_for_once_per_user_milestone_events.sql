@@ -1,0 +1,41 @@
+-- return_next_day / return_day_7 の「ユーザーごとに一生に1回だけ」発火を
+-- DBレベルでatomicに保証する部分ユニークインデックス。
+--
+-- 適用日時: 2026-07-28 14:22:30 UTC
+-- 対象Supabase project ref: befjjebsrnsfwhtmydiv (loop-vocabulary)
+-- 適用方法: Supabase MCP `apply_migration`(name: add_unique_index_for_once_per_user_milestone_events)
+-- 適用状態: 本番へ適用済み。このファイルはリポジトリ内に履歴を記録するための追記であり、
+--           マイグレーションランナー経由で再適用する必要はない(CREATE UNIQUE INDEX IF NOT EXISTS
+--           のため、誤って再実行されても安全にno-opとなる)。
+--
+-- 変更理由:
+--   Growth OS の analytics_events テーブルは汎用イベントテーブルであり、同一event_nameが
+--   同一ユーザーに対して複数回発火することが正当なケースが存在する(例: wordbook_created)。
+--   そのため analytics_events 全体に一律のUNIQUE制約を張ることはできない。
+--   一方 return_next_day / return_day_7 はD1/D7継続率計測の核であり、「ユーザーごとに
+--   一生に1回だけ」という不変条件が必須。この不変条件を、事前フェッチ+インメモリSetでの
+--   重複チェック(cronの並列実行やデータ量増加に対して原理的に脆弱)ではなく、対象event_name
+--   のみに限定した部分ユニークインデックスでDBレベルにatomicに強制する。
+--
+-- 既存重複がなかったことの確認方法(適用前に実施):
+--   select event_name, user_id, count(*) from analytics_events
+--   where event_name in ('return_next_day','return_day_7') and user_id is not null
+--   group by event_name, user_id having count(*) > 1;
+--   → 0件であることを確認してから適用(重複が存在する状態でCREATE UNIQUE INDEXを実行すると
+--     エラーになるため、事前確認は安全装置としても機能する)。
+--
+-- 検証クエリ(適用後、いつでも再実行可能):
+--   同上のクエリが常に0件を返すことを確認する。0件でなくなった場合はインデックスが
+--   機能していない、または想定外の経路でINSERTされている可能性がある。
+--
+-- RLSへの影響:
+--   なし。analytics_events のRLS(017_growth_os_foundation.sqlで有効化済み、
+--   admin-selectポリシーのみ)は変更しない。このインデックスは制約であり、
+--   ポリシーではない。
+--
+-- rollback:
+--   DROP INDEX IF EXISTS analytics_events_once_per_user_milestone_uniq;
+
+CREATE UNIQUE INDEX IF NOT EXISTS analytics_events_once_per_user_milestone_uniq
+  ON public.analytics_events (event_name, user_id)
+  WHERE event_name IN ('return_next_day', 'return_day_7') AND user_id IS NOT NULL;
