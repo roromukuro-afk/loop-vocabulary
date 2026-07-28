@@ -42,6 +42,7 @@
     "test:guide-aeo-blocks": "node scripts/testing/e2e/guide-aeo-blocks.mjs",
     "test:guide-content-consolidation": "node scripts/testing/e2e/guide-content-consolidation.mjs",
     "test:guide-route-collision": "node scripts/testing/e2e/guide-route-collision.mjs",
+    "test:eitango-no-oboekata-pillar": "node scripts/testing/e2e/eitango-no-oboekata-pillar.mjs",
     "test:chugaku-eigo-tango-content": "node scripts/testing/e2e/chugaku-eigo-tango-content.mjs",
     "test:daigaku-juken-tango-content": "node scripts/testing/e2e/daigaku-juken-tango-content.mjs",
     "test:business-english-tango-content": "node scripts/testing/e2e/business-english-tango-content.mjs",

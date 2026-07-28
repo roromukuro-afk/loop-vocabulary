@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
@@ -70,6 +71,10 @@ const FAQ_LD = {
 export default function SchoolTestVocabularyPage() {
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+      <div className="max-w-2xl mx-auto px-4 pt-3">
+        <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "学習ガイド", href: "/guide" }, { label: "定期テスト前の英単語復習法" }]} />
+      </div>
+
       <GuideTracker slug={SLUG} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(BREADCRUMB_LD) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
