@@ -57,6 +57,13 @@ const LIVE_TOOLS = [
     href: "/guide/vocabulary-quiz-pdf-for-teachers",
     cta: "作り方を見る →",
   },
+  {
+    icon: "📅",
+    title: "復習日計算ツール",
+    desc: "英単語を学習した日を入力するだけで、忘却曲線に基づく5回分の復習日を自動計算。ログイン不要、他の教材で学習中の単語にも使えます。",
+    href: "/review-date-calculator",
+    cta: "復習日を計算する →",
+  },
 ];
 
 const PLANNED_TOOLS = [
