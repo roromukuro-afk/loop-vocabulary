@@ -33,10 +33,12 @@
 
 1. 上記5ブランチ(CMP・成長イベント・AIクローラー・復習日ツール・ピラーページ・IndexNow)の進捗を確認。各ブランチで`gh pr list --head <branch>`または`gh pr view <PR番号>`でdraft PRの有無を確認。
 2. draft PRが存在する場合: 差分をレビュー(架空データ・誇張表現がないか、既存実装を壊していないか)→ `npm run typecheck && npm run lint && npm run build`をそのワークツリーで再確認 → 関連テスト実行 → 問題なければ`gh pr ready <番号>` → CI(`gate`/`protected-path-gate`/`quality-gate`)全パス確認 → `mergeStateStatus: CLEAN`確認 → `gh pr merge <番号> --squash --delete-branch=false` → Vercel本番デプロイの`readyState: READY`確認(`mcp__35d4d012-5df6-4517-8ed0-6a4193854018__get_deployment`) → 該当ページを本番URLで実際に確認。
+
+   **`feat/ai-crawler-policy-llms-txt`固有の追加確認事項(必須、機械的にマージしないこと)**: このPRは`GROWTH_SEO_MASTER_CHECKLIST.md`のT-09/A-02で「オーナー判断待ち」として一度明示的に保留されていたrobots.txtのAIクローラー個別設定を変更する。2026-07-28のユーザー継続指示で「両方に切り替えられる設計を完成させ、推奨デフォルトを提示する」ことが明示的に許可されたためこの実装自体は指示に沿っているが、マージ前に必ず`public/robots.txt`の実際の差分を人間(またはこのタスクを引き継ぐセッション)が読み、(a) 各bot(OAI-SearchBot/GPTBot/ClaudeBot/Google-Extended/PerplexityBot)のデフォルトが1行コメントで明確に理由付けされているか、(b) `User-agent: *`の既存ブロックが変更されていないか、(c) `AI_SEARCH_AND_INDEXNOW_POLICY.md`が「保留」ではなく「実装済み+デフォルト理由+切替方法」に書き換わっているか、を確認すること。ここは他のブランチと違い「テストが通ったから即マージ」を避け、diffを実際に読むステップを飛ばさない。
 3. マージ後、`GROWTH_SEO_MASTER_CHECKLIST.md`の該当行(T-09/A-02のAIクローラー行、T-12/A-03のllms.txt行、T-11のIndexNow行、D系の新規ツール行、C系のピラーページ・パンくず行、N-02のイベント表、AD-03のCMP行)を「作業中」→「完了」または「実装済み・○○待ち」に更新し、別途小さなdocs PRでmain反映。
 4. まだ未着手のワークストリームへ進む(優先順):
    - ワークストリームB: 既存主要流入ページの改善(英単語の覚え方/中学生向け/高校・大学受験/英検2級/TOEIC/英会話/ビジネス英語/覚えられない/すぐ忘れる の8ページを特定し、title/meta description/直接回答/内部リンク/CTA/構造化データ/更新日を実施)。Search Console実データへのアクセス手段がない場合は、既存の`GUIDE_REWRITE_PRIORITY.md`の優先順位を代替根拠として使う。
-   - ワークストリームD残り(語彙力チェック強化、CSV変換、小テスト作成、PDF作成、発音検索、類義語比較、不規則動詞、今日の単語)を1つずつ、`src/app/tools/page.tsx`の`PLANNED_TOOLS`から実装優先度順に着手。
+   - ワークストリームD残り(語彙力チェック強化、CSV変換、小テスト作成、PDF作成、発音検索、類義語比較、不規則動詞、今日の単語)を1つずつ着手。**注意**: `src/app/tools/page.tsx`の`PLANNED_TOOLS`配列は本ラウンド時点で「試験日から逆算する学習計画メーカー」「英単語リスト整形・CSV変換ツール」の2件しか含んでおらず、8件全部の優先順位を示す権威あるソースではない。実装優先順位の正しい根拠は、2026-07-28のユーザー継続指示本文「3. 次に実行する作業 > ワークストリームD:無料ツール > 実装順」の10項目リスト(1.語彙力チェック強化〜10.今日覚える英単語)であり、コード配列とこの指示文が食い違う場合は指示文を優先する。着手時は`PLANNED_TOOLS`にも該当エントリを追加して両者を一致させること。
    - ワークストリームG: 主要テーマ10件のSNS素材(X投稿・Instagram構成・Shorts台本・TikTok台本・Pinterest・OGP・UTM・スケジュール)をコンテンツファイルとして作成(`MARKETING_X_*`の既存フォーマットに準拠)。外部投稿の実行はユーザー確認後。
    - ワークストリームH: プレスページ拡充・被リンク候補リスト・送付文面のドラフト作成(送信自体はユーザー許可後)。
 
