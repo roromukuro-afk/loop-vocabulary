@@ -22,7 +22,7 @@
 | T-01 | robots.txt `/road`が`/roadmap`まで誤ブロック | `/road`, `/roadmap` | 修正済み(`Disallow: /road` + `Allow: /roadmap`、Google最長一致で解決) | **完了** | PR #23 (merge `4b8c51a`), PR修正版 `454f5cf` |
 | T-02 | `/roadmap` にcanonicalタグが存在しない | `/roadmap` | `alternates.canonical`追加済み | **完了** | PR #24 (merge `7ce8cc4`) |
 | T-03 | `www.loop-vocabulary.app` 証明書未発行・アクセス不可 | `www.loop-vocabulary.app` | Vercelにdomain追加、308でapexへ、証明書発行確認済み | **完了** | Vercel dashboard操作(このセッション)、証明書warning解消を実測確認 |
-| T-04 | `requireUser()`/`requireAdmin()`保護下15ページ以上にnoindexメタ未設定 | dashboard/settings/admin/*/test/*等38ページ | 全ページに`robots:{index:false,follow:true}`追加 | **完了**(このPRで) | PR #25(本ラウンド作成、CI確認中) — `SEO_INDEXING_POLICY.md`のTODO解消 |
+| T-04 | `requireUser()`/`requireAdmin()`保護下15ページ以上にnoindexメタ未設定 | dashboard/settings/admin/*/test/*等38ページ | 全ページに`robots:{index:false,follow:true}`追加、本番反映済み | **完了** | PR #25 (merge `f0e909f`, 本番デプロイ`dpl_Cbwbtao6...`READY確認済み) — `SEO_INDEXING_POLICY.md`のTODO解消 |
 | T-05 | `loop-vocabulary.vercel.app`→custom domain redirect | 全ページ | `next.config.js`の`hostRedirects`で既に308実装済み、実測確認済み | **完了(既存)** | 既存実装、`test:canonical-domain-redirect`で継続監視 |
 | T-06 | canonical自己参照の網羅チェック | 全indexページ | `test:canonical-integrity`で継続監視、本ラウンドでも全PASS | **完了(既存)** | 既存テスト |
 | T-07 | sitemap分割(`/sitemap-static.xml`等) | sitemap.ts | 現状167件・上限5万件に遠く及ばないため分割不要と判断済み | **未着手（根拠あり）** | `SEO_INDEXING_POLICY.md`に判断根拠記載済み。辞書語ページ等が数千件規模に増えた時点で再検討 |
@@ -178,7 +178,7 @@
 2. **PR #24**: `/roadmap`にcanonicalタグが存在しなかった問題を修正。`test:canonical-integrity`拡張。本番反映・確認済み。
 3. **`www.loop-vocabulary.app`のドメイン追加**: Vercelプロジェクトに308リダイレクト付きで追加、証明書発行・エラー解消を実測確認。
 4. **Search Console対応**: `eigo-listening-renshu`のcanonical不一致でValidate Fix開始、インデックス登録リクエスト実行。`/roadmap`はインデックス登録完了を確認。
-5. **PR #25**(本ラウンド): `SEO_INDEXING_POLICY.md`のTODOだった、38ページへのnoindexメタデータ追加。`test:indexing-policy`拡張。CI確認中。
+5. **PR #25**(本ラウンド): `SEO_INDEXING_POLICY.md`のTODOだった、38ページへのnoindexメタデータ追加。`test:indexing-policy`拡張。マージ・本番デプロイ・READY確認まで完了(merge `f0e909f`)。
 6. **本チェックリスト**の作成・既存30本以上のポリシー文書との統合。
 
 ## 新規に発見したギャップ(次ラウンド候補、優先度順)
