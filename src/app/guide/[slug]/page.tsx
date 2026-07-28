@@ -1139,6 +1139,170 @@ Loop Vocabulary なら、適正量の自動調整と忘却曲線復習で「続�
     ],
   },
 
+  "affect-vs-effect": {
+    title: "affect と effect の違い【品詞で見分ける完全ガイド】",
+    description: "affectとeffectを混同してしまう人へ。原則『affectは動詞・effectは名詞』という品詞の違い1つで見分ける方法を、例文・よくある間違い・例外つきで解説します。",
+    tag: "英文法",
+    published: "2026-07-28",
+    content: `
+## 結論：affectは動詞、effectは名詞
+
+affect と effect は発音・スペルが似ているため混同されがちですが、原則として**品詞が違います**。
+
+- **affect**（動詞）：〜に影響を与える
+- **effect**（名詞）：影響、効果
+
+| 単語 | 品詞（原則） | 意味 | 例文 |
+|---|---|---|---|
+| affect | 動詞 | 〜に影響を与える | The weather **affects** my mood. |
+| effect | 名詞 | 影響、効果 | The weather has an **effect** on my mood. |
+
+上の2文は同じ内容（天気が気分に影響する）を、動詞のaffectと名詞のeffectでそれぞれ表現したものです。この対応関係を覚えておくと、どちらを使うべきか迷ったときに文の構造（動詞が必要か、名詞が必要か）から判断できます。
+
+---
+
+## 見分け方：文の構造で判断する
+
+迷ったときは「その位置に動詞が必要か、名詞が必要か」を確認します。
+
+- 主語の直後で「〜する」の位置 → **affect**（動詞）
+  - Smoking **affects** your health.（喫煙は健康に影響する）
+- have / an / the などの後で「名詞」の位置 → **effect**
+  - Smoking has a negative **effect** on your health.（喫煙は健康に悪影響を与える）
+
+especially、have an effect on 〜（〜に影響を与える）は affect の言い換えとしてよく使われる定型表現です。両方とも同じ意味を表せるので、セットで覚えておくと表現の幅が広がります。
+
+- Smoking affects your health. ＝ Smoking has an effect on your health.
+
+---
+
+## 覚え方のコツ
+
+- **A**ffect ＝ **A**ction（動作）→ 動詞
+- **E**ffect ＝ **E**nd result（結果）→ 名詞
+
+「Aで始まる方が動作（Action）、Eで始まる方が結果（End result）」と頭文字を対応させると覚えやすくなります。
+
+---
+
+## 例外：effectが動詞になる場合もある
+
+原則は「affect=動詞、effect=名詞」ですが、**effectにも動詞の用法があります**。ただしこちらは「（変化・結果などを）もたらす、実現する」という意味のフォーマルな語で、日常会話ではあまり使われません。
+
+- The new manager **effected** several changes in the department.（新しいマネージャーは部署にいくつかの変化をもたらした）
+
+この用法はビジネス文書やニュース記事などで見かける程度で、学習の初期段階では「affect=動詞、effect=名詞」の原則だけを押さえておけば実用上ほぼ困りません。
+
+同様に、affectにも心理学用語として「感情、情動」という名詞の用法（affect /ˈæfekt/、アクセントの位置が動詞のaffectと異なる）がありますが、こちらも専門的な文脈に限られるため、まずは基本の使い分けを優先しましょう。
+
+---
+
+## よくある間違い
+
+| 間違い | 正しい形 | 理由 |
+|---|---|---|
+| The news effected me deeply. | The news **affected** me deeply. | 「〜に影響を与えた」は動詞のaffect |
+| This has a big affect on sales. | This has a big **effect** on sales. | have a/an 〜の位置は名詞のeffect |
+| Climate change effects the environment. | Climate change **affects** the environment. | 主語の直後の動詞位置はaffect |
+
+---
+
+## まとめ
+
+affect と effect の使い分けは、原則として**「affectは動詞、effectは名詞」**という品詞の違いだけで判断できます。迷ったら「その位置に動詞が必要か、名詞が必要か」を文の構造から確認しましょう。have an effect on 〜 という定型表現とセットで覚えておくと、affectの言い換え表現としても使えて便利です。
+
+Loop Vocabulary では、こうした混同しやすい単語ペアも例文つきで登録して、忘却曲線に基づくSRS復習で定着させることができます。似た単語を混同しなくなるまで、繰り返し復習しましょう。
+    `,
+    faq: [
+      { q: "affectとeffectはどちらも動詞・名詞両方の用法がありますか？", a: "原則はaffect=動詞、effect=名詞ですが、例外的にeffectには『（変化などを）もたらす』という動詞の用法（フォーマル）があり、affectにも心理学用語で『感情、情動』という名詞の用法があります。ただしどちらも専門的・フォーマルな文脈に限られるため、学習の初期段階では原則の使い分けだけ押さえれば十分です。" },
+      { q: "have an effect on と affect はどちらを使えばいいですか？", a: "意味はほぼ同じで、文の形に合わせて選びます。動詞1語で簡潔に言いたいときはaffect（Smoking affects your health.）、名詞句として使いたい・修飾語（negative, significant等）を加えたいときはhave an effect on（Smoking has a negative effect on your health.）が向いています。" },
+      { q: "side effect（副作用）のeffectも同じ用法ですか？", a: "はい、同じ名詞のeffectです。side effect（副作用）、in effect（実施されて、事実上）、come into effect（発効する）など、effectを使った名詞のイディオムは多く、いずれも『影響・効果・結果』という名詞の意味から派生しています。" },
+    ],
+  },
+
+  "apply-for-vs-apply-to": {
+    title: "apply for と apply to の違い【前置詞の使い分けを完全解説】",
+    description: "apply for と apply to を混同してしまう人へ。『何を求めているか(for)』か『どこに対してか(to)』かという1つの軸で、前置詞の使い分けを例文つきで解説します。",
+    tag: "英文法",
+    published: "2026-07-28",
+    content: `
+## 結論：forは「求めるもの」、toは「対象・行き先」
+
+apply for と apply to は、どちらも「応募する・申し込む」と訳されることが多く混同しがちですが、後ろに続く名詞の種類で使い分けが決まります。
+
+- **apply for + 求めるもの**（仕事・ビザ・ローン・奨学金など）：〜に応募する、〜を申請する
+- **apply to + 対象・行き先**（学校・会社・機関など）：〜に出願する、〜に応募する
+
+| フレーズ | 意味 | 例文 |
+|---|---|---|
+| apply for a job | 仕事に応募する（求めるものは「仕事」） | I applied **for** the marketing position. |
+| apply to a company | 会社に応募する（対象は「会社」） | I applied **to** three companies. |
+| apply for a visa | ビザを申請する | She applied **for** a student visa. |
+| apply to a university | 大学に出願する | He applied **to** five universities. |
+
+同じ「就職活動」の文脈でも、応募する対象が「仕事（役職）」なら for、「会社（組織）」なら to を使います。両方を1文で使うことも多くあります。
+
+- I applied **to** Google **for** a software engineer position.（私はGoogleにソフトウェアエンジニアの職を応募した）
+
+この文では、to Google（対象：会社）と for a position（求めるもの：職）が両方登場しており、それぞれの前置詞の役割がはっきり分かります。
+
+---
+
+## もう1つのapply to：「適用される」
+
+apply to には、応募とはまったく別の意味である**「〜に当てはまる、適用される」**という重要な用法もあります。この場合、主語は「人」ではなく「ルール・法律・条件」などです。
+
+- This rule **applies to** all students.（この規則はすべての生徒に当てはまる）
+- The discount doesn't **apply to** items already on sale.（この割引はすでにセール中の商品には適用されない）
+
+「規則・割引・条件などが主語」であれば、この「適用される」の意味だと判断できます。
+
+---
+
+## 見分け方のフローチャート
+
+迷ったときは、次の順番で確認しましょう。
+
+1. 主語は「人」か「ルール・条件」か
+   - ルール・条件が主語 → **apply to**（適用される、の意味）
+2. 主語が「人」の場合、後ろの名詞は「求めるもの」か「対象（組織・場所）」か
+   - 仕事・ビザ・ローン・奨学金など「求めるもの」 → **apply for**
+   - 会社・大学・機関など「対象」 → **apply to**
+
+---
+
+## その他の用法：apply A to B（AをBに塗る・当てはめる）
+
+apply には「（クリームなどを）塗る」「（ルールなどを）当てはめる」という他動詞の用法もあり、この場合は apply A to B の形を取ります。
+
+- **Apply** the cream **to** the affected area.（患部にクリームを塗ってください）
+- **Apply** this formula **to** the second problem.（この公式を2問目に当てはめなさい）
+
+---
+
+## よくある間違い
+
+| 間違い | 正しい形 | 理由 |
+|---|---|---|
+| I applied to the job. | I applied **for** the job. | 求めるもの（仕事）はfor |
+| I applied for the university. | I applied **to** the university. | 対象（大学）はto |
+| This rule applies for everyone. | This rule **applies to** everyone. | 「適用される」は必ずto |
+
+---
+
+## まとめ
+
+apply for と apply to の使い分けは、後ろに続く名詞が**「求めるもの」なのか「対象」なのか**で判断します。さらに、主語がルールや条件のときは「適用される」という別の意味になる点にも注意しましょう。前置詞1つで意味が変わるからこそ、例文ごとセットで覚えるのが定着への近道です。
+
+Loop Vocabulary では、こうした前置詞つきの熟語・フレーズも例文ごと単語帳に登録し、忘却曲線に基づくSRS復習で自然に使い分けを定着させることができます。
+    `,
+    faq: [
+      { q: "apply for a company とは言えませんか？", a: "文法的には誤りではありませんが、意味が変わってしまいます。apply for a companyは『会社を求めて応募する』という不自然な意味になりがちです。会社（組織・対象）にはapply to、仕事や役職（求めるもの）にはapply forを使うのが自然です。apply to a company for a positionのように両方使うとより明確になります。" },
+      { q: "『このルールは全員に当てはまる』はapply for everyoneでもいいですか？", a: "いいえ、『適用される』の意味では必ずapply toを使います。apply for everyoneという言い方はありません。This rule applies to everyone.が正しい形です。forは『求めるもの』を表す前置詞であり、『適用対象』を表すtoとは役割が異なります。" },
+      { q: "apply to a university と apply for a university、どちらが正しいですか？", a: "apply to a universityが正しい形です。大学は『出願する対象（組織）』であるためtoを使います。奨学金など『求めるもの』についてはapply for a scholarshipのようにforを使い、I applied to Harvard for a scholarship.のように組み合わせることもできます。" },
+    ],
+  },
+
   "eiken-2kyu-tango-nanko": {
     title: "英検2級は単語何個で受かる？必要語彙数の真実",
     description: "英検2級合格に必要な単語数は約5,000語。級別の必要語彙数一覧、なぜ語彙が合否を分けるのか、最短で必要語彙を覚える方法を具体的に解説します。",
