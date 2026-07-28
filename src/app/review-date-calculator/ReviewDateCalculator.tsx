@@ -79,6 +79,7 @@ const STEP_LABELS = [
 export function ReviewDateCalculator() {
   const [inputValue, setInputValue] = useState<string>("");
   const [hasTrackedStart, setHasTrackedStart] = useState(false);
+  const [hasTrackedCompletion, setHasTrackedCompletion] = useState(false);
 
   useEffect(() => {
     // 初期表示は「今日」。サーバー/クライアントでの日付ズレを避けるため
@@ -97,12 +98,14 @@ export function ReviewDateCalculator() {
   }, [hasTrackedStart]);
 
   useEffect(() => {
-    if (schedule.length === 5) {
+    // completedはセッション中1回だけ計測する。inputValueが変わるたびに発火させると、
+    // (このツールは送信ボタンがなく常に自動計算されるため)日付を選び直すだけで
+    // completedがstartedより多く記録され、GA4ファネルの意味が崩れてしまう。
+    if (!hasTrackedCompletion && schedule.length === 5) {
       trackToolCompleted(TOOL_KEY);
+      setHasTrackedCompletion(true);
     }
-    // 日付が変わって再計算されるたびに「結果が表示された」ことを計測する。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputValue]);
+  }, [schedule, hasTrackedCompletion]);
 
   function handleToday() {
     setInputValue(todayInputValue());
@@ -192,14 +195,13 @@ export function ReviewDateCalculator() {
       <div className="bg-navy-50/60 rounded-2xl border border-navy-100 p-5">
         <h2 className="font-black text-navy-800 text-base mb-2">この間隔の根拠</h2>
         <p className="text-xs text-navy-600 leading-relaxed">
-          この復習間隔（1日後→3日後→7日後→14日後→30日後）は、Loop Vocabularyアプリ内で実際に稼働している
-          SRS（間隔反復学習）ロジックの計算式をそのまま使用しています。連続で正解するたびに間隔が伸び、
+          この復習間隔（1日後→3日後→7日後→14日後→30日後）は、Loop Vocabularyアプリの標準SRS（間隔反復学習）ロジックが使う固定間隔をそのまま採用しています。連続で正解するたびに間隔が伸び、
           記憶が薄れるより少し前のタイミングで復習することで定着を狙う仕組みです。
         </p>
         <p className="text-xs text-navy-600 leading-relaxed mt-2">
           ただし、これは「毎回正解し続けた場合」の最良ケースを固定計算したものです。アプリ本体では、
           復習で不正解だった場合にその単語だけ翌日復習にリセットされ、個々の単語の理解度に応じて
-          スケジュールが自動的に調整されます。このツールは手動プランニング用の簡易シミュレーターであり、
+          スケジュールが自動的に調整されます。また、一部のユーザー・環境では、正誤だけでなく自己評価（簡単・普通・難しい・もう一度）に応じて間隔がより細かく動的に変わる方式（SRS V2）が使われており、その場合はこのページの固定間隔とは異なるスケジュールになります。このツールは手動プランニング用の簡易シミュレーターであり、
           実際の理解度を反映した自動調整の代わりにはなりません。
         </p>
       </div>
