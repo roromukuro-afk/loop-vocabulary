@@ -4,6 +4,10 @@ import { AppShell } from "@/components/layout/AppShell";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { CsvImportPanel } from "@/components/wordbooks/CsvImportPanel";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function CsvImportPage({ params }: { params: Promise<{ id: string }> }) {

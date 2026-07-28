@@ -8,6 +8,7 @@ import { ExtractWordsClient } from "./ExtractWordsClient";
 export const metadata: Metadata = {
   title: "英文から単語を自動抽出 | Loop Vocabulary",
   description: "英語記事・テキストを貼り付けるだけで、AIが学習すべき単語を自動抽出して単語帳に追加します。",
+  robots: { index: false, follow: true },
 };
 
 export const dynamic = "force-dynamic";

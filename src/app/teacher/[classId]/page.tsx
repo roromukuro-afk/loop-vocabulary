@@ -5,6 +5,10 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { InviteCodeManager } from "./InviteCodeManager";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 type RosterRow = {

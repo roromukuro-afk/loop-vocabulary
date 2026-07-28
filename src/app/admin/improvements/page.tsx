@@ -4,6 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ImprovementsClient } from "./ImprovementsClient";
 import type { IssueRow, TaskRow, MemoryRow, AutonomyLevelRow } from "./types";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 const AUTONOMY_LEVELS: AutonomyLevelRow[] = [

@@ -8,6 +8,7 @@ import { resolveScopeLabel } from "@/lib/learning/scopeLabel";
 export const metadata: Metadata = {
   title: "リスニングテスト | Loop Vocabulary",
   description: "英単語の発音を聞いて、スペルを入力するリスニング練習です。（Premiumプラン）",
+  robots: { index: false, follow: true },
 };
 
 export const dynamic = "force-dynamic";
