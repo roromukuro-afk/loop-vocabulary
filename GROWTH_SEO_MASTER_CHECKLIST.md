@@ -27,10 +27,10 @@
 | T-06 | canonical自己参照の網羅チェック | 全indexページ | `test:canonical-integrity`で継続監視、本ラウンドでも全PASS | **完了(既存)** | 既存テスト |
 | T-07 | sitemap分割(`/sitemap-static.xml`等) | sitemap.ts | 現状167件・上限5万件に遠く及ばないため分割不要と判断済み | **未着手（根拠あり）** | `SEO_INDEXING_POLICY.md`に判断根拠記載済み。辞書語ページ等が数千件規模に増えた時点で再検討 |
 | T-08 | HTTPS統一 | 全ページ | http→https、www→apex、vercel.app→apexいずれも実装・実測確認済み | **完了(既存+本ラウンド)** | next.config.js + Vercel domain設定 |
-| T-09 | robots.txtでAIクローラー個別指定(GPTBot/OAI-SearchBot等) | robots.txt | 「検索流入を得る」と「学習データ利用を許可する」は別の事業判断であり、方針未確定のため意図的に見送り済み | **外部認証待ち(オーナー判断待ち)** | `AI_SEARCH_AND_INDEXNOW_POLICY.md`に判断材料整理済み。オーナーの意思決定が必要 |
+| T-09 | robots.txtでAIクローラー個別指定(GPTBot/OAI-SearchBot等) | robots.txt | 実装済み。OAI-SearchBot/PerplexityBotは`User-agent: *`と同一許可、GPTBot/ClaudeBot/Google-Extendedは全面ブロックがデフォルト(理由はrobots.txt内コメント+`AI_SEARCH_AND_INDEXNOW_POLICY.md`に記載、1行変更で可逆) | **完了** | PR #31。回帰テスト`test:ai-crawler-llms-policy`(各ボットの意図した挙動を厳密assert)を`pr-ci-checks.mjs`/`run-e2e.mjs`双方に接続済み |
 | T-10 | Bing Webmaster Tools登録確認 | サイト全体 | コードからは確認不可、Bing管理画面での登録要 | **外部認証待ち** | https://www.bing.com/webmasters/ でのサイト登録要確認 |
 | T-11 | IndexNow実装 | 更新系全般 | 実装コストは低いが、優先度上、意図的に前ラウンドで見送り | **未着手（根拠あり）** | `AI_SEARCH_AND_INDEXNOW_POLICY.md`参照。ページ数が大きく増える局面で再検討 |
-| T-12 | llms.txt | サイト全体 | 未作成。効果を誇張せず案内として有用なら作成可能 | **未着手** | 次ラウンド候補（本ラウンドでは未着手、理由:優先度検討中） |
+| T-12 | llms.txt | サイト全体 | `public/llms.txt`作成済み。実在10ルートへのリンクのみ、架空の数値・実績は記載なし。SEO効果は誇張せず案内・引用補助としてのみ位置づけ | **完了** | PR #31。`test:ai-crawler-llms-policy`で全リンクの実在確認・404チェックを実施 |
 
 ## ON_PAGE_SEO
 
@@ -55,8 +55,8 @@
 | ID | 施策 | 現状 | ステータス |
 |---|---|---|---|
 | A-01 | 直接回答フォーマット | FAQPage JSON-LD+可視FAQセクションが`/`、4つの目的別LP、`/premium`等に実装済み。ただし「冒頭で質問に即答する」形式の網羅監査は未実施 | **データ不足/要監査** |
-| A-02 | AIクローラー区別(検索流入用 vs 学習データ用) | 用語整理済み(`AI_SEARCH_AND_INDEXNOW_POLICY.md`)、実装は事業判断待ち(T-09と同一) | **外部認証待ち(オーナー判断待ち)** |
-| A-03 | llms.txt | 未作成 | **未着手**(T-12と同一) |
+| A-02 | AIクローラー区別(検索流入用 vs 学習データ用) | robots.txtで実装済み(T-09と同一)。推奨デフォルトは可逆でオーナーがいつでも上書き可能 | **完了** |
+| A-03 | llms.txt | `public/llms.txt`作成済み(T-12と同一) | **完了** |
 | A-04 | AI経由流入の計測 | 専用実装は無いが、GA4の「トラフィック獲得」レポートでリファラベースに`chatgpt.com`/`perplexity.ai`等を現状でも確認可能(コード変更不要) | **実装済み(GA4標準機能で代替可)・計測待ち** |
 
 ## SXO
@@ -192,6 +192,7 @@
 ## 外部認証・人間の判断が必要なブロッカー
 
 1. Bing Webmaster Tools登録状況の確認(Bing管理画面へのアクセスが必要)
-2. AIクローラー(GPTBot/OAI-SearchBot等)個別許可の事業判断(学習データ利用を許可するかどうか)
-3. AdSense管理画面でのCMP設定・ads.txt Authorized状態確認
-4. 教育メディアへの被リンク依頼(手動営業)
+2. AdSense管理画面でのCMP設定・ads.txt Authorized状態確認
+3. 教育メディアへの被リンク依頼(手動営業)
+
+(旧項目「AIクローラー個別許可の事業判断」はT-09/A-02で実装済みのため解消。推奨デフォルトに異議があれば`public/robots.txt`の該当ボックロックを直接編集するだけで即座に上書き可能)

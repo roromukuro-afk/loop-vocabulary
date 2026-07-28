@@ -63,6 +63,9 @@ function inferCategoryTests(diffFiles) {
     tests.add("test:indexing-policy");
     tests.add("test:technical-seo-foundations");
   }
+  if (diffFiles.some((f) => f.includes("robots.txt") || f.includes("llms.txt") || f === "AI_SEARCH_AND_INDEXNOW_POLICY.md")) {
+    tests.add("test:ai-crawler-llms-policy");
+  }
   if (diffFiles.some((f) => f.includes("src/app/guide/") || f.includes("src/components/guide/") || f === "next.config.js")) {
     tests.add("test:guide-content-consolidation");
   }

@@ -46,6 +46,19 @@ const REQUIRED_BOT_USER_AGENTS = [
   "PerplexityBot",
 ];
 
+// AI_SEARCH_AND_INDEXNOW_POLICY.md の表と一致させる、ボットごとの意図した挙動。
+// "blocked": モデル学習用クローラー。Disallow: / の1行のみを要求する
+//   (単に「何らかのDisallowがある」ではなく、全面ブロックそのものを厳密にassertする)。
+// "mirrors-wildcard": 検索/引用用クローラー。User-agent: * ブロックと
+//   Allow/Disallowの集合が完全一致することを要求する(ポリシー反転の見逃しを防ぐ)。
+const BOT_EXPECTED_POLICY = {
+  "OAI-SearchBot": "mirrors-wildcard",
+  "GPTBot": "blocked",
+  "ClaudeBot": "blocked",
+  "Google-Extended": "blocked",
+  "PerplexityBot": "mirrors-wildcard",
+};
+
 let failed = false;
 function fail(msg) {
   failed = true;
@@ -153,6 +166,45 @@ async function runAll() {
     }
     if (allSyntaxValid) {
       ok(`User-agent: ${agent} の全ルール(${ruleLines.length}件)が構文的に妥当`);
+    }
+  }
+
+  console.log("\n=== 2b. 各ボットが意図したポリシー(ブロック/検索エンジンと同等)通りになっている ===");
+  for (const agent of REQUIRED_BOT_USER_AGENTS) {
+    const block = findBlockFor(blocks, agent);
+    if (!block) continue; // 存在チェックは2で既にfail済み
+    const expected = BOT_EXPECTED_POLICY[agent];
+    const ruleLines = block.lines.filter((l) => l.field === "allow" || l.field === "disallow");
+
+    if (expected === "blocked") {
+      const isExactlyBlocked =
+        ruleLines.length === 1 && ruleLines[0].field === "disallow" && ruleLines[0].value === "/";
+      if (isExactlyBlocked) {
+        ok(`User-agent: ${agent} は意図通り全面ブロック(Disallow: / のみ)`);
+      } else {
+        fail(
+          `User-agent: ${agent} は全面ブロック(Disallow: / のみ)を期待していたが、実際のルールは ${JSON.stringify(ruleLines)} だった(ポリシー反転や意図しないAllowの可能性)`,
+        );
+      }
+    } else if (expected === "mirrors-wildcard") {
+      const wildcardRuleSet = wildcardBlock
+        ? wildcardBlock.lines
+            .filter((l) => l.field === "allow" || l.field === "disallow")
+            .map((l) => `${l.field}:${l.value}`)
+            .sort()
+        : [];
+      const botRuleSet = ruleLines.map((l) => `${l.field}:${l.value}`).sort();
+      const matches =
+        wildcardRuleSet.length > 0 &&
+        wildcardRuleSet.length === botRuleSet.length &&
+        wildcardRuleSet.every((v, i) => v === botRuleSet[i]);
+      if (matches) {
+        ok(`User-agent: ${agent} は User-agent: * と完全に同一のAllow/Disallow集合(検索エンジンと同等の扱い)`);
+      } else {
+        fail(
+          `User-agent: ${agent} は User-agent: * とAllow/Disallowが完全一致すべきだが一致しない(wildcard=${JSON.stringify(wildcardRuleSet)}, ${agent}=${JSON.stringify(botRuleSet)})`,
+        );
+      }
     }
   }
 

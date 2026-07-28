@@ -208,6 +208,9 @@ async function main() {
 
     console.log("\n=== 55. 外部教材・権利監査 E2E ===");
     results.externalMaterialRights = runNode("scripts/testing/e2e/external-material-rights.mjs");
+
+    console.log("\n=== 56. AIクローラー個別ポリシー + llms.txt E2E ===");
+    results.aiCrawlerLlmsPolicy = runNode("scripts/testing/e2e/ai-crawler-llms-policy.mjs");
   } finally {
     stopDevServer(dev);
   }
