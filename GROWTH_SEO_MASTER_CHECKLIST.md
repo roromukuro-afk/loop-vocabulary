@@ -67,6 +67,24 @@
 | S-02 | 登録前価値提供 | 語彙診断・辞書検索は既に未ログインで利用可能(2026-07-01ラウンドで`/dictionary`を未ログイン化済み) | **完了(既存)** |
 | S-03 | 登録後オンボーディング | `OnboardingModal`・`FirstStepsGuide`が`/dashboard`に実装済み | **実装済み(既存)** |
 
+## FREE_TOOL
+
+**注記**: 当初のチェックリストにこのカテゴリが独立した表として存在しておらず、
+「新規に発見したギャップ」に間接的に記載されているのみだった(19カテゴリ要件からの漏れ)。
+本ラウンドで独立表として追加。実装順は2026-07-28継続指示のワークストリームD本文が権威あるソース。
+
+| ID | 施策 | 対象URL | 現状 | ステータス |
+|---|---|---|---|---|
+| FT-01 | 語彙力チェックの検索・共有・登録導線強化(実装順1番) | `/vocab-check` | 既存実装(20問・3分診断・シェアカード)。SEO/共有導線の追加強化は未着手 | **未着手** |
+| FT-02 | 復習日計算ツール(実装順「試験日から逆算する学習計画」相当の一部を先行実装) | `/review-date-calculator` | 新規実装・本番反映済み。アプリの実SRS固定間隔(1/3/7/14/30日)を使用、V1/V2の違いを明記 | **完了** |
+| FT-03 | 英単語リスト整形・CSV変換ツール | (未実装) | `PLANNED_TOOLS`に記載のみ、コード未着手 | **未着手** |
+| FT-04 | 英単語小テスト作成 | `/guide/english-vocabulary-quiz-maker`等の記事は既存、専用UIツールとしては小テストPDF機能が実質これに相当 | 既存のPDF小テスト機能で大部分カバー済み、追加のスタンドアロンUIは優先度低 | **実装済み(既存機能でカバー)** |
+| FT-05 | PDF作成 | 既存のPDF小テスト作成機能 | 実装済み | **完了(既存)** |
+| FT-06 | 発音・カタカナ読み検索 | (未実装) | 精度の限界について正直な注記が必要(架空情報禁止遵守) | **未着手** |
+| FT-07 | 似た意味の単語比較(類義語比較) | (未実装) | affect/effect・apply for/apply to等、SNS素材キットで先行して需要を確認済み | **未着手** |
+| FT-08 | 不規則動詞一覧・テスト | (未実装) | SNS素材キットのテーマ5は既存の中学英語ガイド記事(`/guide/chugaku-eigo-tango`)に暫定リンク中 | **未着手** |
+| FT-09 | 今日覚える英単語 | (未実装) | | **未着手** |
+
 ## ANALYTICS
 
 | ID | 施策 | 現状 | ステータス |
@@ -115,6 +133,7 @@
 | SO-01 | X(Twitter)投稿計画・テンプレ・分析 | `MARKETING_X_30DAY_CALENDAR.md`・`MARKETING_X_PLAYBOOK.md`・`MARKETING_X_POST_TEMPLATES.md`・`MARKETING_X_ANALYTICS_TEMPLATE.md`・`MARKETING_X_SCHEDULE_READY.md`が既に整備済み | **完了(既存)** |
 | SO-02 | ショート動画展開 | `SHORT_VIDEO_CONTENT_QUEUE.md`・`SHORT_VIDEO_GROWTH_PLAN.md`が既に整備済み | **実装済み・計測待ち** |
 | SO-03 | 31日目以降のXカレンダー継続 | 30日計画の次のサイクル未作成 | **実行中(既存バックログ、`GROWTH_90_DAY_ROADMAP.md` Month3記載)** |
+| SO-04 | 主要10テーマのマルチプラットフォーム素材(X/Instagram/Shorts/TikTok/Pinterest) | `MARKETING_10THEMES_CONTENT_KIT.md`作成・マージ済み。UTM・OGP方針・架空情報禁止の遵守を明記 | **実装済み・投稿実行待ち**(OGP画像制作・実際の投稿操作はユーザー確認後) |
 
 ## BACKLINK
 
@@ -180,14 +199,23 @@
 4. **Search Console対応**: `eigo-listening-renshu`のcanonical不一致でValidate Fix開始、インデックス登録リクエスト実行。`/roadmap`はインデックス登録完了を確認。
 5. **PR #25**(本ラウンド): `SEO_INDEXING_POLICY.md`のTODOだった、38ページへのnoindexメタデータ追加。`test:indexing-policy`拡張。マージ・本番デプロイ・READY確認まで完了(merge `f0e909f`)。
 6. **本チェックリスト**の作成・既存30本以上のポリシー文書との統合。
+7. **PR #31**: robots.txtへのAIクローラー個別指定(OAI-SearchBot/GPTBot/ClaudeBot/Google-Extended/PerplexityBot)+`public/llms.txt`新規作成。T-09/A-02/T-12/A-03クローズ。**実装・テスト完了、owner承認待ちで未マージ**(`/approve-protected-paths`要、詳細は`EXECUTION_STATE_LEDGER.md`)。
+8. **PR #32**: IndexNowキーファイル・送信ユーティリティ・週次cron再送信ルート実装。**実装・テスト完了、owner承認待ちで未マージ**(同上)。
+9. **PR #33**(本ラウンド): 復習日計算ツール(`/review-date-calculator`)新規実装。アプリの実SRS固定間隔を使用、V1/V2の違いを明記。マージ・本番反映済み(merge `a87fe68`)。
+10. **PR #34**(本ラウンド): 「英単語の覚え方」ピラーページ+サイト共通の視覚的パンくずUIコンポーネント新設、30以上のガイド記事・辞書・教材7カテゴリページに展開。P-02クローズ(`/materials/[id]`は既知の技術的理由で対象外、詳細は次項)。
+11. **PR #30**(本ラウンド): 主要10テーマのSNS素材キット(X/Instagram/Shorts/TikTok/Pinterest)作成。マージ済み(merge `d14a316`)。
+
+## 既知の未解決事項(意図的な対象外、根拠あり)
+
+- **`/materials/[id]`ページに視覚的パンくずUIが無い**: 動的な`material.title`をラベルに使う`<Breadcrumb>`を追加したところ、`test:internal-links`が「ページ遷移(リサイズ後の再ナビゲーション)でnetworkidle待ちがタイムアウトする」形で100%再現性のある形で失敗することを確認した。静的ラベルを使う他の全ページ(ガイド記事30本以上・教材カテゴリ7ページ・辞書・ピラーページ)は同じコンポーネントで問題なく動作しているため、コンポーネント自体の欠陥ではなく、動的ラベル+このページ特有のデータ取得パターンとの相互作用が疑われる。根本原因は特定できなかったため、実際に壊れるE2Eテストを通すコードを出荷するより、このページのみ対象外として次ラウンドへ持ち越すことを選択した。
 
 ## 新規に発見したギャップ(次ラウンド候補、優先度順)
 
-1. **CMP(同意管理)未実装** — AdSense審査・プライバシー観点で重要度が高い可能性
-2. **`return_next_day`/`return_day_7`/`wordbook_created`イベント未実装** — 継続率(最重要指標)の直接計測に必要
-3. **パンくずJSON-LDと視覚的UIの不整合** — 全ページでschemaのみ、UIなし
-4. **アクセシビリティ(aria/role)の低カバレッジ**
-5. **`/tools`の「準備中」2ツール(学習計画逆算・CSV変換)が未実装のまま** — `TOOLS_SEO_ROADMAP.md`に記載済みの既知バックログ
+1. **CMP(同意管理)** — ユーザーの別セッションで`feat/adsense-cmp-consent`(PR #29)として作業中
+2. **`return_next_day`/`return_day_7`/`wordbook_created`イベント** — ユーザーの別セッションで`feat/growth-events-wordbook-retention`(PR #27)として作業中
+3. **パンくずJSON-LDと視覚的UIの不整合** — PR #34でほぼ解消(30以上のガイド記事・教材7カテゴリ・辞書・ピラーページ)。`/materials/[id]`のみ既知の技術的理由で対象外(上記「既知の未解決事項」参照)
+4. **アクセシビリティ(aria/role)の低カバレッジ** — 未着手
+5. **無料ツール(語彙力チェック強化以外の8種)** — `FREE_TOOL`セクション参照、復習日計算ツール(FT-02)のみ完了、残り8件未着手
 
 ## 外部認証・人間の判断が必要なブロッカー
 
