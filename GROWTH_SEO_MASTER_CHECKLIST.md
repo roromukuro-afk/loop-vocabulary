@@ -37,7 +37,7 @@
 | ID | 施策 | 現状 | ステータス |
 |---|---|---|---|
 | P-01 | JSON-LD構造化データ | Organization/WebSite(全ページ共通)、WebApplication+Offer+FAQPage(`/`)、Article+DefinedTerm+DefinedTermSet+BreadcrumbList(辞書語ページ)、Article+BreadcrumbList+FAQPage(guide 40本中大半)、ItemList等、広範に実装済み | **完了(既存)** |
-| P-02 | パンくずJSON-LDと画面表示の不整合 | `BreadcrumbList`はguide/materials/dictionary/tools/about/press/reports等で広く出力されているが、**対応する視覚的なパンくずUIがサイト全体に一つも存在しない**（schema-onlyでUIなし） | **実行中(新規発見)** — 次ラウンドで視覚的パンくずUIコンポーネントの追加を検討 |
+| P-02 | パンくずJSON-LDと画面表示の不整合 | `src/components/ui/Breadcrumb.tsx`を新設しPR #34で本番反映済み(merge `9ff4dbc`)。guide記事32本中27本・guide一覧・dictionary(一覧+語ページ)・materials一覧+7カテゴリページ・tools・ピラーページに展開、JSON-LDと可視パンくずのラベル一致を自動テストで検証。**未対応が2箇所残る**: (1) guide記事5本(chugaku-eigo-tango/daigaku-juken-tango/business-english-tango/eiken-conversation/toeic-tango)はCI時間制約でこのラウンドでは除外、フォローアップPRで対応中。(2) `/materials/[id]`は動的ラベル使用時にE2Eテストが再現性100%で失敗する既知の技術的問題があり対象外(詳細はPR #34本文・コミット履歴) | **実装済み・一部完了(27/32ガイド記事+主要ページ完了、5ガイド記事はフォローアップPR対応中、`/materials/[id]`は技術的課題により保留)** |
 | P-03 | alt属性 | 全体で`&lt;img&gt;`/`next/image`使用がほぼ皆無(唯一の`&lt;img&gt;`はPDF内QRコード、alt付き)なテキスト主体サイトのため、alt不足リスクは実質的に低い | **完了(該当箇所僅少・対応済み)** |
 | P-04 | 内部リンク・関連記事導線 | 31本のguideページ・materials詳細・dictionary詳細に「関連記事/関連教材」導線は存在するが、共通コンポーネント化されておらず各ページが個別にハードコード | **実行中** — 共有コンポーネント化は技術的負債として次ラウンド候補(機能的には動作、優先度中) |
 
@@ -215,7 +215,7 @@
 2. **`return_next_day`/`return_day_7`/`wordbook_created`イベント** — ユーザーの別セッションで`feat/growth-events-wordbook-retention`(PR #27)として作業中
 3. **パンくずJSON-LDと視覚的UIの不整合** — PR #34でほぼ解消(30以上のガイド記事・教材7カテゴリ・辞書・ピラーページ)。`/materials/[id]`のみ既知の技術的理由で対象外(上記「既知の未解決事項」参照)
 4. **アクセシビリティ(aria/role)の低カバレッジ** — 未着手
-5. **無料ツール(語彙力チェック強化以外の8種)** — `FREE_TOOL`セクション参照、復習日計算ツール(FT-02)のみ完了、残り8件未着手
+5. **無料ツール** — `FREE_TOOL`セクション参照(全9件)。FT-02(復習日計算ツール)は完了、FT-04(小テスト作成)・FT-05(PDF作成)は既存機能でカバー済み、残りFT-01(語彙力チェック強化)・FT-03・FT-06・FT-07・FT-08・FT-09の6件が未着手
 
 ## 外部認証・人間の判断が必要なブロッカー
 
