@@ -46,7 +46,7 @@
 | D-2 | `feat/review-date-calculator-tool` | #33 | 復習日計算ツール | 実装・テスト・Codexレビュー対応済み。CI通過待ち→問題なければ即マージ可 |
 | C | `feat/eitango-oboekata-pillar-breadcrumb` | #34 | ピラーページ+可視パンくずUI | 実装・テスト完了。CI通過待ち→問題なければ即マージ可 |
 | F | `feat/indexnow-implementation` | #32 | IndexNowキー・送信ユーティリティ・週次cron | 実装・テスト完了。**owner承認待ち(上記参照)** |
-| G | `content/sns-10themes-kit` | #30 | 主要10テーマのSNS素材(X/Instagram/Shorts/TikTok/Pinterest) | マージ済み(CI通過確認後、自動マージされていなければ手動マージ) |
+| G | `content/sns-10themes-kit` | #30 | 主要10テーマのSNS素材(X/Instagram/Shorts/TikTok/Pinterest) | CI通過待ち(main最新化済み)→問題なければ即マージ可。**未マージ、要確認**(過去に一度追跡漏れが発生したPR。マージ済みかどうか`gh pr view 30 --json state`で必ず再確認してから次に進むこと) |
 
 **既知の注意点**:
 - 複数ブランチが`src/app/sitemap.ts`・`src/app/tools/page.tsx`・`.eslintrc.json`を編集している。
@@ -90,16 +90,27 @@ resolveするのではなく、指摘が正しいか検証してから修正・r
 
 ## 次に実行すべき正確なタスク(このセッションが中断した場合)
 
-1. 上記「🚨今すぐユーザーの操作が必要な項目」を最優先で確認・実行。
-2. PR #33・#34のCI状況を`gh pr checks <番号>`で確認。`gate`が`cancelled`表示の場合は
-   `gh run rerun <run-id>`で再実行(GitHub Actions concurrency-groupによる良性キャンセルの
-   ことが多い。`gh run view <run-id> --json conclusion`で`cancelled`かどうか確認してから判断)。
+1. まず現状の全PRを俯瞰する: `gh pr list --state open --json number,title,isDraft,mergeStateStatus`。
+   このリストと下表「現在進行中・レビュー待ちのブランチ・セッション」を突き合わせ、
+   表に無いPRや、表の状態と食い違うPRがあれば、それを見落とさず今回の作業対象に含める。
+   **番号を決め打ちで「#33と#34だけ確認すればいい」と思い込まないこと**(過去に#30がこの
+   思い込みで一時的に追跡漏れした)。
+2. 上記「🚨今すぐユーザーの操作が必要な項目」を最優先で確認・実行。
+3. `#30`・`#33`・`#34`(このラウンドでdraft残りのマージ待ちPR)それぞれについてCI状況を
+   `gh pr checks <番号>`で確認。`gate`が`cancelled`表示の場合は`gh run rerun <run-id>`で再実行
+   (GitHub Actions concurrency-groupによる良性キャンセルのことが多い。
+   `gh run view <run-id> --json conclusion`で`cancelled`かどうか確認してから判断)。
    `mergeStateStatus`が`BEHIND`の場合は該当worktreeで`git fetch origin main && git merge origin/main --no-edit && git push origin HEAD:<branch>`。
    全チェックが`pass`かつ`mergeStateStatus: CLEAN`になったら`gh pr merge <番号> --squash --delete-branch=false`。
-3. マージ後、Vercel本番デプロイの`readyState: READY`を確認(`mcp__35d4d012-5df6-4517-8ed0-6a4193854018__get_deployment`)。
-4. マージ後、`GROWTH_SEO_MASTER_CHECKLIST.md`の該当行(N-02のイベント表、AD-03のCMP行、
+4. `#27`(growth-events)・`#29`(CMP)はユーザーの別セッションが所有するブランチ。このラウンドの
+   セッション自身がこれらのワークツリーを直接編集することはしていないが、**放置してよいという
+   意味ではない**。再開時に`gh pr view 27 --json isDraft,state`・`gh pr view 29 --json isDraft,state`で
+   状態を確認し、まだdraftのままなら該当セッションが終了しているか確認した上で、完成していれば
+   レビュー・テスト確認・マージまで引き取ること(このラウンドの他のPRと同じ基準で)。
+5. マージ後、Vercel本番デプロイの`readyState: READY`を確認(`mcp__35d4d012-5df6-4517-8ed0-6a4193854018__get_deployment`)。
+6. マージ後、`GROWTH_SEO_MASTER_CHECKLIST.md`の該当行(N-02のイベント表、AD-03のCMP行、
    D系の新規ツール行、C系のピラーページ・パンくず行)を実際の状態に更新し、小さなdocs PRでmain反映。
-5. まだ未着手のワークストリームへ進む(優先順):
+7. まだ未着手のワークストリームへ進む(優先順):
    - ワークストリームB: 既存主要流入ページの改善(英単語の覚え方/中学生向け/高校・大学受験/英検2級/TOEIC/英会話/ビジネス英語/覚えられない/すぐ忘れる の8ページを特定し、title/meta description/直接回答/内部リンク/CTA/構造化データ/更新日を実施)。Search Console実データへのアクセス手段がない場合は、既存の`GUIDE_REWRITE_PRIORITY.md`の優先順位を代替根拠として使う。
    - ワークストリームD残り(語彙力チェック強化、CSV変換、小テスト作成、PDF作成、発音検索、類義語比較、不規則動詞、今日の単語)を1つずつ着手。**注意**: `src/app/tools/page.tsx`の`PLANNED_TOOLS`配列はこのラウンド開始時点で2件しか含んでおらず権威あるソースではない。実装優先順位の正しい根拠は、2026-07-28のユーザー継続指示本文「3. 次に実行する作業 > ワークストリームD:無料ツール > 実装順」の10項目リストであり、コード配列とこの指示文が食い違う場合は指示文を優先する。着手時は`PLANNED_TOOLS`にも該当エントリを追加して両者を一致させること(review-date-calculatorは`LIVE_TOOLS`に追加済みなので同様の扱いにする)。
    - ワークストリームH: プレスページ拡充・被リンク候補リスト・送付文面のドラフト作成(送信自体はユーザー許可後)。
