@@ -242,6 +242,13 @@ const GUIDES = [
     readTime: "5分",
   },
   {
+    slug: "fukikisoku-doushi-ichiran",
+    title: "英語の不規則動詞変化表【パターン別暗記法】一覧付き",
+    description: "アルファベット順ではなくパターン別(全部同じ・ABB型・ABA型・ABC型)に分類した一覧表と、覚え方のコツを解説。",
+    tag: "英文法",
+    readTime: "6分",
+  },
+  {
     slug: "affect-vs-effect",
     title: "affect と effect の違い【品詞で見分ける完全ガイド】",
     description: "原則『affectは動詞・effectは名詞』という品詞の違い1つで見分ける方法を、例文・よくある間違い・例外つきで解説。",
