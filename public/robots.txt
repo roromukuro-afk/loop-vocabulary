@@ -13,7 +13,8 @@ Disallow: /plan
 Disallow: /ranking
 Disallow: /referral/
 Disallow: /review
-Disallow: /road$
+Disallow: /road
+Allow: /roadmap
 Disallow: /settings
 Disallow: /share/
 Disallow: /setup
