@@ -25,4 +25,99 @@ Disallow: /account/
 Disallow: /weak
 Disallow: /wordbooks
 
+# ---------------------------------------------------------------------------
+# AI crawler policy (added per AI_SEARCH_AND_INDEXNOW_POLICY.md).
+# To change a bot's default, edit its User-agent block below — each bot's
+# rules are independent of the others and of the `User-agent: *` block above,
+# and take effect immediately on the crawler's next visit. Note: robots.txt
+# is a voluntary convention — crawlers are not required to honor it, and
+# some (including some AI crawlers) are known not to.
+# ---------------------------------------------------------------------------
+
+# OAI-SearchBot: OpenAI's crawler for ChatGPT search-result citations only
+# (does not train models). Same value proposition as any other search
+# engine, so it mirrors the `User-agent: *` rules above (allowed).
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /ai
+Disallow: /auth/
+Disallow: /dashboard
+Disallow: /extract
+Disallow: /join/
+Disallow: /learn
+Disallow: /pdf
+Disallow: /plan
+Disallow: /ranking
+Disallow: /referral/
+Disallow: /review
+Disallow: /road
+Allow: /roadmap
+Disallow: /settings
+Disallow: /share/
+Disallow: /setup
+Disallow: /stats
+Disallow: /teacher
+Disallow: /test
+Disallow: /account/
+Disallow: /weak
+Disallow: /wordbooks
+
+# GPTBot: OpenAI's model-training data crawler (separate from OAI-SearchBot;
+# does not affect ChatGPT search visibility). Blocked by default: the
+# dictionary/AI-explanation content is part of this site's product value and
+# revenue model, so blocking training-data scraping is the safer, reversible
+# default. This has no effect on search-answer visibility, which is handled
+# by OAI-SearchBot above.
+User-agent: GPTBot
+Disallow: /
+
+# ClaudeBot: Anthropic's model-training crawler (separate from Claude's
+# user-triggered fetches, e.g. when a user pastes a URL into Claude).
+# Same reasoning as GPTBot: blocked by default to protect training-data use
+# of original content; reversible if the business decision changes later.
+User-agent: ClaudeBot
+Disallow: /
+
+# Google-Extended: controls use of this site's content to train
+# Gemini/Bard/Vertex AI models. Does NOT affect regular Googlebot search
+# crawling/indexing, which stays governed by `User-agent: *` above.
+# Same training-data reasoning as GPTBot/ClaudeBot: blocked by default.
+User-agent: Google-Extended
+Disallow: /
+
+# PerplexityBot: Perplexity AI's crawler. Its primary use here is
+# answer-citation with attribution (similar value proposition to search
+# visibility), so it mirrors `User-agent: *` (allowed) by default. Note:
+# unlike OpenAI's/Anthropic's crawlers, Perplexity does not cleanly separate
+# search-citation use from training use with two distinct bots, so this
+# default is less clean-cut and can be revisited.
+User-agent: PerplexityBot
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /ai
+Disallow: /auth/
+Disallow: /dashboard
+Disallow: /extract
+Disallow: /join/
+Disallow: /learn
+Disallow: /pdf
+Disallow: /plan
+Disallow: /ranking
+Disallow: /referral/
+Disallow: /review
+Disallow: /road
+Allow: /roadmap
+Disallow: /settings
+Disallow: /share/
+Disallow: /setup
+Disallow: /stats
+Disallow: /teacher
+Disallow: /test
+Disallow: /account/
+Disallow: /weak
+Disallow: /wordbooks
+
 Sitemap: https://loop-vocabulary.app/sitemap.xml
