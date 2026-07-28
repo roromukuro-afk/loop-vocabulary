@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/Button";
 import { TypingTestRunner } from "./TypingTestRunner";
 import { resolveScopeLabel } from "@/lib/learning/scopeLabel";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function TypingTestPage({

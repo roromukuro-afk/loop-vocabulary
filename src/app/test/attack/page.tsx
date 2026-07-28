@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "60秒タイムアタック | Loop Vocabulary",
   description: "60秒間に何問正解できるか！英単語4択タイムアタックで語彙力を鍛えよう。",
+  robots: { index: false, follow: true },
 };
 
 export default async function AttackPage({

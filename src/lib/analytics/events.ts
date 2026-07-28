@@ -219,3 +219,16 @@ export function trackPdfGenerateStart() {
 export function trackPdfGenerateComplete(questionCount: number) {
   gtag("pdf_generate_complete", { question_count: questionCount, event_category: "engagement" });
 }
+
+// ── 汎用ツールページ計測 ──────────────────────────────────────────
+// ログイン不要の単機能ツールページ（/review-date-calculator 等）向けの
+// 汎用イベント。ツール固有のイベント名を都度追加する代わりに、
+// tool_key で識別する共通パターンとして使う。
+
+export function trackToolStarted(toolKey: string) {
+  gtag("tool_started", { tool_key: toolKey, event_category: "engagement" });
+}
+
+export function trackToolCompleted(toolKey: string) {
+  gtag("tool_completed", { tool_key: toolKey, event_category: "engagement" });
+}

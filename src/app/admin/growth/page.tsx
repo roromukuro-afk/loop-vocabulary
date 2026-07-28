@@ -17,6 +17,10 @@ import type {
   RevenueData,
 } from "./types";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 const PERIOD_OPTIONS: PeriodDays[] = [7, 30, 90];

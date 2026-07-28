@@ -8,6 +8,10 @@ import { resolveScopeLabel } from "@/lib/learning/scopeLabel";
 import { ChoiceTestRunner } from "../test/choice/ChoiceTestRunner";
 import { FlipCardRunner } from "@/components/review/FlipCardRunner";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 // 復習待ちがこの件数以上たまったら「リカバリーモード」導線を表示する。
