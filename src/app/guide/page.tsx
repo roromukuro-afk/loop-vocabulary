@@ -242,6 +242,13 @@ const GUIDES = [
     readTime: "5分",
   },
   {
+    slug: "fukikisoku-doushi-ichiran",
+    title: "英語の不規則動詞変化表【パターン別暗記法】一覧付き",
+    description: "アルファベット順ではなくパターン別(全部同じ・ABB型・ABA型・ABC型)に分類した一覧表と、覚え方のコツを解説。",
+    tag: "英文法",
+    readTime: "6分",
+  },
+  {
     slug: "eiken-2kyu-tango-nanko",
     title: "英検2級は単語何個で受かる？必要語彙数の真実",
     description: "合格に必要な語彙は約5,000語。級別の必要語彙数一覧と、なぜ語彙が合否を分けるのか、最短で覚える方法を解説。",

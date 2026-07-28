@@ -40,6 +40,7 @@ const GUIDE_SLUGS = [
   "eitango-oboerarenai",
   "eitango-ichinichi-nanko",
   "genzaikanryo-kakokei-chigai",
+  "fukikisoku-doushi-ichiran",
   "eiken-2kyu-tango-nanko",
   "tangocho-erabikata",
   "system-eitango",
