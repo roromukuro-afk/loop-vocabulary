@@ -14,6 +14,10 @@ import { MyClasses } from "./MyClasses";
 import { DisplayNameForm } from "./DisplayNameForm";
 import { ExamCountdown } from "@/components/dashboard/ExamCountdown";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {

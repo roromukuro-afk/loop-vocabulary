@@ -4,6 +4,10 @@ import { requireAdmin } from "@/lib/supabase/requireUser";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { WeeklyReportSummary } from "@/lib/growth/weeklyReport";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 type WeeklyReportRow = {

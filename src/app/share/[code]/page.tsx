@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SharedWordbookImport } from "./SharedWordbookImport";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function SharedWordbookPage({ params }: { params: Promise<{ code: string }> }) {

@@ -6,6 +6,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { todayJST, lastNDaysJST, toJstDateString } from "@/lib/utils/date";
 import type { AiRoute } from "@/lib/ai/logAiUsage";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 const ROUTE_LABELS: Record<AiRoute, string> = {

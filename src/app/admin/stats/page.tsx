@@ -5,6 +5,10 @@ import { requireAdmin } from "@/lib/supabase/requireUser";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayJST, daysAgoJST } from "@/lib/utils/date";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 function StatBox({ label, value, sub, color = "navy" }: { label: string; value: string | number; sub?: string; color?: "navy" | "sky" | "emerald" | "amber" | "red" }) {

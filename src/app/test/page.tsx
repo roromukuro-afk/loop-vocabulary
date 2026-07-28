@@ -3,6 +3,10 @@ import { requireUser } from "@/lib/supabase/requireUser";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardTitle } from "@/components/ui/Card";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 const MODES = [

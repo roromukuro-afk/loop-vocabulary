@@ -5,6 +5,10 @@ import { requireUser } from "@/lib/supabase/requireUser";
 import { PromoteTeacherButton } from "./PromoteTeacherButton";
 import { CreateClassForm } from "./CreateClassForm";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function TeacherPage() {

@@ -6,6 +6,7 @@ import { StudyPlanClient } from "./StudyPlanClient";
 export const metadata: Metadata = {
   title: "AIパーソナル学習プラン | Loop Vocabulary",
   description: "試験の種類・目標日・現在のレベルを入力するだけで、AIがあなた専用の英語学習スケジュールを自動生成します。",
+  robots: { index: false, follow: true },
 };
 
 export const dynamic = "force-dynamic";

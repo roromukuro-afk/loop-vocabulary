@@ -18,6 +18,10 @@ import { computeStreak } from "@/lib/gamification/streak";
 import { DAILY_ACHIEVEMENT_TICKET_KIND } from "@/lib/gamification/rewardTickets";
 import { todayJST, daysAgoJST, jstWeekdayIndex, jstHour, jstDayOfMonth, todayStartJstISO } from "@/lib/utils/date";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 function getGreeting(hour: number): string {

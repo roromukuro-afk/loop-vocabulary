@@ -6,6 +6,10 @@ import { NativeAdCard } from "@/components/ads/AdComponents";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { CreateWordBookForm } from "./CreateWordBookForm";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function WordBooksPage() {

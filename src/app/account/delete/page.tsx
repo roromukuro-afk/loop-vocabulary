@@ -5,6 +5,10 @@ import { getSupabaseEnv } from "@/lib/supabase/env";
 import { SUPPORT_EMAIL } from "@/lib/support";
 import { DeleteAccountPanel } from "@/components/account/DeleteAccountPanel";
 
+export const metadata = {
+  robots: { index: false, follow: true },
+};
+
 export const dynamic = "force-dynamic";
 
 // ============================================================
