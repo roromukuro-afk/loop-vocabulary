@@ -37,7 +37,7 @@
 | ID | 施策 | 現状 | ステータス |
 |---|---|---|---|
 | P-01 | JSON-LD構造化データ | Organization/WebSite(全ページ共通)、WebApplication+Offer+FAQPage(`/`)、Article+DefinedTerm+DefinedTermSet+BreadcrumbList(辞書語ページ)、Article+BreadcrumbList+FAQPage(guide 40本中大半)、ItemList等、広範に実装済み | **完了(既存)** |
-| P-02 | パンくずJSON-LDと画面表示の不整合 | `src/components/ui/Breadcrumb.tsx`を新設しPR #34で本番反映済み(merge `9ff4dbc`)。guide記事32本中27本・guide一覧・dictionary(一覧+語ページ)・materials一覧+7カテゴリページ・tools・ピラーページに展開、JSON-LDと可視パンくずのラベル一致を自動テストで検証。**未対応が2箇所残る**: (1) guide記事5本(chugaku-eigo-tango/daigaku-juken-tango/business-english-tango/eiken-conversation/toeic-tango)はCI時間制約でこのラウンドでは除外、フォローアップPRで対応中。(2) `/materials/[id]`は動的ラベル使用時にE2Eテストが再現性100%で失敗する既知の技術的問題があり対象外(詳細はPR #34本文・コミット履歴) | **実装済み・一部完了(27/32ガイド記事+主要ページ完了、5ガイド記事はフォローアップPR対応中、`/materials/[id]`は技術的課題により保留)** |
+| P-02 | パンくずJSON-LDと画面表示の不整合 | `src/components/ui/Breadcrumb.tsx`を新設しPR #34で本番反映済み(merge `9ff4dbc`)。guide記事32本中27本をPR #34で実装。フォローアップでPR #38(eiken-conversation・toeic-tango、merge `3d564eb`)・PR #39(daigaku-juken-tango、merge `82e5b00`)が追加マージ済みで**30/32完了**。残る2本(chugaku-eigo-tango=PR #37、business-english-tango=PR #40)はCI時間予算(20分)のため1ファイル単位に分割してマージ待ち。guide一覧・dictionary(一覧+語ページ)・materials一覧+7カテゴリページ・tools・ピラーページは完了済み。**唯一の未対応**: `/materials/[id]`は動的ラベル使用時にE2Eテストが再現性100%で失敗する既知の技術的問題があり対象外(詳細はPR #34本文・コミット履歴) | **実装済み・ほぼ完了(30/32ガイド記事+主要ページ完了、残り2記事はPR #37・#40マージ待ち、`/materials/[id]`は技術的課題により保留)** |
 | P-03 | alt属性 | 全体で`&lt;img&gt;`/`next/image`使用がほぼ皆無(唯一の`&lt;img&gt;`はPDF内QRコード、alt付き)なテキスト主体サイトのため、alt不足リスクは実質的に低い | **完了(該当箇所僅少・対応済み)** |
 | P-04 | 内部リンク・関連記事導線 | 31本のguideページ・materials詳細・dictionary詳細に「関連記事/関連教材」導線は存在するが、共通コンポーネント化されておらず各ページが個別にハードコード | **実行中** — 共有コンポーネント化は技術的負債として次ラウンド候補(機能的には動作、優先度中) |
 
@@ -81,9 +81,10 @@
 | FT-04 | 英単語小テスト作成 | `/guide/english-vocabulary-quiz-maker`等の記事は既存、専用UIツールとしては小テストPDF機能が実質これに相当 | 既存のPDF小テスト機能で大部分カバー済み、追加のスタンドアロンUIは優先度低 | **実装済み(既存機能でカバー)** |
 | FT-05 | PDF作成 | 既存のPDF小テスト作成機能 | 実装済み | **完了(既存)** |
 | FT-06 | 発音・カタカナ読み検索 | (未実装) | 精度の限界について正直な注記が必要(架空情報禁止遵守) | **未着手** |
-| FT-07 | 似た意味の単語比較(類義語比較) | (未実装) | affect/effect・apply for/apply to等、SNS素材キットで先行して需要を確認済み | **未着手** |
-| FT-08 | 不規則動詞一覧・テスト | (未実装) | SNS素材キットのテーマ5は既存の中学英語ガイド記事(`/guide/chugaku-eigo-tango`)に暫定リンク中 | **未着手** |
+| FT-07 | 似た意味の単語比較(類義語比較) | `/guide/affect-vs-effect`・`/guide/apply-for-vs-apply-to` | PR #41で新規実装(品詞・前置詞の違いを軸にした解説記事2本)。マージ待ち | **実装済み・マージ待ち(PR #41)** |
+| FT-08 | 不規則動詞一覧・テスト | `/guide/fukikisoku-doushi-ichiran` | PR #42で新規実装(全部同じ型・ABB型・ABA型・ABC型+例外のAAB型の5パターン分類一覧)。マージ待ち | **実装済み・マージ待ち(PR #42)** |
 | FT-09 | 今日覚える英単語 | (未実装) | | **未着手** |
+| (追加) | 試験日から逆算する学習計画メーカー(FT-02の完全版、独立ツールとして実装) | `/exam-countdown-planner` | PR #43で新規実装。試験日+単語数から最短ペースと復習7日確保ペースの2パターンを算出。`/tools`のPLANNED_TOOLSからLIVE_TOOLSへ移動。マージ待ち | **実装済み・マージ待ち(PR #43)** |
 
 ## ANALYTICS
 
@@ -202,8 +203,12 @@
 7. **PR #31**: robots.txtへのAIクローラー個別指定(OAI-SearchBot/GPTBot/ClaudeBot/Google-Extended/PerplexityBot)+`public/llms.txt`新規作成。T-09/A-02/T-12/A-03クローズ。**実装・テスト完了、owner承認待ちで未マージ**(`/approve-protected-paths`要、詳細は`EXECUTION_STATE_LEDGER.md`)。
 8. **PR #32**: IndexNowキーファイル・送信ユーティリティ・週次cron再送信ルート実装。**実装・テスト完了、owner承認待ちで未マージ**(同上)。
 9. **PR #33**(本ラウンド): 復習日計算ツール(`/review-date-calculator`)新規実装。アプリの実SRS固定間隔を使用、V1/V2の違いを明記。マージ・本番反映済み(merge `a87fe68`)。
-10. **PR #34**(本ラウンド): 「英単語の覚え方」ピラーページ+サイト共通の視覚的パンくずUIコンポーネント新設、30以上のガイド記事・辞書・教材7カテゴリページに展開。P-02クローズ(`/materials/[id]`は既知の技術的理由で対象外、詳細は次項)。
+10. **PR #34**(本ラウンド): 「英単語の覚え方」ピラーページ+サイト共通の視覚的パンくずUIコンポーネント新設、32本中27本のガイド記事・辞書・教材7カテゴリページに展開。P-02ほぼクローズ(`/materials/[id]`は既知の技術的理由で対象外、詳細は次項)。
 11. **PR #30**(本ラウンド): 主要10テーマのSNS素材キット(X/Instagram/Shorts/TikTok/Pinterest)作成。マージ済み(merge `d14a316`)。
+12. **PR #38**(本ラウンド): PR #34のパンくずフォローアップ第2弾、eiken-conversation・toeic-tango 2記事に展開。マージ済み(merge `3d564eb`)。
+13. **PR #39**(本ラウンド): PR #34のパンくずフォローアップ、daigaku-juken-tango 1記事に展開(quality-gate 20分タイムアウト回避のため単一ファイルPRに分割)。マージ済み(merge `82e5b00`)。
+14. **PR #37・#40**(本ラウンド、マージ待ち): 残るchugaku-eigo-tango・business-english-tangoへのパンくず展開。各1ファイルPRに分割し、quality-gate通過を確認中。
+15. **PR #41・#42・#43**(本ラウンド、マージ待ち): 混同しやすい単語ペア解説(affect-vs-effect・apply-for-vs-apply-to、FT-07)、不規則動詞一覧(fukikisoku-doushi-ichiran、FT-08)、試験日逆算学習計画メーカー(exam-countdown-planner、FT-02の完全版)を新規実装。いずれもchatgpt-codex-connectorのレビュー指摘(表内Markdown太字が未レンダリング/AAB型動詞の欠落)を修正済み。
 
 ## 既知の未解決事項(意図的な対象外、根拠あり)
 
@@ -211,11 +216,11 @@
 
 ## 新規に発見したギャップ(次ラウンド候補、優先度順)
 
-1. **CMP(同意管理)** — ユーザーの別セッションで`feat/adsense-cmp-consent`(PR #29)として作業中
-2. **`return_next_day`/`return_day_7`/`wordbook_created`イベント** — ユーザーの別セッションで`feat/growth-events-wordbook-retention`(PR #27)として作業中
-3. **パンくずJSON-LDと視覚的UIの不整合** — PR #34でほぼ解消(30以上のガイド記事・教材7カテゴリ・辞書・ピラーページ)。`/materials/[id]`のみ既知の技術的理由で対象外(上記「既知の未解決事項」参照)
+1. **CMP(同意管理)** — `feat/adsense-cmp-consent`(PR #29)で実装完了。プライバシーポリシーの最終更新日修正等レビュー指摘対応済み、owner承認待ち(`/approve-protected-paths`要)
+2. **`return_next_day`/`return_day_7`/`wordbook_created`イベント** — `feat/growth-events-wordbook-retention`(PR #27)で実装完了。DB挿入失敗の誤成功報告・D1/D7重複防止のatomic化(Postgres部分ユニークインデックス+`SECURITY DEFINER`関数)・`wordbook_created`発火位置の是正など、レビュー指摘4件を全面的に作り直して対応済み、owner承認待ち(`/approve-protected-paths`要)
+3. **パンくずJSON-LDと視覚的UIの不整合** — PR #34+#38+#39で30/32ガイド記事完了(教材7カテゴリ・辞書・ピラーページも完了)。残るchugaku-eigo-tango・business-english-tangoはPR #37・#40としてマージ待ち。`/materials/[id]`のみ既知の技術的理由で対象外(上記「既知の未解決事項」参照)
 4. **アクセシビリティ(aria/role)の低カバレッジ** — 未着手
-5. **無料ツール** — `FREE_TOOL`セクション参照(全9件)。FT-02(復習日計算ツール)は完了、FT-04(小テスト作成)・FT-05(PDF作成)は既存機能でカバー済み、残りFT-01(語彙力チェック強化)・FT-03・FT-06・FT-07・FT-08・FT-09の6件が未着手
+5. **無料ツール** — `FREE_TOOL`セクション参照。FT-02(復習日計算ツール)は完了、FT-04(小テスト作成)・FT-05(PDF作成)は既存機能でカバー済み、FT-07(単語比較)・FT-08(不規則動詞一覧)・試験日逆算学習計画メーカー(FT-02完全版)はPR #41・#42・#43として実装済み・マージ待ち。残りFT-01(語彙力チェック強化)・FT-03(CSV変換)・FT-06(発音検索)・FT-09(今日覚える英単語)の4件が未着手
 
 ## 外部認証・人間の判断が必要なブロッカー
 
