@@ -11,6 +11,11 @@
 > (本文書はその「送信前の全準備」を完了させるためのもの)。
 >
 > UTM規約は`MARKETING_X_PLAYBOOK.md`§17に準拠: `utm_source=<プラットフォーム>&utm_medium=social&utm_campaign=<テーマ>`。
+> 各テーマの「対象URL」は`utm_source={PLATFORM}`とプレースホルダーのまま記載している
+> (1つの投稿文面を複数プラットフォームで使い回すため、URLを固定してしまうと計測元の
+> 帰属が壊れる)。実際にその文面をどのプラットフォームで使うかに応じて、`{PLATFORM}`を
+> 次のいずれかに置き換えてから投稿すること: X→`x` / Instagram→`instagram` /
+> YouTube Shorts→`youtube` / TikTok→`tiktok` / Pinterest→`pinterest`。
 
 ---
 
@@ -18,7 +23,7 @@
 
 **核となる直接回答**: すぐ忘れるのは能力不足ではなく、復習のタイミングが「忘れる前」に来ていないから。人は覚えた直後から忘れ始める(エビングハウスの忘却曲線)ため、1回で覚えようとせず、忘れかけた頃に何度も触れる設計が必要。
 
-- **対象URL**: `https://loop-vocabulary.app/guide/spaced-repetition-english-vocabulary?utm_source=x&utm_medium=social&utm_campaign=sugu_wasureru`
+- **対象URL**: `https://loop-vocabulary.app/guide/spaced-repetition-english-vocabulary?utm_source={PLATFORM}&utm_medium=social&utm_campaign=sugu_wasureru`
 - **X投稿(3案)**:
   1. 「昨日やったのに忘れてる」は普通のことです。人間は覚えた直後から忘れ始めます。落ち込む前に、復習のタイミングを見直してみませんか → 〔URL〕
   2. 英単語をすぐ忘れる原因、実は「量」じゃなくて「復習するタイミング」がズレてることがほとんどです。忘却曲線の仕組みを解説しました → 〔URL〕
@@ -41,7 +46,7 @@
 
 **核となる直接回答**: 「何個」より「何個を思い出せる状態で維持できるか」が本質。新規語彙は1日10〜20語程度から始め、復習が滞留しない範囲で調整するのが継続しやすい。多く詰め込むほど復習の負債が増え、続かなくなりやすい。
 
-- **対象URL**: `https://loop-vocabulary.app/guide/eitango-oboeru-houhou?utm_source=x&utm_medium=social&utm_campaign=ichinichi_nanko`
+- **対象URL**: `https://loop-vocabulary.app/guide/eitango-oboeru-houhou?utm_source={PLATFORM}&utm_medium=social&utm_campaign=ichinichi_nanko`
 - **X投稿(3案)**:
   1. 「1日何個覚えればいいか」より大事なのは「復習が滞留しない量」です。新規語彙を増やしすぎると、翌日の復習が終わらなくなります → 〔URL〕
   2. 英単語、1日100個より1日15個+その日の復習をしっかりやる方が結果的に定着します。新規語彙数と復習量はセットで考えるのがコツです → 〔URL〕
@@ -57,14 +62,16 @@
 
 ## テーマ3: 英単語の復習タイミング
 
-**核となる直接回答**: 復習タイミングは「忘れかけた頃」。Loop Vocabularyの実装では初回正解の1日後→3日後→7日後→14日後→30日後という間隔で復習を提示する(`src/lib/srs/index.ts`の実際の間隔)。この間隔は記憶の定着を保ちながら復習回数を最小化するよう設計されている。
+**核となる直接回答**: 復習タイミングは「忘れかけた頃」。Loop Vocabularyでは正解が連続するほど次の復習までの間隔が自動的に伸び、不正解だった単語だけ翌日に戻す仕組み(SRS)で、この間隔を自分で管理する必要がない。
 
-- **対象URL**: `https://loop-vocabulary.app/guide/spaced-repetition-english-vocabulary?utm_source=x&utm_medium=social&utm_campaign=fukushu_timing`
+**重要な注記(架空情報禁止の遵守)**: 本番環境は現在SRS V2(`NEXT_PUBLIC_SRS_V2=1`、全ユーザー対象)が既定で、間隔は「直近の間隔×ease値×学習モード別の重み」で動的に決まり、`src/lib/srs/index.ts`の固定数列(1日→3日→7日→14日→30日)とは3回目の間隔以降で数値が乖離する(例: フラッシュカードで正解が連続した場合、1日→3日→8日と伸びる)。そのため、この投稿群では**具体的な日数を断定せず**、「間隔が自動で伸びる」という仕組みの説明にとどめる。固定間隔の具体的な日数を出す文面は、SRS V1(レガシー・簡易版)の説明として明示している`GROWTH_SEO_MASTER_CHECKLIST.md`該当箇所や`/review-date-calculator`ツール自体の断り書きと矛盾しないよう注意すること。
+
+- **対象URL**: `https://loop-vocabulary.app/guide/spaced-repetition-english-vocabulary?utm_source={PLATFORM}&utm_medium=social&utm_campaign=fukushu_timing`
 - **X投稿(3案)**:
-  1. 英単語の復習タイミング、実は「1日後→3日後→7日後→14日後→30日後」のように間隔を広げていくのが効率的です。詳しい理由を書きました → 〔URL〕
+  1. 英単語の復習タイミング、正解が続くほど次の復習までの間隔が自動で伸びていく仕組み(間隔反復)が効率的です。詳しい理由を書きました → 〔URL〕
   2. 復習のタイミングを自分で管理するの、地味に大変じゃないですか。忘れかけた頃を自動で計算してくれる仕組みがあると管理から解放されます → 〔URL〕
   3. 「復習は毎日やるべき?」実は違います。間隔をあけて忘れかけた頃に触れる方が記憶に残ります(間隔反復) → 〔URL〕
-- **Instagramカルーセル構成(5枚)**: ①表紙「復習はいつやるのが正解?」②「1日後」③「3日後→7日後→14日後→30日後、と間隔を広げる」(タイムライン図)④「間隔をあける理由=忘れかけた時が一番記憶に効く」⑤CTA「この間隔、Loop Vocabularyが自動で計算します」
+- **Instagramカルーセル構成(5枚)**: ①表紙「復習はいつやるのが正解?」②「正解した単語は次の復習までの間隔が自動で伸びる」③「間違えた単語は翌日にもう一度」(仕組み図)④「間隔をあける理由=忘れかけた時が一番記憶に効く」⑤CTA「この間隔調整、Loop Vocabularyが自動でやります」
 - **Shorts台本(30秒)**: [0-3s]「復習、毎日やってませんか?」→[5-20s]正しい間隔(1→3→7→14→30日)を図解しながら説明→[20-25s]「この管理、自動化できます」→[25-30s]CTA
 - **TikTok台本**: 同構成、テンポ重視で数字を大きくテロップ表示
 - **Pinterestタイトル/説明**: タイトル「英単語の復習タイミング完全ガイド【間隔反復】」/説明「1日後・3日後・7日後...復習のベストなタイミングを間隔反復の考え方で解説。」
@@ -79,7 +86,7 @@
 
 **重要な注意(架空情報禁止の遵守)**: カタカナ表記の精度には限界があり(日本語の音韻体系では英語の全ての音を正確に表現できない)、この投稿群では「カタカナは入口、音声確認とセットで」という誠実なポジショニングに統一し、「カタカナだけで完璧に発音できる」という誤解を招く表現は使わない。
 
-- **対象URL**: `https://loop-vocabulary.app/guide/listening-and-pronunciation-vocabulary?utm_source=x&utm_medium=social&utm_campaign=katakana_oboekata`
+- **対象URL**: `https://loop-vocabulary.app/guide/listening-and-pronunciation-vocabulary?utm_source={PLATFORM}&utm_medium=social&utm_campaign=katakana_oboekata`
 - **X投稿(3案)**:
   1. 英単語をカタカナで覚えるの、悪いことではないですが「読めるのに聞き取れない」の原因にもなります。入口として使いつつ、最後は音声で確認するのがおすすめです → 〔URL〕
   2. カタカナ発音、完璧な発音記号よりハードルが低いのは事実です。ただしカタカナだけで止めず、必ず実際の音声を聞く工程をセットにしてください → 〔URL〕
@@ -99,7 +106,7 @@
 
 **注記**: `GROWTH_SEO_MASTER_CHECKLIST.md`のワークストリームD優先順位9番「不規則動詞一覧・テスト」ツールは本ラウンドではまだコード実装されていない。このため対象URLは既存の中学英語ガイド記事に留め、専用ツールへのリンクは実装完了後に更新すること(存在しないURLを投稿に含めない)。
 
-- **対象URL**: `https://loop-vocabulary.app/guide/chugaku-eigo-tango-content?utm_source=x&utm_medium=social&utm_campaign=fukisoku_doushi` (実在する中学英単語ガイド記事のslugを実装側で確認の上、正確なURLに差し替えること — 本キット作成時点でslug名の綴りを断定できなかったため要確認)
+- **対象URL**: `https://loop-vocabulary.app/guide/chugaku-eigo-tango?utm_source={PLATFORM}&utm_medium=social&utm_campaign=fukisoku_doushi`(`src/app/guide/page.tsx`のGUIDES配列で実在確認済みのslug。以前の版では末尾に誤って`-content`を付けた誤ったURLを記載していたため修正)
 - **X投稿(3案)**:
   1. 中学英語の不規則動詞、種類は多く見えて実は「eat-ate-eaten」型のようにパターンでグループ分けできます。バラバラに覚えるより効率的です → 〔URL〕
   2. go-went-gone、eat-ate-eatenのような不規則動詞、テストに出るものはかなり限られています。頻出順に整理して覚えるのがおすすめです → 〔URL〕
@@ -115,12 +122,12 @@
 
 ## テーマ6: 英検2級の必要語彙
 
-**核となる直接回答**: 英検2級の目安語彙数は5,100語程度とされる(英検協会の公表目安に基づく一般的な数値。過去の類似級の傾向として言及されることが多いが、年度により表現が変わる場合があるため、投稿時は「目安」という表現に留め、断定しない)。
+**核となる直接回答**: 英検2級の必要語彙数は、市販教材や一般に公開されている過去の出題傾向をもとにした参考値として、5,000語前後とされることが多い(英検協会の公式発表の再配布ではない)。
 
-**架空情報禁止の遵守**: 語彙数の具体的な数字は、英検協会の公式発表を根拠とし、自社データや独自調査であるかのような表現は使わない。数字が古くなっていないか、投稿前に英検協会の最新公式情報で必ず再確認すること。
+**架空情報禁止・`EXAM_INFO_SOURCE_POLICY.md`遵守**: この数字は「英検協会が公表した目安」のように公式発表であるかのような書き方をしてはならない(`EXAM_INFO_SOURCE_POLICY.md`が明記する通り、Loop Vocabularyの語彙数・出題数等の数値は市販教材・過去の出題傾向に基づく**参考値**であり、公式発表の再配布ではない)。「目安」「〜とされることが多い」等、参考値であることを明示する表現を必ず使い、断定形は使わない。投稿前に市販教材の最新版で数字が古くなっていないか再確認すること。
 
-- **対象URL**: `https://loop-vocabulary.app/guide/eiken-vocabulary-study?utm_source=x&utm_medium=social&utm_campaign=eiken2kyu_goi`
-- **X投稿(3案、数字は投稿前に最新の公式情報で要再確認)**:
+- **対象URL**: `https://loop-vocabulary.app/guide/eiken-vocabulary-study?utm_source={PLATFORM}&utm_medium=social&utm_campaign=eiken2kyu_goi`
+- **X投稿(3案、数字は投稿前に市販教材の最新版で要再確認・公式発表として書かない)**:
   1. 英検2級、必要語彙の目安は5,000語程度と言われます。パス単を1周しただけだと「見たことある」止まりになりやすいので、忘れた頃の復習が合否を分けます → 〔URL〕
   2. 英検2級のライティング・面接、実は「知っている単語」より「使える単語」の数がものを言います → 〔URL〕
   3. 英検2級の語彙対策、単語帳を何周もしているのに模試で抜ける、という悩みをよく見ます。原因の多くは「見て終わり」の復習です → 〔URL〕
@@ -137,7 +144,7 @@
 
 **核となる直接回答**: スペルは「見て覚える」より「書きながら音と結びつける」方が定着しやすい。特に紛らわしいスペル(例: receive/believe のようなi/eの並び)はルール(規則性)を理解した上で繰り返し書く練習が効果的。
 
-- **対象URL**: `https://loop-vocabulary.app/guide/eitango-oboeru-houhou?utm_source=x&utm_medium=social&utm_campaign=spell_oboekata`
+- **対象URL**: `https://loop-vocabulary.app/guide/eitango-oboeru-houhou?utm_source={PLATFORM}&utm_medium=social&utm_campaign=spell_oboekata`
 - **X投稿(3案)**:
   1. 英単語のスペル、眺めるだけだと覚えにくくないですか。音と結びつけながら数回書く方が、結果的に定着が早いです → 〔URL〕
   2. スペルミスが多い単語、実は共通パターンがあることが多いです。ルールを理解してから書く練習をすると、丸暗記より効率的です → 〔URL〕
@@ -157,7 +164,7 @@
 
 **注記**: 単語の意味・使い分けの詳細ページ(辞書の個別語ページや専用の類義語比較ツール)は本ラウンド時点でaffect/effectを扱う専用コンテンツが確認できなかった。投稿の遷移先は暫定的に辞書検索ページ(`/dictionary`、両単語を検索できる)とし、専用の比較記事・比較ツールが実装され次第URLを更新すること。
 
-- **対象URL**: `https://loop-vocabulary.app/dictionary?utm_source=x&utm_medium=social&utm_campaign=affect_effect`
+- **対象URL**: `https://loop-vocabulary.app/dictionary?utm_source={PLATFORM}&utm_medium=social&utm_campaign=affect_effect`
 - **X投稿(3案)**:
   1. affectとeffect、迷ったらこれだけ覚えてください。affectは動詞、effectは名詞。"affect us"(動詞)/"have an effect"(名詞) → 〔URL〕
   2. 英作文で混同しがちなaffectとeffect。基本は「affect=動詞、effect=名詞」で判断できます → 〔URL〕
@@ -177,7 +184,7 @@
 
 **注記**: テーマ8と同様、専用の比較コンテンツが本ラウンド時点で未実装のため、暫定的に辞書検索ページへ誘導する。
 
-- **対象URL**: `https://loop-vocabulary.app/dictionary?utm_source=x&utm_medium=social&utm_campaign=applyfor_applyto`
+- **対象URL**: `https://loop-vocabulary.app/dictionary?utm_source={PLATFORM}&utm_medium=social&utm_campaign=applyfor_applyto`
 - **X投稿(3案)**:
   1. apply for a job(仕事に応募する)/ apply to a university(大学に出願する)。for/toの使い分け、意外と迷いませんか? → 〔URL〕
   2. apply forとapply to、なんとなくで使ってると英作文で減点されがちです。基本パターンを整理しました → 〔URL〕
@@ -195,12 +202,12 @@
 
 **核となる直接回答**: Loop Vocabularyの語彙力チェックは20問・3分・ログイン不要で、現在の語彙レベルの目安が分かる無料診断ツール(既存の`/vocab-check`実装に基づく、既存の`MARKETING_X_POST_TEMPLATES.md`§10の内容と重複を避けるため、本テーマでは主にShorts/TikTok/Instagram/Pinterest素材を新規に補う)。
 
-- **対象URL**: `https://loop-vocabulary.app/vocab-check?utm_source=x&utm_medium=social&utm_campaign=vocabcheck_10themes`
+- **対象URL**: `https://loop-vocabulary.app/vocab-check?utm_source={PLATFORM}&utm_medium=social&utm_campaign=vocabcheck_10themes`
 - **X投稿**: 既存の`MARKETING_X_POST_TEMPLATES.md`§10(5案)をそのまま使用可能なため重複作成しない。
 - **Instagramカルーセル構成(4枚・新規)**: ①表紙「今の語彙力、数字で分かりますか?」②「20問・3分・ログイン不要」③結果画面イメージ(シェアカードのモックアップ説明、実際のスクリーンショットは実装側で用意)④CTA「今すぐ診断」
 - **Shorts台本(20秒・新規)**: [0-3s]「英単語力、感覚で判断してませんか?」→[5-15s]「20問・3分・登録不要で今のレベルが分かります」→[15-20s]CTA
 - **TikTok台本**: 同構成、診断中の画面操作を軽くデモする想定(実際の画面録画は別途作業)
-- **Pinterestタイトル/説明**: タイトル「無料の英単語力診断【3分・登録不要】」/説明「今の語彙レベルを3分で診断。英検・TOEIC別の診断も。結果はシェアカードとして保存できます。」
+- **Pinterestタイトル/説明**: タイトル「無料の英単語力診断【3分・登録不要】」/説明「今の語彙レベルを3分で診断。英検・TOEIC別の診断も。結果はシェアカードとしてSNSでシェアできます。」(「保存できる」という表現は使わない — 現状`VocabCheckShareCard`が対応するのはネイティブ共有シート/X投稿誘導のみで、画像としてのダウンロード・保存機能は実装されていないため)
 - **OGP画像**: 既存の診断結果シェアカードデザインを流用可能(`test:vocab-check-share-card`で検証済みの既存実装、新規デザイン不要)
 - **公開スケジュール**: 未確定(プレースホルダー)
 
