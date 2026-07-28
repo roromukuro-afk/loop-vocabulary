@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { createClient } from "@/lib/supabase/server";
 import { PILOT_WORD_SLUGS, getPilotWord, getWordQaBlocks } from "@/lib/dictionaryWords/pilotWords";
 import { AddToWordbook } from "./AddToWordbook";
@@ -95,6 +96,11 @@ export default async function WordPage({ params }: { params: Promise<{ word: str
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(definedTermLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       <WordPageTracker wordSlug={entry.slug} />
+
+      <Breadcrumb
+        items={[{ label: "ホーム", href: "/" }, { label: "辞書検索", href: "/dictionary" }, { label: entry.word }]}
+        className="mb-2"
+      />
 
       <article>
         <Link href="/dictionary" className="text-xs text-navy-500">← 辞書検索へ戻る</Link>

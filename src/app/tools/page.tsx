@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ToolsPageTracker } from "./ToolsPageTracker";
 import { ToolCardLink } from "./ToolCardLink";
 
@@ -74,6 +75,10 @@ export default function ToolsPage() {
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <ToolsPageTracker />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(BREADCRUMB_LD) }} />
+
+      <div className="max-w-2xl mx-auto px-4 pt-3">
+        <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "ツール一覧" }]} />
+      </div>
 
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
         <div className="max-w-2xl mx-auto">

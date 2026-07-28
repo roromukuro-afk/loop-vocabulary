@@ -28,6 +28,7 @@ const GUIDE_SLUGS = [
   "toeic-tango",
   "business-english-tango",
   "eitango-oboeru-houhou",
+  "eitango-no-oboekata",
   "eiken-3kyu-tango",
   "eiken-jun2-tango",
   "eigo-hatsuon-renshu",
