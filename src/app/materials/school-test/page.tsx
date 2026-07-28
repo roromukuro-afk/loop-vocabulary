@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -149,6 +150,7 @@ export default async function SchoolTestMaterialsLandingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageLd) }} />
 
+      <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "教材・単語帳", href: "/materials" }, { label: "定期テスト対策" }]} className="mb-2" />
       <Link href="/materials" className="text-xs text-navy-500 hover:underline">
         ← 教材一覧
       </Link>
