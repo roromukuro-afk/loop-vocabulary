@@ -211,6 +211,9 @@ async function main() {
 
     console.log("\n=== 56. 「英単語の覚え方」ピラーページ・視覚的パンくずUI E2E ===");
     results.eitangoNoOboekataPillar = runNode("scripts/testing/e2e/eitango-no-oboekata-pillar.mjs");
+
+    console.log("\n=== 57. AIクローラー個別ポリシー + llms.txt E2E ===");
+    results.aiCrawlerLlmsPolicy = runNode("scripts/testing/e2e/ai-crawler-llms-policy.mjs");
   } finally {
     stopDevServer(dev);
   }

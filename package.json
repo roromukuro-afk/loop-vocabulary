@@ -89,6 +89,7 @@
     "test:material-count-consistency": "node scripts/testing/test-material-count-consistency.mjs",
     "audit:material-count-consistency": "node scripts/audit/material-count-consistency.mjs",
     "test:indexing-policy": "node scripts/testing/e2e/indexing-policy.mjs",
+    "test:ai-crawler-llms-policy": "node scripts/testing/e2e/ai-crawler-llms-policy.mjs",
     "test:tools-hub": "node scripts/testing/e2e/tools-hub.mjs",
     "test:guide-quality-signals": "node scripts/testing/e2e/guide-quality-signals.mjs",
     "verify:prod": "node scripts/testing/verify-prod.mjs",
