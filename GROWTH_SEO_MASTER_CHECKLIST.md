@@ -29,7 +29,7 @@
 | T-08 | HTTPS統一 | 全ページ | http→https、www→apex、vercel.app→apexいずれも実装・実測確認済み | **完了(既存+本ラウンド)** | next.config.js + Vercel domain設定 |
 | T-09 | robots.txtでAIクローラー個別指定(GPTBot/OAI-SearchBot等) | robots.txt | **本番マージ・反映済み**(PR #31、merge `0dc94d1`)。OAI-SearchBot/PerplexityBotは`User-agent: *`と同一許可、GPTBot/ClaudeBot/Google-Extendedは全面ブロックがデフォルト(理由はrobots.txt内コメント+`AI_SEARCH_AND_INDEXNOW_POLICY.md`に記載、1行変更で可逆)。本番`/robots.txt`で全ボットの設定を直接確認済み | **完了** | PR #31。回帰テスト`test:ai-crawler-llms-policy`(各ボットの意図した挙動を厳密assert)を`pr-ci-checks.mjs`/`run-e2e.mjs`双方に接続済み |
 | T-10 | Bing Webmaster Tools登録確認 | サイト全体 | コードからは確認不可、Bing管理画面での登録要 | **外部認証待ち** | https://www.bing.com/webmasters/ でのサイト登録要確認 |
-| T-11 | IndexNow実装 | 更新系全般 | 実装コストは低いが、優先度上、意図的に前ラウンドで見送り | **未着手（根拠あり）** | `AI_SEARCH_AND_INDEXNOW_POLICY.md`参照。ページ数が大きく増える局面で再検討 |
+| T-11 | IndexNow実装 | 更新系全般 | **本番マージ・反映済み**(PR #32、merge `8c6fbc0`)。キーファイル・`submitUrlsToIndexNow()`・週次cron(`/api/cron/indexnow-sitemap-sync`)を実装。本番でキーファイル(`/724d6efdf17808d5069e6c8d78fa98bc9cd413ab302de6c35be0e113338da741.txt`)が200・プレーンテキスト・内容が鍵の値と完全一致することを確認済み。cronの認証(`CRON_SECRET` Bearer)が本番で正しく401を返す(未認証・誤った値)ことも確認済み。**ただし`INDEXNOW_KEY`環境変数を本番Vercelへ設定する作業はユーザーの手動操作待ちで未完了**(Vercel MCPに環境変数書き込みツールが存在しないため、コード側からは設定不可)。設定完了・再デプロイ後、`/admin/indexnow`からの手動同期実行、実際のIndexNow API応答(200/202または429等)の記録が次のステップとして残る。**週次cronによる全URL再送信のみが実装範囲であり、ページ個別の即時通知(公開/更新/削除時)は未実装で別PR課題として残っている**。Bing Webmaster Toolsへの登録もユーザーの手動作業として残っている | **コード実装完了・本番マージ済み、`INDEXNOW_KEY`設定と実送信確認はユーザー操作待ち** | PR #32。`test:indexnow-submit`・新規`test:indexnow-sitemap-sync-cron`で検証 |
 | T-12 | llms.txt | サイト全体 | **本番マージ・反映済み**(PR #31、merge `0dc94d1`)。`public/llms.txt`が本番で200・`Content-Type: text/plain; charset=utf-8`で配信されていること、記載された全11 URLが本番で200を返すことを直接確認済み。実在ルートへのリンクのみ、架空の数値・実績は記載なし。SEO効果は誇張せず案内・引用補助としてのみ位置づけ | **完了** | PR #31。`test:ai-crawler-llms-policy`で全リンクの実在確認・404チェックを実施 |
 
 ## ON_PAGE_SEO
@@ -201,7 +201,7 @@
 5. **PR #25**(本ラウンド): `SEO_INDEXING_POLICY.md`のTODOだった、38ページへのnoindexメタデータ追加。`test:indexing-policy`拡張。マージ・本番デプロイ・READY確認まで完了(merge `f0e909f`)。
 6. **本チェックリスト**の作成・既存30本以上のポリシー文書との統合。
 7. **PR #31**: robots.txtへのAIクローラー個別指定(OAI-SearchBot/GPTBot/ClaudeBot/Google-Extended/PerplexityBot)+`public/llms.txt`新規作成。T-09/A-02/T-12/A-03クローズ。**マージ・本番反映済み**(merge `0dc94d1`)。本番`/robots.txt`・`/llms.txt`を直接取得し、全ボットの許可/ブロック設定・Content-Type・掲載URL全11件の200応答・console errorなしを確認済み。**ただしAI検索施策全体としては未完了**: AI経由流入の実際の計測・成果検証はまだ実施していない(A-04参照)。
-8. **PR #32**: IndexNowキーファイル・送信ユーティリティ・週次cron再送信ルート実装。**実装・テスト完了、owner承認待ちで未マージ**(同上)。
+8. **PR #32**: IndexNowキーファイル・送信ユーティリティ・週次cron再送信ルート実装。**マージ・本番反映済み**(merge `8c6fbc0`)。本番でキーファイル配信(200・text/plain・内容完全一致)とcron認証(未認証/誤認証で401)を確認済み。**ただし`INDEXNOW_KEY`のVercel Production環境変数設定・実際のIndexNow API送信確認はユーザー操作待ちで未完了**。ページ個別の即時通知(公開/更新/削除時)は別PR課題として残る。Bing Webmaster Tools登録もユーザーの手動作業として残る。
 9. **PR #33**(本ラウンド): 復習日計算ツール(`/review-date-calculator`)新規実装。アプリの実SRS固定間隔を使用、V1/V2の違いを明記。マージ・本番反映済み(merge `a87fe68`)。
 10. **PR #34**(本ラウンド): 「英単語の覚え方」ピラーページ+サイト共通の視覚的パンくずUIコンポーネント新設、32本中27本のガイド記事・辞書・教材7カテゴリページに展開。P-02ほぼクローズ(`/materials/[id]`は既知の技術的理由で対象外、詳細は次項)。
 11. **PR #30**(本ラウンド): 主要10テーマのSNS素材キット(X/Instagram/Shorts/TikTok/Pinterest)作成。マージ済み(merge `d14a316`)。
@@ -224,11 +224,13 @@
 4. **アクセシビリティ(aria/role)の低カバレッジ** — 未着手
 5. **無料ツール** — `FREE_TOOL`セクション参照。FT-02(復習日計算ツール)・FT-07(単語比較)・試験日逆算学習計画メーカー(FT-02完全版、PR #43)は完了、FT-04(小テスト作成)・FT-05(PDF作成)は既存機能でカバー済み。FT-08(不規則動詞一覧)は「一覧」部分のみ完了(PR #42)、「テスト」機能は引き続き未着手。残りFT-01(語彙力チェック強化)・FT-03(CSV変換)・FT-06(発音検索)・FT-08のテスト機能・FT-09(今日覚える英単語)の5件が未着手
 6. **AIクローラーポリシー・llms.txt** — **完了**。`feat/ai-crawler-policy-llms-txt`(PR #31、merge `0dc94d1`)。T-09/A-02/T-12/A-03クローズ、本番`/robots.txt`・`/llms.txt`を直接確認済み。**ただしAI検索施策全体としては未完了**: AI経由流入の実際の計測(GA4トラフィック獲得レポートでの確認)・ポリシー導入の成果検証(実際に引用・流入が増えたか)はまだ実施しておらず、A-04として引き続き未着手
+7. **IndexNow実装** — **コード実装・本番マージ完了**(PR #32、merge `8c6fbc0`、T-11クローズ)。本番でキーファイル配信・cron認証を直接確認済み。**ただし未完了**: (1) `INDEXNOW_KEY`のVercel Production環境変数設定(ユーザーの手動作業、上記ブロッカー参照)、(2) 設定後の実際のIndexNow API送信確認、(3) ページ個別の即時通知(公開/更新/削除時のbest-effort通知、現在は週次全件再送信のみ)は別PRの課題として未着手、(4) Bing Webmaster Tools登録もユーザーの手動作業として残っている
 
 ## 外部認証・人間の判断が必要なブロッカー
 
 1. Bing Webmaster Tools登録状況の確認(Bing管理画面へのアクセスが必要)
 2. AdSense管理画面でのCMP設定・ads.txt Authorized状態確認
 3. 教育メディアへの被リンク依頼(手動営業)
+4. Vercel Production環境変数に`INDEXNOW_KEY=724d6efdf17808d5069e6c8d78fa98bc9cd413ab302de6c35be0e113338da741`を設定(Vercel MCPに環境変数書き込みツールが存在しないためコード側から設定不可、Vercelダッシュボードでの手動設定+再デプロイが必要)。設定後、`/admin/indexnow`からの手動同期実行と実際のIndexNow API応答(200/202/429等)の確認も併せて必要
 
 (旧項目「AIクローラー個別許可の事業判断」はT-09/A-02で実装済みのため解消。推奨デフォルトに異議があれば`public/robots.txt`の該当ボックロックを直接編集するだけで即座に上書き可能)
