@@ -139,6 +139,7 @@
     "test:improvement-memory": "node scripts/testing/test-improvement-memory.mjs",
     "test:critical-issue-detection": "node scripts/testing/test-critical-issue-detection.mjs",
     "test:seo-issue-detection": "node scripts/testing/test-seo-issue-detection.mjs",
+    "test:seo-scanner-robots-precedence": "node scripts/testing/test-seo-scanner-robots-precedence.mjs",
     "test:reliability-issue-detection": "node scripts/testing/test-reliability-issue-detection.mjs",
     "test:human-approval-required": "node scripts/testing/e2e/human-approval-required.mjs",
     "test:approved-task-auto-claim": "node scripts/testing/test-approved-task-auto-claim.mjs",
