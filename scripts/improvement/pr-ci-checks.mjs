@@ -132,6 +132,12 @@ function inferCategoryTests(diffFiles) {
   ) {
     tests.add("test:public-dictionary-server-cleanup");
   }
+  if (diffFiles.some((f) => f.includes("src/lib/improvement/analyzers/seo.ts"))) {
+    // ネットワーク・secret不要の純粋関数単体テストのみ。test:seo-issue-detectionは
+    // 本番サイトへの実HTTPリクエストを伴う回帰確認用であり、既存の全体テスト実行フローで
+    // カバーされるためここでは選ばない。
+    tests.add("test:seo-scanner-robots-precedence");
+  }
   if (diffFiles.some((f) => f.includes("src/lib/analytics/") || f.includes("api/analytics/"))) {
     // test:analytics-production-ingestion / test:analytics-rejection-reasons /
     // test:test-account-exclusion はいずれも、テストスクリプト自身が直接secretを
