@@ -1,0 +1,24 @@
+# Loop Vocabulary
+
+> SRS（間隔反復・忘却曲線）ベースの英単語学習Webアプリ。単語を調べる→単語帳に登録する→忘却曲線に沿って復習する→4択/入力テストで定着させる、という一連の学習フローを1つにまとめています。
+
+Loop Vocabulary (loop-vocabulary.app) is a spaced-repetition (SRS) English vocabulary learning app for Japanese-speaking learners (junior high through university entrance exams, Eiken, TOEIC). It combines a word dictionary, custom/imported word books, forgetting-curve review scheduling, and multiple-choice/typing quizzes in one workflow. This file is provided as a discovery/citation aid for AI assistants and models that choose to read it — it is not intended as an SEO device, and there is no guarantee any given crawler or assistant will fetch or honor it.
+
+## Product
+
+- [Home](https://loop-vocabulary.app/): Overview of the app and its core learning loop.
+- [Learning guides](https://loop-vocabulary.app/guide): Articles on vocabulary-learning methods, exam prep (Eiken, TOEIC, university entrance), and study techniques.
+- [Word dictionary](https://loop-vocabulary.app/dictionary): Searchable English word dictionary drawn from public materials and licensed word lists.
+- [Materials / word book import](https://loop-vocabulary.app/materials): Browse and import vocabulary lists (by level, exam type, or textbook) into a personal word book.
+- [Free tools](https://loop-vocabulary.app/tools): Free vocabulary/study utility tools.
+
+## Company
+
+- [About](https://loop-vocabulary.app/about): What Loop Vocabulary is and who it's for.
+- [FAQ](https://loop-vocabulary.app/faq): Frequently asked questions.
+- [Premium](https://loop-vocabulary.app/premium): Paid plan details (ad-free, subscription).
+- [Press](https://loop-vocabulary.app/press): Press/media information.
+- [Terms of service](https://loop-vocabulary.app/terms)
+- [Privacy policy](https://loop-vocabulary.app/privacy)
+
+Last updated: 2026-07-28
