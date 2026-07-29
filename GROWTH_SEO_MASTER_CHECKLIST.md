@@ -37,7 +37,7 @@
 | ID | 施策 | 現状 | ステータス |
 |---|---|---|---|
 | P-01 | JSON-LD構造化データ | Organization/WebSite(全ページ共通)、WebApplication+Offer+FAQPage(`/`)、Article+DefinedTerm+DefinedTermSet+BreadcrumbList(辞書語ページ)、Article+BreadcrumbList+FAQPage(guide 40本中大半)、ItemList等、広範に実装済み | **完了(既存)** |
-| P-02 | パンくずJSON-LDと画面表示の不整合 | `src/components/ui/Breadcrumb.tsx`を新設しPR #34で本番反映済み(merge `9ff4dbc`)。guide記事32本中27本をPR #34で実装。フォローアップでPR #38(eiken-conversation・toeic-tango、merge `3d564eb`)・PR #39(daigaku-juken-tango、merge `82e5b00`)が追加マージ済みで**30/32完了**。残る2本(chugaku-eigo-tango=PR #37、business-english-tango=PR #40)はCI時間予算(20分)のため1ファイル単位に分割してマージ待ち。guide一覧・dictionary(一覧+語ページ)・materials一覧+7カテゴリページ・tools・ピラーページは完了済み。**唯一の未対応**: `/materials/[id]`は動的ラベル使用時にE2Eテストが再現性100%で失敗する既知の技術的問題があり対象外(詳細はPR #34本文・コミット履歴) | **実装済み・ほぼ完了(30/32ガイド記事+主要ページ完了、残り2記事はPR #37・#40マージ待ち、`/materials/[id]`は技術的課題により保留)** |
+| P-02 | パンくずJSON-LDと画面表示の不整合 | `src/components/ui/Breadcrumb.tsx`を新設しPR #34で本番反映済み(merge `9ff4dbc`)。guide記事32本中27本をPR #34で実装。フォローアップPR #38(eiken-conversation・toeic-tango)・PR #39(daigaku-juken-tango)・PR #37(chugaku-eigo-tango)・PR #40(business-english-tango)がすべてマージ済みで**32/32完了**。guide一覧・dictionary(一覧+語ページ)・materials一覧+7カテゴリページ・tools・ピラーページも完了済み。**唯一の未対応**: `/materials/[id]`は動的ラベル使用時にE2Eテストが再現性100%で失敗する既知の技術的問題があり対象外(詳細はPR #34本文・コミット履歴) | **完了(32/32ガイド記事+主要ページ、`/materials/[id]`のみ技術的課題により意図的に保留)** |
 | P-03 | alt属性 | 全体で`&lt;img&gt;`/`next/image`使用がほぼ皆無(唯一の`&lt;img&gt;`はPDF内QRコード、alt付き)なテキスト主体サイトのため、alt不足リスクは実質的に低い | **完了(該当箇所僅少・対応済み)** |
 | P-04 | 内部リンク・関連記事導線 | 31本のguideページ・materials詳細・dictionary詳細に「関連記事/関連教材」導線は存在するが、共通コンポーネント化されておらず各ページが個別にハードコード | **実行中** — 共有コンポーネント化は技術的負債として次ラウンド候補(機能的には動作、優先度中) |
 
@@ -108,9 +108,9 @@
 | `material_viewed`(`material_view`という名で実装) | 実装済み(命名差異のみ) |
 | `word_added`(GA4のみ、Growth OS側は`dictionary_word_added`等の派生イベント) | 実装済み(命名差異のみ) |
 | `tool_started` / `tool_completed` | rollup層のエイリアスとしてのみ存在、直接発火するイベントではない | 実行中(要判断: 別名運用を維持するか実イベント化するか) |
-| `wordbook_created` | **未実装** | 実行中(新規発見のギャップ) |
-| `first_test_started` | **未実装**(`first_test_completed`のみ存在) | 実行中(新規発見のギャップ) |
-| `return_next_day` / `return_day_7` | **未実装** | 実行中(新規発見のギャップ、継続率計測の核。優先度高) |
+| `wordbook_created` | PR #27で実装・マージ済み(merge `bab5075`)。material import/import-shared/custom作成の3経路すべてで、単語帳作成+単語insertまで全成功しrollback経路に入らないことが確定してから発火。本番DBで動作確認済み | **完了** |
+| `first_test_started` | PR #27で実装・マージ済み(merge `bab5075`)。`first_test_completed`と対称、localStorageで1デバイス1回 | **完了** |
+| `return_next_day` / `return_day_7` | PR #27で実装・マージ済み(merge `bab5075`)。部分ユニークインデックス+`SECURITY DEFINER`関数によるatomic dedup(supabase/migrations/024〜027)。並行cron実行での重複防止をテストで確認、本番DBの関数定義・インデックス定義・権限が2026-07-29時点で一致することを確認済み | **完了** |
 | `premium_started` | 未実装(`subscription_started`/`checkout_started`が近似) | 実行中(命名統一を検討) |
 
 ## CRO
@@ -125,7 +125,7 @@
 |---|---|---|---|
 | E-01 | 復習リマインド | Vercel Cronで`daily-push`(毎日0時UTC)・`weekly-digest`(毎週日22時UTC)実装済み | **完了(既存)** |
 | E-02 | 連続学習・ストリーク表示 | `computeStreak`・`StreakShareCard`・`StreakTracker`が`/dashboard`等に実装済み | **完了(既存)** |
-| E-03 | 継続率の指標化(翌日/7日/30日) | rollup層に指標定義はあるが、`return_next_day`/`return_day_7`イベント自体が未発火(ANALYTICS表参照) | **データ蓄積待ち(イベント実装後)** |
+| E-03 | 継続率の指標化(翌日/7日/30日) | `return_next_day`/`return_day_7`イベントがPR #27で実装・マージ済み(merge `bab5075`)。イベント発火は動作するが、実際の継続率データはこれから日次cronの稼働により蓄積される | **実装済み・データ蓄積待ち** |
 
 ## SOCIAL
 
@@ -207,8 +207,10 @@
 11. **PR #30**(本ラウンド): 主要10テーマのSNS素材キット(X/Instagram/Shorts/TikTok/Pinterest)作成。マージ済み(merge `d14a316`)。
 12. **PR #38**(本ラウンド): PR #34のパンくずフォローアップ第2弾、eiken-conversation・toeic-tango 2記事に展開。マージ済み(merge `3d564eb`)。
 13. **PR #39**(本ラウンド): PR #34のパンくずフォローアップ、daigaku-juken-tango 1記事に展開(quality-gate 20分タイムアウト回避のため単一ファイルPRに分割)。マージ済み(merge `82e5b00`)。
-14. **PR #37・#40**(本ラウンド、マージ待ち): 残るchugaku-eigo-tango・business-english-tangoへのパンくず展開。各1ファイルPRに分割し、quality-gate通過を確認中。
-15. **PR #41・#42・#43**(本ラウンド、マージ待ち): 混同しやすい単語ペア解説(affect-vs-effect・apply-for-vs-apply-to、FT-07)、不規則動詞一覧(fukikisoku-doushi-ichiran、FT-08)、試験日逆算学習計画メーカー(exam-countdown-planner、FT-02の完全版)を新規実装。いずれもchatgpt-codex-connectorのレビュー指摘(表内Markdown太字が未レンダリング/AAB型動詞の欠落)を修正済み。
+14. **PR #37・#40**(本ラウンド): 残るchugaku-eigo-tango・business-english-tangoへのパンくず展開。各1ファイルPRに分割してマージ済み(merge `fef807f`・`b95a0c1`相当)。これによりP-02は32/32ガイド記事完了(`/materials/[id]`のみ既知の技術的理由で対象外)。
+15. **PR #41・#42・#43**(本ラウンド): 混同しやすい単語ペア解説(affect-vs-effect・apply-for-vs-apply-to、FT-07)、不規則動詞一覧(fukikisoku-doushi-ichiran、FT-08「一覧」部分)、試験日逆算学習計画メーカー(exam-countdown-planner、FT-02の完全版)を新規実装・マージ済み。いずれもchatgpt-codex-connectorのレビュー指摘(表内Markdown太字が未レンダリング/AAB型動詞の欠落/試験当日ラベル誤り/小数単語数入力)を修正済み。
+16. **PR #44**(本ラウンド): 上記進捗を反映したマスターチェックリスト更新。マージ済み。
+17. **PR #27**(本ラウンド): Growth OSイベント(`wordbook_created`/`first_test_started`/`return_next_day`/`return_day_7`)実装。DB挿入失敗の誤成功報告・D1/D7重複防止のatomic化・イベント発火位置の是正などレビュー指摘4件へ全面対応後、本番Supabaseへ適用済みだったDBマイグレーション(部分ユニークインデックス+`SECURITY DEFINER`関数、supabase/migrations/024〜027)をリポジトリへ記録し、owner承認を得てマージ済み(merge `bab5075`)。本番デプロイREADY確認済み、本番DBの関数定義・インデックス定義・権限・重複ゼロを再確認済み。
 
 ## 既知の未解決事項(意図的な対象外、根拠あり)
 
@@ -216,11 +218,11 @@
 
 ## 新規に発見したギャップ(次ラウンド候補、優先度順)
 
-1. **CMP(同意管理)** — `feat/adsense-cmp-consent`(PR #29)で実装完了。プライバシーポリシーの最終更新日修正等レビュー指摘対応済み、owner承認待ち(`/approve-protected-paths`要)
-2. **`return_next_day`/`return_day_7`/`wordbook_created`イベント** — `feat/growth-events-wordbook-retention`(PR #27)で実装完了。DB挿入失敗の誤成功報告・D1/D7重複防止のatomic化(Postgres部分ユニークインデックス+`SECURITY DEFINER`関数)・`wordbook_created`発火位置の是正など、レビュー指摘4件を全面的に作り直して対応済み、owner承認待ち(`/approve-protected-paths`要)
-3. **パンくずJSON-LDと視覚的UIの不整合** — PR #34+#38+#39で30/32ガイド記事完了(教材7カテゴリ・辞書・ピラーページも完了)。残るchugaku-eigo-tango・business-english-tangoはPR #37・#40としてマージ待ち。`/materials/[id]`のみ既知の技術的理由で対象外(上記「既知の未解決事項」参照)
+1. **CMP(同意管理)** — `feat/adsense-cmp-consent`(PR #29)で実装完了。プライバシーポリシーの最終更新日修正等レビュー指摘対応済み、owner承認待ち(`/approve-protected-paths`要)。マージ後もAdSense管理画面での同意メッセージ作成等の人間の作業が残る(下記参照)
+2. **`return_next_day`/`return_day_7`/`wordbook_created`イベント** — **完了**。`feat/growth-events-wordbook-retention`(PR #27、merge `bab5075`)。DB挿入失敗の誤成功報告・D1/D7重複防止のatomic化(Postgres部分ユニークインデックス+`SECURITY DEFINER`関数、supabase/migrations/024〜027で本番DBとリポジトリを整合済み)・`wordbook_created`発火位置の是正など、レビュー指摘4件を全面的に作り直して対応。本番マージ・デプロイREADY・DB整合性確認済み。イベント自体は稼働開始したが、D1/D7継続率の実データはこれから日次cron稼働により蓄積される(E-03参照)
+3. **パンくずJSON-LDと視覚的UIの不整合** — **完了**。PR #34+#37+#38+#39+#40で32/32ガイド記事完了(教材7カテゴリ・辞書・ピラーページも完了)。`/materials/[id]`のみ既知の技術的理由で対象外(上記「既知の未解決事項」参照)
 4. **アクセシビリティ(aria/role)の低カバレッジ** — 未着手
-5. **無料ツール** — `FREE_TOOL`セクション参照。FT-02(復習日計算ツール)は完了、FT-04(小テスト作成)・FT-05(PDF作成)は既存機能でカバー済み、FT-07(単語比較)・試験日逆算学習計画メーカー(FT-02完全版)はPR #41・#43として実装済み・マージ待ち。FT-08(不規則動詞一覧)はPR #42で「一覧」部分のみ実装済み・マージ待ちで、「テスト」機能は引き続き未着手。残りFT-01(語彙力チェック強化)・FT-03(CSV変換)・FT-06(発音検索)・FT-08のテスト機能・FT-09(今日覚える英単語)の5件が未着手
+5. **無料ツール** — `FREE_TOOL`セクション参照。FT-02(復習日計算ツール)・FT-07(単語比較)・試験日逆算学習計画メーカー(FT-02完全版、PR #43)は完了、FT-04(小テスト作成)・FT-05(PDF作成)は既存機能でカバー済み。FT-08(不規則動詞一覧)は「一覧」部分のみ完了(PR #42)、「テスト」機能は引き続き未着手。残りFT-01(語彙力チェック強化)・FT-03(CSV変換)・FT-06(発音検索)・FT-08のテスト機能・FT-09(今日覚える英単語)の5件が未着手
 
 ## 外部認証・人間の判断が必要なブロッカー
 
