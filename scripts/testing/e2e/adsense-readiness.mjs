@@ -21,6 +21,10 @@
  * 4. google-adsense-account 検証用metaタグは、許可・非許可いずれのページにも
  *    引き続き出力されている（サイト所有権の検証自体は壊れていない）
  * 5. AdSense publisher ID（NEXT_PUBLIC_ADSENSE_CLIENT）・ads.txtは変更されていない
+ * 6. Google Funding Choices（CMP/同意管理タグ）は、AdSense本体スクリプトとは異なり
+ *    広告許可ルート・非許可ルートを問わずサイト全体で読み込まれる（同意状態は
+ *    /privacy 等の広告非表示ページでも保持・変更できる必要があるため。
+ *    NEXT_PUBLIC_ADSENSE_CLIENT設定時のみ検証）
  *
  * 使い方: node scripts/testing/e2e/adsense-readiness.mjs
  */
@@ -46,6 +50,10 @@ async function hasAdsenseScript(page) {
 
 async function hasAdsenseMeta(page) {
   return page.locator('meta[name="google-adsense-account"]').count();
+}
+
+async function hasFundingChoicesScript(page) {
+  return page.locator('script[src*="fundingchoicesmessages.google.com"]').count();
 }
 
 async function main() {
@@ -134,6 +142,24 @@ async function main() {
       ok("public/ads.txt は変更されていない");
     } else {
       fail("public/ads.txt からpublisher IDの記載が失われている");
+    }
+
+    // ---- 6. Funding Choices（CMP）タグはAdSense本体スクリプトと異なりサイト全体で読み込まれる ----
+    if (adsEnabledInThisBuild) {
+      for (const path of [...ADS_ALLOWED_PATHS, ...ADS_DISALLOWED_PATHS]) {
+        await gotoReady(page, `${baseUrl}${path}`);
+        const count = await hasFundingChoicesScript(page);
+        if (count > 0) ok(`${path}: Funding Choices（CMP）タグが読み込まれる（広告許可/非許可ルート問わず）`);
+        else fail(`${path}: Funding Choices（CMP）タグが読み込まれていない`);
+      }
+    } else {
+      await gotoReady(page, `${baseUrl}/`);
+      const count = await hasFundingChoicesScript(page);
+      if (count === 0) {
+        ok("NEXT_PUBLIC_ADSENSE_CLIENT未設定の環境ではFunding Choices（CMP）タグも読み込まれない（想定どおり）");
+      } else {
+        fail("NEXT_PUBLIC_ADSENSE_CLIENT未設定のはずがFunding Choices（CMP）タグが読み込まれている");
+      }
     }
 
     if (errors.length === 0) ok("操作中に console error / 5xx なし");
