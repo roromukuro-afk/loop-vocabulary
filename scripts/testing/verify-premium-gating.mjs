@@ -18,6 +18,19 @@
  * 表示分岐とAPIのステータスコード分岐（403 vs 非403）を検証する。実際のAnthropic
  * API呼び出しが成功するかどうかは検証しない（premium判定を通過したかのみを見る）。
  *
+ * 2026-07-29追記: /api/wordbook/[id]/ai-suggestのPremium状態チェックは、
+ * status !== 403 に加えて status !== 503 も検証する。このルートは以前
+ * モジュールスコープでAnthropicクライアントを生成しており、
+ * ANTHROPIC_API_KEY未設定環境ではimport自体が失敗する不具合があった
+ * (chatgpt-codex-connectorのP1指摘、修正はクライアント生成をキー確認後まで
+ * 遅延)。このテストはローカルの.env.local(ANTHROPIC_API_KEYが実際に設定されて
+ * いる環境)で実行されるため、503にならないことを確認できれば、Premium+キー
+ * 設定済みの経路でクライアント生成が正しく機能していることの直接的な証拠になる。
+ * ANTHROPIC_API_KEY未設定環境での動作(import時に例外を投げないこと・非Premiumは
+ * キーの有無に関わらず常に403になること)は、この生きたサーバーの環境を変えずに
+ * 検証することはできないため、ネットワーク不要のソース構造不変条件テスト
+ * (test:ai-suggest-lazy-anthropic-init)で別途保証する。
+ *
  * 使い方: node scripts/testing/verify-premium-gating.mjs
  */
 import { chromium } from "playwright";
@@ -201,6 +214,8 @@ async function main() {
       });
       if (res.status !== 403) ok(`/api/wordbook/[id]/ai-suggest: Premiumではpremium判定を通過する (status=${res.status})`);
       else bad(`/api/wordbook/[id]/ai-suggest: Premium時も403のまま（修正が効いていない）`);
+      if (res.status !== 503) ok(`/api/wordbook/[id]/ai-suggest: Premium+ANTHROPIC_API_KEY設定済み環境ではAnthropicクライアントの遅延生成が正しく機能し503にならない (status=${res.status})`);
+      else bad(`/api/wordbook/[id]/ai-suggest: Premium時に503(AI not configured)が返った。.env.localにANTHROPIC_API_KEYが設定されているか確認するか、クライアント生成順序の回帰を疑うこと`);
     }
     {
       const res = await fetch(`${baseUrl}/api/ai/study-plan`, {

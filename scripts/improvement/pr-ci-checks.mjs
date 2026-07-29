@@ -173,6 +173,11 @@ function inferCategoryTests(diffFiles) {
   // よってtest:analytics-*と同じ方針で、この独立CIでは選択せず、trusted workflow
   // premium-gating-canary.ymlへ移し、そちらで"autonomous-improvement" Environment
   // secretを使って実行する。
+  if (diffFiles.some((f) => f === "src/app/api/wordbook/[id]/ai-suggest/route.ts")) {
+    // Anthropicクライアントの遅延生成順序を検証する、ネットワーク・secret不要の
+    // ソース構造不変条件テスト(2026-07-29、chatgpt-codex-connectorのP1指摘対応)。
+    tests.add("test:ai-suggest-lazy-anthropic-init");
+  }
   return [...tests];
 }
 

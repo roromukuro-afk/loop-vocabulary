@@ -32,11 +32,33 @@ name: Premium Gating Canary
 # "autonomous-improvement" Environmentに設定されていない。設定されるまでは
 # preflightステップで安全に(値を出力せず)失敗する。リポジトリ管理者による
 # 手動設定が必要。
+#
+# ANTHROPIC_API_KEYはここでは意図的に注入しない。verify-premium-gating.mjsは
+# premium判定(403/非403の分岐)のみを検証し、Anthropic APIを実際には呼ばない
+# (各APIルートはpremium判定を通過した後で初めてAnthropicクライアントを生成する
+# ため、premium判定の時点ではキーが無くても到達できる)。以前は
+# src/app/api/wordbook/[id]/ai-suggest/route.tsがモジュールスコープで
+# Anthropicクライアントを生成しており、ANTHROPIC_API_KEY未設定のこのcanaryでは
+# ルートの読み込み自体が失敗し、premium判定に到達する前に毎回falseな失敗を報告する
+# バグがあった(2026-07-29、chatgpt-codex-connectorのP1指摘で発覚)。修正として
+# 同ルートのクライアント生成を、既存のキー未設定ガード(503)より後・実際の呼び出し
+# 直前まで遅延させた(他の3ルートは元々この設計だった)。これによりcanaryは
+# ANTHROPIC_API_KEYを一切必要としない。
+#
+# 同じtest+onboardingアカウントに対してresetOnboardingUser・単語帳作成・
+# is_premium切り替えを行うため、手動実行同士・手動実行とscheduled実行が
+# 同時に走ると一方が他方の状態を壊し得る。concurrencyでキューイングし
+# (cancel-in-progress: false)、必ず直列実行にする(2026-07-29、
+# chatgpt-codex-connectorのP2指摘)。
 
 on:
   workflow_dispatch: {}
   schedule:
     - cron: "0 19 * * *" # 毎日 UTC 19:00 (JST 04:00、analytics canaryの1時間後)
+
+concurrency:
+  group: premium-gating-canary
+  cancel-in-progress: false
 
 permissions:
   contents: read
