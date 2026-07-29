@@ -27,17 +27,17 @@
 | T-06 | canonical自己参照の網羅チェック | 全indexページ | `test:canonical-integrity`で継続監視、本ラウンドでも全PASS | **完了(既存)** | 既存テスト |
 | T-07 | sitemap分割(`/sitemap-static.xml`等) | sitemap.ts | 現状167件・上限5万件に遠く及ばないため分割不要と判断済み | **未着手（根拠あり）** | `SEO_INDEXING_POLICY.md`に判断根拠記載済み。辞書語ページ等が数千件規模に増えた時点で再検討 |
 | T-08 | HTTPS統一 | 全ページ | http→https、www→apex、vercel.app→apexいずれも実装・実測確認済み | **完了(既存+本ラウンド)** | next.config.js + Vercel domain設定 |
-| T-09 | robots.txtでAIクローラー個別指定(GPTBot/OAI-SearchBot等) | robots.txt | 実装済み。OAI-SearchBot/PerplexityBotは`User-agent: *`と同一許可、GPTBot/ClaudeBot/Google-Extendedは全面ブロックがデフォルト(理由はrobots.txt内コメント+`AI_SEARCH_AND_INDEXNOW_POLICY.md`に記載、1行変更で可逆) | **完了** | PR #31。回帰テスト`test:ai-crawler-llms-policy`(各ボットの意図した挙動を厳密assert)を`pr-ci-checks.mjs`/`run-e2e.mjs`双方に接続済み |
+| T-09 | robots.txtでAIクローラー個別指定(GPTBot/OAI-SearchBot等) | robots.txt | **本番マージ・反映済み**(PR #31、merge `0dc94d1`)。OAI-SearchBot/PerplexityBotは`User-agent: *`と同一許可、GPTBot/ClaudeBot/Google-Extendedは全面ブロックがデフォルト(理由はrobots.txt内コメント+`AI_SEARCH_AND_INDEXNOW_POLICY.md`に記載、1行変更で可逆)。本番`/robots.txt`で全ボットの設定を直接確認済み | **完了** | PR #31。回帰テスト`test:ai-crawler-llms-policy`(各ボットの意図した挙動を厳密assert)を`pr-ci-checks.mjs`/`run-e2e.mjs`双方に接続済み |
 | T-10 | Bing Webmaster Tools登録確認 | サイト全体 | コードからは確認不可、Bing管理画面での登録要 | **外部認証待ち** | https://www.bing.com/webmasters/ でのサイト登録要確認 |
 | T-11 | IndexNow実装 | 更新系全般 | 実装コストは低いが、優先度上、意図的に前ラウンドで見送り | **未着手（根拠あり）** | `AI_SEARCH_AND_INDEXNOW_POLICY.md`参照。ページ数が大きく増える局面で再検討 |
-| T-12 | llms.txt | サイト全体 | `public/llms.txt`作成済み。実在10ルートへのリンクのみ、架空の数値・実績は記載なし。SEO効果は誇張せず案内・引用補助としてのみ位置づけ | **完了** | PR #31。`test:ai-crawler-llms-policy`で全リンクの実在確認・404チェックを実施 |
+| T-12 | llms.txt | サイト全体 | **本番マージ・反映済み**(PR #31、merge `0dc94d1`)。`public/llms.txt`が本番で200・`Content-Type: text/plain; charset=utf-8`で配信されていること、記載された全11 URLが本番で200を返すことを直接確認済み。実在ルートへのリンクのみ、架空の数値・実績は記載なし。SEO効果は誇張せず案内・引用補助としてのみ位置づけ | **完了** | PR #31。`test:ai-crawler-llms-policy`で全リンクの実在確認・404チェックを実施 |
 
 ## ON_PAGE_SEO
 
 | ID | 施策 | 現状 | ステータス |
 |---|---|---|---|
 | P-01 | JSON-LD構造化データ | Organization/WebSite(全ページ共通)、WebApplication+Offer+FAQPage(`/`)、Article+DefinedTerm+DefinedTermSet+BreadcrumbList(辞書語ページ)、Article+BreadcrumbList+FAQPage(guide 40本中大半)、ItemList等、広範に実装済み | **完了(既存)** |
-| P-02 | パンくずJSON-LDと画面表示の不整合 | `src/components/ui/Breadcrumb.tsx`を新設しPR #34で本番反映済み(merge `9ff4dbc`)。guide記事32本中27本をPR #34で実装。フォローアップでPR #38(eiken-conversation・toeic-tango、merge `3d564eb`)・PR #39(daigaku-juken-tango、merge `82e5b00`)が追加マージ済みで**30/32完了**。残る2本(chugaku-eigo-tango=PR #37、business-english-tango=PR #40)はCI時間予算(20分)のため1ファイル単位に分割してマージ待ち。guide一覧・dictionary(一覧+語ページ)・materials一覧+7カテゴリページ・tools・ピラーページは完了済み。**唯一の未対応**: `/materials/[id]`は動的ラベル使用時にE2Eテストが再現性100%で失敗する既知の技術的問題があり対象外(詳細はPR #34本文・コミット履歴) | **実装済み・ほぼ完了(30/32ガイド記事+主要ページ完了、残り2記事はPR #37・#40マージ待ち、`/materials/[id]`は技術的課題により保留)** |
+| P-02 | パンくずJSON-LDと画面表示の不整合 | `src/components/ui/Breadcrumb.tsx`を新設しPR #34で本番反映済み(merge `9ff4dbc`)。guide記事32本中27本をPR #34で実装。フォローアップPR #38(eiken-conversation・toeic-tango)・PR #39(daigaku-juken-tango)・PR #37(chugaku-eigo-tango)・PR #40(business-english-tango)がすべてマージ済みで**32/32完了**。guide一覧・dictionary(一覧+語ページ)・materials一覧+7カテゴリページ・tools・ピラーページも完了済み。**唯一の未対応**: `/materials/[id]`は動的ラベル使用時にE2Eテストが再現性100%で失敗する既知の技術的問題があり対象外(詳細はPR #34本文・コミット履歴) | **完了(32/32ガイド記事+主要ページ、`/materials/[id]`のみ技術的課題により意図的に保留)** |
 | P-03 | alt属性 | 全体で`&lt;img&gt;`/`next/image`使用がほぼ皆無(唯一の`&lt;img&gt;`はPDF内QRコード、alt付き)なテキスト主体サイトのため、alt不足リスクは実質的に低い | **完了(該当箇所僅少・対応済み)** |
 | P-04 | 内部リンク・関連記事導線 | 31本のguideページ・materials詳細・dictionary詳細に「関連記事/関連教材」導線は存在するが、共通コンポーネント化されておらず各ページが個別にハードコード | **実行中** — 共有コンポーネント化は技術的負債として次ラウンド候補(機能的には動作、優先度中) |
 
@@ -55,9 +55,9 @@
 | ID | 施策 | 現状 | ステータス |
 |---|---|---|---|
 | A-01 | 直接回答フォーマット | FAQPage JSON-LD+可視FAQセクションが`/`、4つの目的別LP、`/premium`等に実装済み。ただし「冒頭で質問に即答する」形式の網羅監査は未実施 | **データ不足/要監査** |
-| A-02 | AIクローラー区別(検索流入用 vs 学習データ用) | robots.txtで実装済み(T-09と同一)。推奨デフォルトは可逆でオーナーがいつでも上書き可能 | **完了** |
-| A-03 | llms.txt | `public/llms.txt`作成済み(T-12と同一) | **完了** |
-| A-04 | AI経由流入の計測 | 専用実装は無いが、GA4の「トラフィック獲得」レポートでリファラベースに`chatgpt.com`/`perplexity.ai`等を現状でも確認可能(コード変更不要) | **実装済み(GA4標準機能で代替可)・計測待ち** |
+| A-02 | AIクローラー区別(検索流入用 vs 学習データ用) | 本番マージ・反映済み(T-09と同一、PR #31) | **完了** |
+| A-03 | llms.txt | 本番マージ・反映済み(T-12と同一、PR #31) | **完了** |
+| A-04 | AI経由流入の計測・成果検証 | 専用実装は無いが、GA4の「トラフィック獲得」レポートでリファラベースに`chatgpt.com`/`perplexity.ai`等を現状でも確認可能(コード変更不要)。**ただし実際にこのレポートを確認して流入があるかどうかを検証した実績はまだ無く、T-09/T-12のポリシー導入がAI検索経由の流入・引用に効果があったかどうかの成果検証も未実施**。robots.txt/llms.txtの導入自体は「AIクローラーに正しい許可/ブロック設定と発見補助を提供した」ことの完了であり、それが実際の流入・引用増加につながったかの検証は別工程として残っている | **実装済み(GA4標準機能で代替可)・計測/成果検証は未着手** |
 
 ## SXO
 
@@ -81,10 +81,10 @@
 | FT-04 | 英単語小テスト作成 | `/guide/english-vocabulary-quiz-maker`等の記事は既存、専用UIツールとしては小テストPDF機能が実質これに相当 | 既存のPDF小テスト機能で大部分カバー済み、追加のスタンドアロンUIは優先度低 | **実装済み(既存機能でカバー)** |
 | FT-05 | PDF作成 | 既存のPDF小テスト作成機能 | 実装済み | **完了(既存)** |
 | FT-06 | 発音・カタカナ読み検索 | (未実装) | 精度の限界について正直な注記が必要(架空情報禁止遵守) | **未着手** |
-| FT-07 | 似た意味の単語比較(類義語比較) | `/guide/affect-vs-effect`・`/guide/apply-for-vs-apply-to` | PR #41で新規実装(品詞・前置詞の違いを軸にした解説記事2本)。マージ待ち | **実装済み・マージ待ち(PR #41)** |
-| FT-08 | 不規則動詞一覧・テスト | `/guide/fukikisoku-doushi-ichiran` | PR #42で「一覧」部分のみ新規実装(全部同じ型・ABB型・ABA型・ABC型+例外のAAB型の5パターン分類一覧記事)。マージ待ち。**「テスト」機能(インタラクティブな確認テスト)は未実装のまま** | **一覧のみ実装済み・マージ待ち(PR #42)、テスト機能は未着手** |
+| FT-07 | 似た意味の単語比較(類義語比較) | `/guide/affect-vs-effect`・`/guide/apply-for-vs-apply-to` | PR #41で新規実装(品詞・前置詞の違いを軸にした解説記事2本)。マージ済み | **完了(PR #41)** |
+| FT-08 | 不規則動詞一覧・テスト | `/guide/fukikisoku-doushi-ichiran` | PR #42で「一覧」部分のみ新規実装(全部同じ型・ABB型・ABA型・ABC型+例外のAAB型の5パターン分類一覧記事)。マージ済み。**「テスト」機能(インタラクティブな確認テスト)は未実装のまま** | **一覧のみ完了(PR #42)、テスト機能は未着手** |
 | FT-09 | 今日覚える英単語 | (未実装) | | **未着手** |
-| (追加) | 試験日から逆算する学習計画メーカー(FT-02の完全版、独立ツールとして実装) | `/exam-countdown-planner` | PR #43で新規実装。試験日+単語数から最短ペースと復習7日確保ペースの2パターンを算出。`/tools`のPLANNED_TOOLSからLIVE_TOOLSへ移動。マージ待ち | **実装済み・マージ待ち(PR #43)** |
+| (追加) | 試験日から逆算する学習計画メーカー(FT-02の完全版、独立ツールとして実装) | `/exam-countdown-planner` | PR #43で新規実装。試験日+単語数から最短ペースと復習7日確保ペースの2パターンを算出。`/tools`のPLANNED_TOOLSからLIVE_TOOLSへ移動。マージ済み | **完了(PR #43)** |
 
 ## ANALYTICS
 
@@ -108,9 +108,9 @@
 | `material_viewed`(`material_view`という名で実装) | 実装済み(命名差異のみ) |
 | `word_added`(GA4のみ、Growth OS側は`dictionary_word_added`等の派生イベント) | 実装済み(命名差異のみ) |
 | `tool_started` / `tool_completed` | rollup層のエイリアスとしてのみ存在、直接発火するイベントではない | 実行中(要判断: 別名運用を維持するか実イベント化するか) |
-| `wordbook_created` | **未実装** | 実行中(新規発見のギャップ) |
-| `first_test_started` | **未実装**(`first_test_completed`のみ存在) | 実行中(新規発見のギャップ) |
-| `return_next_day` / `return_day_7` | **未実装** | 実行中(新規発見のギャップ、継続率計測の核。優先度高) |
+| `wordbook_created` | PR #27で実装・マージ済み(merge `bab5075`)。material import/import-shared/custom作成の3経路すべてで、単語帳作成+単語insertまで全成功しrollback経路に入らないことが確定してから発火。本番DBで動作確認済み | **完了** |
+| `first_test_started` | PR #27で実装・マージ済み(merge `bab5075`)。`first_test_completed`と対称、localStorageで1デバイス1回 | **完了** |
+| `return_next_day` / `return_day_7` | PR #27で実装・マージ済み(merge `bab5075`)。部分ユニークインデックス+`SECURITY DEFINER`関数によるatomic dedup(supabase/migrations/024〜027)。並行cron実行での重複防止をテストで確認、本番DBの関数定義・インデックス定義・権限が2026-07-29時点で一致することを確認済み | **完了** |
 | `premium_started` | 未実装(`subscription_started`/`checkout_started`が近似) | 実行中(命名統一を検討) |
 
 ## CRO
@@ -125,7 +125,7 @@
 |---|---|---|---|
 | E-01 | 復習リマインド | Vercel Cronで`daily-push`(毎日0時UTC)・`weekly-digest`(毎週日22時UTC)実装済み | **完了(既存)** |
 | E-02 | 連続学習・ストリーク表示 | `computeStreak`・`StreakShareCard`・`StreakTracker`が`/dashboard`等に実装済み | **完了(既存)** |
-| E-03 | 継続率の指標化(翌日/7日/30日) | rollup層に指標定義はあるが、`return_next_day`/`return_day_7`イベント自体が未発火(ANALYTICS表参照) | **データ蓄積待ち(イベント実装後)** |
+| E-03 | 継続率の指標化(翌日/7日/30日) | `return_next_day`/`return_day_7`イベントがPR #27で実装・マージ済み(merge `bab5075`)。イベント発火は動作するが、実際の継続率データはこれから日次cronの稼働により蓄積される | **実装済み・データ蓄積待ち** |
 
 ## SOCIAL
 
@@ -200,15 +200,17 @@
 4. **Search Console対応**: `eigo-listening-renshu`のcanonical不一致でValidate Fix開始、インデックス登録リクエスト実行。`/roadmap`はインデックス登録完了を確認。
 5. **PR #25**(本ラウンド): `SEO_INDEXING_POLICY.md`のTODOだった、38ページへのnoindexメタデータ追加。`test:indexing-policy`拡張。マージ・本番デプロイ・READY確認まで完了(merge `f0e909f`)。
 6. **本チェックリスト**の作成・既存30本以上のポリシー文書との統合。
-7. **PR #31**: robots.txtへのAIクローラー個別指定(OAI-SearchBot/GPTBot/ClaudeBot/Google-Extended/PerplexityBot)+`public/llms.txt`新規作成。T-09/A-02/T-12/A-03クローズ。**実装・テスト完了、owner承認待ちで未マージ**(`/approve-protected-paths`要、詳細は`EXECUTION_STATE_LEDGER.md`)。
+7. **PR #31**: robots.txtへのAIクローラー個別指定(OAI-SearchBot/GPTBot/ClaudeBot/Google-Extended/PerplexityBot)+`public/llms.txt`新規作成。T-09/A-02/T-12/A-03クローズ。**マージ・本番反映済み**(merge `0dc94d1`)。本番`/robots.txt`・`/llms.txt`を直接取得し、全ボットの許可/ブロック設定・Content-Type・掲載URL全11件の200応答・console errorなしを確認済み。**ただしAI検索施策全体としては未完了**: AI経由流入の実際の計測・成果検証はまだ実施していない(A-04参照)。
 8. **PR #32**: IndexNowキーファイル・送信ユーティリティ・週次cron再送信ルート実装。**実装・テスト完了、owner承認待ちで未マージ**(同上)。
 9. **PR #33**(本ラウンド): 復習日計算ツール(`/review-date-calculator`)新規実装。アプリの実SRS固定間隔を使用、V1/V2の違いを明記。マージ・本番反映済み(merge `a87fe68`)。
 10. **PR #34**(本ラウンド): 「英単語の覚え方」ピラーページ+サイト共通の視覚的パンくずUIコンポーネント新設、32本中27本のガイド記事・辞書・教材7カテゴリページに展開。P-02ほぼクローズ(`/materials/[id]`は既知の技術的理由で対象外、詳細は次項)。
 11. **PR #30**(本ラウンド): 主要10テーマのSNS素材キット(X/Instagram/Shorts/TikTok/Pinterest)作成。マージ済み(merge `d14a316`)。
 12. **PR #38**(本ラウンド): PR #34のパンくずフォローアップ第2弾、eiken-conversation・toeic-tango 2記事に展開。マージ済み(merge `3d564eb`)。
 13. **PR #39**(本ラウンド): PR #34のパンくずフォローアップ、daigaku-juken-tango 1記事に展開(quality-gate 20分タイムアウト回避のため単一ファイルPRに分割)。マージ済み(merge `82e5b00`)。
-14. **PR #37・#40**(本ラウンド、マージ待ち): 残るchugaku-eigo-tango・business-english-tangoへのパンくず展開。各1ファイルPRに分割し、quality-gate通過を確認中。
-15. **PR #41・#42・#43**(本ラウンド、マージ待ち): 混同しやすい単語ペア解説(affect-vs-effect・apply-for-vs-apply-to、FT-07)、不規則動詞一覧(fukikisoku-doushi-ichiran、FT-08)、試験日逆算学習計画メーカー(exam-countdown-planner、FT-02の完全版)を新規実装。いずれもchatgpt-codex-connectorのレビュー指摘(表内Markdown太字が未レンダリング/AAB型動詞の欠落)を修正済み。
+14. **PR #37・#40**(本ラウンド): 残るchugaku-eigo-tango・business-english-tangoへのパンくず展開。各1ファイルPRに分割してマージ済み(merge `fef807f`・`b95a0c1`相当)。これによりP-02は32/32ガイド記事完了(`/materials/[id]`のみ既知の技術的理由で対象外)。
+15. **PR #41・#42・#43**(本ラウンド): 混同しやすい単語ペア解説(affect-vs-effect・apply-for-vs-apply-to、FT-07)、不規則動詞一覧(fukikisoku-doushi-ichiran、FT-08「一覧」部分)、試験日逆算学習計画メーカー(exam-countdown-planner、FT-02の完全版)を新規実装・マージ済み。いずれもchatgpt-codex-connectorのレビュー指摘(表内Markdown太字が未レンダリング/AAB型動詞の欠落/試験当日ラベル誤り/小数単語数入力)を修正済み。
+16. **PR #44**(本ラウンド): 上記進捗を反映したマスターチェックリスト更新。マージ済み。
+17. **PR #27**(本ラウンド): Growth OSイベント(`wordbook_created`/`first_test_started`/`return_next_day`/`return_day_7`)実装。DB挿入失敗の誤成功報告・D1/D7重複防止のatomic化・イベント発火位置の是正などレビュー指摘4件へ全面対応後、本番Supabaseへ適用済みだったDBマイグレーション(部分ユニークインデックス+`SECURITY DEFINER`関数、supabase/migrations/024〜027)をリポジトリへ記録し、owner承認を得てマージ済み(merge `bab5075`)。本番デプロイREADY確認済み、本番DBの関数定義・インデックス定義・権限・重複ゼロを再確認済み。
 
 ## 既知の未解決事項(意図的な対象外、根拠あり)
 
@@ -217,10 +219,11 @@
 ## 新規に発見したギャップ(次ラウンド候補、優先度順)
 
 1. **CMP(同意管理)** — **コード実装完了、マージ・本番反映済み**(PR #29、merge `08ae340`)。Google Funding Choices CMPタグをサイト全体に実装、`/privacy`に同意設定変更ボタンを追加。本番で以下を確認済み: CMPタグ(`fundingchoicesmessages.google.com`)のHTML出力、同意変更ボタンの表示・クリック時無エラー、console errorなし、mobile横スクロールなし、既存AdSense表示ポリシー(ホワイトリスト化ルート)への回帰なし。**ただしCMP対応は未完了**: AdSense管理画面での実際のGDPR同意メッセージ作成・EEA/UK/スイス対象設定・未成年者向け設定・同意前デフォルト広告設定・メッセージ公開・実環境確認は、いずれもユーザーのAdSense管理画面操作が必要でコード側からは実施不可(AD-04参照)。それが完了するまでEEA等からのアクセス時に実際の同意バナーは表示されない。また、本PRはAdSense広告同意のみを扱っており、GA4・Microsoft Clarity・Growth OS側の分析用同意方針は別課題として引き続き未着手
-2. **`return_next_day`/`return_day_7`/`wordbook_created`イベント** — `feat/growth-events-wordbook-retention`(PR #27)で実装完了。DB挿入失敗の誤成功報告・D1/D7重複防止のatomic化(Postgres部分ユニークインデックス+`SECURITY DEFINER`関数)・`wordbook_created`発火位置の是正など、レビュー指摘4件を全面的に作り直して対応済み、owner承認待ち(`/approve-protected-paths`要)
-3. **パンくずJSON-LDと視覚的UIの不整合** — PR #34+#38+#39で30/32ガイド記事完了(教材7カテゴリ・辞書・ピラーページも完了)。残るchugaku-eigo-tango・business-english-tangoはPR #37・#40としてマージ待ち。`/materials/[id]`のみ既知の技術的理由で対象外(上記「既知の未解決事項」参照)
+2. **`return_next_day`/`return_day_7`/`wordbook_created`イベント** — **完了**。`feat/growth-events-wordbook-retention`(PR #27、merge `bab5075`)。DB挿入失敗の誤成功報告・D1/D7重複防止のatomic化(Postgres部分ユニークインデックス+`SECURITY DEFINER`関数、supabase/migrations/024〜027で本番DBとリポジトリを整合済み)・`wordbook_created`発火位置の是正など、レビュー指摘4件を全面的に作り直して対応。本番マージ・デプロイREADY・DB整合性確認済み。イベント自体は稼働開始したが、D1/D7継続率の実データはこれから日次cron稼働により蓄積される(E-03参照)
+3. **パンくずJSON-LDと視覚的UIの不整合** — **完了**。PR #34+#37+#38+#39+#40で32/32ガイド記事完了(教材7カテゴリ・辞書・ピラーページも完了)。`/materials/[id]`のみ既知の技術的理由で対象外(上記「既知の未解決事項」参照)
 4. **アクセシビリティ(aria/role)の低カバレッジ** — 未着手
-5. **無料ツール** — `FREE_TOOL`セクション参照。FT-02(復習日計算ツール)は完了、FT-04(小テスト作成)・FT-05(PDF作成)は既存機能でカバー済み、FT-07(単語比較)・試験日逆算学習計画メーカー(FT-02完全版)はPR #41・#43として実装済み・マージ待ち。FT-08(不規則動詞一覧)はPR #42で「一覧」部分のみ実装済み・マージ待ちで、「テスト」機能は引き続き未着手。残りFT-01(語彙力チェック強化)・FT-03(CSV変換)・FT-06(発音検索)・FT-08のテスト機能・FT-09(今日覚える英単語)の5件が未着手
+5. **無料ツール** — `FREE_TOOL`セクション参照。FT-02(復習日計算ツール)・FT-07(単語比較)・試験日逆算学習計画メーカー(FT-02完全版、PR #43)は完了、FT-04(小テスト作成)・FT-05(PDF作成)は既存機能でカバー済み。FT-08(不規則動詞一覧)は「一覧」部分のみ完了(PR #42)、「テスト」機能は引き続き未着手。残りFT-01(語彙力チェック強化)・FT-03(CSV変換)・FT-06(発音検索)・FT-08のテスト機能・FT-09(今日覚える英単語)の5件が未着手
+6. **AIクローラーポリシー・llms.txt** — **完了**。`feat/ai-crawler-policy-llms-txt`(PR #31、merge `0dc94d1`)。T-09/A-02/T-12/A-03クローズ、本番`/robots.txt`・`/llms.txt`を直接確認済み。**ただしAI検索施策全体としては未完了**: AI経由流入の実際の計測(GA4トラフィック獲得レポートでの確認)・ポリシー導入の成果検証(実際に引用・流入が増えたか)はまだ実施しておらず、A-04として引き続き未着手
 
 ## 外部認証・人間の判断が必要なブロッカー
 
