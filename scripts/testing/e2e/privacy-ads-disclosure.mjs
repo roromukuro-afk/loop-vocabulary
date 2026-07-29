@@ -1,5 +1,5 @@
 /**
- * プライバシーポリシーの広告・CMP関連開示監査（AdSense事前審査対応 Phase 5）
+ * プライバシーポリシーの広告・CMP関連開示監査（AdSense事前審査対応 Phase 5→CMP対応）
  *
  * AdSense審査に進む前に、/privacy が実装（GA4 / Microsoft Clarity / Google AdSense /
  * Cookie利用 / パーソナライズ広告オプトアウト手段）を実際に開示しているかを、
@@ -15,6 +15,8 @@
  * 5. Cookie 利用についての言及がある
  * 6. パーソナライズ広告のオプトアウト手段（Google広告設定 adssettings.google.com 等）
  *    への言及がある
+ * 7. Google Funding Choices（CMP/同意管理メッセージ）についての言及がある
+ * 8. 同意選択を後から変更できるUI導線（AdConsentSettingsLink）への言及がある
  *
  * 使い方: node scripts/testing/e2e/privacy-ads-disclosure.mjs
  */
@@ -41,6 +43,14 @@ const CHECKS = [
   {
     label: "パーソナライズ広告のオプトアウト手段への言及",
     patterns: [/adssettings\.google\.com/i, /パーソナライズ広告/, /広告設定/],
+  },
+  {
+    label: "Google Funding Choices（同意管理メッセージ/CMP）についての言及",
+    patterns: [/同意管理メッセージ/, /同意選択/],
+  },
+  {
+    label: "同意選択を後から変更できる導線（AdConsentSettingsLink）への言及",
+    patterns: [/広告のパーソナライズ設定を変更する/],
   },
 ];
 

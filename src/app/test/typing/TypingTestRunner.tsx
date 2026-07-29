@@ -6,7 +6,7 @@ import { saveStudyResult } from "@/lib/srs/saveResult";
 import { selectQuizWords, type SrsQuizWord } from "@/lib/learning/wordSelection";
 import { trackFeatureUsed } from "@/lib/analytics/events";
 import { trackEvent } from "@/lib/analytics/track";
-import { markFirstTestCompletedIfNeeded, checkActivationAfterSession } from "@/lib/analytics/activation";
+import { markFirstTestCompletedIfNeeded, markFirstTestStartedIfNeeded, checkActivationAfterSession } from "@/lib/analytics/activation";
 
 type W = SrsQuizWord & { streak: number; is_weak: boolean };
 
@@ -31,6 +31,7 @@ export function TypingTestRunner({ pool, count, scopeLabel }: { pool: W[]; count
   useEffect(() => {
     trackFeatureUsed("typing_test");
     trackEvent("study_session_started", { mode: "typing" });
+    markFirstTestStartedIfNeeded();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

@@ -122,17 +122,18 @@ AdSense publisher ID・`public/ads.txt`・Stripe/決済関連・学習セッシ�
 以下はGoogleのAdSense/Google Ad Manager管理画面でしか確認・設定できず、**このリポジトリの
 コードからは検証も設定もできない**。オーナー側での確認・対応が必要。
 
-- [ ] **EEA/UK/スイス向けGoogle認定CMPの設定**（「プライバシーとメッセージ」/
-      Privacy & messaging セクション）。AdSenseはこれらの地域でパーソナライズ広告を配信する
-      場合、Google認定のCMP（Funding Choices等）経由でIAB TCF準拠の同意取得を必須としている。
-      現状コード上にCMP/Cookie同意バナーの実装は存在しない（§1-3）。管理画面でメッセージを
-      作成・公開すると、AdSenseが自動的にタグを注入する運用のはずだが、**実際に設定済みか、
-      対象地域が有効化されているかは管理画面でのみ確認できる**。
+- [ ] **EEA/UK/スイス向けGoogle認定CMPメッセージの作成・公開**（「プライバシーとメッセージ」/
+      Privacy & messaging セクション）。§5（Phase 6）でコード側のCMPタグ埋め込みは実装済みだが、
+      **AdSense管理画面側で実際にGDPR/UK/CH向けメッセージを作成・公開する作業はオーナーが
+      行う必要がある**（コードからは作成・公開できない）。メッセージ未公開の状態では
+      Funding Choicesタグ自体はページに読み込まれるが、対象地域からのアクセスであっても
+      同意UIは表示されない。
 - [ ] **EEA向けユーザーに対するパーソナライズ広告の同意取得前デフォルト状態**
       （同意取得前はパーソナライズ広告オフ・非パーソナライズ広告のみ配信、が既定として
-      正しく設定されているか）。これも「プライバシーとメッセージ」内の設定項目であり、
-      コードからは制御していない（`AdSenseLoader.tsx` はAuto ads自体のON/OFFをルート単位で
-      制御しているのみで、地域別の同意state分岐はGoogle側のCMP機構に委ねている）。
+      正しく設定されているか）。これは「プライバシーとメッセージ」でメッセージを作成する際の
+      設定項目（Google側が地域法制に応じて標準で強制する挙動）であり、コード側では制御しない
+      （§5参照。`AdSenseLoader.tsx`・`adRoutePolicy.ts`はAuto ads自体のON/OFFをルート単位で
+      制御しているのみで、地域別の同意state分岐はGoogle側のCMP機構に委ねる設計を維持）。
 - [ ] **`ads.txt` の Authorized 状態**。`public/ads.txt` の内容自体は今回変更していないが
       （`google.com, pub-5148247638505100, DIRECT, f08c47fec0942fa0`）、Googleのクロールが
       これを正しく認識し「Authorized」ステータスになっているかはAdSense管理画面の
@@ -164,3 +165,55 @@ AdSense publisher ID・`public/ads.txt`・Stripe/決済関連・学習セッシ�
   §3の管理画面確認事項として明示的に未確認のまま残している）。
 - 回帰テスト `npm run test:privacy-ads-disclosure` を追加し、開示トピックの記載漏れを
   今後自動検知できるようにした。
+
+## 5. Google Funding Choices（CMP）コード実装（2026-07-28・Phase 6）
+
+§1-3・§3で「コード上にCMP実装が存在しない」と記録していた項目に対応するため、
+Google公式のCMP（Funding Choices / AdSense「プライバシーとメッセージ」）をコード側に
+組み込んだ。実装方針・変更ファイルは以下のとおり。
+
+### 5-1. 実装方針
+
+- Googleが「Google認定CMP」として提供するFunding Choicesの標準タグ
+  （`fundingchoicesmessages.google.com/i/{pub-id}?ers=1` + `signalGooglefcPresent`
+  スニペット）を追加。地域判定（EEA/UK/CH該当かどうか）・同意UIの表示・IAB TCF
+  同意シグナルの記録は、このタグを起点にGoogleのサーバー/スクリプト側が行う。
+  自前でジオIP判定や同意ロジックを実装していない（Google公式スニペットをそのまま
+  使うことが「認定CMP」を名乗れる条件であり、独自実装は認定の対象外になるため）。
+- `adsbygoogle.js`（`AdSenseLoader.tsx`）は、このCMPが記録したTCF同意シグナルを
+  自動的に読み取ってパーソナライズ/非パーソナライズ広告を出し分ける（Google広告配信側の
+  標準動作）。そのため`AdSenseLoader.tsx`・`adRoutePolicy.ts`自体は変更していない
+  （広告表示ルートの許可リストというAuto ads自体のON/OFF方針とCMPは独立した関心事）。
+- CMPタグの読み込み範囲は、広告表示ルートの許可リスト（`isAdsAllowedPath`）とは
+  **あえて分離**し、`NEXT_PUBLIC_ADSENSE_CLIENT`が設定されていればサイト全体
+  （`src/app/layout.tsx`の`<head>`）で読み込む。理由:
+  同意状態は`/privacy`など広告非表示ページでも保持・変更できる必要があること、
+  最初に訪れたページが偶然広告非許可ルートだった場合でもEEA/UK/CH判定・同意記録は
+  以後の全ページに引き継がれる必要があること。
+- 同意を後から変更する導線として、`AdConsentSettingsLink`
+  （`window.googlefc.showRevocationMessage()`を呼ぶボタン）を`/privacy`「3. 広告について」に
+  追加。対象地域外からのアクセスではGoogle側にメッセージが存在しないため、クリックしても
+  何も起こらない（Google公式リファレンス実装と同じ挙動。ボタン自体は常時表示する）。
+
+### 5-2. 変更ファイル
+
+- 新規: `src/lib/ads/consentManagement.ts`（`ca-pub-XXXX` → `pub-XXXX`変換ヘルパー）
+- 新規: `src/components/ads/AdConsentSettingsLink.tsx`（同意変更ボタン）
+- `src/app/layout.tsx`: Funding Choicesタグを`<head>`に追加（`NEXT_PUBLIC_ADSENSE_CLIENT`
+  設定時のみ、`AdSenseLoader`より先・サイト全体で読み込み）
+- `src/app/privacy/page.tsx`: 「3. 広告について」に同意管理メッセージの説明と
+  `AdConsentSettingsLink`を追加
+- `scripts/testing/e2e/privacy-ads-disclosure.mjs`: CMP/同意変更導線への言及チェックを追加
+- `scripts/testing/e2e/adsense-readiness.mjs`: Funding ChoicesタグがAdSense本体スクリプトと
+  異なりルート制限なくサイト全体で読み込まれることの検証を追加
+
+### 5-3. コード側で実装したもの・していないもの
+
+- **実装した**: CMPタグの埋め込み（サイト全体）、同意変更導線（`/privacy`）、
+  上記2点の回帰テスト。
+- **実装していない（Googleの認定CMPが担う範囲）**: 地域判定ロジック、同意UI自体の
+  デザイン・文言、EEA向けデフォルト非パーソナライズの強制、IAB TCF文字列の生成・保存。
+  これらを自前実装しないことが「Google認定CMP」を使う設計上の意図であり、欠落ではない。
+- **オーナー側の対応が引き続き必要**: AdSense管理画面「プライバシーとメッセージ」での
+  実際のGDPR/UK/CHメッセージの作成・公開（§3チェックリスト参照）。これが未実施の間は、
+  コード側のタグは読み込まれるが同意UI自体は表示されない。

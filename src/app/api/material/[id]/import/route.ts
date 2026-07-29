@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { trackWordCountMilestones } from "@/lib/analytics/trackServerEvent";
+import { trackWordCountMilestones, trackServerEvent } from "@/lib/analytics/trackServerEvent";
 
 const CHUNK = 100;
 const PAGE_SIZE = 1000;
@@ -103,6 +103,11 @@ export async function POST(
   }
 
   await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + rows.length);
+
+  // wordbook_created: 単語帳作成・単語一括挿入まですべて成功し、cleanup経路(book削除)に
+  // 入らないことが確定してから発火する。途中で失敗した場合はbookごと削除されるため、
+  // ここより前で発火すると存在しない単語帳のイベントが残ってしまう。
+  await trackServerEvent("wordbook_created", { userId: user.id, properties: { source_type: "material" } });
 
   return NextResponse.json({ bookId: book.id, count: rows.length });
 }

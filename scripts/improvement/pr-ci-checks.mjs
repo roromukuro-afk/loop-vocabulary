@@ -155,7 +155,14 @@ function inferCategoryTests(diffFiles) {
     }
   }
   if (diffFiles.some((f) => f.includes("src/app/api/"))) {
-    tests.add("test:premium-gating");
+    // test:premium-gatingは`.env.local`のSUPABASE_SERVICE_ROLE_KEY・
+    // TEST_ONBOARDING_PASSWORDを直接参照する(getAdminClient()経由の実DB書き込みを伴う)。
+    // この独立CI(真のsecretを一切渡さない設計のpull_requestトリガー)では常に
+    // "Missing required env vars"で失敗するため選ばない(2026-07-28、PR #27の
+    // quality-gateでsrc/app/api/配下を変更した際に発覚。同じ理由で既に除外されている
+    // test:analytics-production-ingestion等と同列の扱い)。プレミアム課金ゲートの
+    // 回帰は、真のsecretを使えるtrusted workflow側(analytics-production-canary.yml
+    // 相当)で実行することを今後検討する。
   }
   return [...tests];
 }
