@@ -166,8 +166,8 @@
 |---|---|---|---|
 | AD-01 | 広告表示ルートのホワイトリスト化 | `src/lib/ads/adRoutePolicy.ts`で`/`・`/materials`・`/guide`・`/dictionary/[word]`のみ許可、操作画面(dashboard/wordbooks/admin等)は広告ゼロ | **完了(既存)** |
 | AD-02 | ads.txt / Publisher ID | `public/ads.txt`に`pub-5148247638505100`設定済み、AdSenseメタタグも設置済み | **完了(既存)** |
-| AD-03 | CMP(同意管理プラットフォーム) | **コード上に実装が一切確認できない**。プライバシーポリシーにテキストでの開示はあるが、機能的な同意バナー・オプトアウトUIは存在しない | **実行中(重要ギャップ、EEA/UK/スイス向け審査要件に関わる可能性)** |
-| AD-04 | AdSense管理画面側の設定確認(CMP/ads.txt Authorized状態) | コードから確認不可 | **外部認証待ち** |
+| AD-03 | CMP(同意管理プラットフォーム) | PR #29でGoogle Funding Choices CMPタグをサイト全体に実装・マージ済み(merge `08ae340`)。本番で`<script async src="https://fundingchoicesmessages.google.com/i/pub-5148247638505100?ers=1">`の出力、`/privacy`の「広告のパーソナライズ設定を変更する」ボタンの表示・クリック時無エラーを確認済み。**コード実装は完了だが、AdSense管理画面でのGDPR同意メッセージ本体の作成・公開が別途必要(AD-04参照)。それが完了するまでEEA/UK/スイス向けの実際の同意バナーは表示されない** | **コード実装完了・AdSense管理画面での公開作業待ち** |
+| AD-04 | AdSense管理画面側の設定確認(CMP/ads.txt Authorized状態) | コードから確認不可。**ユーザー操作待ちの手順**: (1)AdSense「プライバシーとメッセージ」でEEA/UK/スイス向けGDPR同意メッセージを作成、(2)対象地域(EEA・英国・スイス)を設定、(3)同意前のデフォルト広告設定(非パーソナライズ広告等)を確認、(4)13歳未満・未成年者向け設定を確認、(5)メッセージを公開、(6)EEA相当の環境からアクセスして実際に同意バナーが表示されることを確認、(7)ads.txt Authorized状態の確認 | **外部認証待ち(ユーザー操作待ち)** |
 
 ## PRIVACY
 
@@ -216,7 +216,7 @@
 
 ## 新規に発見したギャップ(次ラウンド候補、優先度順)
 
-1. **CMP(同意管理)** — `feat/adsense-cmp-consent`(PR #29)で実装完了。プライバシーポリシーの最終更新日修正等レビュー指摘対応済み、owner承認待ち(`/approve-protected-paths`要)
+1. **CMP(同意管理)** — **コード実装完了、マージ・本番反映済み**(PR #29、merge `08ae340`)。Google Funding Choices CMPタグをサイト全体に実装、`/privacy`に同意設定変更ボタンを追加。本番で以下を確認済み: CMPタグ(`fundingchoicesmessages.google.com`)のHTML出力、同意変更ボタンの表示・クリック時無エラー、console errorなし、mobile横スクロールなし、既存AdSense表示ポリシー(ホワイトリスト化ルート)への回帰なし。**ただしCMP対応は未完了**: AdSense管理画面での実際のGDPR同意メッセージ作成・EEA/UK/スイス対象設定・未成年者向け設定・同意前デフォルト広告設定・メッセージ公開・実環境確認は、いずれもユーザーのAdSense管理画面操作が必要でコード側からは実施不可(AD-04参照)。それが完了するまでEEA等からのアクセス時に実際の同意バナーは表示されない。また、本PRはAdSense広告同意のみを扱っており、GA4・Microsoft Clarity・Growth OS側の分析用同意方針は別課題として引き続き未着手
 2. **`return_next_day`/`return_day_7`/`wordbook_created`イベント** — `feat/growth-events-wordbook-retention`(PR #27)で実装完了。DB挿入失敗の誤成功報告・D1/D7重複防止のatomic化(Postgres部分ユニークインデックス+`SECURITY DEFINER`関数)・`wordbook_created`発火位置の是正など、レビュー指摘4件を全面的に作り直して対応済み、owner承認待ち(`/approve-protected-paths`要)
 3. **パンくずJSON-LDと視覚的UIの不整合** — PR #34+#38+#39で30/32ガイド記事完了(教材7カテゴリ・辞書・ピラーページも完了)。残るchugaku-eigo-tango・business-english-tangoはPR #37・#40としてマージ待ち。`/materials/[id]`のみ既知の技術的理由で対象外(上記「既知の未解決事項」参照)
 4. **アクセシビリティ(aria/role)の低カバレッジ** — 未着手
