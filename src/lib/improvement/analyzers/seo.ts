@@ -7,16 +7,35 @@ import type { IssueCandidate } from "../types";
 
 const SITE_URL = "https://loop-vocabulary.app";
 
-function parseDisallowRules(robotsTxt: string): string[] {
-  return robotsTxt
-    .split("\n")
-    .map((l) => l.trim())
-    .map((l) => l.match(/^Disallow:\s*(\S+)/i)?.[1])
-    .filter((v): v is string => Boolean(v));
+export type RobotsRule = { type: "allow" | "disallow"; prefix: string };
+
+export function parseRobotsRules(robotsTxt: string): RobotsRule[] {
+  const rules: RobotsRule[] = [];
+  for (const raw of robotsTxt.split("\n")) {
+    const line = raw.trim();
+    const disallow = line.match(/^Disallow:\s*(\S+)/i)?.[1];
+    if (disallow) {
+      rules.push({ type: "disallow", prefix: disallow });
+      continue;
+    }
+    const allow = line.match(/^Allow:\s*(\S+)/i)?.[1];
+    if (allow) rules.push({ type: "allow", prefix: allow });
+  }
+  return rules;
 }
 
-function isDisallowed(rules: string[], path: string): boolean {
-  return rules.some((rule) => path === rule || path.startsWith(rule));
+/**
+ * Googleのrobots.txt優先順位規則を再現する: パスにマッチする最も長い(=最も具体的な)ルールが勝ち、
+ * 長さが同じ場合はAllowが優先される(制限の緩い方を優先。/setupのDisallow+Allow並記と同じ規則)。
+ * これが無いと、noindex+Disallowを意図的にAllowで解除したページ(/setup等)を、
+ * 実際にはクロール可能であるにも関わらず「まだブロックされている」と誤検出してしまう。
+ */
+export function isBlockedByRobots(rules: RobotsRule[], path: string): boolean {
+  const matching = rules.filter((r) => path === r.prefix || path.startsWith(r.prefix));
+  if (matching.length === 0) return false;
+  const maxLength = Math.max(...matching.map((r) => r.prefix.length));
+  const longestMatches = matching.filter((r) => r.prefix.length === maxLength);
+  return longestMatches.every((r) => r.type === "disallow");
 }
 
 export async function scanSeo(): Promise<IssueCandidate[]> {
@@ -26,7 +45,7 @@ export async function scanSeo(): Promise<IssueCandidate[]> {
     fetch(`${SITE_URL}/robots.txt`).then((r) => r.text()),
     fetch(`${SITE_URL}/sitemap.xml`).then((r) => r.text()),
   ]);
-  const disallowRules = parseDisallowRules(robotsTxt);
+  const robotsRules = parseRobotsRules(robotsTxt);
   const sitemapUrls = [...sitemapXml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
 
   // 1. vercel.app系ドメインのsitemap混入(2026-07-15の対応の再発防止として継続監視)
@@ -93,7 +112,7 @@ export async function scanSeo(): Promise<IssueCandidate[]> {
     if (res.status !== 200) continue;
     const html = await res.text();
     const hasNoindex = /<meta[^>]+name="robots"[^>]+content="[^"]*noindex/i.test(html);
-    if (hasNoindex && isDisallowed(disallowRules, path)) {
+    if (hasNoindex && isBlockedByRobots(robotsRules, path)) {
       candidates.push({
         category: "seo",
         title: `${path} がnoindexなのにrobots.txtでもブロックされている`,
