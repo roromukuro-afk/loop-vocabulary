@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { SUPPORT_EMAIL } from "@/lib/support";
+import { AdConsentSettingsLink } from "@/components/ads/AdConsentSettingsLink";
 
 export const metadata: Metadata = {
   title: "プライバシーポリシー | Loop Vocabulary",
@@ -13,7 +14,7 @@ export default function PrivacyPage() {
     <div className="max-w-3xl mx-auto px-5 py-10 prose prose-sm">
       <Link href="/" className="text-xs text-navy-500">← トップへ</Link>
       <h1 className="text-2xl font-bold text-navy-800 mt-3">プライバシーポリシー</h1>
-      <p className="text-sm text-navy-500">最終更新日: 2026-07-12</p>
+      <p className="text-sm text-navy-500">最終更新日: 2026-07-28</p>
 
       <h2 className="text-lg font-bold text-navy-800 mt-6">1. 取得する情報</h2>
       <p>Loop Vocabulary (以下「本サービス」) は、サービス提供のため以下の情報を取得します。</p>
@@ -65,6 +66,13 @@ export default function PrivacyPage() {
           Google の広告に関するポリシー
         </a>{" "}
         もあわせてご確認ください。
+      </p>
+      <p className="text-sm text-navy-700">
+        EU/EEA・英国・スイス等、Googleが同意管理メッセージを表示する地域からアクセスしている場合、
+        初回訪問時にパーソナライズ広告に関する同意選択を求めることがあります。
+        後から選択を変更したい場合は、以下から変更できます。
+        <br />
+        <AdConsentSettingsLink className="underline text-navy-700" />
       </p>
 
       <h2 className="text-lg font-bold text-navy-800 mt-6">4. 決済・AI機能における外部サービスの利用</h2>
