@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { LEVELS } from "@/types/db";
+import { trackEvent } from "@/lib/analytics/track";
 
 export function CreateWordBookForm() {
   const router = useRouter();
@@ -29,6 +30,9 @@ export function CreateWordBookForm() {
     });
     setBusy(false);
     if (error) return setError(error.message);
+    // wordbook_created: 単語帳タイトル(title)は個人の自由記述でありプライバシー方針上
+    // 送信禁止のため、source_typeのみを送る(ANALYTICS_PRIVACY_POLICY.md参照)。
+    trackEvent("wordbook_created", { source_type: "custom" });
     setTitle("");
     setLevel("");
     router.refresh();
@@ -37,7 +41,13 @@ export function CreateWordBookForm() {
   return (
     <form onSubmit={submit} className="grid gap-3 sm:grid-cols-[1fr_180px_auto]">
       <Field label="タイトル">
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例: 英検準2級" required />
+        <Input
+          data-testid="wordbook-title-input"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="例: 英検準2級"
+          required
+        />
       </Field>
       <Field label="レベル / 試験">
         <Select value={level} onChange={(e) => setLevel(e.target.value)}>
@@ -46,7 +56,7 @@ export function CreateWordBookForm() {
         </Select>
       </Field>
       <div className="flex items-end">
-        <Button type="submit" disabled={busy} fullWidth>{busy ? "作成中..." : "作成"}</Button>
+        <Button type="submit" disabled={busy} fullWidth data-testid="create-wordbook-submit">{busy ? "作成中..." : "作成"}</Button>
       </div>
       {error && <div className="text-sm text-red-600 sm:col-span-3">{error}</div>}
     </form>

@@ -10,6 +10,7 @@
 import { trackEvent } from "./track";
 
 const FIRST_TEST_KEY = "lv_first_test";
+const FIRST_TEST_STARTED_KEY = "lv_first_test_started";
 const FIRST_REVIEW_KEY = "lv_first_review"; // FlipCardRunner.tsx と共有
 const ACTIVATION_KEY = "lv_activation_completed";
 const ACTIVATION_WORD_THRESHOLD = 10;
@@ -20,6 +21,18 @@ export function markFirstTestCompletedIfNeeded(): void {
   if (localStorage.getItem(FIRST_TEST_KEY)) return;
   localStorage.setItem(FIRST_TEST_KEY, "1");
   trackEvent("first_test_completed");
+}
+
+/**
+ * テスト(4択/タイピング)開始時(マウント/1問目表示時点)に呼ぶ。初回であれば
+ * first_test_started を発火する。markFirstTestCompletedIfNeededと同じくlocalStorageの
+ * 「初回フラグ」方式(デバイスをまたぐと再度firstイベントが飛びうる既知の制約も同じ)。
+ */
+export function markFirstTestStartedIfNeeded(): void {
+  if (typeof window === "undefined") return;
+  if (localStorage.getItem(FIRST_TEST_STARTED_KEY)) return;
+  localStorage.setItem(FIRST_TEST_STARTED_KEY, "1");
+  trackEvent("first_test_started");
 }
 
 /**

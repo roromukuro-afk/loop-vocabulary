@@ -14,7 +14,7 @@ import { PronounceButton } from "@/components/ui/PronounceButton";
 import { AudioAutoplayToggle } from "@/components/ui/AudioAutoplayToggle";
 import { trackFeatureUsed } from "@/lib/analytics/events";
 import { trackEvent } from "@/lib/analytics/track";
-import { markFirstTestCompletedIfNeeded, checkActivationAfterSession } from "@/lib/analytics/activation";
+import { markFirstTestCompletedIfNeeded, markFirstTestStartedIfNeeded, checkActivationAfterSession } from "@/lib/analytics/activation";
 
 type W = SrsQuizWord & { streak: number; is_weak: boolean };
 
@@ -69,6 +69,7 @@ export function ChoiceTestRunner({
   useEffect(() => {
     trackFeatureUsed("choice_test");
     trackEvent("study_session_started", { mode: "choice" });
+    markFirstTestStartedIfNeeded();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // テスト完了時にインタースティシャル広告を表示
