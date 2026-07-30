@@ -61,7 +61,7 @@ GA4の「トラフィック獲得」レポートで、参照元(`source`)に `ch
 - **週次cron同期**: `src/app/api/cron/indexnow-sitemap-sync/route.ts` が `src/app/sitemap.ts` の全URLを読み取り `submitUrlsToIndexNow` へ渡す。認証は既存の `daily-push` / `weekly-digest` 等と全く同じ `CRON_SECRET` Bearerパターン。`vercel.json` に毎週月曜20:00 UTCのcronとして登録済み。
 - **管理画面からの手動トリガー**: `/admin/indexnow`（`src/app/admin/indexnow/page.tsx`）に「今すぐIndexNowへ同期」ボタンを設置。認証は他の管理API(`/api/admin/growth/*`)と同じ `requireAdminApi()`（管理者ログインセッション必須）。cronを待たずに動作確認・即時再送信したい場合用。ロジックは cron ルートと `src/lib/indexnow/syncSitemap.ts` を共有している。
 
-### ページ個別の即時通知（実装済み・教材のみ・2026-07-30）
+### ページ個別の即時通知（完了・教材のみ・本番検証済み・2026-07-30）
 
 上記の週次resyncに加え、教材(`materials`テーブル)の公開/更新/削除については、書き込みが起きた
 その場でIndexNowへ即時通知するよう実装した。
@@ -81,18 +81,38 @@ GA4の「トラフィック獲得」レポートで、参照元(`source`)に `ch
 - **削除時の扱い**: IndexNowプロトコル自体に「削除」専用のverbは無い。削除前に公開条件を
   満たしていた教材が削除された場合、同じ`/materials/{id}`を再送信し、クローラーに
   再クロールを促すことで「消えたこと」(削除後は`notFound()`で404になる)を伝える設計にした。
+- **可視性反転はデデュープをバイパスする**: `submitUrlsToIndexNow()`の10分デデュープは
+  同一URLへの短時間の反復送信を抑止するためのものだが、「公開→(9分後)非公開」のような
+  可視性そのものの反転にまで適用されると、2回目(消えたことの通知)がスキップされ、
+  外部の検索結果に古い状態が次のクロールまで残ってしまう(2026-07-30、
+  chatgpt-codex-connectorのP2指摘で発覚)。可視性反転・削除の通知は`bypassDedupe: true`
+  で常に送信し、通常の内容更新(単語インポート等)は従来どおりのデデュープを維持する。
+- **公開教材への単語インポートも通知対象**: `POST /api/admin/materials/[id]/words`
+  (`ImportPanel.tsx`のCSV/JSON一括インポート)を新設し、`material_words`への
+  ブラウザ直接Supabase書き込みをサーバー経由に統一した。挿入が1件以上成功し、かつ
+  対象教材が実際に公開状態の場合のみ、教材URLへ最大1回だけ通知する(何語追加しても
+  ループ内で個別送信しない)。
 - **本来の書き込み処理を絶対に壊さない**: Next.js 15の`after()`
   (`src/lib/indexnow/notifyContentChange.ts`)でレスポンス送信後にIndexNow送信を行うため、
   IndexNowへの送信が失敗・遅延してもDB書き込み自体のレスポンスには一切影響しない。
 - **単一URLのみ送信・全件再送信は行わない**: 週次resync(`syncSitemapToIndexNow`)とは
   完全に独立しており、変更があったその1件のURLだけを`submitUrlsToIndexNow`へ渡す。
-- **テスト**: `test:materials-visibility`(`isEffectivelyPublicMaterial()`の網羅的な
-  単体テスト、ネットワーク・DB不要)、`test:admin-materials-api`(実ログイン・実DB書き込みを
-  伴うE2E、認証/認可・CRUD・raw fetch経由とUIのボタン操作経由の両方を検証。IndexNowへの
-  実際の外部送信が発生しないよう、テスト内では常にis_public/license_statusが
-  公開条件の境界を跨がない値の組み合わせのみを使う)。後者は`test:premium-gating`と同じ理由で
+- **テスト**: `test:materials-visibility`・`test:admin-materials-words-import-notify-invariant`
+  (いずれもネットワーク・DB不要の単体/ソース構造不変条件テスト)、`test:admin-materials-api`・
+  `test:admin-materials-words-import-api`(実ログイン・実DB書き込みを伴うE2E、認証/認可・CRUD・
+  raw fetch経由とUIのボタン操作経由の両方を検証)。後2つは`test:premium-gating`と同じ理由で
   secretless独立CIでは実行できないため、`admin-materials-canary.yml`
   (trusted workflow、要`TEST_ADMIN_PASSWORD` Environment secret)へ切り出した。
+- **本番検証(2026-07-30)**: `admin-materials-canary.yml`を手動実行し、上記4テストすべてが
+  本番相当の実DB・実ログインで成功、テスト用データの残留なしを確認。さらにtest+admin
+  アカウントで本番(`https://loop-vocabulary.app`)へ実際にログインし、教材の作成→公開
+  (`is_public:true`+`license_status:approved`)→`/materials/{id}`が直後に200で表示される
+  こと→削除、という一連の操作を本番APIへ実行し、いずれも200・DBの可視性遷移が実際に
+  発生したことを確認済み。**ただし外部IndexNow API側がこの実送信を実際に2xxで受理したか
+  どうかは、Vercelランタイムログ(`get_runtime_logs`)がリクエスト単位のメソッド/パス/
+  ステータスの要約のみでconsole.log/console.errorの内容までは見えないため、他に観測
+  できる手段が無く未確認のまま記録する**(T-11の週次resyncと同じ制約。2xx/失敗いずれも
+  推測しない)。
 
 ### スコープの明示的な境界（正直に書く）
 
