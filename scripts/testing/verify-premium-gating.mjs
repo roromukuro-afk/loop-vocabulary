@@ -19,17 +19,32 @@
  * API呼び出しが成功するかどうかは検証しない（premium判定を通過したかのみを見る）。
  *
  * 2026-07-29追記: /api/wordbook/[id]/ai-suggestのPremium状態チェックは、
- * status !== 403 に加えて status !== 503 も検証する。このルートは以前
- * モジュールスコープでAnthropicクライアントを生成しており、
+ * 403にならないことに加え、このテストプロセス自身のANTHROPIC_API_KEYの有無
+ * (=子プロセスとして起動するdevサーバーが継承する値と同じ)に応じて期待値を
+ * 出し分ける: キーが設定されている環境(ローカルの.env.local等)ではstatus
+ * !== 503(クライアント生成が正しく完了し実際の呼び出しに進む)を、キーが
+ * 未設定の環境(premium-gating-canary.ymlは意図的にこのsecretを注入しない)
+ * ではstatus === 503(グレースフルに503を返し、import時にSDKが例外を投げて
+ * ルートの読み込み自体が失敗する旧不具合が再発していないこと)を検証する。
+ *
+ * このルートは以前モジュールスコープでAnthropicクライアントを生成しており、
  * ANTHROPIC_API_KEY未設定環境ではimport自体が失敗する不具合があった
  * (chatgpt-codex-connectorのP1指摘、修正はクライアント生成をキー確認後まで
- * 遅延)。このテストはローカルの.env.local(ANTHROPIC_API_KEYが実際に設定されて
- * いる環境)で実行されるため、503にならないことを確認できれば、Premium+キー
- * 設定済みの経路でクライアント生成が正しく機能していることの直接的な証拠になる。
- * ANTHROPIC_API_KEY未設定環境での動作(import時に例外を投げないこと・非Premiumは
- * キーの有無に関わらず常に403になること)は、この生きたサーバーの環境を変えずに
- * 検証することはできないため、ネットワーク不要のソース構造不変条件テスト
- * (test:ai-suggest-lazy-anthropic-init)で別途保証する。
+ * 遅延)。2026-07-29の初回追記時、この期待値の出し分けを行わず単純に
+ * status !== 503のみを検証したため、ANTHROPIC_API_KEYを意図的に注入しない
+ * premium-gating-canary.yml上で(修正が正しく機能した結果としての)503を
+ * false failureとして報告してしまっていた(実行履歴:
+ * https://github.com/roromukuro-afk/loop-vocabulary/actions/runs/30504159174)。
+ * キーの有無に応じた期待値の出し分けに修正し、どちらの環境でも意味のある
+ * 検証になるようにした。
+ *
+ * さらに、chatgpt-codex-connectorのP2指摘への対応として、この期待値の出し分けは
+ * `dev.startedByUs===true`(このテストプロセス自身がdevサーバーを起動した)場合のみ
+ * 行う。ensureDevServer()は既に起動済みの別サーバーを再利用できる仕様であり
+ * (`startedByUs===false`)、その場合サーバーが実際にどの環境変数で起動したかは
+ * このプロセスのprocess.envから断定できない(.env.local変更後の再利用・別セッションが
+ * 起動したサーバー等)。再利用時は500(未処理例外)でないことのみを確認し、
+ * 503/非503の厳密な判定はスキップする。
  *
  * 使い方: node scripts/testing/verify-premium-gating.mjs
  */
@@ -214,8 +229,27 @@ async function main() {
       });
       if (res.status !== 403) ok(`/api/wordbook/[id]/ai-suggest: Premiumではpremium判定を通過する (status=${res.status})`);
       else bad(`/api/wordbook/[id]/ai-suggest: Premium時も403のまま（修正が効いていない）`);
-      if (res.status !== 503) ok(`/api/wordbook/[id]/ai-suggest: Premium+ANTHROPIC_API_KEY設定済み環境ではAnthropicクライアントの遅延生成が正しく機能し503にならない (status=${res.status})`);
-      else bad(`/api/wordbook/[id]/ai-suggest: Premium時に503(AI not configured)が返った。.env.localにANTHROPIC_API_KEYが設定されているか確認するか、クライアント生成順序の回帰を疑うこと`);
+
+      // dev.startedByUs===falseの場合、このテストプロセスは既に起動済みの別サーバーを
+      // 再利用しているため(ensureDevServer()の仕様上サポートされている挙動)、その
+      // サーバーが実際にどの環境変数で起動したかはこのプロセスのprocess.envからは
+      // 分からない(.env.local変更後の再利用・別セッションが起動したサーバー等)。
+      // このプロセス自身のANTHROPIC_API_KEYの有無から期待値を断定できるのは、
+      // このプロセス自身がサーバーを起動した場合(startedByUs===true)のみ。
+      if (dev.startedByUs) {
+        const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY);
+        if (hasAnthropicKey) {
+          if (res.status !== 503) ok(`/api/wordbook/[id]/ai-suggest: ANTHROPIC_API_KEY設定済み環境ではAnthropicクライアントの遅延生成が正しく機能し503にならない (status=${res.status})`);
+          else bad(`/api/wordbook/[id]/ai-suggest: ANTHROPIC_API_KEY設定済みのはずなのに503が返った。クライアント生成順序の回帰を疑うこと`);
+        } else {
+          if (res.status === 503) ok(`/api/wordbook/[id]/ai-suggest: ANTHROPIC_API_KEY未設定環境では503を返す(モジュール読み込み自体は失敗しない) (status=${res.status})`);
+          else bad(`/api/wordbook/[id]/ai-suggest: ANTHROPIC_API_KEY未設定なのに503以外(${res.status})が返った。想定外の経路`);
+        }
+      } else if (res.status === 500) {
+        bad(`/api/wordbook/[id]/ai-suggest: 既存サーバーを再利用しておりANTHROPIC_API_KEYの有無は確認できないが、500(未処理例外)は常に失敗として扱う (status=${res.status})`);
+      } else {
+        ok(`/api/wordbook/[id]/ai-suggest: 既存サーバーを再利用しているため(startedByUs=false)、ANTHROPIC_API_KEYの有無に依存する厳密な期待値検証はスキップ(status=${res.status}、500ではないことのみ確認)`);
+      }
     }
     {
       const res = await fetch(`${baseUrl}/api/ai/study-plan`, {
