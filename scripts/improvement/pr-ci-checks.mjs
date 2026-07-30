@@ -184,6 +184,12 @@ function inferCategoryTests(diffFiles) {
     // (test:premium-gatingと同じ理由でtrusted workflowへ切り出す)。
     tests.add("test:materials-visibility");
   }
+  if (diffFiles.some((f) => f === "src/app/api/admin/materials/[id]/words/route.ts")) {
+    // ネットワーク・DBアクセス不要のソース構造不変条件テストのみ。
+    // test:admin-materials-words-import-apiは実ログイン・実DB書き込みを伴うため
+    // ここでは選ばない(test:premium-gatingと同じ理由でtrusted workflowへ切り出す)。
+    tests.add("test:admin-materials-words-import-notify-invariant");
+  }
   return [...tests];
 }
 

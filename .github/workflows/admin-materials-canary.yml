@@ -21,12 +21,18 @@ name: Admin Materials API Canary
 # "autonomous-improvement" Environmentに設定されていない。設定されるまでpreflight
 # ステップで安全に(値を出力せず)失敗する。リポジトリ管理者による手動追加が必要。
 #
-# test:admin-materials-apiはローカルdevサーバー(ensureDevServer)を起動して実際に
-# Playwright/Chromiumでログインするため、他のcanary同様Chromiumのインストールが必要。
+# test:admin-materials-api・test:admin-materials-words-import-apiはローカルdev
+# サーバー(ensureDevServer)を起動して実際にPlaywright/Chromiumでログインするため、
+# 他のcanary同様Chromiumのインストールが必要。
 #
-# IndexNowへの実際の外部送信有無はこのテストでは検証しない(送信要否の判定ロジックは
-# test:materials-visibility、送信処理自体はtest:indexnow-submitでそれぞれ
-# ネットワーク非依存の単体テストとして別途検証済み)。
+# test:admin-materials-words-import-apiは、公開教材への単語インポート機能そのものを
+# 検証するため、公開教材に対して実際にこのワークフローを1回動かす(このワークフロー
+# 自体にはIndexNow外部送信要否の判定ロジックの単体テスト(test:materials-visibility)・
+# 送信処理自体の単体テスト(test:indexnow-submit)ではカバーしきれない、"実際のルートが
+# 正しい条件で正しく呼ばれるか"の検証を目的としている)。ただし、このワークフローには
+# 意図的に`INDEXNOW_KEY`を注入していないため、実際に呼ばれるsubmitUrlsToIndexNow()は
+# 常に{ok:false, error:"not configured"}で安全にno-opする(送信要否の判定ロジック・
+# ルートの呼び出し構造自体は実行されるが、外部への実送信は発生しない)。
 
 on:
   workflow_dispatch: {}
@@ -83,3 +89,6 @@ jobs:
 
       - name: Run admin materials API verification
         run: npm run test:admin-materials-api
+
+      - name: Run admin materials words import API verification
+        run: npm run test:admin-materials-words-import-api

@@ -52,7 +52,8 @@ async function main() {
   console.log(`Dev server: ${baseUrl} (startedByUs=${dev.startedByUs})`);
 
   const browser = await chromium.launch();
-  let createdId = null;
+  let createdId = null; // raw fetch経由で作成した教材のID
+  let uiCreatedId = null; // UIのフォーム操作経由で作成した教材のID(finallyで独立に後片付けする)
 
   try {
     const adminCookie = await cookieHeaderFor(
@@ -205,6 +206,12 @@ async function main() {
       if (created) ok(`UIフォームからの新規作成がDBに反映される (id=${created.id})`);
       else bad("UIフォームからの新規作成がDBに反映されていない");
 
+      // UI POST成功直後、削除テストの成否に関わらずfinallyで必ず後片付けできるよう、
+      // raw fetch側のcreatedIdとは独立にここで登録する(chatgpt-codex-connectorのP2指摘対応:
+      // 以前はDELETEが失敗・timeout・例外になった場合、このID自体がどこにも保持されず
+      // scheduled canaryの実行のたびにTEST_UI教材_*が本番DBへ蓄積してしまっていた)。
+      if (created) uiCreatedId = created.id;
+
       if (created) {
         const row = page.locator("tr", { hasText: uiTitle });
         await Promise.all([
@@ -222,16 +229,40 @@ async function main() {
         ]);
         await page.waitForLoadState("networkidle");
         const { data: afterDelete } = await admin.from("materials").select("id").eq("id", created.id).maybeSingle();
-        if (!afterDelete) ok("UIの削除ボタンでDBから実際に削除される");
-        else bad("UIの削除ボタンをクリックしたがDBに行が残っている");
+        if (!afterDelete) {
+          ok("UIの削除ボタンでDBから実際に削除される");
+          uiCreatedId = null; // 削除済みのため、finallyでの二重削除試行を防ぐ
+        } else {
+          bad("UIの削除ボタンをクリックしたがDBに行が残っている");
+        }
       }
 
       await page.close();
     }
   } finally {
-    if (createdId) {
-      await admin.from("materials").delete().eq("id", createdId);
-      ok("テスト用教材の後片付け(削除)を実施した");
+    // raw fetch側・UI側、それぞれ独立に追跡したIDを取りこぼしなく後片付けする。
+    // 一方の削除が失敗しても、値そのものは漏らさずID・エラー種別のみ記録し、
+    // もう一方の後片付けは継続する。
+    for (const [label, targetId] of [["raw fetch側", createdId], ["UI経由", uiCreatedId]]) {
+      if (!targetId) continue;
+      try {
+        await admin.from("materials").delete().eq("id", targetId);
+        ok(`テスト用教材(${label})の後片付け(削除)を実施した`);
+      } catch (e) {
+        bad(`テスト用教材(${label})の後片付けに失敗した (error=${e instanceof Error ? e.constructor.name : typeof e})`);
+      }
+    }
+    // 過去の実行がDELETE失敗等で残した"TEST_UI教材_*"の残留データを、安全な完全一致prefixで
+    // 追加清掃する。実際の教材タイトルがこの日本語テストマーカーと偶然一致することは
+    // 現実的にないため、本番の通常教材を誤削除するリスクは無い。
+    try {
+      const { data: leftovers } = await admin.from("materials").select("id, title").like("title", "TEST_UI教材_%");
+      if (leftovers && leftovers.length > 0) {
+        await admin.from("materials").delete().like("title", "TEST_UI教材_%");
+        ok(`過去実行の残留テストデータ${leftovers.length}件を追加清掃した`);
+      }
+    } catch (e) {
+      bad(`残留テストデータの清掃に失敗した (error=${e instanceof Error ? e.constructor.name : typeof e})`);
     }
     await browser.close();
     stopDevServer(dev);

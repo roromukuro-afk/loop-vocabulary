@@ -41,8 +41,11 @@ export async function POST(req: NextRequest) {
   // 新規登録時点で既に公開条件(is_public=true かつ license_status承認済み)を満たす場合のみ通知。
   // 通常は非公開("pending"・is_public=false)で登録し、許諾確認後に公開する運用が主だが、
   // 念のため作成時点で既に公開条件を満たすケースにも対応しておく。
+  // bypassDedupe: true — 「非公開→公開」と同じ可視性の反転であり、内容の変化ではなく
+  // 状態そのものの変化のため、直近デデュープに関わらず必ず送信する
+  // (submit.tsのSubmitIndexNowOptions.bypassDedupeの説明参照)。
   if (isEffectivelyPublicMaterial(data)) {
-    notifyIndexNowAfterResponse([`/materials/${data.id}`]);
+    notifyIndexNowAfterResponse([`/materials/${data.id}`], { bypassDedupe: true });
   }
 
   return NextResponse.json({ material: data });

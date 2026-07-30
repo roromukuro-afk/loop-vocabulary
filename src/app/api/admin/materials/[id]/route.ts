@@ -57,7 +57,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const wasVisible = isEffectivelyPublicMaterial(before);
   const isVisible = isEffectivelyPublicMaterial(updated);
   if (wasVisible !== isVisible) {
-    notifyIndexNowAfterResponse([`/materials/${id}`]);
+    // bypassDedupe: true — 可視性そのものの反転(公開→非公開・非公開→公開)は、直前に
+    // 同じURLを送信していても必ず届ける必要がある(例: 公開後9分で非公開化した場合、
+    // 通常デデュープだと「消えたこと」の通知が握りつぶされ、外部の検索結果に古い
+    // "公開されている"状態が次のクロールまで残ってしまう)。
+    notifyIndexNowAfterResponse([`/materials/${id}`], { bypassDedupe: true });
   }
 
   return NextResponse.json({ material: updated });
@@ -90,7 +94,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (deleteError) return NextResponse.json({ error: "delete_failed", detail: deleteError.message }, { status: 500 });
 
   if (isEffectivelyPublicMaterial(before)) {
-    notifyIndexNowAfterResponse([`/materials/${id}`]);
+    // bypassDedupe: true — 削除も「公開→消滅」という可視性の反転であり、直前に同じURLを
+    // 送信していても必ず届ける必要がある(理由はPATCHハンドラの同様のコメント参照)。
+    notifyIndexNowAfterResponse([`/materials/${id}`], { bypassDedupe: true });
   }
 
   return NextResponse.json({ ok: true });

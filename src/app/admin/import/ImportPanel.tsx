@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Field, Textarea } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { createClient } from "@/lib/supabase/client";
 
 type Mat = { id: string; title: string; license_status: string; is_public: boolean };
 
@@ -59,33 +58,31 @@ export function ImportPanel({ materials }: { materials: Mat[] }) {
 
   const run = async () => {
     setBusy(true); setMsg(null);
+    let rows: Row[];
     try {
-      const rows = format === "csv" ? parseCsv(text) : parseJson(text);
-      if (rows.length === 0) { setMsg("有効な行がありません"); return; }
-      const supabase = createClient();
-      const payload = rows.map((r) => ({
-        material_id: materialId,
-        word: r.word, meaning: r.meaning,
-        pos: r.pos ?? null,
-        example: r.example ?? null,
-        example_ja: r.example_ja ?? null,
-        importance: r.importance ?? 3,
-        frequency: r.frequency ?? 3,
-        level: r.level ?? null,
-        display_order: r.display_order ?? 0,
-      }));
-      // 1000 件ずつ分割
-      let inserted = 0;
-      for (let i = 0; i < payload.length; i += 500) {
-        const slice = payload.slice(i, i + 500);
-        const { error } = await supabase.from("material_words").insert(slice);
-        if (error) { setMsg(`エラー (offset ${i}): ${error.message}`); break; }
-        inserted += slice.length;
-      }
-      setMsg(`${inserted} 件をインポートしました`);
-      router.refresh();
+      rows = format === "csv" ? parseCsv(text) : parseJson(text);
     } catch (e) {
       setMsg(`パース失敗: ${e instanceof Error ? e.message : String(e)}`);
+      setBusy(false);
+      return;
+    }
+    if (rows.length === 0) { setMsg("有効な行がありません"); setBusy(false); return; }
+    try {
+      const res = await fetch(`/api/admin/materials/${materialId}/words`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ words: rows }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setMsg(body.detail ?? body.error ?? "インポートに失敗しました");
+        return;
+      }
+      const { inserted, error } = await res.json();
+      setMsg(error ? `${inserted} 件をインポートしました(${error})` : `${inserted} 件をインポートしました`);
+      router.refresh();
+    } catch (e) {
+      setMsg(`通信失敗: ${e instanceof Error ? e.message : String(e)}`);
     } finally { setBusy(false); }
   };
 

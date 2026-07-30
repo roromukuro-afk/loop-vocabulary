@@ -47,7 +47,12 @@ function getHost(): string {
   }
 }
 
-function filterRecentlySubmitted(urls: string[], now: number): { toSubmit: string[]; skipped: number } {
+function filterRecentlySubmitted(
+  urls: string[],
+  now: number,
+  bypassDedupe: boolean,
+): { toSubmit: string[]; skipped: number } {
+  if (bypassDedupe) return { toSubmit: urls, skipped: 0 };
   const toSubmit: string[] = [];
   let skipped = 0;
   for (const url of urls) {
@@ -61,16 +66,33 @@ function filterRecentlySubmitted(urls: string[], now: number): { toSubmit: strin
   return { toSubmit, skipped };
 }
 
+export type SubmitIndexNowOptions = {
+  /**
+   * trueの場合、直近10分以内デデュープを無視し必ず送信を試みる(送信成功後は通常どおり
+   * lastSubmittedAtを更新するため、その後の"通常"呼び出しは改めてデデュープ対象になる)。
+   *
+   * 公開⇄非公開・削除のような可視性の反転は、たとえ直前に同じURLを送信済みでも、
+   * IndexNowへ届けなければならない重要な事実の変化である。例えば「公開→(9分後)非公開」
+   * のように短時間で反転すると、通常のデデュープでは2回目(消えたことの通知)がスキップ
+   * されてしまい、外部の検索エンジン側に古い"公開されている"という結果が
+   * 次のクロール・週次resyncまで残り続ける。このオプションは、そのような
+   * "内容の変化ではなく状態そのものが変わった"通知にのみ使うこと
+   * (通常の同一内容の更新連投には使わない = デフォルトはfalseのまま)。
+   */
+  bypassDedupe?: boolean;
+};
+
 /**
  * URLリストをIndexNowへバッチ送信する。
  *
  * - `INDEXNOW_KEY` が未設定の場合は何もせず {ok: false, error: "not configured"} を返す
  *   (throwしない。cron/管理画面のどちらから呼んでもリクエスト自体は継続できる)。
- * - 直近10分以内に送信済みのURLは(同一インスタンス内に限り)スキップする。
+ * - 直近10分以内に送信済みのURLは(同一インスタンス内に限り)スキップする
+ *   (`opts.bypassDedupe: true` で無視できる。可視性反転・削除通知専用)。
  * - ネットワーク失敗・非2xxレスポンスもthrowせず、ステータスコードとレスポンス本文を
  *   console.errorへ出力したうえで {ok: false, ...} を返す。
  */
-export async function submitUrlsToIndexNow(urls: string[]): Promise<SubmitIndexNowResult> {
+export async function submitUrlsToIndexNow(urls: string[], opts: SubmitIndexNowOptions = {}): Promise<SubmitIndexNowResult> {
   const key = process.env.INDEXNOW_KEY;
   if (!key) {
     console.log("[indexnow] INDEXNOW_KEY is not set; skipping submission (not configured)");
@@ -83,7 +105,7 @@ export async function submitUrlsToIndexNow(urls: string[]): Promise<SubmitIndexN
   }
 
   const now = Date.now();
-  const { toSubmit, skipped } = filterRecentlySubmitted(cleanUrls, now);
+  const { toSubmit, skipped } = filterRecentlySubmitted(cleanUrls, now, opts.bypassDedupe === true);
   if (toSubmit.length === 0) {
     console.log(`[indexnow] all ${cleanUrls.length} url(s) were submitted within the last ${RATE_LIMIT_WINDOW_MS / 60000} minutes; skipping`);
     return { ok: false, error: "all urls recently submitted", submittedCount: 0, skippedCount: skipped };

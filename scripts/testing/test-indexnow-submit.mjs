@@ -161,5 +161,66 @@ function installFetchStub(impl) {
   assert(mixed.skippedCount === 1, "スキップ件数が結果に反映される", JSON.stringify(mixed));
 }
 
+// ── 5. opts.bypassDedupe: 可視性反転・削除通知が10分デデュープで握りつぶされない ──
+// (chatgpt-codex-connectorのP2指摘対応: 公開直後の非公開化・削除がdedupeされる問題)
+{
+  process.env.INDEXNOW_KEY = "test-key-bypass";
+  const calls = installFetchStub(async () => new Response(null, { status: 200 }));
+  const { submitUrlsToIndexNow } = await import(
+    `../../src/lib/indexnow/submit.ts?t=${Date.now()}-5`
+  );
+  const url = "https://loop-vocabulary.app/materials/test-bypass";
+
+  // 5a. 公開(通常送信) → 直後に非公開化(bypassDedupe:true)。10分以内の同一URLだが
+  //     可視性の反転(消えたこと)は必ず届く必要がある。
+  const published = await submitUrlsToIndexNow([url]);
+  assert(published.ok === true && calls.length === 1, "公開時の通常送信でfetchが呼ばれる", `ok=${published.ok} calls=${calls.length}`);
+
+  const unpublished = await submitUrlsToIndexNow([url], { bypassDedupe: true });
+  assert(calls.length === 2 && unpublished.ok === true, "公開後10分以内の非公開化(bypassDedupe:true)は通常デデュープを無視して送信される", `calls=${calls.length} ok=${unpublished.ok}`);
+
+  // 5b. 非公開化(5aで送信済み)の直後に再公開(bypassDedupe:true)。これも反転なので届く必要がある。
+  const republished = await submitUrlsToIndexNow([url], { bypassDedupe: true });
+  assert(calls.length === 3 && republished.ok === true, "非公開化後10分以内の再公開(bypassDedupe:true)も送信される", `calls=${calls.length} ok=${republished.ok}`);
+
+  // 5c. bypassDedupeで送信した後も、lastSubmittedAtは通常どおり更新される。
+  //     そのため直後の"通常"呼び出し(bypassDedupeなし)は改めてデデュープされる
+  //     (bypassDedupeは「その1回を強制送信する」フラグであり、以後の通常呼び出しの
+  //     デデュープ状態自体をリセットするものではない)。
+  const normalAfterBypass = await submitUrlsToIndexNow([url]);
+  assert(calls.length === 3 && normalAfterBypass.ok === false, "bypassDedupe送信直後の通常呼び出しは改めてデデュープされる(通常の同一内容更新の連投を抑止する設計は維持)", `calls=${calls.length} ok=${normalAfterBypass.ok}`);
+
+  // 5d. 削除通知も同じ仕組み(bypassDedupe:true)で届く。
+  const deleted = await submitUrlsToIndexNow([url], { bypassDedupe: true });
+  assert(calls.length === 4 && deleted.ok === true, "削除通知(bypassDedupe:true)も10分以内の同一URLへ送信される", `calls=${calls.length} ok=${deleted.ok}`);
+}
+
+// ── 5e. 複数URLのデデュープが互いに干渉しない ──────────────────
+{
+  process.env.INDEXNOW_KEY = "test-key-bypass-multi";
+  const calls = installFetchStub(async () => new Response(null, { status: 200 }));
+  const { submitUrlsToIndexNow } = await import(
+    `../../src/lib/indexnow/submit.ts?t=${Date.now()}-5e`
+  );
+  const urlA = "https://loop-vocabulary.app/materials/test-a";
+  const urlB = "https://loop-vocabulary.app/materials/test-b";
+
+  await submitUrlsToIndexNow([urlA]);
+  await submitUrlsToIndexNow([urlB]);
+  assert(calls.length === 2, "URL A・Bをそれぞれ独立に送信できる", `calls=${calls.length}`);
+
+  // Aはbypassで再送信、Bは通常送信(直後のためデデュープされるはず)。互いの状態は干渉しない。
+  const aBypassed = await submitUrlsToIndexNow([urlA], { bypassDedupe: true });
+  const bNormal = await submitUrlsToIndexNow([urlB]);
+  assert(calls.length === 3 && aBypassed.ok === true, "Aのbypass送信はBのデデュープ状態に影響しない", `calls=${calls.length} aOk=${aBypassed.ok}`);
+  assert(bNormal.ok === false, "Bは直近送信済みのため通常呼び出しでは引き続きデデュープされる(Aのbypassの影響を受けない)", JSON.stringify(bNormal));
+}
+
+// ── 5f. IndexNow送信失敗はsubmitUrlsToIndexNow自体の契約(常にthrowしない)の範囲内であり、
+//        呼び出し元(APIルート)のDB更新結果に影響しないことは、after()経由で
+//        レスポンス送信後にのみ呼び出す設計(src/lib/indexnow/notifyContentChange.ts)と、
+//        上記3.のネットワーク失敗・3b.の非2xx・3c.のタイムアウトいずれもthrowしないことの
+//        組み合わせで既に保証されている(改めての専用テストは不要)。
+
 console.log(fail === 0 ? "\n=== test:indexnow-submit: ALL CHECKS PASSED ===" : "\n=== test:indexnow-submit: FAILED ===");
 process.exit(fail === 0 ? 0 : 1);

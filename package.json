@@ -66,6 +66,8 @@
     "test:premium-gating": "node scripts/testing/verify-premium-gating.mjs",
     "test:materials-visibility": "node scripts/testing/test-materials-visibility.mjs",
     "test:admin-materials-api": "node scripts/testing/test-admin-materials-api.mjs",
+    "test:admin-materials-words-import-api": "node scripts/testing/test-admin-materials-words-import-api.mjs",
+    "test:admin-materials-words-import-notify-invariant": "node scripts/testing/test-admin-materials-words-import-notify-invariant.mjs",
     "test:ai-suggest-lazy-anthropic-init": "node scripts/testing/test-ai-suggest-lazy-anthropic-init.mjs",
     "test:entry-points:e2e": "node scripts/testing/e2e/entry-points.mjs",
     "test:wordbook-delete": "node scripts/testing/e2e/wordbook-delete.mjs",
