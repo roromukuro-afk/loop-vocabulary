@@ -1,0 +1,94 @@
+name: Admin Materials API Canary
+
+# /api/admin/materials・/api/admin/materials/[id] (教材のCRUD + IndexNow即時通知の
+# 起点)の生存確認。PRの必須チェックではない(post-deploy canary)。default branch
+# (main)の固定コードだけを実行し、PR headは一切checkoutしない。
+#
+# scripts/testing/test-admin-materials-api.mjsは、テストアカウント
+# (test+admin@loop-vocabulary.app・test+onboarding@loop-vocabulary.app)への実ログインと、
+# materialsテーブルへの実際のinsert/update/delete(getAdminClient()経由、
+# SUPABASE_SERVICE_ROLE_KEYが必要)の両方に依存するため、premium-gating-canary.yml
+# ・analytics-production-canary.ymlと同じ理由で、secretを一切渡さない独立PR CI
+# (pr-quality-gate.yml)では選択せず、このtrusted workflowへ集約する。
+#
+# SUPABASE_SERVICE_ROLE_KEY / TEST_ADMIN_PASSWORD / TEST_ONBOARDING_PASSWORDは
+# "autonomous-improvement" GitHub Environment secretからのみ取得する(このEnvironment
+# のdeployment branch policyはprotected branchesのみに制限されている)。
+# NEXT_PUBLIC_SUPABASE_ANON_KEYは同じEnvironmentのvariable(公開クライアントキーであり
+# secretではない)から取得する。
+#
+# 注意: TEST_ADMIN_PASSWORD secretは本ワークフロー追加時点でまだ
+# "autonomous-improvement" Environmentに設定されていない。設定されるまでpreflight
+# ステップで安全に(値を出力せず)失敗する。リポジトリ管理者による手動追加が必要。
+#
+# test:admin-materials-api・test:admin-materials-words-import-apiはローカルdev
+# サーバー(ensureDevServer)を起動して実際にPlaywright/Chromiumでログインするため、
+# 他のcanary同様Chromiumのインストールが必要。
+#
+# test:admin-materials-words-import-apiは、公開教材への単語インポート機能そのものを
+# 検証するため、公開教材に対して実際にこのワークフローを1回動かす(このワークフロー
+# 自体にはIndexNow外部送信要否の判定ロジックの単体テスト(test:materials-visibility)・
+# 送信処理自体の単体テスト(test:indexnow-submit)ではカバーしきれない、"実際のルートが
+# 正しい条件で正しく呼ばれるか"の検証を目的としている)。ただし、このワークフローには
+# 意図的に`INDEXNOW_KEY`を注入していないため、実際に呼ばれるsubmitUrlsToIndexNow()は
+# 常に{ok:false, error:"not configured"}で安全にno-opする(送信要否の判定ロジック・
+# ルートの呼び出し構造自体は実行されるが、外部への実送信は発生しない)。
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 20 * * *" # 毎日 UTC 20:00 (JST 05:00、premium-gating canaryの1時間後)
+
+concurrency:
+  group: admin-materials-canary
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: autonomous-improvement
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_ADMIN_PASSWORD: ${{ secrets.TEST_ADMIN_PASSWORD }}
+      TEST_ONBOARDING_PASSWORD: ${{ secrets.TEST_ONBOARDING_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm ci
+
+      # 値そのものは一切表示せず、必要な環境変数が空でないことだけを確認する。
+      # 不足があれば変数名だけを表示してjobを失敗させる(secretをechoしない)。
+      - name: Preflight - verify required env vars are present
+        run: |
+          missing=""
+          [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && missing="$missing NEXT_PUBLIC_SUPABASE_URL"
+          [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] && missing="$missing NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing="$missing SUPABASE_SERVICE_ROLE_KEY"
+          [ -z "$TEST_ADMIN_PASSWORD" ] && missing="$missing TEST_ADMIN_PASSWORD"
+          [ -z "$TEST_ONBOARDING_PASSWORD" ] && missing="$missing TEST_ONBOARDING_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "Missing required env var(s):$missing"
+            exit 1
+          fi
+          echo "All required env vars are present (values not shown)."
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run admin materials API verification
+        run: npm run test:admin-materials-api
+
+      - name: Run admin materials words import API verification
+        run: npm run test:admin-materials-words-import-api

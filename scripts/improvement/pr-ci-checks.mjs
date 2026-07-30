@@ -178,6 +178,18 @@ function inferCategoryTests(diffFiles) {
     // ソース構造不変条件テスト(2026-07-29、chatgpt-codex-connectorのP1指摘対応)。
     tests.add("test:ai-suggest-lazy-anthropic-init");
   }
+  if (diffFiles.some((f) => f.includes("src/lib/materials/visibility.ts"))) {
+    // ネットワーク・DBアクセス不要の純粋関数単体テストのみ。
+    // test:admin-materials-apiは実ログイン・実DB書き込みを伴うためここでは選ばない
+    // (test:premium-gatingと同じ理由でtrusted workflowへ切り出す)。
+    tests.add("test:materials-visibility");
+  }
+  if (diffFiles.some((f) => f === "src/app/api/admin/materials/[id]/words/route.ts")) {
+    // ネットワーク・DBアクセス不要のソース構造不変条件テストのみ。
+    // test:admin-materials-words-import-apiは実ログイン・実DB書き込みを伴うため
+    // ここでは選ばない(test:premium-gatingと同じ理由でtrusted workflowへ切り出す)。
+    tests.add("test:admin-materials-words-import-notify-invariant");
+  }
   return [...tests];
 }
 

@@ -61,9 +61,49 @@ GA4の「トラフィック獲得」レポートで、参照元(`source`)に `ch
 - **週次cron同期**: `src/app/api/cron/indexnow-sitemap-sync/route.ts` が `src/app/sitemap.ts` の全URLを読み取り `submitUrlsToIndexNow` へ渡す。認証は既存の `daily-push` / `weekly-digest` 等と全く同じ `CRON_SECRET` Bearerパターン。`vercel.json` に毎週月曜20:00 UTCのcronとして登録済み。
 - **管理画面からの手動トリガー**: `/admin/indexnow`（`src/app/admin/indexnow/page.tsx`）に「今すぐIndexNowへ同期」ボタンを設置。認証は他の管理API(`/api/admin/growth/*`)と同じ `requireAdminApi()`（管理者ログインセッション必須）。cronを待たずに動作確認・即時再送信したい場合用。ロジックは cron ルートと `src/lib/indexnow/syncSitemap.ts` を共有している。
 
+### ページ個別の即時通知（実装済み・教材のみ・2026-07-30）
+
+上記の週次resyncに加え、教材(`materials`テーブル)の公開/更新/削除については、書き込みが起きた
+その場でIndexNowへ即時通知するよう実装した。
+
+- **サーバールート新設**: 以前は `/admin/materials`(`MaterialAdminTable.tsx`)がブラウザから
+  直接Supabaseクライアントで`materials`テーブルへ書き込んでおり、サーバー側のフック地点が
+  存在しなかった。`POST /api/admin/materials`(新規作成)・`PATCH /api/admin/materials/[id]`
+  (公開切り替え・許諾ステータス・許諾メモ)・`DELETE /api/admin/materials/[id]`
+  (削除)の3ルートを新設し、`requireAdminApi()` + `createAdminClient()`
+  (`/api/admin/growth/*`と同じ既存パターン)で保護した。
+- **実際の公開可否の遷移で判定**: `/materials/[id]`の実公開可否は`is_public`単独ではなく
+  `is_public=true かつ license_status IN ('approved','original')`の両方で決まる
+  (RLSポリシー・ページ側クエリと同じ条件、`src/lib/materials/visibility.ts`の
+  `isEffectivelyPublicMaterial()`)。この実公開可否が更新前後で変化した場合のみ
+  (非公開→公開、公開→非公開のいずれの方向も)、`/materials/{id}`をIndexNowへ通知する。
+  `license_note`(公開ページに一切表示されない管理者専用メモ)のみの変更は通知しない。
+- **削除時の扱い**: IndexNowプロトコル自体に「削除」専用のverbは無い。削除前に公開条件を
+  満たしていた教材が削除された場合、同じ`/materials/{id}`を再送信し、クローラーに
+  再クロールを促すことで「消えたこと」(削除後は`notFound()`で404になる)を伝える設計にした。
+- **本来の書き込み処理を絶対に壊さない**: Next.js 15の`after()`
+  (`src/lib/indexnow/notifyContentChange.ts`)でレスポンス送信後にIndexNow送信を行うため、
+  IndexNowへの送信が失敗・遅延してもDB書き込み自体のレスポンスには一切影響しない。
+- **単一URLのみ送信・全件再送信は行わない**: 週次resync(`syncSitemapToIndexNow`)とは
+  完全に独立しており、変更があったその1件のURLだけを`submitUrlsToIndexNow`へ渡す。
+- **テスト**: `test:materials-visibility`(`isEffectivelyPublicMaterial()`の網羅的な
+  単体テスト、ネットワーク・DB不要)、`test:admin-materials-api`(実ログイン・実DB書き込みを
+  伴うE2E、認証/認可・CRUD・raw fetch経由とUIのボタン操作経由の両方を検証。IndexNowへの
+  実際の外部送信が発生しないよう、テスト内では常にis_public/license_statusが
+  公開条件の境界を跨がない値の組み合わせのみを使う)。後者は`test:premium-gating`と同じ理由で
+  secretless独立CIでは実行できないため、`admin-materials-canary.yml`
+  (trusted workflow、要`TEST_ADMIN_PASSWORD` Environment secret)へ切り出した。
+
 ### スコープの明示的な境界（正直に書く）
 
-このラウンドで実装したのは **「sitemap全件を定期的に再送信する(resync)」** 方式のみ。IndexNow本来の強みである **「公開/更新/削除の都度、その1URLだけを即座に通知する」** 真の即時通知は、**このPRには含まれていない**。教材公開・単語ページ追加・ガイド記事更新など、コンテンツの書き込みが起きる各コードパスに `submitUrlsToIndexNow` をフックする作業は、影響範囲が大きく別ラウンドでのスコープとして意図的に切り出した。
+**教材(materials)以外**——ガイド記事・辞書語ページ・無料ツール・URLリダイレクト——は、
+いずれも`GUIDE_SLUGS`/`PILOT_WORDS`/`LESSONS`/`guideRedirects`のような**静的な配列・設定**で
+定義されており、gitへのコミット+Vercelビルドによってのみ「公開/更新」される。つまり
+これらには元々「実行時の書き込みイベント」自体が存在せず、教材のような
+サーバールートへのフック方式は使えない。これらへの真の即時通知(コンテンツ変更の
+git diffを検出し、変更のあったURLだけをデプロイ後に送信する仕組み等)は、
+影響範囲・設計の性質が教材とは大きく異なるため、別ラウンドでのスコープとして
+意図的に切り出している。
 
 ### 必要な人間の手動作業
 
