@@ -160,15 +160,23 @@ function inferCategoryTests(diffFiles) {
       if (scriptExists(t)) tests.add(t);
     }
   }
-  if (diffFiles.some((f) => f.includes("src/app/api/"))) {
-    // test:premium-gatingは`.env.local`のSUPABASE_SERVICE_ROLE_KEY・
-    // TEST_ONBOARDING_PASSWORDを直接参照する(getAdminClient()経由の実DB書き込みを伴う)。
-    // この独立CI(真のsecretを一切渡さない設計のpull_requestトリガー)では常に
-    // "Missing required env vars"で失敗するため選ばない(2026-07-28、PR #27の
-    // quality-gateでsrc/app/api/配下を変更した際に発覚。同じ理由で既に除外されている
-    // test:analytics-production-ingestion等と同列の扱い)。プレミアム課金ゲートの
-    // 回帰は、真のsecretを使えるtrusted workflow側(analytics-production-canary.yml
-    // 相当)で実行することを今後検討する。
+  // test:premium-gating(scripts/testing/verify-premium-gating.mjs)は、
+  // テストアカウントの実ログイン(TEST_ONBOARDING_PASSWORD)とプロフィールの
+  // is_premium切り替え(SUPABASE_SERVICE_ROLE_KEY経由のgetAdminClient())の両方に
+  // 依存しており、真のsecretを一切渡さないこの独立CI(pull_requestトリガー)では
+  // 構造的に成功できない(2026-07-28、PR #27でsrc/app/api/配下を変更した際に、
+  // 変更内容に関係なく "Missing required env vars: SUPABASE_SERVICE_ROLE_KEY,
+  // TEST_ONBOARDING_PASSWORD" で毎回落ちることが判明。test:analytics-*系で
+  // 既に発生していたのと同じ根本原因)。この各APIルートのpremium判定は
+  // profiles.is_premiumを直接クエリするインラインコードで、DBアクセスなしに
+  // 検証できる共有関数が存在しないため、secretlessな軽量版は作れない。
+  // よってtest:analytics-*と同じ方針で、この独立CIでは選択せず、trusted workflow
+  // premium-gating-canary.ymlへ移し、そちらで"autonomous-improvement" Environment
+  // secretを使って実行する。
+  if (diffFiles.some((f) => f === "src/app/api/wordbook/[id]/ai-suggest/route.ts")) {
+    // Anthropicクライアントの遅延生成順序を検証する、ネットワーク・secret不要の
+    // ソース構造不変条件テスト(2026-07-29、chatgpt-codex-connectorのP1指摘対応)。
+    tests.add("test:ai-suggest-lazy-anthropic-init");
   }
   return [...tests];
 }

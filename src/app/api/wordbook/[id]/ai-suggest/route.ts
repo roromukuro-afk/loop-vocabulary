@@ -6,8 +6,6 @@ import { logAiUsageEvent, quotaSourceFromReason } from "@/lib/ai/logAiUsage";
 
 export const runtime = "nodejs";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -44,7 +42,8 @@ export async function POST(
     return NextResponse.json({ error: "単語帳に単語が登録されていません" }, { status: 400 });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
     return NextResponse.json({ error: "AI not configured" }, { status: 503 });
   }
 
@@ -54,6 +53,8 @@ export async function POST(
     return NextResponse.json({ error: quota.reason }, { status: 429 });
   }
   const quotaSource = quotaSourceFromReason(quota.reason, quota.isPremium);
+
+  const client = new Anthropic({ apiKey });
 
   const wordList = words.map((w) => `${w.word}（${w.meaning}）`).join("、");
   const inputSize = wordList.length;

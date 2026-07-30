@@ -1,0 +1,106 @@
+name: Premium Gating Canary
+
+# Premium判定(profiles.is_premium)の生存確認。PRの必須チェックではない
+# (post-deploy canary)。default branch(main)の固定コードだけを実行し、
+# PR headは一切checkoutしない。
+#
+# scripts/testing/verify-premium-gating.mjsは、テストアカウント
+# (test+onboarding@loop-vocabulary.app)への実ログインと、profiles.is_premiumの
+# 切り替え(getAdminClient()経由、SUPABASE_SERVICE_ROLE_KEYが必要)の両方に依存する。
+# 各APIルート(/api/ai/weakness-analysis, /api/ai/extract-words,
+# /api/ai/study-plan, /api/wordbook/[id]/ai-suggest等)はprofiles.is_premiumを
+# 直接クエリするインラインコードで、DBアクセスなしに検証できる共有関数が
+# 存在しないため、secretlessな軽量版は作れない。そのため
+# scripts/improvement/pr-ci-checks.mjs(secretを一切渡さない独立PR CI、
+# pr-quality-gate.yml)では選択せず、このtrusted workflowへ集約する
+# (2026-07-28、PR #27でsrc/app/api/配下を変更した際、変更内容に関係なく
+# "Missing required env vars: SUPABASE_SERVICE_ROLE_KEY, TEST_ONBOARDING_PASSWORD"
+# で毎回落ちることが判明。test:analytics-*系(analytics-production-canary.yml)で
+# 既に発生していたのと同じ根本原因)。
+#
+# SUPABASE_SERVICE_ROLE_KEY / TEST_ONBOARDING_PASSWORDは"autonomous-improvement"
+# GitHub Environment secretからのみ取得する(このEnvironmentのdeployment branch
+# policyはprotected branchesのみに制限されている)。NEXT_PUBLIC_SUPABASE_ANON_KEYは
+# 同じEnvironmentのvariable(公開クライアントキーであり secretではない。
+# pr-quality-gate.ymlに既に平文で記載されている値と同一)から取得する。
+#
+# verify-premium-gating.mjsはローカルdevサーバー(ensureDevServer)を起動して
+# 実際にPlaywright/Chromiumでログイン・操作するため、pr-quality-gate.ymlと同様
+# Chromiumのインストールが必要。
+#
+# 注意: TEST_ONBOARDING_PASSWORD secretは本ワークフロー追加時点でまだ
+# "autonomous-improvement" Environmentに設定されていない。設定されるまでは
+# preflightステップで安全に(値を出力せず)失敗する。リポジトリ管理者による
+# 手動設定が必要。
+#
+# ANTHROPIC_API_KEYはここでは意図的に注入しない。verify-premium-gating.mjsは
+# premium判定(403/非403の分岐)のみを検証し、Anthropic APIを実際には呼ばない
+# (各APIルートはpremium判定を通過した後で初めてAnthropicクライアントを生成する
+# ため、premium判定の時点ではキーが無くても到達できる)。以前は
+# src/app/api/wordbook/[id]/ai-suggest/route.tsがモジュールスコープで
+# Anthropicクライアントを生成しており、ANTHROPIC_API_KEY未設定のこのcanaryでは
+# ルートの読み込み自体が失敗し、premium判定に到達する前に毎回falseな失敗を報告する
+# バグがあった(2026-07-29、chatgpt-codex-connectorのP1指摘で発覚)。修正として
+# 同ルートのクライアント生成を、既存のキー未設定ガード(503)より後・実際の呼び出し
+# 直前まで遅延させた(他の3ルートは元々この設計だった)。これによりcanaryは
+# ANTHROPIC_API_KEYを一切必要としない。
+#
+# 同じtest+onboardingアカウントに対してresetOnboardingUser・単語帳作成・
+# is_premium切り替えを行うため、手動実行同士・手動実行とscheduled実行が
+# 同時に走ると一方が他方の状態を壊し得る。concurrencyでキューイングし
+# (cancel-in-progress: false)、必ず直列実行にする(2026-07-29、
+# chatgpt-codex-connectorのP2指摘)。
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 19 * * *" # 毎日 UTC 19:00 (JST 04:00、analytics canaryの1時間後)
+
+concurrency:
+  group: premium-gating-canary
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: autonomous-improvement
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_ONBOARDING_PASSWORD: ${{ secrets.TEST_ONBOARDING_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm ci
+
+      # 値そのものは一切表示せず、必要な環境変数が空でないことだけを確認する。
+      # 不足があれば変数名だけを表示してjobを失敗させる(secretをechoしない)。
+      - name: Preflight - verify required env vars are present
+        run: |
+          missing=""
+          [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && missing="$missing NEXT_PUBLIC_SUPABASE_URL"
+          [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] && missing="$missing NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing="$missing SUPABASE_SERVICE_ROLE_KEY"
+          [ -z "$TEST_ONBOARDING_PASSWORD" ] && missing="$missing TEST_ONBOARDING_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "Missing required env var(s):$missing"
+            exit 1
+          fi
+          echo "All required env vars are present (values not shown)."
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run premium gating verification
+        run: npm run test:premium-gating
