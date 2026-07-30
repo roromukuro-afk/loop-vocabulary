@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { createClient } from "@/lib/supabase/client";
 
 type M = {
   id: string; title: string; publisher: string | null;
@@ -27,48 +26,62 @@ export function MaterialAdminTable({ materials }: { materials: M[] }) {
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true); setError(null);
-    const supabase = createClient();
-    const { error } = await supabase.from("materials").insert(draft);
+    const res = await fetch("/api/admin/materials", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draft),
+    });
     setBusy(false);
-    if (error) return setError(error.message);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return setError(body.detail ?? body.error ?? "登録に失敗しました");
+    }
     setCreating(false);
     setDraft({ title: "", publisher: "", author: "", description: "", level: "", exam_type: "", source_url: "", license_status: "pending", license_note: "", is_public: false });
     router.refresh();
   };
 
   const togglePublic = async (m: M) => {
-    const supabase = createClient();
-    await supabase.from("materials").update({ is_public: !m.is_public }).eq("id", m.id);
+    await fetch(`/api/admin/materials/${m.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_public: !m.is_public }),
+    });
     router.refresh();
   };
   const setStatus = async (m: M, status: string) => {
-    const supabase = createClient();
-    await supabase.from("materials").update({ license_status: status }).eq("id", m.id);
+    await fetch(`/api/admin/materials/${m.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ license_status: status }),
+    });
     router.refresh();
   };
   const updateNote = async (m: M, note: string) => {
-    const supabase = createClient();
-    await supabase.from("materials").update({ license_note: note }).eq("id", m.id);
+    await fetch(`/api/admin/materials/${m.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ license_note: note }),
+    });
     router.refresh();
   };
   const remove = async (m: M) => {
     if (!confirm(`「${m.title}」を削除しますか？ (関連単語も削除されます)`)) return;
-    const supabase = createClient();
-    await supabase.from("materials").delete().eq("id", m.id);
+    await fetch(`/api/admin/materials/${m.id}`, { method: "DELETE" });
     router.refresh();
   };
 
   return (
     <div>
       <div className="flex justify-end mb-3">
-        <Button size="sm" onClick={() => setCreating((v) => !v)}>
+        <Button size="sm" data-testid="material-create-toggle" onClick={() => setCreating((v) => !v)}>
           {creating ? "閉じる" : "＋ 新規追加"}
         </Button>
       </div>
 
       {creating && (
         <form onSubmit={create} className="grid gap-3 sm:grid-cols-2 mb-5 bg-sky-50 rounded-xl p-4">
-          <Field label="タイトル"><Input required value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></Field>
+          <Field label="タイトル"><Input required data-testid="material-title-input" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></Field>
           <Field label="出版社"><Input value={draft.publisher} onChange={(e) => setDraft({ ...draft, publisher: e.target.value })} /></Field>
           <Field label="著者"><Input value={draft.author} onChange={(e) => setDraft({ ...draft, author: e.target.value })} /></Field>
           <Field label="レベル"><Input value={draft.level} onChange={(e) => setDraft({ ...draft, level: e.target.value })} placeholder="大学受験基礎 など" /></Field>
@@ -91,7 +104,7 @@ export function MaterialAdminTable({ materials }: { materials: M[] }) {
           <Field label="許諾メモ"><Textarea value={draft.license_note} onChange={(e) => setDraft({ ...draft, license_note: e.target.value })} /></Field>
           {error && <div className="text-sm text-red-600 sm:col-span-2">{error}</div>}
           <div className="sm:col-span-2">
-            <Button type="submit" disabled={busy} fullWidth>{busy ? "登録中..." : "登録"}</Button>
+            <Button type="submit" data-testid="material-create-submit" disabled={busy} fullWidth>{busy ? "登録中..." : "登録"}</Button>
           </div>
         </form>
       )}
@@ -137,13 +150,13 @@ export function MaterialAdminTable({ materials }: { materials: M[] }) {
                   </select>
                 </td>
                 <td className="py-2 pr-3 align-top">
-                  <button onClick={() => togglePublic(m)}
+                  <button data-testid="material-toggle-public" onClick={() => togglePublic(m)}
                     className={`text-xs px-2 py-1 rounded ${m.is_public ? "bg-emerald-100 text-emerald-700" : "bg-navy-100 text-navy-700"}`}>
                     {m.is_public ? "公開中" : "非公開"}
                   </button>
                 </td>
                 <td className="py-2 pr-3 align-top">
-                  <button onClick={() => remove(m)} className="text-xs text-red-600 underline">削除</button>
+                  <button data-testid="material-delete" onClick={() => remove(m)} className="text-xs text-red-600 underline">削除</button>
                 </td>
               </tr>
             ))}
