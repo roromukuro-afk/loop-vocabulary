@@ -1,0 +1,73 @@
+name: IndexNow Static Content Notify
+
+# 静的コンテンツ(ガイド記事・辞書語ページ・無料ツール等の静的ページ・リダイレクト)の
+# ページ個別IndexNow即時通知。教材(materials)と異なり、これらはgit commit+Vercel
+# ビルドによってのみ「公開/更新」される(実行時の書き込みイベントが存在しない)ため、
+# mainへのpushそのものを「公開/更新イベント」とみなし、push前後のコミット間で
+# 実際に生成される公開URL集合を比較して、変更のあったURLだけをIndexNowへ通知する。
+# 詳細な設計・検出対象・意図的な対象外範囲は
+# scripts/improvement/notify-indexnow-static-content-diff.mjs のヘッダコメント、
+# AI_SEARCH_AND_INDEXNOW_POLICY.md参照。
+#
+# PRの必須チェックではない(mainへのpush後に実行するpost-deploy通知)。このスクリプト
+# 自体はsubmitUrlsToIndexNow()以外に外部依存が無い自己完結モジュールのため、npm ci・
+# ビルドは不要(git + Node標準機能のみで完結、実行が速い)。
+#
+# INDEXNOW_KEYは"autonomous-improvement" GitHub Environment secretからのみ取得する
+# (このEnvironmentのdeployment branch policyはprotected branchesのみに制限されている)。
+# NEXT_PUBLIC_SITE_URLは未設定でも安全(submitUrlsToIndexNow()側が
+# "https://loop-vocabulary.app"にフォールバックする)。
+#
+# 注意: INDEXNOW_KEY secretは本ワークフロー追加時点でまだ"autonomous-improvement"
+# Environmentに設定されていない(Vercel Production環境変数としては既に設定済みだが、
+# GitHub Actions側には未設定)。設定されるまでは、submitUrlsToIndexNow()が
+# "not configured"で安全にno-opする(実害はないが実際の通知は発生しない)。
+# リポジトリ管理者による手動追加が必要。
+#
+# Vercelのビルド完了を待たずに実行するとIndexNowの再クロール時点でまだ新URLが
+# 反映されていない可能性があるため、送信前に固定で待機する(このセッションで観測した
+# 典型的なビルド時間: 60〜180秒)。VERCEL_TOKENを使った実際のデプロイ完了待ちは、
+# 新たなsecretを要求せずに済む固定待機の簡便さを優先し、今回は採用しなかった
+# (IndexNow通知はベストエフォートであり、多少の前後は実害が小さいため)。
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: indexnow-static-content-notify
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: autonomous-improvement
+    env:
+      INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Wait for Vercel production build to likely complete
+        run: sleep 150
+
+      - name: Detect and notify changed static content URLs
+        run: |
+          before="${{ github.event.before }}"
+          after="${{ github.sha }}"
+          zero="0000000000000000000000000000000000000000"
+          if [ "$before" = "$zero" ] || [ -z "$before" ]; then
+            echo "github.event.before が無効(新規ブランチ作成・force-push等)のため、差分検出をスキップする。"
+            exit 0
+          fi
+          node scripts/improvement/notify-indexnow-static-content-diff.mjs --before "$before" --after "$after"

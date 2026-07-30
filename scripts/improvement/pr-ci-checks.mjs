@@ -190,6 +190,11 @@ function inferCategoryTests(diffFiles) {
     // ここでは選ばない(test:premium-gatingと同じ理由でtrusted workflowへ切り出す)。
     tests.add("test:admin-materials-words-import-notify-invariant");
   }
+  if (diffFiles.some((f) => f === "scripts/improvement/notify-indexnow-static-content-diff.mjs")) {
+    // ネットワーク・git実行不要の純粋関数単体テストのみ(合成した小さなソース文字列で検証)。
+    // main()自体(git show・IndexNow送信を伴う)はこの独立CIでは検証しない。
+    tests.add("test:indexnow-static-content-diff-extraction");
+  }
   return [...tests];
 }
 
