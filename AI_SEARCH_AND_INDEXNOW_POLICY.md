@@ -103,7 +103,11 @@ GA4の「トラフィック獲得」レポートで、参照元(`source`)に `ch
   raw fetch経由とUIのボタン操作経由の両方を検証)。後2つは`test:premium-gating`と同じ理由で
   secretless独立CIでは実行できないため、`admin-materials-canary.yml`
   (trusted workflow、要`TEST_ADMIN_PASSWORD` Environment secret)へ切り出した。
-- **本番検証(2026-07-30)**: `admin-materials-canary.yml`を手動実行し、上記4テストすべてが
+- **本番検証(2026-07-30)**: `admin-materials-canary.yml`(`test:admin-materials-api`・
+  `test:admin-materials-words-import-api`の2つのE2Eスイートのみを実行する。
+  `test:materials-visibility`・`test:admin-materials-words-import-notify-invariant`は
+  ネットワーク・DB不要のためこのcanaryには含まれておらず、PR #52開発時にローカル・
+  `pr-quality-gate.yml`側で別途検証済み)を手動実行し、上記2つのE2Eスイートが
   本番相当の実DB・実ログインで成功、テスト用データの残留なしを確認。さらにtest+admin
   アカウントで本番(`https://loop-vocabulary.app`)へ実際にログインし、教材の作成→公開
   (`is_public:true`+`license_status:approved`)→`/materials/{id}`が直後に200で表示される
