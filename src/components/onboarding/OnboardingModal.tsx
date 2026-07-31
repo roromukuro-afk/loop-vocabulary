@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { trackEvent } from "@/lib/analytics/track";
@@ -79,6 +79,20 @@ export function OnboardingModal() {
 
   const { containerRef, handleKeyDown } = useModalA11y(show, () => finish(false));
 
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (!show) return;
+    // ステップが切り替わるたびに、新しいステップの見出しへフォーカスを戻す。
+    // 「次へ」「戻る」ボタンはステップ切り替えでDOMごと入れ替わるため、フォーカスが
+    // 残っていた要素が消え、ブラウザのデフォルトでdocument.bodyへ落ちてしまう。
+    // bodyにフォーカスがあるとhandleKeyDownはdialogコンテナ上にしか登録されて
+    // いないためフォーカストラップが効かなくなり、背景へTab移動できてしまう
+    // (chatgpt-codex-connectorのP1指摘対応)。初回オープン時もこの効果は実行されるが、
+    // useModalA11yがコンテナへ移したフォーカスを見出しへ絞り込むだけで、
+    // 「モーダル内にフォーカスがある」という不変条件は壊さない。
+    stepHeadingRef.current?.focus();
+  }, [step, show]);
+
   if (!show) return null;
 
   return (
@@ -115,7 +129,7 @@ export function OnboardingModal() {
           {/* Step 0: 目標 */}
           {step === 0 && (
             <>
-              <h2 className="text-xl font-bold text-navy-800 mt-4">目標を教えてください</h2>
+              <h2 ref={stepHeadingRef} tabIndex={-1} className="text-xl font-bold text-navy-800 mt-4">目標を教えてください</h2>
               <p className="text-sm text-navy-500 mt-1">あなたに合った教材・学習プランを提案します</p>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 {GOALS.map(g => (
@@ -147,7 +161,7 @@ export function OnboardingModal() {
           {/* Step 1: レベル */}
           {step === 1 && (
             <>
-              <h2 className="text-xl font-bold text-navy-800 mt-4">今の英語レベルは？</h2>
+              <h2 ref={stepHeadingRef} tabIndex={-1} className="text-xl font-bold text-navy-800 mt-4">今の英語レベルは？</h2>
               <p className="text-sm text-navy-500 mt-1">正直に答えてください。後から変えられます。</p>
               <div className="mt-4 space-y-2">
                 {LEVELS.map(l => (
@@ -187,7 +201,7 @@ export function OnboardingModal() {
             <>
               <div className="text-center mt-4">
                 <div className="text-5xl mb-3">🎉</div>
-                <h2 className="text-xl font-bold text-navy-800">準備完了！</h2>
+                <h2 ref={stepHeadingRef} tabIndex={-1} className="text-xl font-bold text-navy-800">準備完了！</h2>
                 <p className="text-sm text-navy-500 mt-2 leading-relaxed">
                   さっそく{GOALS.find(g => g.id === goal)?.label}向けの単語帳を作りましょう。
                   <br />教材から一括インポートするのが一番早いです。

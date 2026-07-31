@@ -26,6 +26,20 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
  *
  * 呼び出し側は、openの値に応じてrole="dialog"・aria-modal="true"・aria-labelledbyを
  * 条件付きで付与すること(閉じている間はダイアログとして認識されないようにするため)。
+ *
+ * 呼び出し側の注意点(PR #58レビューでの再確認事項):
+ * - 複数モーダルの同時使用: containerRef・openerRefは呼び出しごとにuseRefで独立して
+ *   生成されるため、複数のモーダルが同時に開いていても互いに干渉しない
+ *   (フォーカストラップの走査対象は各containerRef配下のみに限定される)。
+ * - cleanupの二重実行: cleanup関数は実行直後にopenerRef.currentをnullへ戻すため、
+ *   仮に(React 18/19のStrictModeでの開発時二重実行等により)同じcleanupが2回
+ *   呼ばれても、2回目はopenerが既にnullのため何もしない(安全に冪等)。
+ * - モーダル内でstepやタブなどの内部状態が変化しDOM構造が入れ替わる場合、
+ *   フォーカスされていた要素自体が消えてdocument.activeElementがbodyへ落ちる
+ *   ことがある(このフックはopen変化時のフォーカス移動のみを行うため、モーダル
+ *   内部の状態遷移までは検知できない)。呼び出し側はその状態遷移後に、新しい
+ *   内容内の適切な要素へ明示的にフォーカスを移すこと(OnboardingModal.tsxの
+ *   ステップ切り替え時のフォーカス管理を参照)。
  */
 export function useModalA11y(open: boolean, onClose: () => void) {
   const containerRef = useRef<HTMLDivElement>(null);
