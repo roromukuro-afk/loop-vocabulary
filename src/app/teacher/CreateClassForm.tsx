@@ -30,8 +30,12 @@ export function CreateClassForm() {
 
   return (
     <div className="mt-2">
+      <label htmlFor="create-class-name" className="block text-xs font-semibold text-navy-600 mb-1">
+        クラス名
+      </label>
       <div className="flex gap-2">
         <input
+          id="create-class-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={60}
