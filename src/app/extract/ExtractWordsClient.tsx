@@ -77,8 +77,9 @@ export function ExtractWordsClient({ wordbooks }: { wordbooks: { id: string; tit
     <div className="space-y-5">
       {/* テキスト入力エリア */}
       <div>
-        <label className="block text-xs font-semibold text-navy-700 mb-1.5">英文テキストを貼り付け</label>
+        <label htmlFor="extract-text-input" className="block text-xs font-semibold text-navy-700 mb-1.5">英文テキストを貼り付け</label>
         <textarea
+          id="extract-text-input"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="英語のニュース記事、英語テキスト、英文メールなどを貼り付けてください（最大2000文字）"
@@ -88,7 +89,7 @@ export function ExtractWordsClient({ wordbooks }: { wordbooks: { id: string; tit
         />
         <div className="flex items-center justify-between mt-1">
           <span className="text-[10px] text-navy-400">{text.length} / 3000文字</span>
-          <select value={level} onChange={(e) => setLevel(e.target.value)}
+          <select value={level} onChange={(e) => setLevel(e.target.value)} aria-label="単語レベル"
             className="text-xs border border-navy-200 rounded-lg px-2 py-1 text-navy-700 bg-white focus:outline-none">
             {LEVELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
           </select>
