@@ -157,7 +157,7 @@
 
 | ID | 施策 | 現状 | ステータス |
 |---|---|---|---|
-| AC-01 | aria属性・role属性 | `aria-`使用は全体で6箇所のみ(`src/components`2件・`src/app`4件)、`role=`属性は0件。第1弾(中核学習フロー)・第2弾(独自モーダル3箇所)・第3弾の一部(`DictionarySearch`・`GuideEmailCapture`、PR #59・本番確認済み)・第4弾(テスト解答欄3ファイル、PR #60・本番確認済み)・第5弾(`QuickAddWord`・`CreateClassForm`・`DisplayNameForm`、PR #61・本番確認済み)を修正済み(下記参照)。第3弾の再調査で発見した追加9ファイルのうち6ファイルを対応済み、残り3ファイル(`materials/page.tsx`・`ExtractWordsClient`・`ContactForm`)は未着手。加えて、(2)非同期処理結果の`aria-live`不足も未着手 | **一部完了(中核学習フロー・独自モーダル・フォームラベルの大部分、本番確認済み)・残り未着手分あり(3ファイル+aria-live)** |
+| AC-01 | aria属性・role属性 | 初回調査時点(未着手)では`aria-`使用は全体で6箇所のみ・`role=`属性は0件だった。第1弾(中核学習フロー)〜第6弾(検索・貼り付け・問い合わせフォーム、PR #62)まで修正済みで、現時点(2026-08-01時点、`src/app`+`src/components`)では`aria-*`属性41箇所(21ファイル)・`role=`属性7箇所まで増加(下記参照)。第3弾の再調査で発見した追加9ファイルは第4〜6弾で全て対応完了。残りは非同期処理結果の`aria-live`不足のみ未着手 | **一部完了(中核学習フロー・独自モーダル・フォームラベル全件、本番確認済み)・残り未着手分あり(aria-liveのみ)** |
 | AC-02 | 画像alt | 実質的に画像使用がほぼ無いため対象範囲は小さい(PF-01と同根拠) | **完了(該当箇所僅少)** |
 
 ## ADSENSE
@@ -264,7 +264,7 @@
     - **本番検証**: マージ後、`loop-vocabulary.app`へのVercel本番デプロイ(`dpl_7CwRcxD7ghKierFfX4KFRxXahmdP`)がGitHub commit status上でsuccessであることを確認(Vercel MCPコネクタが一時的にレート制限中だったため`gh api repos/.../commits/{sha}/status`で代替確認)。使い捨てスクリプト(検証後に削除、コミットせず)で`test+srs`・`test+teacher`アカウントへ実ログインし、本番の`/wordbooks/[id]`(クイック追加を開いた状態)・`/settings`・`/teacher`へ実際に遷移し、`aria-label="英単語"`/`"意味"`・`label[for="display-name-input"]`+`#display-name-input`・`label[for="create-class-name"]`+`#create-class-name`がいずれも存在することを確認した(5/5アサーション成功)。既知の非致命的ノイズ(Google Funding Choices CMPビーコンのCORS拒否、過去のPR#54〜#60の本番検証でも一貫して観測済み)以外のconsole error・5xxは無し。検証後、テスト用単語帳を削除したことを確認済み。
     - 残り3ファイルは下記項目25で対応済み。第3弾の再調査で発見した9ファイルはこれで全て対応完了。
 
-25. **AC-01(aria/role属性の低カバレッジ)第6弾: 検索・貼り付け・問い合わせフォームのラベル不足** — **コード実装・ローカル検証まで完了(PR未作成)**。第3弾の再調査で発見した最後の3ファイルを修正し、当該バックログを全て解消:
+25. **AC-01(aria/role属性の低カバレッジ)第6弾: 検索・貼り付け・問い合わせフォームのラベル不足** — **コード実装・ローカル検証まで完了([PR #62](https://github.com/roromukuro-afk/loop-vocabulary/pull/62)、本番検証は未実施)**。第3弾の再調査で発見した最後の3ファイルを修正し、当該バックログを全て解消:
     - `src/app/materials/page.tsx`(`SearchBar`): 教材検索`<input type="search">`が`placeholder="教材を検索..."`のみでラベル不足だった。placeholderの先頭部分と一致する`aria-label="教材を検索"`を追加(末尾の`...`を除いた文字列、既存パターンを踏襲)。
     - `src/app/extract/ExtractWordsClient.tsx`: (1) 英文貼り付け`<textarea>`は可視の`<label>`が既に存在していたが`htmlFor`/`id`で紐付いていなかった → `htmlFor="extract-text-input"`+`id="extract-text-input"`を追加。(2) レベル選択`<select>`はラベルが一切無かった → `aria-label="単語レベル"`を追加(近くに代替できる可視テキストが無いため新規追加、既存の可視テキストとの不一致は発生しない)。
     - `src/app/contact/ContactForm.tsx`: 氏名・メールアドレス・お問い合わせ種別・内容の4フィールドとも可視の`<label>`は既に存在していたが、いずれも`htmlFor`/`id`で紐付いていなかった → 4箇所とも`htmlFor`/`id`を追加して紐付け。
