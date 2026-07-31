@@ -17,6 +17,11 @@ import {
   extractStaticSitemapPaths,
   extractGuideSlugSet,
   extractGuideRedirects,
+  extractDynamicGuideArticles,
+  extractDynamicRouteExcludedSlugs,
+  pageFilePathToUrl,
+  toAbsoluteUrl,
+  resolveAbsoluteUrls,
 } from "../improvement/notify-indexnow-static-content-diff.mjs";
 
 let failed = 0;
@@ -107,6 +112,157 @@ export default async function sitemap() {
     const redirects = extractGuideRedirects(null);
     if (redirects.length === 0) ok("ソースがnullの場合は空配列を返す");
     else fail("nullソースで例外を投げずに空配列を返すべき");
+  }
+
+  // --- extractDynamicGuideArticles ---
+  {
+    const src = `
+const ARTICLES: Record<string, Article> = {
+  "alpha-slug": {
+    title: "Alpha",
+    description: "desc",
+    tag: "tag",
+    published: "2024-01-01",
+    content: \`
+## 見出し
+本文中に "},"のような文字列が含まれていても惑わされないこと。
+\`,
+    faq: [
+      { q: "Q1", a: "A1" },
+    ],
+  },
+  "beta-slug": {
+    title: "Beta",
+    description: "desc2",
+    tag: "tag2",
+    published: "2024-02-01",
+    content: \`本文2\`,
+  },
+
+};
+`;
+    const articles = extractDynamicGuideArticles(src);
+    if (
+      articles.size === 2 &&
+      articles.has("alpha-slug") &&
+      articles.has("beta-slug") &&
+      articles.get("alpha-slug").includes("Alpha") &&
+      !articles.get("alpha-slug").includes("Beta") &&
+      articles.get("beta-slug").includes("Beta") &&
+      !articles.get("beta-slug").includes("Alpha")
+    ) {
+      ok("ARTICLESオブジェクトからslugごとの生ブロックを、本文中の紛らわしい文字列に惑わされず正しい境界で抽出する");
+    } else {
+      fail(`extractDynamicGuideArticlesの抽出結果が想定外: size=${articles.size}`);
+    }
+  }
+  {
+    const articles = extractDynamicGuideArticles(null);
+    if (articles.size === 0) ok("ソースがnullの場合は空Mapを返す(extractDynamicGuideArticles)");
+    else fail("nullソースで例外を投げずに空Mapを返すべき(extractDynamicGuideArticles)");
+  }
+  {
+    const articles = extractDynamicGuideArticles("no ARTICLES object here");
+    if (articles.size === 0) ok("ARTICLESオブジェクトが存在しないソースでは空Mapを返す");
+    else fail("ARTICLES非存在ソースで空Mapを返すべき");
+  }
+
+  // --- extractDynamicRouteExcludedSlugs ---
+  {
+    const src = `const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["chugaku-eigo-tango", "toeic-tango"]);\n`;
+    assertSetEqual(
+      extractDynamicRouteExcludedSlugs(src),
+      ["chugaku-eigo-tango", "toeic-tango"],
+      "DYNAMIC_ROUTE_EXCLUDED_SLUGSからslug集合を抽出する",
+    );
+  }
+  {
+    const slugs = extractDynamicRouteExcludedSlugs(null);
+    if (slugs.size === 0) ok("ソースがnullの場合は空集合を返す(extractDynamicRouteExcludedSlugs)");
+    else fail("nullソースで例外を投げずに空集合を返すべき(extractDynamicRouteExcludedSlugs)");
+  }
+
+  // --- pageFilePathToUrl ---
+  {
+    const cases = [
+      ["src/app/about/page.tsx", "/about"],
+      ["src/app/faq/page.tsx", "/faq"],
+      ["src/app/exam-countdown-planner/page.tsx", "/exam-countdown-planner"],
+      ["src/app/page.tsx", "/"],
+      ["src/app/(marketing)/about/page.tsx", "/about"],
+      ["src/app/(marketing)/(nested)/about/page.tsx", "/about"],
+      ["src/app/vocab-check/eiken/page.tsx", "/vocab-check/eiken"],
+      ["src/app/materials/[id]/page.tsx", null],
+      ["src/app/guide/[slug]/page.tsx", null],
+      ["src/app/wordbooks/[id]/csv-import/page.tsx", null],
+      ["src/app/x/[...slug]/page.tsx", null],
+      ["src/app/x/[[...slug]]/page.tsx", null],
+      ["src/app/about/layout.tsx", null],
+      ["src/app/about/AboutClient.tsx", null],
+    ];
+    for (const [input, expected] of cases) {
+      const actual = pageFilePathToUrl(input);
+      if (actual === expected) ok(`pageFilePathToUrl(${JSON.stringify(input)}) === ${JSON.stringify(expected)}`);
+      else fail(`pageFilePathToUrl(${JSON.stringify(input)}) = ${JSON.stringify(actual)}, 期待値=${JSON.stringify(expected)}`);
+    }
+  }
+
+  // --- toAbsoluteUrl ---
+  {
+    const base = "https://loop-vocabulary.app";
+    const cases = [
+      ["/guide/foo", base, "https://loop-vocabulary.app/guide/foo"],
+      ["/", base, "https://loop-vocabulary.app/"],
+      ["about", base, "https://loop-vocabulary.app/about", "先頭に/が無いpathも解決する"],
+      ["/about", "https://loop-vocabulary.app/", "https://loop-vocabulary.app/about", "siteBase末尾に/があっても二重スラッシュにならない"],
+      ["https://loop-vocabulary.app/guide/foo", base, "https://loop-vocabulary.app/guide/foo", "既に絶対URLの場合は二重連結しない"],
+    ];
+    for (const [input, siteBase, expected, label] of cases) {
+      const actual = toAbsoluteUrl(input, siteBase);
+      if (actual === expected) ok(label || `toAbsoluteUrl(${JSON.stringify(input)}) === ${JSON.stringify(expected)}`);
+      else fail(`toAbsoluteUrl(${JSON.stringify(input)}, ${JSON.stringify(siteBase)}) = ${JSON.stringify(actual)}, 期待値=${JSON.stringify(expected)}`);
+    }
+  }
+  {
+    const base = "https://loop-vocabulary.app";
+    const rejectedCases = [
+      ["https://evil.example.com/x", "外部originは拒否してnullを返す"],
+      ["http://loop-vocabulary.app/x", "同じホストでもスキームが異なる場合は拒否する(hostのみでなくoriginの安全性を意識する)"],
+      ["", "空文字列はnullを返す"],
+      [null, "nullはnullを返す"],
+      [undefined, "undefinedはnullを返す"],
+    ];
+    for (const [input, label] of rejectedCases) {
+      const actual = toAbsoluteUrl(input, base);
+      if (actual === null) ok(label);
+      else fail(`${label}: 実際には${JSON.stringify(actual)}を返した`);
+    }
+  }
+  {
+    const base = "https://loop-vocabulary.app";
+    const url = toAbsoluteUrl("/guide/foo", base);
+    if (url && new URL(url).host === new URL(base).host) {
+      ok("変換後URLのhostがsiteBaseのhostと一致する");
+    } else {
+      fail(`host不一致: url=${url}`);
+    }
+  }
+
+  // --- resolveAbsoluteUrls ---
+  {
+    const base = "https://loop-vocabulary.app";
+    const { absolute, rejected } = resolveAbsoluteUrls(["/guide/foo", "https://evil.example.com/x", "/about"], base);
+    if (
+      absolute.length === 2 &&
+      absolute.includes("https://loop-vocabulary.app/guide/foo") &&
+      absolute.includes("https://loop-vocabulary.app/about") &&
+      rejected.length === 1 &&
+      rejected[0] === "https://evil.example.com/x"
+    ) {
+      ok("resolveAbsoluteUrlsは正当なpathをabsoluteへ、外部origin等の不正な値をrejectedへ分類する");
+    } else {
+      fail(`resolveAbsoluteUrlsの分類結果が想定外: absolute=${JSON.stringify(absolute)}, rejected=${JSON.stringify(rejected)}`);
+    }
   }
 
   console.log(failed ? `\n=== test:indexnow-static-content-diff-extraction: ${failed}件失敗 ===` : "\n=== test:indexnow-static-content-diff-extraction RESULT: all checks passed ===");

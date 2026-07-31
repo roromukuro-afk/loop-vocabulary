@@ -190,10 +190,20 @@ function inferCategoryTests(diffFiles) {
     // ここでは選ばない(test:premium-gatingと同じ理由でtrusted workflowへ切り出す)。
     tests.add("test:admin-materials-words-import-notify-invariant");
   }
-  if (diffFiles.some((f) => f === "scripts/improvement/notify-indexnow-static-content-diff.mjs")) {
-    // ネットワーク・git実行不要の純粋関数単体テストのみ(合成した小さなソース文字列で検証)。
-    // main()自体(git show・IndexNow送信を伴う)はこの独立CIでは検証しない。
+  if (
+    diffFiles.some(
+      (f) =>
+        f === "scripts/improvement/notify-indexnow-static-content-diff.mjs" ||
+        f === "scripts/testing/test-indexnow-static-content-diff-integration.mjs",
+    )
+  ) {
+    // 純粋関数単体テスト(合成した小さなソース文字列で検証、git・ネットワーク不要)に加え、
+    // computeChangedPaths()(差分検出のみを行う関数で、submitUrlsToIndexNowは一切呼ばない
+    // ためネットワークアクセスが発生しない)を実際の過去コミットに対して実行する統合テストも
+    // 実行する。このworkflow(pr-quality-gate.yml)はfetch-depth: 0でcheckoutしているため
+    // 全履歴が参照でき、統合テストが要求する過去コミットのSHAもすべて解決できる。
     tests.add("test:indexnow-static-content-diff-extraction");
+    tests.add("test:indexnow-static-content-diff-integration");
   }
   return [...tests];
 }
