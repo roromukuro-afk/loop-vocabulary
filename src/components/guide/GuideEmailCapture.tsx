@@ -55,6 +55,7 @@ export function GuideEmailCapture({ slug }: { slug: string }) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="your@email.com"
+          aria-label="メールアドレス"
           required
           className="flex-1 px-4 py-2.5 rounded-xl border border-sky-200 bg-white text-navy-800 text-sm placeholder-navy-300 focus:outline-none focus:ring-2 focus:ring-sky-300"
         />
