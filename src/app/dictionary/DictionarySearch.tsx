@@ -177,10 +177,10 @@ export function DictionarySearch({
           </Select>
         </div>
       )}
-      {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
+      {error && <div role="alert" className="mt-2 text-sm text-red-600">{error}</div>}
 
       {savedKey && loggedIn && (
-        <div data-testid="post-add-cta" className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+        <div data-testid="post-add-cta" role="status" className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs text-emerald-800 font-semibold">✓ 単語帳に追加しました！さっそく覚えましょう</span>
           <span className="flex gap-2">
             <Link href="/review?start=1&mode=flip" className="text-xs font-bold rounded-lg px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">▶ 復習で覚える</Link>
@@ -233,7 +233,7 @@ export function DictionarySearch({
           );
         })}
         {hits.length === 0 && !busy && q && (
-          <li className="text-sm text-navy-500">
+          <li role="status" className="text-sm text-navy-500">
             該当する単語が見つかりませんでした。英単語のつづりで検索してください（例:
             increase, opportunity, important）。日本語の意味からの検索には対応していません。
           </li>

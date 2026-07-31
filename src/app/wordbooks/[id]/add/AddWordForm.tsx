@@ -140,7 +140,7 @@ export function AddWordForm({ wordBookId }: { wordBookId: string }) {
       <Field label="熟語">
         <Input value={w.idiom} onChange={set("idiom")} />
       </Field>
-      {error && <div className="text-sm text-red-600 sm:col-span-2">{error}</div>}
+      {error && <div role="alert" className="text-sm text-red-600 sm:col-span-2">{error}</div>}
       <div className="sm:col-span-2">
         <Button type="submit" fullWidth size="lg" disabled={busy}>{busy ? "登録中..." : "登録"}</Button>
       </div>

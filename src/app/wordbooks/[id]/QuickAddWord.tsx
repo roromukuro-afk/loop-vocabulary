@@ -57,6 +57,7 @@ export function QuickAddWord({ wordBookId }: { wordBookId: string }) {
   return (
     <form onSubmit={submit} className="mt-3 bg-navy-50 rounded-2xl p-4 space-y-2">
       <div className="text-xs font-bold text-navy-600 mb-2">単語をクイック追加</div>
+      <div role="status" className="sr-only">{success ? "単語を追加しました" : ""}</div>
       <input
         value={word}
         onChange={(e) => setWord(e.target.value)}

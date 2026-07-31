@@ -94,7 +94,7 @@ export function AiSuggestButton({
       </button>
 
       {done && (
-        <p className="text-xs text-emerald-600 text-center mt-1">単語を追加しました！</p>
+        <p role="status" className="text-xs text-emerald-600 text-center mt-1">単語を追加しました！</p>
       )}
 
       {/* モーダル */}
@@ -121,7 +121,7 @@ export function AiSuggestButton({
                 AIが関連単語を分析中…
               </div>
             )}
-            {error && <p className="text-sm text-red-600 py-4 text-center">{error}</p>}
+            {error && <p role="alert" className="text-sm text-red-600 py-4 text-center">{error}</p>}
             {!loading && suggestions.length > 0 && (
               <>
                 <p className="text-xs text-navy-500 mb-2">追加したい単語をチェックして「追加する」を押してください。</p>
