@@ -157,7 +157,7 @@
 
 | ID | 施策 | 現状 | ステータス |
 |---|---|---|---|
-| AC-01 | aria属性・role属性 | `aria-`使用は全体で6箇所のみ(`src/components`2件・`src/app`4件)、`role=`属性は0件。第1弾(中核学習フロー)・第2弾(独自モーダル3箇所)・第3弾の一部(`DictionarySearch`・`GuideEmailCapture`、PR #59・本番確認済み)・第4弾(テスト解答欄3ファイル、PR #60・本番確認済み)を修正済み(下記参照)。第3弾の再調査で発見した追加9ファイルのうち、第4弾で3ファイル・第5弾で3ファイル(`QuickAddWord`・`CreateClassForm`・`DisplayNameForm`)を対応済み、残り3ファイル(`materials/page.tsx`・`ExtractWordsClient`・`ContactForm`)は未着手。加えて、(2)非同期処理結果の`aria-live`不足も未着手 | **一部完了(中核学習フロー・独自モーダル・フォームラベルの大部分、本番確認済み)・残り未着手分あり(3ファイル+aria-live)** |
+| AC-01 | aria属性・role属性 | `aria-`使用は全体で6箇所のみ(`src/components`2件・`src/app`4件)、`role=`属性は0件。第1弾(中核学習フロー)・第2弾(独自モーダル3箇所)・第3弾の一部(`DictionarySearch`・`GuideEmailCapture`、PR #59・本番確認済み)・第4弾(テスト解答欄3ファイル、PR #60・本番確認済み)・第5弾(`QuickAddWord`・`CreateClassForm`・`DisplayNameForm`、PR #61・本番確認済み)を修正済み(下記参照)。第3弾の再調査で発見した追加9ファイルのうち6ファイルを対応済み、残り3ファイル(`materials/page.tsx`・`ExtractWordsClient`・`ContactForm`)は未着手。加えて、(2)非同期処理結果の`aria-live`不足も未着手 | **一部完了(中核学習フロー・独自モーダル・フォームラベルの大部分、本番確認済み)・残り未着手分あり(3ファイル+aria-live)** |
 | AC-02 | 画像alt | 実質的に画像使用がほぼ無いため対象範囲は小さい(PF-01と同根拠) | **完了(該当箇所僅少)** |
 
 ## ADSENSE
@@ -256,14 +256,19 @@
     - **ローカル検証**: `npm run typecheck`・`npm run lint`・`npm run build`成功。これら3ページ専用の既存E2Eテストは無し(`scripts/testing/e2e/quiz.mjs`は別ページが対象)。いずれも既存要素への`id`/`aria-labelledby`属性追加のみで、動作・見た目の変更は無い。
     - **本番検証**: マージ後、`loop-vocabulary.app`へのVercel本番デプロイ(`dpl_FxbcxqXShCCz3Qzu5L4G2rUBNxEF`)がREADY・aliasされていることを確認。使い捨てスクリプト(検証後に削除、コミットせず)で`test+srs`アカウントへ実ログインし、`is_premium`を一時的にtrueへ設定(元の値を保存)、テスト用単語帳(3語)を作成した上で本番の`/test/typing`・`/test/listening`・`/test/input`へ実際に遷移し、各ページで`id="…-quiz-prompt-label"`が存在し解答欄の`aria-labelledby`がそのIDと一致していることを2回連続で確認した(6/6アサーション成功)。既知の非致命的ノイズ(Google Funding Choices CMPビーコンへの`x-lv-e2e-test`ヘッダーがCORSプリフライトで拒否される、本番環境のみで発生する既知の事象。過去のPR#54〜#59の本番検証でも一貫して観測済み)以外のconsole error・5xxは無し。検証後、テスト用単語帳・単語を削除し`is_premium`を元の値へ復元したことを確認済み。
 
-24. **AC-01(aria/role属性の低カバレッジ)第5弾: 単純な単一/二重フィールドフォームのラベル不足** — **コード実装・ローカル検証まで完了(PR未作成)**。第3弾の再調査で発見した残り8箇所のうち、単純な1〜2フィールドのフォーム3ファイルを修正:
+24. **AC-01(aria/role属性の低カバレッジ)第5弾: 単純な単一/二重フィールドフォームのラベル不足** — **完了(PR #61、merge `88d98b2`、本番での動作確認まで確認済み)**。第3弾の再調査で発見した残り9ファイルのうち、単純な1〜2フィールドのフォーム3ファイルを修正:
     - `src/app/wordbooks/[id]/QuickAddWord.tsx`: 単語・意味の2フィールドが`placeholder`のみでラベル不足だった。それぞれのplaceholder(「英単語 (例: persevere)」「意味 (例: 頑張り続ける)」)の先頭部分と一致する`aria-label`(`"英単語"`・`"意味"`)を追加(`DictionarySearch.tsx`で採用済み、Codexレビュー済みの「可視テキストの先頭部分と一致するaria-labelは不一致にならない」パターンを踏襲)。
     - `src/app/teacher/CreateClassForm.tsx`: クラス名`<input>`が`placeholder`(例示テキストのみで用途を説明していない)のみでラベル不足だった。可視の`<label htmlFor="create-class-name">クラス名</label>`を追加し`id`で紐付け。
     - `src/app/settings/DisplayNameForm.tsx`: 表示名`<input>`の`<label>`は既に存在していたが`htmlFor`/`id`で紐付いていなかった。`htmlFor="display-name-input"`+`id="display-name-input"`を追加して紐付け。
-    - **検証**: `npm run typecheck`・`npm run lint`・`npm run build`成功。いずれも既存要素への`id`/`aria-label`/`htmlFor`属性追加、または新規`<label>`1行の追加のみで、動作・見た目の変更は無い(`DisplayNameForm`は既存の可視`<label>`のテキストは変更していない)。
-    - 残り3ファイル(`src/app/materials/page.tsx`・`src/app/extract/ExtractWordsClient.tsx`・`src/app/contact/ContactForm.tsx`)は次ラウンドへ持ち越す。
+    - **ローカル検証**: `npm run typecheck`・`npm run lint`・`npm run build`成功。いずれも既存要素への`id`/`aria-label`/`htmlFor`属性追加、または新規`<label>`1行の追加のみで、動作・見た目の変更は無い(`DisplayNameForm`は既存の可視`<label>`のテキストは変更していない)。
+    - **本番検証**: マージ後、`loop-vocabulary.app`へのVercel本番デプロイ(`dpl_7CwRcxD7ghKierFfX4KFRxXahmdP`)がGitHub commit status上でsuccessであることを確認(Vercel MCPコネクタが一時的にレート制限中だったため`gh api repos/.../commits/{sha}/status`で代替確認)。使い捨てスクリプト(検証後に削除、コミットせず)で`test+srs`・`test+teacher`アカウントへ実ログインし、本番の`/wordbooks/[id]`(クイック追加を開いた状態)・`/settings`・`/teacher`へ実際に遷移し、`aria-label="英単語"`/`"意味"`・`label[for="display-name-input"]`+`#display-name-input`・`label[for="create-class-name"]`+`#create-class-name`がいずれも存在することを確認した(5/5アサーション成功)。既知の非致命的ノイズ(Google Funding Choices CMPビーコンのCORS拒否、過去のPR#54〜#60の本番検証でも一貫して観測済み)以外のconsole error・5xxは無し。検証後、テスト用単語帳を削除したことを確認済み。
+    - 残り3ファイルは下記項目25で対応済み。第3弾の再調査で発見した9ファイルはこれで全て対応完了。
 
-## 既知の未解決事項(意図的な対象外、根拠あり)
+25. **AC-01(aria/role属性の低カバレッジ)第6弾: 検索・貼り付け・問い合わせフォームのラベル不足** — **コード実装・ローカル検証まで完了(PR未作成)**。第3弾の再調査で発見した最後の3ファイルを修正し、当該バックログを全て解消:
+    - `src/app/materials/page.tsx`(`SearchBar`): 教材検索`<input type="search">`が`placeholder="教材を検索..."`のみでラベル不足だった。placeholderの先頭部分と一致する`aria-label="教材を検索"`を追加(末尾の`...`を除いた文字列、既存パターンを踏襲)。
+    - `src/app/extract/ExtractWordsClient.tsx`: (1) 英文貼り付け`<textarea>`は可視の`<label>`が既に存在していたが`htmlFor`/`id`で紐付いていなかった → `htmlFor="extract-text-input"`+`id="extract-text-input"`を追加。(2) レベル選択`<select>`はラベルが一切無かった → `aria-label="単語レベル"`を追加(近くに代替できる可視テキストが無いため新規追加、既存の可視テキストとの不一致は発生しない)。
+    - `src/app/contact/ContactForm.tsx`: 氏名・メールアドレス・お問い合わせ種別・内容の4フィールドとも可視の`<label>`は既に存在していたが、いずれも`htmlFor`/`id`で紐付いていなかった → 4箇所とも`htmlFor`/`id`を追加して紐付け。
+    - **検証**: `npm run typecheck`・`npm run lint`・`npm run build`成功。いずれも既存要素への`id`/`aria-label`/`htmlFor`属性追加のみで、動作・見た目の変更は無い。
 
 - **`/materials/[id]`ページに視覚的パンくずUIが無い**: 動的な`material.title`をラベルに使う`<Breadcrumb>`を追加したところ、`test:internal-links`が「ページ遷移(リサイズ後の再ナビゲーション)でnetworkidle待ちがタイムアウトする」形で100%再現性のある形で失敗することを確認した。静的ラベルを使う他の全ページ(ガイド記事30本以上・教材カテゴリ7ページ・辞書・ピラーページ)は同じコンポーネントで問題なく動作しているため、コンポーネント自体の欠陥ではなく、動的ラベル+このページ特有のデータ取得パターンとの相互作用が疑われる。根本原因は特定できなかったため、実際に壊れるE2Eテストを通すコードを出荷するより、このページのみ対象外として次ラウンドへ持ち越すことを選択した。
 

@@ -54,8 +54,9 @@ export function ContactForm() {
   return (
     <form onSubmit={handleSubmit} className="mt-6 space-y-4">
       <div>
-        <label className="block text-xs font-bold text-navy-700 mb-1">お名前（任意）</label>
+        <label htmlFor="contact-name" className="block text-xs font-bold text-navy-700 mb-1">お名前（任意）</label>
         <input
+          id="contact-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="山田 太郎"
@@ -63,8 +64,9 @@ export function ContactForm() {
         />
       </div>
       <div>
-        <label className="block text-xs font-bold text-navy-700 mb-1">メールアドレス <span className="text-red-500">*</span></label>
+        <label htmlFor="contact-email" className="block text-xs font-bold text-navy-700 mb-1">メールアドレス <span className="text-red-500">*</span></label>
         <input
+          id="contact-email"
           type="email"
           required
           value={email}
@@ -74,8 +76,9 @@ export function ContactForm() {
         />
       </div>
       <div>
-        <label className="block text-xs font-bold text-navy-700 mb-1">お問い合わせ種別</label>
+        <label htmlFor="contact-topic" className="block text-xs font-bold text-navy-700 mb-1">お問い合わせ種別</label>
         <select
+          id="contact-topic"
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           className="w-full border border-navy-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-400"
@@ -85,8 +88,9 @@ export function ContactForm() {
         </select>
       </div>
       <div>
-        <label className="block text-xs font-bold text-navy-700 mb-1">内容 <span className="text-red-500">*</span></label>
+        <label htmlFor="contact-message" className="block text-xs font-bold text-navy-700 mb-1">内容 <span className="text-red-500">*</span></label>
         <textarea
+          id="contact-message"
           required
           value={message}
           onChange={(e) => setMessage(e.target.value)}
