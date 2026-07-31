@@ -30,9 +30,10 @@ export function DisplayNameForm({ current }: { current: string | null }) {
 
   return (
     <div className="mt-3">
-      <label className="block text-xs text-navy-500 mb-1">表示名（ランキングに表示）</label>
+      <label htmlFor="display-name-input" className="block text-xs text-navy-500 mb-1">表示名（ランキングに表示）</label>
       <div className="flex gap-2">
         <input
+          id="display-name-input"
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={30}

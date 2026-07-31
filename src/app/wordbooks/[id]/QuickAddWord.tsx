@@ -61,6 +61,7 @@ export function QuickAddWord({ wordBookId }: { wordBookId: string }) {
         value={word}
         onChange={(e) => setWord(e.target.value)}
         placeholder="英単語 (例: persevere)"
+        aria-label="英単語"
         className="w-full border border-navy-200 bg-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
         autoFocus
       />
@@ -68,6 +69,7 @@ export function QuickAddWord({ wordBookId }: { wordBookId: string }) {
         value={meaning}
         onChange={(e) => setMeaning(e.target.value)}
         placeholder="意味 (例: 頑張り続ける)"
+        aria-label="意味"
         className="w-full border border-navy-200 bg-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
       />
       <div className="flex gap-2">
