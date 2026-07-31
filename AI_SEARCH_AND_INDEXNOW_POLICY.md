@@ -118,7 +118,7 @@ GA4の「トラフィック獲得」レポートで、参照元(`source`)に `ch
   できる手段が無く未確認のまま記録する**(T-11の週次resyncと同じ制約。2xx/失敗いずれも
   推測しない)。
 
-### 静的コンテンツのページ個別即時通知（完了・2026-07-30）
+### 静的コンテンツのページ個別即時通知（コード完了・本番マージ済み、外部送信は`INDEXNOW_KEY`未設定のため未検証・2026-07-31更新）
 
 **教材(materials)以外**——ガイド記事・辞書語ページ・無料ツール・URLリダイレクト——は、
 いずれも`GUIDE_SLUGS`/`PILOT_WORDS`/`guideRedirects`のような**静的な配列・設定**で
@@ -143,25 +143,50 @@ GA4の「トラフィック獲得」レポートで、参照元(`source`)に `ch
   ことで、`isIndexEligible`の実際の算出結果(`defineWord()`による自動判定)を
   そのまま比較できる。
 - **検出対象**: (1) 新しく現れた/消えた静的URL(ガイド記事・無料ツール・その他の
-  静的ページを一律にカバー、カテゴリ分けはしない)、(2) 既存ガイド記事
-  (前後ともGUIDE_SLUGSに存在)のコンテンツ更新(`src/app/guide/<slug>/`配下の
-  ファイル変更で検出)、(3) 辞書語ページの追加・削除・内容更新、(4) `guideRedirects`
-  への新規追加(旧URL・新URLの両方を通知)。
+  静的ページを一律にカバー、カテゴリ分けはしない)、(2) 既存ガイド記事のコンテンツ
+  更新——専用ディレクトリ型(`src/app/guide/<slug>/`配下のファイル変更で検出)と
+  動的`[slug]`ルート型(`src/app/guide/[slug]/page.tsx`内のARTICLESレコードをslug単位で
+  before/after比較。専用ディレクトリを持つ、またはDYNAMIC_ROUTE_EXCLUDED_SLUGSに
+  登録済みのslugは、Next.jsのルーティング優先順位上実際には専用ディレクトリ側が
+  配信されるため誤検出しないよう除外)の両方をカバー、(3) sitemapに掲載済みの
+  非ガイド静的ページ(`/about`・`/faq`・無料ツール等)の`src/app/**/page.tsx`内容更新
+  (App Routerのファイルパスを公開URLへ変換、route group除去・dynamic segmentは
+  対象外)、(4) 辞書語ページの追加・削除・内容更新、(5) `guideRedirects`への
+  新規追加(旧URL・新URLの両方を通知)。
+- **絶対URL変換**: IndexNow APIは相対URLを受け付けないため、検出したroot-relative
+  path(例: `/guide/foo`)は送信直前に必ず`NEXT_PUBLIC_SITE_URL`ベースの絶対URLへ
+  変換する(`toAbsoluteUrl()`)。外部origin・スキーム違いのURLは拒否し混入させない。
 - **デデュープの扱い**: URLの追加・削除(可視性の変化)は`bypassDedupe: true`
   (教材と同じ理由、直近デデュープに関わらず必ず届ける)。既存ページの内容更新は
   通常のデデュープを維持する。
 - **意図的な対象外**: `src/lib/grammar/lessons.ts`(LESSONS、文法レッスン)は
   今回の指示範囲に含まれていないため対象外とした。PILOT_WORDSと同型の構造
   (自己完結・importなし)のため、必要になれば同じ手法で低コストに追加できる。
-- **テスト**: `test:indexnow-static-content-diff-extraction`(ネットワーク・git実行
-  不要、合成した小さなソース文字列での単体テスト)。開発時に実際の過去コミット
-  3件(PR #43[新規無料ツール追加]・`3c51fe7`[既存ガイド記事のみコンテンツ更新]・
-  `bb97cf8`[辞書24→50語拡張+付随するガイド記事コンテンツ更新])に対して直接実行し、
-  期待どおりの検出結果になることを確認済み。
+- **テスト**: `test:indexnow-static-content-diff-extraction`(単体テスト34件、
+  ネットワーク・git実行不要、合成した小さなソース文字列で検証)・
+  `test:indexnow-static-content-diff-integration`(統合テスト、実際の過去コミット
+  8件——`9ff4dbc`新規ガイド記事・`3c51fe7`専用ディレクトリ型更新・`52937e4`動的
+  `[slug]`型更新・`bb97cf8`辞書追加/更新・`bb97cf8`→`265ad34`辞書削除・`2146e0e`
+  新規リダイレクト・`341d481`非ガイド静的ページ更新・自己diff——に対して
+  `computeChangedPaths()`(差分検出のみ、送信は行わない)を実行し、最終送信payloadが
+  全件絶対URL・hostが一致・existence側bypassDedupe/content側通常dedupeで呼ばれる
+  ことまで検証)。PR #54のchatgpt-codex-connectorレビュー(P1: 絶対URL化漏れ、
+  P2×2: 動的`[slug]`ルート型・非ガイド静的ページの検出漏れ)を踏まえて実装。
+- **本番マージ・push発火確認(2026-07-31)**: PR #54を`cd347f6`としてマージ後、
+  実際のpush(`96a563f`→`cd347f6`)で`indexnow-static-content-notify.yml`が起動し
+  成功したことを確認済み(この回は検出対象0件、スクリプト・テストのみの変更のため
+  想定どおり)。Vercel production deploymentは push後約88秒でREADY・aliasされ、
+  ワークフローの150秒固定待機はこれより約79秒長く安全な余裕があった(1回の観測のみ)。
+  **ただし`autonomous-improvement` GitHub Environmentへの`INDEXNOW_KEY`追加が
+  まだ完了しておらず**(`gh secret list --env autonomous-improvement`で未存在を確認、
+  ワークフロー実行ログの`env:`ブロックでも空であることを確認済み)、実際に
+  ガイド記事・辞書語・リダイレクトを変更する次のpushが来るまで、外部IndexNow APIへの
+  実送信自体はまだ検証できていない。
 
 ### 必要な人間の手動作業
 
-1. **Vercel環境変数への `INDEXNOW_KEY` 設定**（必須）: Vercelダッシュボード → Project Settings → Environment Variables に `INDEXNOW_KEY=724d6efdf17808d5069e6c8d78fa98bc9cd413ab302de6c35be0e113338da741` を設定（Production環境）。設定しない限り送信ロジックは常にno-opで安全にスキップされる（ビルド・既存機能は壊れない）。
+1. **Vercel環境変数への `INDEXNOW_KEY` 設定**（完了・週次cron/教材通知用）: Vercelダッシュボード → Project Settings → Environment Variables に `INDEXNOW_KEY=724d6efdf17808d5069e6c8d78fa98bc9cd413ab302de6c35be0e113338da741` を設定済み（Production環境、2026-07-29）。
+1b. **`autonomous-improvement` GitHub Environmentへの `INDEXNOW_KEY` secret追加**（必須・未完了）: GitHubリポジトリ → Settings → Environments → `autonomous-improvement` → Environment secrets に、上記と同じ値の`INDEXNOW_KEY`を追加する。Vercel Production環境変数とは別系統(GitHub Actionsの secrets ストア)のため、Vercel側の設定だけでは`indexnow-static-content-notify.yml`は動作しない。追加されるまでは`submitUrlsToIndexNow()`が"not configured"で安全にno-opし続ける(ビルド・既存機能への実害はない)。`TEST_ADMIN_PASSWORD`等と同様、Claudeはこのsecretを自ら追加できない。
 2. **Bing Webmaster Tools登録** (https://www.bing.com/webmasters/): **要人間確認・要人間作業**。
    - **重要な整理**: IndexNow公式ドキュメント (indexnow.org/documentation, bing.com/indexnow) を確認した限り、IndexNowのURL送信が実際に効果を持つための必須条件は「キーファイルによる所有権証明」のみであり、Bing Webmaster Toolsへのサイト登録が送信の有効性そのものの前提条件であるとは明記されていない。つまりIndexNow自体は独立して機能する設計と考えられる。
    - ただし、Bing Webmaster Toolsに登録すると管理画面上でIndexNow経由の送信状況をモニタリング・確認できる（と一般に案内されている）という側面もあり、この「モニタリング目的」の有用性については今回ライブページの直接確認では明文の一文を見つけられておらず、一般的な理解に基づく推測を含む。**確信度は中程度**として扱ってほしい。

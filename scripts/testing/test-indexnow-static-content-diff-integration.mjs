@@ -62,12 +62,21 @@ async function main() {
   }
 
   // ---- ケース3: 動的[slug]ガイドの更新 ----
-  // fecf684: 動的ルート(ARTICLES)のみで管理されているfukikisoku-doushi-ichiran記事へ、
-  // 専用ディレクトリを持たないままAAB型パターンを追加した実コミット。
+  // 正直な注記(chatgpt-codex-connectorのP2指摘対応): 当初このケースにはfecf684
+  // (AAB型パターン追加コミット)を使っていたが、そのコミットは元々feature branch上の
+  // 個別コミットであり、squash mergeでPR #42がマージされた際にbranchが削除されたことで
+  // origin/mainのどのrefからも到達不能になっていた(`git merge-base --is-ancestor
+  // fecf684 origin/main`がfalseを返すことを確認済み)。ローカルの開発用worktreeには
+  // 過去のfetch/reflogの残骸としてたまたまオブジェクトが残っていたため見かけ上は
+  // 通っていたが、フレッシュなclone(CIのfetch-depth:0を含む)では再現しない。
+  // 代わりに、origin/mainから実際に到達可能な52937e4(AdSense審査前監査コミット、
+  // squash mergeされたPR自体の統合コミットであり削除されるbranchが存在しない)を使う。
+  // このコミットは専用ディレクトリを持たない複数の動的slug(eiken-2kyu-tango-nanko・
+  // systan-vs-target-1900・leap-eitango)のARTICLES内容を実際に更新している。
   {
-    const { existencePaths, contentPaths } = await computeChangedPaths("fecf684^", "fecf684");
-    assertIncludes(contentPaths, "/guide/fukikisoku-doushi-ichiran", "ケース3(動的[slug]ガイドの更新): contentPathsに含まれる(fecf684)");
-    assertNotIncludes(existencePaths, "/guide/fukikisoku-doushi-ichiran", "ケース3: existencePathsには含まれない(fecf684)");
+    const { existencePaths, contentPaths } = await computeChangedPaths("52937e4^", "52937e4");
+    assertIncludes(contentPaths, "/guide/systan-vs-target-1900", "ケース3(動的[slug]ガイドの更新): contentPathsに含まれる(52937e4)");
+    assertNotIncludes(existencePaths, "/guide/systan-vs-target-1900", "ケース3: existencePathsには含まれない(52937e4)");
   }
 
   // ---- ケース4・5: 辞書語の新規追加・内容更新 ----
