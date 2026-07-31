@@ -157,7 +157,7 @@
 
 | ID | 施策 | 現状 | ステータス |
 |---|---|---|---|
-| AC-01 | aria属性・role属性 | 初回調査時点(未着手)では`aria-`使用は全体で6箇所のみ・`role=`属性は0件だった。第1弾(中核学習フロー)〜第6弾(検索・貼り付け・問い合わせフォーム、PR #62)まで修正済み(下記参照)。第3弾の再調査で発見した追加9ファイルは第4〜6弾で全て対応完了。残りの`aria-live`不足について、第7弾(単語獲得コアフロー5ファイル)から着手(下記参照)。残り: `ClaimDailyTicketButton`・`WeaknessAnalysis`等の候補ファイル群は未着手 | **一部完了(中核学習フロー・独自モーダル・フォームラベル全件、本番確認済み)・aria-liveは着手済み(コアフロー分)・残り未着手分あり** |
+| AC-01 | aria属性・role属性 | 初回調査時点(未着手)では`aria-`使用は全体で6箇所のみ・`role=`属性は0件だった。第1弾(中核学習フロー)〜第6弾(検索・貼り付け・問い合わせフォーム、PR #62)まで修正済み。第7弾(単語獲得コアフロー、PR #63・本番確認済み)で`aria-live`(`role="alert"`/`role="status"`)対応に着手(下記参照)。第3弾の再調査で発見した追加9ファイルは第4〜6弾で全て対応完了。残り: `ClaimDailyTicketButton`・`WeaknessAnalysis`等、`aria-live`候補ファイル群の大半は未着手 | **一部完了(中核学習フロー・独自モーダル・フォームラベル全件、本番確認済み)・aria-liveは着手済み(コアフロー分、本番確認済み)・残り未着手分あり** |
 | AC-02 | 画像alt | 実質的に画像使用がほぼ無いため対象範囲は小さい(PF-01と同根拠) | **完了(該当箇所僅少)** |
 
 ## ADSENSE
@@ -272,15 +272,27 @@
     - **本番検証**: マージ後、`loop-vocabulary.app`へのVercel本番デプロイ(`dpl_Bw55JnvbY8B75FMV6JuShFtqC9ca`)がGitHub commit status上でsuccessであることを確認。`/materials`(未ログインで直接確認可能)で`aria-label="教材を検索"`、`/contact`(同)で4フィールドの`id`とその`<label for>`の存在をcurlで直接確認。`/extract`はプレミアム限定ページのため、使い捨てスクリプト(検証後に削除、コミットせず)で`test+srs`アカウントの`is_premium`を一時的にtrueへ設定(元の値を保存)した上で実ログインし、`label[for="extract-text-input"]`+`#extract-text-input`・`select[aria-label="単語レベル"]`がいずれも存在することを確認した(6/6アサーション成功、既知の非致命的CMP CORSノイズを除く)。検証後、`is_premium`を元の値へ復元したことを確認済み。
     - これでAC-01のフォームラベル不足バッチ(第3〜6弾、9ファイル)は全て完了。残りは非同期処理結果の`aria-live`不足のみ。
 
-26. **AC-01(aria/role属性の低カバレッジ)第7弾: 非同期処理結果の`aria-live`不足・第1弾(単語獲得コアフロー)** — **コード実装・ローカル検証まで完了(PR未作成)**。Exploreエージェントによる全文横断調査で、コードベース全体に`aria-live`・`role="alert"`・`role="status"`が1件も存在しないことを確認(=既存の重複対応は無く、クリーンな状態から着手)。調査で優先度順に整理した候補群のうち、「単語を検索して単語帳に追加する」中核フロー(辞書検索→単語帳への追加→単語帳作成→AI提案)に関わる5ファイルを修正:
-    - `src/app/dictionary/DictionarySearch.tsx`: 検索エラー(`error`)に`role="alert"`、単語帳追加後の成功バナー(`savedKey`、`data-testid="post-add-cta"`)に`role="status"`、検索結果0件時のメッセージに`role="status"`を追加。
-    - `src/app/wordbooks/[id]/QuickAddWord.tsx`: 成功時にボタンラベルが「✓ 追加済み」へ変わるのみで、独立した通知が一切無かった(サイレントな成功)。`role="status"`+`sr-only`の非表示ライブリージョンを新設し、成功時に「単語を追加しました」を読み上げるようにした(見た目の変更は無い)。
-    - `src/components/wordbooks/AiSuggestButton.tsx`: 一括追加成功メッセージ(`done`)に`role="status"`、AI提案取得/追加エラー(`error`)に`role="alert"`を追加。
+26. **AC-01(aria/role属性の低カバレッジ)第7弾: 非同期処理結果の`aria-live`不足・第1弾(単語獲得コアフロー)** — **完了(PR #63、merge `8e1aef4`、本番での動作確認まで確認済み)**。Exploreエージェントによる全文横断調査で、コードベース全体に`aria-live`・`role="alert"`・`role="status"`が1件も存在しないことを確認(=既存の重複対応は無く、クリーンな状態から着手)。調査で優先度順に整理した候補群のうち、「単語を検索して単語帳に追加する」中核フロー(辞書検索→単語帳への追加→単語帳作成→AI提案)に関わる5ファイルを修正:
+    - `src/app/dictionary/DictionarySearch.tsx`: 検索エラー(`error`)に`role="alert"`を追加。単語帳追加後の成功通知・検索結果0件通知は、常時マウント済みの`sr-only`な`role="status"`領域を1つ新設し、`savedKey`/検索結果0件の状態に応じて内容だけを差し替える方式に変更(可視のバナー・メッセージ自体からは`role="status"`を外し、通知はこの専用領域に一本化)。
+    - `src/app/wordbooks/[id]/QuickAddWord.tsx`: 成功時にボタンラベルが「✓ 追加済み」へ変わるのみで、独立した通知が一切無かった(サイレントな成功)。常時マウント済みの`sr-only`な`role="status"`領域を新設し、成功時に「単語を追加しました」を読み上げるようにした(見た目の変更は無い)。
+    - `src/components/wordbooks/AiSuggestButton.tsx`: 一括追加成功メッセージは、常時マウント済みの`sr-only`な`role="status"`領域を新設して対応(可視の`<p>`からは`role="status"`を外した)。AI提案取得/追加エラー(`error`)に`role="alert"`を追加。
     - `src/app/wordbooks/[id]/add/AddWordForm.tsx`: 単語登録エラー(`error`)に`role="alert"`を追加。
     - `src/app/wordbooks/CreateWordBookForm.tsx`: 単語帳作成エラー(`error`)に`role="alert"`を追加。
-    - `role="alert"`(暗黙的に`aria-live="assertive"`+`aria-atomic="true"`)はエラー、`role="status"`(暗黙的に`aria-live="polite"`+`aria-atomic="true"`)は成功/情報メッセージに使い分けた(WCAG的に標準的なパターン、明示的な`aria-live`属性より優先)。
-    - **検証**: `npm run typecheck`・`npm run lint`・`npm run build`成功。`npm run test:onboarding`(`DictionarySearch`の検索→追加フローを実ログイン・実DBで検証する既存E2E、post-add CTAのアサーションを含む)が変更後も全項目成功しリグレッション無しを確認。いずれも既存要素への`role`属性追加、または新規`sr-only`ライブリージョン1行の追加のみで、動作・見た目の変更は無い。
-    - **残り(次ラウンド候補)**: Exploreエージョンの調査で特定した残りの候補: `src/components/dashboard/ClaimDailyTicketButton.tsx`(デイリーチケット受け取り結果、ダッシュボード毎回表示)・`src/app/weak/WeaknessAnalysis.tsx`・`src/app/extract/ExtractWordsClient.tsx`・`src/components/wordbooks/CsvImportPanel.tsx`・`src/app/contact/ContactForm.tsx`・`src/components/account/DeleteAccountPanel.tsx`・`src/app/admin/indexnow/IndexNowSyncButton.tsx`、および優先度が低いその他約15ファイル(`JoinConsentClient`・`PromoteTeacherButton`・`CreateClassForm`・`InviteCodeManager`・`PdfTestBuilder`・`DisplayNameForm`・`PremiumCheckout`・`StudyPlanClient`・`AddToWordbook`・`AiPanel`・`signup`/`login`ページ・`FlashcardAiHint`・`AppAds`・管理画面各種)。
+    - `role="alert"`(暗黙的に`aria-live="assertive"`+`aria-atomic="true"`)はエラー、`role="status"`(暗黙的に`aria-live="polite"`+`aria-atomic="true"`)は成功/情報メッセージに使い分けた。
+    - **Codexレビュー指摘(P2)対応**: 初回実装では成功/情報メッセージにも`role="status"`を可視要素へ直接付けていたが、`role="status"`は(`role="alert"`と異なり)マウント前から存在するライブリージョンでないと、内容が入った状態で新規マウントされても多くのブラウザ/スクリーンリーダーの組み合わせで確実には読み上げられないとの指摘を受けた。`QuickAddWord.tsx`で既に採用していた「常時マウント済みの`sr-only`領域を用意し、状態に応じて内容だけを差し替える」パターンを`DictionarySearch.tsx`・`AiSuggestButton.tsx`へ横展開して修正した。
+    - **ローカル検証**: `npm run typecheck`・`npm run lint`・`npm run build`成功。`npm run test:onboarding`(`DictionarySearch`の検索→追加フローを実ログイン・実DBで検証する既存E2E、post-add CTAのアサーションを含む)が変更後も全項目成功しリグレッション無しを確認。いずれも既存要素への`role`属性追加、または新規`sr-only`ライブリージョン1行の追加のみで、動作・見た目の変更は無い。
+    - **本番検証**: マージ後、`loop-vocabulary.app`へのVercel本番デプロイがGitHub commit status上でsuccessであることを確認。使い捨てスクリプト(検証後に削除、コミットせず)で`test+onboarding`アカウントへ実ログインし、本番の`/dictionary`で実際に単語を検索・追加した上で、(1)`role="status"`の`sr-only`領域が追加操作の**前から**既にDOMに存在すること、(2)追加操作前は空であること、(3)追加操作後に正しいテキスト(「単語帳に追加しました」)へ更新されること、の3点を実測で確認した(Codexが指摘した「マウント前から存在するライブリージョンでないと確実に読み上げられない」問題が実際に解消されていることの直接確認)。4/4アサーション成功(既知の非致命的CMP CORSノイズを除く)。検証後、テスト用データを削除し`test+onboarding`を初期状態へ戻したことを確認済み。
+    - **残り(次ラウンド候補)**: Exploreエージェントの調査で特定した残りの候補: `src/components/dashboard/ClaimDailyTicketButton.tsx`(デイリーチケット受け取り結果、ダッシュボード毎回表示)・`src/app/weak/WeaknessAnalysis.tsx`・`src/app/extract/ExtractWordsClient.tsx`・`src/components/wordbooks/CsvImportPanel.tsx`・`src/app/contact/ContactForm.tsx`・`src/components/account/DeleteAccountPanel.tsx`・`src/app/admin/indexnow/IndexNowSyncButton.tsx`、および優先度が低いその他約15ファイル(`JoinConsentClient`・`PromoteTeacherButton`・`CreateClassForm`・`InviteCodeManager`・`PdfTestBuilder`・`DisplayNameForm`・`PremiumCheckout`・`StudyPlanClient`・`AddToWordbook`・`AiPanel`・`signup`/`login`ページ・`FlashcardAiHint`・`AppAds`・管理画面各種)。今後の新規実装分もCodexで指摘された「常時マウント済み`sr-only`領域」パターンを踏襲すること。
+
+27. **AC-01(aria/role属性の低カバレッジ)第8弾: 非同期処理結果の`aria-live`不足・第2弾** — **コード実装・ローカル検証まで完了(PR未作成)**。第7弾の残り候補のうち2ファイルを修正、加えて修正中に発見した2件の別バグ(既存の表示不具合、本タスクのスコープ外)を`spawn_task`で追跡:
+    - `src/app/weak/WeaknessAnalysis.tsx`: AI弱点分析の実行エラー(`error`)に`role="alert"`を追加。このエラーは`open`がfalseのまま(状態遷移なし)で表示され続ける安定した分岐のため、`role="alert"`(マウント前から存在する必要のない、確実に読み上げられる属性)をそのまま追加するだけで問題ない。
+    - `src/app/extract/ExtractWordsClient.tsx`: AI抽出処理のエラー(`error`)に`role="alert"`を追加。
+    - **修正中に発見した別バグ2件(本タスクのスコープ外、`spawn_task`で追跡)**:
+      - `src/components/dashboard/ClaimDailyTicketButton.tsx`: `handleClaim()`成功時に`setClaimed(true)`と`setMessage(...)`を同じバッチで呼んでおり、`claimed`が真になった瞬間にコンポーネントが早期returnで「claimed」ブランチへ切り替わるため、`message`を表示するdiv自体がレンダーされない(= 成功メッセージが実際には誰にも表示されない、視覚的にもスクリーンリーダーにも)。このバグにより「成功メッセージへaria-live対応する」こと自体が意味を成さないため、本PRのスコープからは除外し(`task_5ba00fd1`として追跡)。
+      - `src/app/extract/ExtractWordsClient.tsx`の`saveToWordbook()`: 同様に、成功時`setSaved(true)`と`setWords([])`を同じバッチで呼んでおり、`words.length > 0`のブロック全体(`{saved && <p>✅ 単語帳に追加しました！</p>}`を含む)が即座にアンマウントされ、保存成功メッセージが実際には表示されない(`task_4affc92d`として追跡)。
+      - どちらも「セマンティックな`role`を付けても、その要素自体が実際にはレンダーされない」という本質的に同じ形のバグで、`aria-live`対応(このAC-01タスク)とは独立した既存の表示不具合。誤って本PRへ混ぜ込まないよう、別タスクとして切り出した。
+    - `src/components/wordbooks/CsvImportPanel.tsx`は、成功状態(`done`)が完全に別の早期returnブランチとして実装されており、他の分岐と共有する「常時マウント済みの`sr-only`領域」を安全に配置するには構造の見直しが必要なため、拙速な変更を避け次ラウンドへ持ち越した。
+    - **検証**: `npm run typecheck`・`npm run lint`・`npm run build`成功。いずれも既存要素への`role`属性追加のみで、動作・見た目の変更は無い。
 
 - **`/materials/[id]`ページに視覚的パンくずUIが無い**: 動的な`material.title`をラベルに使う`<Breadcrumb>`を追加したところ、`test:internal-links`が「ページ遷移(リサイズ後の再ナビゲーション)でnetworkidle待ちがタイムアウトする」形で100%再現性のある形で失敗することを確認した。静的ラベルを使う他の全ページ(ガイド記事30本以上・教材カテゴリ7ページ・辞書・ピラーページ)は同じコンポーネントで問題なく動作しているため、コンポーネント自体の欠陥ではなく、動的ラベル+このページ特有のデータ取得パターンとの相互作用が疑われる。根本原因は特定できなかったため、実際に壊れるE2Eテストを通すコードを出荷するより、このページのみ対象外として次ラウンドへ持ち越すことを選択した。
 
