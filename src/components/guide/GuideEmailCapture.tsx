@@ -50,19 +50,24 @@ export function GuideEmailCapture({ slug }: { slug: string }) {
         </div>
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="your@email.com"
-          aria-label="メールアドレス"
-          required
-          className="flex-1 px-4 py-2.5 rounded-xl border border-sky-200 bg-white text-navy-800 text-sm placeholder-navy-300 focus:outline-none focus:ring-2 focus:ring-sky-300"
-        />
+        <div className="flex-1">
+          <label htmlFor="guide-email-input" className="block text-xs font-semibold text-navy-600 mb-1">
+            メールアドレス
+          </label>
+          <input
+            id="guide-email-input"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="your@email.com"
+            required
+            className="w-full px-4 py-2.5 rounded-xl border border-sky-200 bg-white text-navy-800 text-sm placeholder-navy-300 focus:outline-none focus:ring-2 focus:ring-sky-300"
+          />
+        </div>
         <button
           type="submit"
           disabled={state === "loading"}
-          className="px-5 py-2.5 rounded-xl bg-sky-600 text-white font-bold text-sm hover:bg-sky-500 transition-colors disabled:opacity-60 shrink-0"
+          className="px-5 py-2.5 rounded-xl bg-sky-600 text-white font-bold text-sm hover:bg-sky-500 transition-colors disabled:opacity-60 shrink-0 sm:self-end"
         >
           {state === "loading" ? "送信中…" : "無料で登録"}
         </button>
