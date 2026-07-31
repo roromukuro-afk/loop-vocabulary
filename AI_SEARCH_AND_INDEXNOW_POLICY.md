@@ -165,7 +165,7 @@ GA4の「トラフィック獲得」レポートで、参照元(`source`)に `ch
 - **テスト**: `test:indexnow-static-content-diff-extraction`(単体テスト34件、
   ネットワーク・git実行不要、合成した小さなソース文字列で検証)・
   `test:indexnow-static-content-diff-integration`(統合テスト、実際の過去コミット
-  8件——`9ff4dbc`新規ガイド記事・`3c51fe7`専用ディレクトリ型更新・`fecf684`動的
+  8件——`9ff4dbc`新規ガイド記事・`3c51fe7`専用ディレクトリ型更新・`52937e4`動的
   `[slug]`型更新・`bb97cf8`辞書追加/更新・`bb97cf8`→`265ad34`辞書削除・`2146e0e`
   新規リダイレクト・`341d481`非ガイド静的ページ更新・自己diff——に対して
   `computeChangedPaths()`(差分検出のみ、送信は行わない)を実行し、最終送信payloadが
