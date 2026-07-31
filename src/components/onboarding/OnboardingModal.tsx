@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { trackEvent } from "@/lib/analytics/track";
+import { useModalA11y } from "@/lib/a11y/useModalA11y";
 
 const STORAGE_KEY = "loop_onboarding_done";
 
@@ -76,6 +77,8 @@ export function OnboardingModal() {
     }, 300);
   };
 
+  const { containerRef, handleKeyDown } = useModalA11y(show, () => finish(false));
+
   if (!show) return null;
 
   return (
@@ -84,16 +87,22 @@ export function OnboardingModal() {
       style={{ background: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)" }}
     >
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-modal-title"
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
         className={`w-full sm:max-w-md bg-white sm:rounded-3xl rounded-t-3xl shadow-2xl transition-transform duration-300 ${closing ? "translate-y-8" : "translate-y-0"}`}
         style={{ maxHeight: "90dvh", overflowY: "auto" }}
       >
         {/* ヘッダー */}
         <div className="px-6 pt-6 pb-2">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-semibold text-sky-600 uppercase tracking-wide">
+            <span id="onboarding-modal-title" className="text-[11px] font-semibold text-sky-600 uppercase tracking-wide">
               ようこそ · {step + 1} / 3
             </span>
-            <button onClick={() => finish(false)} className="text-navy-400 hover:text-navy-600 text-xl leading-none">×</button>
+            <button onClick={() => finish(false)} aria-label="閉じる" className="text-navy-400 hover:text-navy-600 text-xl leading-none">×</button>
           </div>
           <div className="flex gap-1 mt-2">
             {[0,1,2].map(i => (

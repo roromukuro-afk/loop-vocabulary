@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useModalA11y } from "@/lib/a11y/useModalA11y";
 
 type Suggestion = { word: string; meaning: string; pos: string };
 
@@ -20,6 +21,7 @@ export function AiSuggestButton({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const router = useRouter();
+  const { containerRef, handleKeyDown } = useModalA11y(open, () => setOpen(false));
 
   async function fetchSuggestions() {
     setLoading(true);
@@ -99,10 +101,18 @@ export function AiSuggestButton({
       {open && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
-          <div className="relative z-10 bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl p-5 max-h-[80dvh] flex flex-col">
+          <div
+            ref={containerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ai-suggest-modal-title"
+            tabIndex={-1}
+            onKeyDown={handleKeyDown}
+            className="relative z-10 bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl p-5 max-h-[80dvh] flex flex-col"
+          >
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-bold text-navy-800 text-base">✨ AI 単語提案</h2>
-              <button onClick={() => setOpen(false)} className="text-navy-400 text-xl">×</button>
+              <h2 id="ai-suggest-modal-title" className="font-bold text-navy-800 text-base">✨ AI 単語提案</h2>
+              <button onClick={() => setOpen(false)} aria-label="閉じる" className="text-navy-400 text-xl">×</button>
             </div>
 
             {loading && (
@@ -119,8 +129,19 @@ export function AiSuggestButton({
                   {suggestions.map((s, i) => (
                     <li
                       key={i}
+                      role="checkbox"
+                      aria-checked={selected.has(i)}
+                      tabIndex={0}
+                      aria-label={`${s.word}(${s.meaning})を追加候補に含める`}
                       className="py-2.5 flex items-center gap-3 cursor-pointer"
                       onClick={() => toggle(i)}
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggle(i);
+                        }
+                      }}
                     >
                       <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${selected.has(i) ? "bg-sky-500 border-sky-500" : "border-navy-200"}`}>
                         {selected.has(i) && <span className="text-white text-xs">✓</span>}

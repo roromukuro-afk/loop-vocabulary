@@ -74,6 +74,7 @@
     "test:entry-points:e2e": "node scripts/testing/e2e/entry-points.mjs",
     "test:wordbook-delete": "node scripts/testing/e2e/wordbook-delete.mjs",
     "test:a11y-keyboard-navigation": "node scripts/testing/e2e/a11y-keyboard-navigation.mjs",
+    "test:a11y-modal-dialogs": "node scripts/testing/e2e/a11y-modal-dialogs.mjs",
     "test:external-material-rights": "node scripts/testing/e2e/external-material-rights.mjs",
     "test:recovery-mode": "node scripts/testing/e2e/recovery-mode.mjs",
     "test:internal-links": "node scripts/testing/e2e/internal-links.mjs",
