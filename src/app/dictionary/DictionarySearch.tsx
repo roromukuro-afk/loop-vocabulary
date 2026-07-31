@@ -157,6 +157,7 @@ export function DictionarySearch({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="英単語を入力（例: increase, opportunity）"
+          aria-label="英単語を入力"
           inputMode="search"
         />
         <Button data-testid="dictionary-search-submit" type="submit" disabled={busy}>{busy ? "検索中..." : "検索"}</Button>
@@ -164,8 +165,9 @@ export function DictionarySearch({
 
       {loggedIn && (
         <div className="mt-3 text-sm text-navy-600 flex items-center gap-2">
-          <span>追加先:</span>
+          <label htmlFor="dictionary-add-target">追加先:</label>
           <Select
+            id="dictionary-add-target"
             value={bookId}
             onChange={(e) => setBookId(e.target.value)}
             className="max-w-xs"
