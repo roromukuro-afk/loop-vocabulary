@@ -157,7 +157,7 @@
 
 | ID | 施策 | 現状 | ステータス |
 |---|---|---|---|
-| AC-01 | aria属性・role属性 | `aria-`使用は全体で6箇所のみ(`src/components`2件・`src/app`4件)、`role=`属性は0件 | **実行中(新規発見、対応優先度中〜高)** |
+| AC-01 | aria属性・role属性 | `aria-`使用は全体で6箇所のみ(`src/components`2件・`src/app`4件)、`role=`属性は0件。第1弾として、毎日使う中核学習フロー(復習フラッシュカードの裏返し操作・単語帳詳細ドロワー)のキーボード操作不能を修正済み(下記参照)。残り: (1)独自モーダル4箇所(`OnboardingModal`・`UpsellModal`・`AiSuggestButton`)の`role="dialog"`/Escape対応、(2)検索・登録フォームのラベル不足(`DictionarySearch`・`GuideEmailCapture`等)、(3)非同期処理結果の`aria-live`不足、はいずれも未着手 | **一部完了(中核学習フロー)・残り未着手** |
 | AC-02 | 画像alt | 実質的に画像使用がほぼ無いため対象範囲は小さい(PF-01と同根拠) | **完了(該当箇所僅少)** |
 
 ## ADSENSE
@@ -224,6 +224,11 @@
     - **PR #55(訂正PR)のマージ・本番反映確認**: chatgpt-codex-connectorのP2指摘2件(統合テストが到達不能な`fecf684`に依存していた点、静的コンテンツ通知のIndexNow応答観測性に関する記述誤り)へ対応し、owner承認を得てマージ済み(merge `a949e88`)。マージ後のVercel production deployment `dpl_5CuSGSucAXtTPrTYQxMnLZt1PkqN`がREADY(push後約82秒)・`loop-vocabulary.app`/`www.loop-vocabulary.app`へalias済みを確認。
     - **`INDEXNOW_KEY`追加確認(2026-07-31)**: リポジトリ管理者が`autonomous-improvement` GitHub Environmentへ`INDEXNOW_KEY`を追加。`gh secret list --repo roromukuro-afk/loop-vocabulary --env autonomous-improvement`で`INDEXNOW_KEY`(登録日時2026-07-31T02:19:28Z)が存在することを確認済み(値そのものは表示・出力していない)。マージpush(`cd347f6`→`a949e88`)によるworkflow実行(run 30599266274、`conclusion=success`)のログでも、`env:`ブロックの`INDEXNOW_KEY`が(空ではなく)`***`とマスク表示されており、Environment secretが実際にworkflowへ渡っていることを構造的に確認した。
     - **未確認(正直な記録、意図的にコンテンツを変更しての検証はしない)**: `INDEXNOW_KEY`は設定されたが、`cd347f6`→`a949e88`のpushはドキュメント・テストのみの変更で`GUIDE_SLUGS`・`PILOT_WORDS`・`guideRedirects`・ガイド本文・非ガイド静的ページのいずれも変更していないため、この回も`可視性変化: 0件`・`内容更新: 0件`で正しく終了しており(ログで確認)、**外部IndexNow APIへの実際の送信はまだ一度も発生していない**。検証目的だけの無意味なコンテンツ変更は作らず、次に実際にガイド記事・辞書語・リダイレクトを変更する正当なpushが発生した時点で、GitHub Actionsの実行ログ(`gh run view <runId> --log`)から対象URL・絶対URL形式・`ok`・正確なHTTPステータス・`submittedCount`・`skippedCount`を記録する(検出対象0件のrunを外部送信成功として扱わないことを徹底する)。**訂正(chatgpt-codex-connectorのP2指摘、PR #55で対応)**: 教材(materials、Vercelのサーバールート経由)とは異なり、この静的コンテンツ通知はGitHub Actionsのステップとして直接Node scriptを実行するため、`Vercelランタイムログ(get_runtime_logs)がconsole出力を表示しない`という制約は当てはまらない。`main()`は`submitUrlsToIndexNow()`の結果(`ok`・HTTPステータス含む)をそのまま`console.log`しており、GitHub Actionsの実行ログにそのまま出力される。
+20. **AC-01(aria/role属性の低カバレッジ)第1弾: 中核学習フローのキーボード操作性** — **コード実装・ローカル検証まで完了(PR未作成)**。事前調査(Exploreエージェントによるコードベース横断調査)で、独自インタラクティブUIのうちキーボード操作が完全に不可能な箇所を特定し優先度順に4バッチへ分類。うち最優先の2件(毎日使う中核学習フロー)を本ラウンドで実装:
+    - `src/components/review/FlipCardRunner.tsx`: 復習フラッシュカードの「タップして裏返す」操作が`<div onClick>`のみでキーボード操作不可だった。`role="button"`・`tabIndex={0}`・`aria-label`・Enter/Spaceキーでの`handleFlip()`呼び出しを追加。
+    - `src/app/wordbooks/[id]/WordListWithDrawer.tsx`: (1)単語リストの各行が`<li onClick>`のみでキーボード到達不可だった → `role="button"`・`tabIndex={0}`・`aria-label`・Enter/Spaceキー対応を追加。(2)単語詳細ドロワーが独自モーダルながら`role="dialog"`/`aria-modal`/Escapeキー対応/フォーカス移動のいずれも無かった → すべて追加(編集モード時も`aria-labelledby`の参照先が存在するよう対応)。(3)検索欄・編集フォーム2件のplaceholderのみでラベル不足だった箇所に`aria-label`を追加。
+    - **検証**: `npm run typecheck`・`npm run lint`・`npm run build`成功。既存の`test:srs`(flip-cardをクリックする実ログイン・実DB E2E)が変更後も成功することを確認(クリック経路のリグレッション無し)。新規追加した`test:a11y-keyboard-navigation`(実ログイン・実DBを使い、Tabフォーカス→Enter/Escapeキーのみでドロワー開閉・flip-card裏返しが機能することを検証するE2E)も成功を確認。
+    - **未着手(次ラウンド候補)**: 独自モーダル4箇所(`OnboardingModal`・`UpsellModal`・`AiSuggestButton`)の`role="dialog"`/Escape対応、公開ページの検索・登録フォームのラベル不足(`DictionarySearch`・`GuideEmailCapture`等)、非同期処理結果の`aria-live`不足の3バッチは、事前調査で特定済みだが本ラウンドでは未実装。
 
 ## 既知の未解決事項(意図的な対象外、根拠あり)
 

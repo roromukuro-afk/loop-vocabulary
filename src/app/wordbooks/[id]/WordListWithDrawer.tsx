@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils/cn";
 import { PronounceButton } from "@/components/ui/PronounceButton";
@@ -44,6 +44,17 @@ function formatDate(iso: string | null) {
   return `${diff}日後`;
 }
 
+// モーダル(ドロワー)内のフォーカストラップ用: 現在フォーカス可能な子要素だけを返す。
+// disabled・非表示(offsetParentがnull=display:noneや親が非表示)要素は除外する。
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (el) => el.offsetParent !== null && el.getAttribute("aria-hidden") !== "true",
+  );
+}
+
 export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
   const [words, setWords] = useState(initialWords);
   const [selected, setSelected] = useState<Word | null>(null);
@@ -56,6 +67,15 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
   const [editMeaning, setEditMeaning] = useState("");
   const [saving, setSaving] = useState(false);
   const router = useRouter();
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (selected && !closing) {
+      drawerRef.current?.focus();
+    }
+  }, [selected, closing]);
 
   const filtered = useMemo(() => {
     let list = words;
@@ -76,7 +96,8 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
     { key: "mastered", label: "習得済み", count: words.filter((w) => (w.mastery ?? 0) >= 80).length },
   ];
 
-  const openDrawer = (w: Word) => {
+  const openDrawer = (w: Word, opener?: HTMLElement | null) => {
+    openerRef.current = opener ?? null;
     setClosing(false);
     setEditing(false);
     setSelected(w);
@@ -84,7 +105,20 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
 
   const closeDrawer = () => {
     setClosing(true);
-    setTimeout(() => { setSelected(null); setClosing(false); }, 280);
+    setTimeout(() => {
+      setSelected(null);
+      setClosing(false);
+      // 閉じるアニメーション・state更新が終わってから、開いた起点(単語行)へフォーカスを
+      // 戻す。起点がDOMから消えている(フィルター変更・削除等)場合は、単語リスト自体へ
+      // フォールバックする(Tabの位置が完全に失われて背景操作を続けられなくなるのを防ぐ)。
+      requestAnimationFrame(() => {
+        if (openerRef.current?.isConnected) {
+          openerRef.current.focus();
+        } else {
+          listRef.current?.focus();
+        }
+      });
+    }, 280);
   };
 
   const deleteWord = async () => {
@@ -146,6 +180,7 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="単語・意味で検索…"
+          aria-label="単語・意味で検索"
           className="w-full border border-navy-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
         />
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
@@ -166,14 +201,33 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
         </div>
       </div>
 
-      <ul className="divide-y divide-navy-100">
+      <ul ref={listRef} tabIndex={-1} className="divide-y divide-navy-100">
         {filtered.map((w) => {
           const pct = w.mastery ?? 0;
           return (
             <li
               key={w.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`${w.word}の詳細を開く`}
               className="py-3 cursor-pointer hover:bg-navy-50 -mx-2 px-2 rounded-xl transition-colors"
-              onClick={() => openDrawer(w)}
+              onClick={(e) => {
+                // 内部のPronounceButtonのclickはstopPropagation()されるため通常ここへは
+                // 届かないが、念のためtarget/currentTargetでもこの行自体の操作のみに限定する。
+                if (e.target !== e.currentTarget) return;
+                openDrawer(w, e.currentTarget);
+              }}
+              onKeyDown={(e) => {
+                // 内部のPronounceButton(子のbutton)で発生したkeydownがbubbleで
+                // ここまで届いても、この行自体への操作ではないため無視する
+                // (子のEnter/Spaceでドロワーが開いてしまう・子本来のキーボード操作を
+                // preventDefault()で妨げてしまうのを防ぐ)。
+                if (e.target !== e.currentTarget) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openDrawer(w, e.currentTarget);
+                }
+              }}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -217,6 +271,44 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
 
       {/* ドロワー */}
       <div
+        ref={drawerRef}
+        // selectedが無い(閉じている)間はrole="dialog"等を一切付けない。CSSでの
+        // オフスクリーン配置だけでは、閉じていても中身の無い名前不明なモーダルとして
+        // アクセシビリティツリーに残り続けてしまうため。
+        {...(selected
+          ? { role: "dialog" as const, "aria-modal": "true", "aria-labelledby": "word-drawer-title" }
+          : {})}
+        tabIndex={-1}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            closeDrawer();
+            return;
+          }
+          if (e.key !== "Tab") return;
+          // フォーカストラップ: ドロワー表示中はTab/Shift+Tabで背景要素へ移動させない。
+          const container = drawerRef.current;
+          if (!container) return;
+          const focusables = getFocusableElements(container);
+          if (focusables.length === 0) {
+            e.preventDefault();
+            container.focus();
+            return;
+          }
+          const first = focusables[0];
+          const last = focusables[focusables.length - 1];
+          const active = document.activeElement;
+          if (e.shiftKey) {
+            if (active === first || !container.contains(active)) {
+              e.preventDefault();
+              last.focus();
+            }
+          } else {
+            if (active === last || !container.contains(active)) {
+              e.preventDefault();
+              first.focus();
+            }
+          }
+        }}
         className={cn(
           "fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-3xl shadow-2xl transition-transform duration-300",
           "max-h-[80dvh] overflow-y-auto",
@@ -231,17 +323,19 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
             {/* 編集モード */}
             {editing ? (
               <div className="space-y-3">
-                <div className="text-sm font-bold text-navy-700">単語を編集</div>
+                <div id="word-drawer-title" className="text-sm font-bold text-navy-700">単語を編集</div>
                 <input
                   value={editWord}
                   onChange={(e) => setEditWord(e.target.value)}
                   placeholder="英単語"
+                  aria-label="英単語"
                   className="w-full border border-navy-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
                 />
                 <input
                   value={editMeaning}
                   onChange={(e) => setEditMeaning(e.target.value)}
                   placeholder="日本語の意味"
+                  aria-label="日本語の意味"
                   className="w-full border border-navy-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
                 />
                 <div className="flex gap-2">
@@ -261,7 +355,7 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-2xl font-bold text-navy-900">{selected.word}</h2>
+                  <h2 id="word-drawer-title" className="text-2xl font-bold text-navy-900">{selected.word}</h2>
                   <PronounceButton word={selected.word} size="lg" />
                 </div>
                 {selected.phonetic && (
@@ -273,7 +367,7 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
                   </span>
                 )}
               </div>
-              <button onClick={closeDrawer} className="text-navy-400 text-xl p-1">×</button>
+              <button onClick={closeDrawer} aria-label="閉じる" className="text-navy-400 text-xl p-1">×</button>
             </div>
 
             <p className="mt-3 text-base text-navy-700 font-medium leading-relaxed">{selected.meaning}</p>

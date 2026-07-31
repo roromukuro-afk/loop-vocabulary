@@ -214,6 +214,9 @@ async function main() {
 
     console.log("\n=== 57. AIクローラー個別ポリシー + llms.txt E2E ===");
     results.aiCrawlerLlmsPolicy = runNode("scripts/testing/e2e/ai-crawler-llms-policy.mjs");
+
+    console.log("\n=== 58. アクセシビリティ(キーボード操作) E2E ===");
+    results.a11yKeyboardNavigation = runNode("scripts/testing/e2e/a11y-keyboard-navigation.mjs");
   } finally {
     stopDevServer(dev);
   }
