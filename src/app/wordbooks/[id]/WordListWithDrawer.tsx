@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils/cn";
 import { PronounceButton } from "@/components/ui/PronounceButton";
@@ -56,6 +56,13 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
   const [editMeaning, setEditMeaning] = useState("");
   const [saving, setSaving] = useState(false);
   const router = useRouter();
+  const drawerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (selected && !closing) {
+      drawerRef.current?.focus();
+    }
+  }, [selected, closing]);
 
   const filtered = useMemo(() => {
     let list = words;
@@ -146,6 +153,7 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="単語・意味で検索…"
+          aria-label="単語・意味で検索"
           className="w-full border border-navy-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
         />
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
@@ -172,8 +180,17 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
           return (
             <li
               key={w.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`${w.word}の詳細を開く`}
               className="py-3 cursor-pointer hover:bg-navy-50 -mx-2 px-2 rounded-xl transition-colors"
               onClick={() => openDrawer(w)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openDrawer(w);
+                }
+              }}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -217,6 +234,14 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
 
       {/* ドロワー */}
       <div
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="word-drawer-title"
+        tabIndex={-1}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") closeDrawer();
+        }}
         className={cn(
           "fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-3xl shadow-2xl transition-transform duration-300",
           "max-h-[80dvh] overflow-y-auto",
@@ -231,17 +256,19 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
             {/* 編集モード */}
             {editing ? (
               <div className="space-y-3">
-                <div className="text-sm font-bold text-navy-700">単語を編集</div>
+                <div id="word-drawer-title" className="text-sm font-bold text-navy-700">単語を編集</div>
                 <input
                   value={editWord}
                   onChange={(e) => setEditWord(e.target.value)}
                   placeholder="英単語"
+                  aria-label="英単語"
                   className="w-full border border-navy-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
                 />
                 <input
                   value={editMeaning}
                   onChange={(e) => setEditMeaning(e.target.value)}
                   placeholder="日本語の意味"
+                  aria-label="日本語の意味"
                   className="w-full border border-navy-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
                 />
                 <div className="flex gap-2">
@@ -261,7 +288,7 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-2xl font-bold text-navy-900">{selected.word}</h2>
+                  <h2 id="word-drawer-title" className="text-2xl font-bold text-navy-900">{selected.word}</h2>
                   <PronounceButton word={selected.word} size="lg" />
                 </div>
                 {selected.phonetic && (
@@ -273,7 +300,7 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
                   </span>
                 )}
               </div>
-              <button onClick={closeDrawer} className="text-navy-400 text-xl p-1">×</button>
+              <button onClick={closeDrawer} aria-label="閉じる" className="text-navy-400 text-xl p-1">×</button>
             </div>
 
             <p className="mt-3 text-base text-navy-700 font-medium leading-relaxed">{selected.meaning}</p>

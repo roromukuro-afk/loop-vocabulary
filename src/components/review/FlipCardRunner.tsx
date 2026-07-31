@@ -304,7 +304,16 @@ export function FlipCardRunner({
           data-testid="flip-card"
           data-word={cur.word}
           style={{ perspective: "1200px" }}
+          role="button"
+          tabIndex={0}
+          aria-label={flipped ? undefined : "カードをめくって意味を表示"}
           onClick={handleFlip}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleFlip();
+            }
+          }}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
