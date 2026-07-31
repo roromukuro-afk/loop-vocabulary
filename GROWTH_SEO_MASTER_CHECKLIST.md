@@ -157,7 +157,7 @@
 
 | ID | 施策 | 現状 | ステータス |
 |---|---|---|---|
-| AC-01 | aria属性・role属性 | 初回調査時点(未着手)では`aria-`使用は全体で6箇所のみ・`role=`属性は0件だった。第1弾(中核学習フロー)〜第6弾(検索・貼り付け・問い合わせフォーム、PR #62)まで修正済みで、現時点(2026-08-01時点、`src/app`+`src/components`)では`aria-*`属性41箇所(21ファイル)・`role=`属性7箇所まで増加(下記参照)。第3弾の再調査で発見した追加9ファイルは第4〜6弾で全て対応完了。残りは非同期処理結果の`aria-live`不足のみ未着手 | **一部完了(中核学習フロー・独自モーダル・フォームラベル全件、本番確認済み)・残り未着手分あり(aria-liveのみ)** |
+| AC-01 | aria属性・role属性 | 初回調査時点(未着手)では`aria-`使用は全体で6箇所のみ・`role=`属性は0件だった。第1弾(中核学習フロー)〜第6弾(検索・貼り付け・問い合わせフォーム、PR #62)まで修正済み(下記参照)。第3弾の再調査で発見した追加9ファイルは第4〜6弾で全て対応完了。残りの`aria-live`不足について、第7弾(単語獲得コアフロー5ファイル)から着手(下記参照)。残り: `ClaimDailyTicketButton`・`WeaknessAnalysis`等の候補ファイル群は未着手 | **一部完了(中核学習フロー・独自モーダル・フォームラベル全件、本番確認済み)・aria-liveは着手済み(コアフロー分)・残り未着手分あり** |
 | AC-02 | 画像alt | 実質的に画像使用がほぼ無いため対象範囲は小さい(PF-01と同根拠) | **完了(該当箇所僅少)** |
 
 ## ADSENSE
@@ -264,11 +264,23 @@
     - **本番検証**: マージ後、`loop-vocabulary.app`へのVercel本番デプロイ(`dpl_7CwRcxD7ghKierFfX4KFRxXahmdP`)がGitHub commit status上でsuccessであることを確認(Vercel MCPコネクタが一時的にレート制限中だったため`gh api repos/.../commits/{sha}/status`で代替確認)。使い捨てスクリプト(検証後に削除、コミットせず)で`test+srs`・`test+teacher`アカウントへ実ログインし、本番の`/wordbooks/[id]`(クイック追加を開いた状態)・`/settings`・`/teacher`へ実際に遷移し、`aria-label="英単語"`/`"意味"`・`label[for="display-name-input"]`+`#display-name-input`・`label[for="create-class-name"]`+`#create-class-name`がいずれも存在することを確認した(5/5アサーション成功)。既知の非致命的ノイズ(Google Funding Choices CMPビーコンのCORS拒否、過去のPR#54〜#60の本番検証でも一貫して観測済み)以外のconsole error・5xxは無し。検証後、テスト用単語帳を削除したことを確認済み。
     - 残り3ファイルは下記項目25で対応済み。第3弾の再調査で発見した9ファイルはこれで全て対応完了。
 
-25. **AC-01(aria/role属性の低カバレッジ)第6弾: 検索・貼り付け・問い合わせフォームのラベル不足** — **コード実装・ローカル検証まで完了([PR #62](https://github.com/roromukuro-afk/loop-vocabulary/pull/62)、本番検証は未実施)**。第3弾の再調査で発見した最後の3ファイルを修正し、当該バックログを全て解消:
+25. **AC-01(aria/role属性の低カバレッジ)第6弾: 検索・貼り付け・問い合わせフォームのラベル不足** — **完了(PR #62、merge `6d1e08e`、本番での動作確認まで確認済み)**。第3弾の再調査で発見した最後の3ファイルを修正し、当該バックログを全て解消:
     - `src/app/materials/page.tsx`(`SearchBar`): 教材検索`<input type="search">`が`placeholder="教材を検索..."`のみでラベル不足だった。placeholderの先頭部分と一致する`aria-label="教材を検索"`を追加(末尾の`...`を除いた文字列、既存パターンを踏襲)。
     - `src/app/extract/ExtractWordsClient.tsx`: (1) 英文貼り付け`<textarea>`は可視の`<label>`が既に存在していたが`htmlFor`/`id`で紐付いていなかった → `htmlFor="extract-text-input"`+`id="extract-text-input"`を追加。(2) レベル選択`<select>`はラベルが一切無かった → `aria-label="単語レベル"`を追加(近くに代替できる可視テキストが無いため新規追加、既存の可視テキストとの不一致は発生しない)。
     - `src/app/contact/ContactForm.tsx`: 氏名・メールアドレス・お問い合わせ種別・内容の4フィールドとも可視の`<label>`は既に存在していたが、いずれも`htmlFor`/`id`で紐付いていなかった → 4箇所とも`htmlFor`/`id`を追加して紐付け。
-    - **検証**: `npm run typecheck`・`npm run lint`・`npm run build`成功。いずれも既存要素への`id`/`aria-label`/`htmlFor`属性追加のみで、動作・見た目の変更は無い。
+    - **ローカル検証**: `npm run typecheck`・`npm run lint`・`npm run build`成功。いずれも既存要素への`id`/`aria-label`/`htmlFor`属性追加のみで、動作・見た目の変更は無い。
+    - **本番検証**: マージ後、`loop-vocabulary.app`へのVercel本番デプロイ(`dpl_Bw55JnvbY8B75FMV6JuShFtqC9ca`)がGitHub commit status上でsuccessであることを確認。`/materials`(未ログインで直接確認可能)で`aria-label="教材を検索"`、`/contact`(同)で4フィールドの`id`とその`<label for>`の存在をcurlで直接確認。`/extract`はプレミアム限定ページのため、使い捨てスクリプト(検証後に削除、コミットせず)で`test+srs`アカウントの`is_premium`を一時的にtrueへ設定(元の値を保存)した上で実ログインし、`label[for="extract-text-input"]`+`#extract-text-input`・`select[aria-label="単語レベル"]`がいずれも存在することを確認した(6/6アサーション成功、既知の非致命的CMP CORSノイズを除く)。検証後、`is_premium`を元の値へ復元したことを確認済み。
+    - これでAC-01のフォームラベル不足バッチ(第3〜6弾、9ファイル)は全て完了。残りは非同期処理結果の`aria-live`不足のみ。
+
+26. **AC-01(aria/role属性の低カバレッジ)第7弾: 非同期処理結果の`aria-live`不足・第1弾(単語獲得コアフロー)** — **コード実装・ローカル検証まで完了(PR未作成)**。Exploreエージェントによる全文横断調査で、コードベース全体に`aria-live`・`role="alert"`・`role="status"`が1件も存在しないことを確認(=既存の重複対応は無く、クリーンな状態から着手)。調査で優先度順に整理した候補群のうち、「単語を検索して単語帳に追加する」中核フロー(辞書検索→単語帳への追加→単語帳作成→AI提案)に関わる5ファイルを修正:
+    - `src/app/dictionary/DictionarySearch.tsx`: 検索エラー(`error`)に`role="alert"`、単語帳追加後の成功バナー(`savedKey`、`data-testid="post-add-cta"`)に`role="status"`、検索結果0件時のメッセージに`role="status"`を追加。
+    - `src/app/wordbooks/[id]/QuickAddWord.tsx`: 成功時にボタンラベルが「✓ 追加済み」へ変わるのみで、独立した通知が一切無かった(サイレントな成功)。`role="status"`+`sr-only`の非表示ライブリージョンを新設し、成功時に「単語を追加しました」を読み上げるようにした(見た目の変更は無い)。
+    - `src/components/wordbooks/AiSuggestButton.tsx`: 一括追加成功メッセージ(`done`)に`role="status"`、AI提案取得/追加エラー(`error`)に`role="alert"`を追加。
+    - `src/app/wordbooks/[id]/add/AddWordForm.tsx`: 単語登録エラー(`error`)に`role="alert"`を追加。
+    - `src/app/wordbooks/CreateWordBookForm.tsx`: 単語帳作成エラー(`error`)に`role="alert"`を追加。
+    - `role="alert"`(暗黙的に`aria-live="assertive"`+`aria-atomic="true"`)はエラー、`role="status"`(暗黙的に`aria-live="polite"`+`aria-atomic="true"`)は成功/情報メッセージに使い分けた(WCAG的に標準的なパターン、明示的な`aria-live`属性より優先)。
+    - **検証**: `npm run typecheck`・`npm run lint`・`npm run build`成功。`npm run test:onboarding`(`DictionarySearch`の検索→追加フローを実ログイン・実DBで検証する既存E2E、post-add CTAのアサーションを含む)が変更後も全項目成功しリグレッション無しを確認。いずれも既存要素への`role`属性追加、または新規`sr-only`ライブリージョン1行の追加のみで、動作・見た目の変更は無い。
+    - **残り(次ラウンド候補)**: Exploreエージョンの調査で特定した残りの候補: `src/components/dashboard/ClaimDailyTicketButton.tsx`(デイリーチケット受け取り結果、ダッシュボード毎回表示)・`src/app/weak/WeaknessAnalysis.tsx`・`src/app/extract/ExtractWordsClient.tsx`・`src/components/wordbooks/CsvImportPanel.tsx`・`src/app/contact/ContactForm.tsx`・`src/components/account/DeleteAccountPanel.tsx`・`src/app/admin/indexnow/IndexNowSyncButton.tsx`、および優先度が低いその他約15ファイル(`JoinConsentClient`・`PromoteTeacherButton`・`CreateClassForm`・`InviteCodeManager`・`PdfTestBuilder`・`DisplayNameForm`・`PremiumCheckout`・`StudyPlanClient`・`AddToWordbook`・`AiPanel`・`signup`/`login`ページ・`FlashcardAiHint`・`AppAds`・管理画面各種)。
 
 - **`/materials/[id]`ページに視覚的パンくずUIが無い**: 動的な`material.title`をラベルに使う`<Breadcrumb>`を追加したところ、`test:internal-links`が「ページ遷移(リサイズ後の再ナビゲーション)でnetworkidle待ちがタイムアウトする」形で100%再現性のある形で失敗することを確認した。静的ラベルを使う他の全ページ(ガイド記事30本以上・教材カテゴリ7ページ・辞書・ピラーページ)は同じコンポーネントで問題なく動作しているため、コンポーネント自体の欠陥ではなく、動的ラベル+このページ特有のデータ取得パターンとの相互作用が疑われる。根本原因は特定できなかったため、実際に壊れるE2Eテストを通すコードを出荷するより、このページのみ対象外として次ラウンドへ持ち越すことを選択した。
 

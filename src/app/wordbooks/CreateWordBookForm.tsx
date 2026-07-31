@@ -58,7 +58,7 @@ export function CreateWordBookForm() {
       <div className="flex items-end">
         <Button type="submit" disabled={busy} fullWidth data-testid="create-wordbook-submit">{busy ? "作成中..." : "作成"}</Button>
       </div>
-      {error && <div className="text-sm text-red-600 sm:col-span-3">{error}</div>}
+      {error && <div role="alert" className="text-sm text-red-600 sm:col-span-3">{error}</div>}
     </form>
   );
 }

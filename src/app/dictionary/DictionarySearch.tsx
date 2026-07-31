@@ -177,7 +177,17 @@ export function DictionarySearch({
           </Select>
         </div>
       )}
-      {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
+      {error && <div role="alert" className="mt-2 text-sm text-red-600">{error}</div>}
+
+      {/* role="status"はマウント前から存在するライブリージョンでないと確実に読み上げられないため、
+          savedKey/検索結果0件の判定に応じて内容だけを差し替える、常時マウント済みの通知専用領域を用意する */}
+      <div role="status" className="sr-only">
+        {savedKey && loggedIn
+          ? "単語帳に追加しました"
+          : hits.length === 0 && !busy && q
+            ? "該当する単語が見つかりませんでした"
+            : ""}
+      </div>
 
       {savedKey && loggedIn && (
         <div data-testid="post-add-cta" className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
