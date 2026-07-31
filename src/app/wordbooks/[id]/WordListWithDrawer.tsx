@@ -44,6 +44,17 @@ function formatDate(iso: string | null) {
   return `${diff}日後`;
 }
 
+// モーダル(ドロワー)内のフォーカストラップ用: 現在フォーカス可能な子要素だけを返す。
+// disabled・非表示(offsetParentがnull=display:noneや親が非表示)要素は除外する。
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (el) => el.offsetParent !== null && el.getAttribute("aria-hidden") !== "true",
+  );
+}
+
 export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
   const [words, setWords] = useState(initialWords);
   const [selected, setSelected] = useState<Word | null>(null);
@@ -57,6 +68,8 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
   const [saving, setSaving] = useState(false);
   const router = useRouter();
   const drawerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (selected && !closing) {
@@ -83,7 +96,8 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
     { key: "mastered", label: "習得済み", count: words.filter((w) => (w.mastery ?? 0) >= 80).length },
   ];
 
-  const openDrawer = (w: Word) => {
+  const openDrawer = (w: Word, opener?: HTMLElement | null) => {
+    openerRef.current = opener ?? null;
     setClosing(false);
     setEditing(false);
     setSelected(w);
@@ -91,7 +105,20 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
 
   const closeDrawer = () => {
     setClosing(true);
-    setTimeout(() => { setSelected(null); setClosing(false); }, 280);
+    setTimeout(() => {
+      setSelected(null);
+      setClosing(false);
+      // 閉じるアニメーション・state更新が終わってから、開いた起点(単語行)へフォーカスを
+      // 戻す。起点がDOMから消えている(フィルター変更・削除等)場合は、単語リスト自体へ
+      // フォールバックする(Tabの位置が完全に失われて背景操作を続けられなくなるのを防ぐ)。
+      requestAnimationFrame(() => {
+        if (openerRef.current?.isConnected) {
+          openerRef.current.focus();
+        } else {
+          listRef.current?.focus();
+        }
+      });
+    }, 280);
   };
 
   const deleteWord = async () => {
@@ -174,7 +201,7 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
         </div>
       </div>
 
-      <ul className="divide-y divide-navy-100">
+      <ul ref={listRef} tabIndex={-1} className="divide-y divide-navy-100">
         {filtered.map((w) => {
           const pct = w.mastery ?? 0;
           return (
@@ -184,11 +211,21 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
               tabIndex={0}
               aria-label={`${w.word}の詳細を開く`}
               className="py-3 cursor-pointer hover:bg-navy-50 -mx-2 px-2 rounded-xl transition-colors"
-              onClick={() => openDrawer(w)}
+              onClick={(e) => {
+                // 内部のPronounceButtonのclickはstopPropagation()されるため通常ここへは
+                // 届かないが、念のためtarget/currentTargetでもこの行自体の操作のみに限定する。
+                if (e.target !== e.currentTarget) return;
+                openDrawer(w, e.currentTarget);
+              }}
               onKeyDown={(e) => {
+                // 内部のPronounceButton(子のbutton)で発生したkeydownがbubbleで
+                // ここまで届いても、この行自体への操作ではないため無視する
+                // (子のEnter/Spaceでドロワーが開いてしまう・子本来のキーボード操作を
+                // preventDefault()で妨げてしまうのを防ぐ)。
+                if (e.target !== e.currentTarget) return;
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  openDrawer(w);
+                  openDrawer(w, e.currentTarget);
                 }
               }}
             >
@@ -235,12 +272,42 @@ export function WordListWithDrawer({ words: initialWords }: { words: Word[] }) {
       {/* ドロワー */}
       <div
         ref={drawerRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="word-drawer-title"
+        // selectedが無い(閉じている)間はrole="dialog"等を一切付けない。CSSでの
+        // オフスクリーン配置だけでは、閉じていても中身の無い名前不明なモーダルとして
+        // アクセシビリティツリーに残り続けてしまうため。
+        {...(selected
+          ? { role: "dialog" as const, "aria-modal": "true", "aria-labelledby": "word-drawer-title" }
+          : {})}
         tabIndex={-1}
         onKeyDown={(e) => {
-          if (e.key === "Escape") closeDrawer();
+          if (e.key === "Escape") {
+            closeDrawer();
+            return;
+          }
+          if (e.key !== "Tab") return;
+          // フォーカストラップ: ドロワー表示中はTab/Shift+Tabで背景要素へ移動させない。
+          const container = drawerRef.current;
+          if (!container) return;
+          const focusables = getFocusableElements(container);
+          if (focusables.length === 0) {
+            e.preventDefault();
+            container.focus();
+            return;
+          }
+          const first = focusables[0];
+          const last = focusables[focusables.length - 1];
+          const active = document.activeElement;
+          if (e.shiftKey) {
+            if (active === first || !container.contains(active)) {
+              e.preventDefault();
+              last.focus();
+            }
+          } else {
+            if (active === last || !container.contains(active)) {
+              e.preventDefault();
+              first.focus();
+            }
+          }
         }}
         className={cn(
           "fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-3xl shadow-2xl transition-transform duration-300",

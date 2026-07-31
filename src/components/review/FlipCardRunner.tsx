@@ -309,6 +309,10 @@ export function FlipCardRunner({
           aria-label={flipped ? undefined : "カードをめくって意味を表示"}
           onClick={handleFlip}
           onKeyDown={(e) => {
+            // 内部のPronounceButton等、子要素で発生したkeydownはbubbleでここまで届くが、
+            // それはこのカード自体の操作ではないため無視する(子のEnter/Spaceでカードが
+            // 裏返ってしまう・子本来のキーボード操作をpreventDefault()で妨げてしまうのを防ぐ)。
+            if (e.target !== e.currentTarget) return;
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               handleFlip();
