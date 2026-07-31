@@ -118,16 +118,46 @@ GA4の「トラフィック獲得」レポートで、参照元(`source`)に `ch
   できる手段が無く未確認のまま記録する**(T-11の週次resyncと同じ制約。2xx/失敗いずれも
   推測しない)。
 
-### スコープの明示的な境界（正直に書く）
+### 静的コンテンツのページ個別即時通知（完了・2026-07-30）
 
 **教材(materials)以外**——ガイド記事・辞書語ページ・無料ツール・URLリダイレクト——は、
-いずれも`GUIDE_SLUGS`/`PILOT_WORDS`/`LESSONS`/`guideRedirects`のような**静的な配列・設定**で
+いずれも`GUIDE_SLUGS`/`PILOT_WORDS`/`guideRedirects`のような**静的な配列・設定**で
 定義されており、gitへのコミット+Vercelビルドによってのみ「公開/更新」される。つまり
 これらには元々「実行時の書き込みイベント」自体が存在せず、教材のような
-サーバールートへのフック方式は使えない。これらへの真の即時通知(コンテンツ変更の
-git diffを検出し、変更のあったURLだけをデプロイ後に送信する仕組み等)は、
-影響範囲・設計の性質が教材とは大きく異なるため、別ラウンドでのスコープとして
-意図的に切り出している。
+サーバールートへのフック方式は使えない。代わりに、**mainへのpushそのものを
+「公開/更新イベント」とみなし、push前後のコミット間で実際に生成される公開URL集合を
+比較して、変更のあったURLだけをIndexNowへ通知する**仕組みを実装した。
+
+- **ワークフロー**: `.github/workflows/indexnow-static-content-notify.yml`
+  (`push: branches: [main]`トリガー、post-deploy通知でありPRの必須チェックではない)。
+  `github.event.before`(push前のSHA)・`github.sha`(push後のSHA)を、実装スクリプト
+  `scripts/improvement/notify-indexnow-static-content-diff.mjs`へ渡す。Vercelの
+  ビルド完了を確実に待つ仕組み(VERCEL_TOKENでのポーリング等)は新たなsecretを
+  要求しないことを優先し採用せず、固定150秒待機で代替した(ベストエフォートの通知
+  であり、多少の前後は実害が小さいため)。
+- **検出方式**: sitemap.ts・pilotWords.ts・next.config.jsの2つのgit ref時点の内容を
+  比較する。sitemap.tsのリテラル静的パス(`${base}/xxx`)+GUIDE_SLUGS由来の
+  `/guide/<slug>`は正規表現抽出(`scripts/testing/e2e/robots-sitemap-collision.mjs`の
+  既存パターンを再利用)、PILOT_WORDSは自己完結モジュール(importなし)である性質を
+  利用し、2つのref時点の内容をそれぞれ一時ファイルへ書き出してdynamic importする
+  ことで、`isIndexEligible`の実際の算出結果(`defineWord()`による自動判定)を
+  そのまま比較できる。
+- **検出対象**: (1) 新しく現れた/消えた静的URL(ガイド記事・無料ツール・その他の
+  静的ページを一律にカバー、カテゴリ分けはしない)、(2) 既存ガイド記事
+  (前後ともGUIDE_SLUGSに存在)のコンテンツ更新(`src/app/guide/<slug>/`配下の
+  ファイル変更で検出)、(3) 辞書語ページの追加・削除・内容更新、(4) `guideRedirects`
+  への新規追加(旧URL・新URLの両方を通知)。
+- **デデュープの扱い**: URLの追加・削除(可視性の変化)は`bypassDedupe: true`
+  (教材と同じ理由、直近デデュープに関わらず必ず届ける)。既存ページの内容更新は
+  通常のデデュープを維持する。
+- **意図的な対象外**: `src/lib/grammar/lessons.ts`(LESSONS、文法レッスン)は
+  今回の指示範囲に含まれていないため対象外とした。PILOT_WORDSと同型の構造
+  (自己完結・importなし)のため、必要になれば同じ手法で低コストに追加できる。
+- **テスト**: `test:indexnow-static-content-diff-extraction`(ネットワーク・git実行
+  不要、合成した小さなソース文字列での単体テスト)。開発時に実際の過去コミット
+  3件(PR #43[新規無料ツール追加]・`3c51fe7`[既存ガイド記事のみコンテンツ更新]・
+  `bb97cf8`[辞書24→50語拡張+付随するガイド記事コンテンツ更新])に対して直接実行し、
+  期待どおりの検出結果になることを確認済み。
 
 ### 必要な人間の手動作業
 
