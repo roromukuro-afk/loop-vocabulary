@@ -217,6 +217,9 @@ async function main() {
 
     console.log("\n=== 58. アクセシビリティ(キーボード操作) E2E ===");
     results.a11yKeyboardNavigation = runNode("scripts/testing/e2e/a11y-keyboard-navigation.mjs");
+
+    console.log("\n=== 59. アクセシビリティ(モーダルダイアログ) E2E ===");
+    results.a11yModalDialogs = runNode("scripts/testing/e2e/a11y-modal-dialogs.mjs");
   } finally {
     stopDevServer(dev);
   }

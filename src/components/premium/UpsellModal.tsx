@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useModalA11y } from "@/lib/a11y/useModalA11y";
 
 type Props = {
   trigger: "ai_limit" | "csv" | "generic";
@@ -27,6 +28,7 @@ export function UpsellModal({ trigger, onClose, showCredits }: Props) {
   const [loading, setLoading] = useState(false);
   const [creditsLoading, setCreditsLoading] = useState(false);
   const copy = TRIGGER_COPY[trigger];
+  const { containerRef, handleKeyDown } = useModalA11y(true, onClose);
 
   const buyCredits = async (pack: "30" | "100") => {
     setCreditsLoading(true);
@@ -65,14 +67,20 @@ export function UpsellModal({ trigger, onClose, showCredits }: Props) {
       onClick={onClose}
     >
       <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="upsell-modal-title"
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
         className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ヘッダー */}
         <div className="bg-gradient-to-br from-navy-700 to-navy-900 px-6 pt-6 pb-8 text-white">
-          <button onClick={onClose} className="float-right text-white/60 hover:text-white text-xl leading-none">✕</button>
+          <button onClick={onClose} aria-label="閉じる" className="float-right text-white/60 hover:text-white text-xl leading-none">✕</button>
           <div className="text-xs font-bold uppercase tracking-widest text-sky-300 mb-2">Premium</div>
-          <div className="text-xl font-black leading-snug">{copy.title}</div>
+          <div id="upsell-modal-title" className="text-xl font-black leading-snug">{copy.title}</div>
           <div className="mt-1 text-sm text-navy-300">{copy.subtitle}</div>
         </div>
 
