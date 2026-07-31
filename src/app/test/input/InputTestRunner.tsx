@@ -95,7 +95,7 @@ export function InputTestRunner({ pool, count, scopeLabel }: { pool: W[]; count:
       </div>
 
       <div className="mt-10 text-center">
-        <div className="text-xs text-navy-400">この意味の英単語を入力</div>
+        <div className="text-xs text-navy-400" id="input-quiz-prompt-label">この意味の英単語を入力</div>
         <div className="mt-2 text-3xl font-bold text-navy-900" data-testid="quiz-prompt" data-word-id={cur.id}>{cur.meaning}</div>
       </div>
 
@@ -103,6 +103,7 @@ export function InputTestRunner({ pool, count, scopeLabel }: { pool: W[]; count:
         <Input
           ref={inputRef}
           data-testid="quiz-input"
+          aria-labelledby="input-quiz-prompt-label"
           autoFocus
           value={val}
           onChange={(e) => setVal(e.target.value)}

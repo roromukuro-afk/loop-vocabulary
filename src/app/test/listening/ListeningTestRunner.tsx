@@ -120,7 +120,7 @@ export function ListeningTestRunner({ pool, count = 10, scopeLabel }: { pool: Wo
         </div>
 
         <div className="text-center mb-8">
-          <p className="text-xs text-navy-400 mb-4">音声を聞いて、英単語を入力してください</p>
+          <p className="text-xs text-navy-400 mb-4" id="listening-quiz-prompt-label">音声を聞いて、英単語を入力してください</p>
           <button onClick={play} data-testid="quiz-play"
             className="w-24 h-24 rounded-full bg-indigo-500 text-white flex items-center justify-center mx-auto shadow-lg hover:bg-indigo-600 active:scale-95 transition-all">
             <svg viewBox="0 0 24 24" className="w-12 h-12 fill-current">
@@ -140,6 +140,7 @@ export function ListeningTestRunner({ pool, count = 10, scopeLabel }: { pool: Wo
         <input
           ref={inputRef}
           data-testid="quiz-input"
+          aria-labelledby="listening-quiz-prompt-label"
           type="text"
           value={val}
           onChange={(e) => setVal(e.target.value)}

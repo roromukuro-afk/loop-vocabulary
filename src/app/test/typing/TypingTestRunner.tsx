@@ -131,7 +131,7 @@ export function TypingTestRunner({ pool, count, scopeLabel }: { pool: W[]; count
       </div>
 
       <div className="mt-10 text-center">
-        <div className="text-xs text-navy-400 mb-2">この意味の英単語は？</div>
+        <div className="text-xs text-navy-400 mb-2" id="typing-quiz-prompt-label">この意味の英単語は？</div>
         <div className="text-3xl font-bold text-navy-900 leading-snug" data-testid="quiz-prompt" data-word-id={cur.id}>{cur.meaning}</div>
       </div>
 
@@ -158,6 +158,7 @@ export function TypingTestRunner({ pool, count, scopeLabel }: { pool: W[]; count
         <input
           ref={inputRef}
           data-testid="quiz-input"
+          aria-labelledby="typing-quiz-prompt-label"
           autoFocus
           value={val}
           onChange={handleChange}
