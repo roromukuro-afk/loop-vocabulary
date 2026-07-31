@@ -93,8 +93,12 @@ export function AiSuggestButton({
         ✨ AI が関連単語を提案
       </button>
 
+      {/* role="status"はマウント前から存在するライブリージョンでないと確実に読み上げられないため、
+          常時マウント済みの通知専用領域を用意し、doneの値に応じて内容だけを差し替える */}
+      <div role="status" className="sr-only">{done ? "単語を追加しました" : ""}</div>
+
       {done && (
-        <p role="status" className="text-xs text-emerald-600 text-center mt-1">単語を追加しました！</p>
+        <p className="text-xs text-emerald-600 text-center mt-1">単語を追加しました！</p>
       )}
 
       {/* モーダル */}
