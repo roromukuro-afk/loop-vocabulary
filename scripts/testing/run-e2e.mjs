@@ -223,6 +223,9 @@ async function main() {
 
     console.log("\n=== 60. アクセシビリティ(非同期処理成功メッセージの構造) E2E ===");
     results.a11yAsyncSuccessMessages = runNode("scripts/testing/e2e/a11y-async-success-messages.mjs");
+
+    console.log("\n=== 61. アクセシビリティ(非同期フィードバック第4弾) E2E ===");
+    results.a11yAsyncFeedbackBatch4 = runNode("scripts/testing/e2e/a11y-async-feedback-batch4.mjs");
   } finally {
     stopDevServer(dev);
   }

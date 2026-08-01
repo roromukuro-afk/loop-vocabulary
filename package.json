@@ -76,6 +76,7 @@
     "test:a11y-keyboard-navigation": "node scripts/testing/e2e/a11y-keyboard-navigation.mjs",
     "test:a11y-modal-dialogs": "node scripts/testing/e2e/a11y-modal-dialogs.mjs",
     "test:a11y-async-success-messages": "node scripts/testing/e2e/a11y-async-success-messages.mjs",
+    "test:a11y-async-feedback-batch4": "node scripts/testing/e2e/a11y-async-feedback-batch4.mjs",
     "test:external-material-rights": "node scripts/testing/e2e/external-material-rights.mjs",
     "test:recovery-mode": "node scripts/testing/e2e/recovery-mode.mjs",
     "test:internal-links": "node scripts/testing/e2e/internal-links.mjs",
