@@ -141,6 +141,20 @@ function diffDeletionRequests(before, after) {
   return { newRows, missingRows, changedRows };
 }
 
+/**
+ * 「開始前snapshotを正常に取得できているか」を明示的なフラグ(snapshotReady)で
+ * 判定する。空配列`[]`は「snapshot未取得」と「正常に0件だったsnapshot」の
+ * 両方に使えてしまうため、その代用は行わない。snapshotReadyがfalseの場合は
+ * 比較も削除候補算出も一切行わない(=既存行を絶対に削除しない安全側の挙動)。
+ */
+function planDeletionRequestCleanup({ snapshotReady, before, after }) {
+  if (!snapshotReady || !Array.isArray(before) || !Array.isArray(after)) {
+    return { shouldCompare: false, idsToDelete: [], newRows: [], missingRows: [], changedRows: [] };
+  }
+  const { newRows, missingRows, changedRows } = diffDeletionRequests(before, after);
+  return { shouldCompare: true, idsToDelete: newRows.map((r) => r.id), newRows, missingRows, changedRows };
+}
+
 async function readDeletionRequests(admin, userId) {
   const { data, error } = await admin
     .from("account_deletion_requests")
@@ -149,6 +163,52 @@ async function readDeletionRequests(admin, userId) {
     .order("id");
   if (error) throw error;
   return data ?? [];
+}
+
+/**
+ * account_deletion_requestsの安全なテストcleanupを制御する汎用ガード。
+ * DB/ブラウザに依存する処理をコールバックとして注入できるようにし、
+ * 「開始前snapshot取得が失敗した場合に既存行を削除してしまわないか」を
+ * DB・ブラウザ不要で決定論的に単体テストできるようにするため、独立した
+ * 関数として切り出している。
+ *
+ * 重要: finally節の中では絶対に return しない。try節がthrowした場合、
+ * finally節がreturnすると元の例外が握りつぶされてしまう(JSの仕様)ため、
+ * finally節は副作用(cleanup実行・結果の記録)のみを行い、returnは
+ * finally節の外で行う。これにより、開始前snapshot取得が失敗した場合、
+ * その元の例外がそのまま呼び出し元へ伝播し、テスト全体が失敗として
+ * 扱われる(=失敗を握りつぶして成功扱いにしない)。
+ */
+async function withDeletionRequestGuard({ onboardingId, readSnapshot, runTests, deleteById, browserCleanup }) {
+  let before = null;
+  let snapshotReady = false;
+  const result = { plan: null, browserCleanupDone: false, afterReadError: null };
+  try {
+    before = await readSnapshot(onboardingId);
+    snapshotReady = true;
+    await runTests();
+  } finally {
+    await browserCleanup();
+    result.browserCleanupDone = true;
+
+    if (onboardingId && snapshotReady) {
+      let after = null;
+      try {
+        after = await readSnapshot(onboardingId);
+      } catch (e) {
+        result.afterReadError = e;
+      }
+      if (after !== null) {
+        const plan = planDeletionRequestCleanup({ snapshotReady, before, after });
+        for (const id of plan.idsToDelete) {
+          await deleteById(id);
+        }
+        result.plan = plan;
+      }
+    }
+  }
+  result.snapshotReady = snapshotReady;
+  return result;
 }
 
 /** diffDeletionRequests()自体の決定論的な単体テスト(DB・ブラウザ不要)。 */
@@ -191,6 +251,131 @@ function runDiffDeletionRequestsUnitTests() {
   }
 }
 
+/** planDeletionRequestCleanup()自体の決定論的な単体テスト(DB・ブラウザ不要)。 */
+function runPlanDeletionRequestCleanupUnitTests() {
+  const existingRow = { id: "e1", status: "pending", requested_at: "t1", completed_at: null, reason: "r1" };
+  const newRow = { id: "new1", status: "pending", requested_at: "t2", completed_at: null, reason: "r2" };
+
+  {
+    const plan = planDeletionRequestCleanup({ snapshotReady: false, before: null, after: [existingRow] });
+    if (plan.shouldCompare === false && plan.idsToDelete.length === 0) {
+      ok("planDeletionRequestCleanup単体テスト: snapshot未取得(snapshotReady:false)の場合、比較しない・削除候補0件(既存行を保護)");
+    } else {
+      fail(`planDeletionRequestCleanup単体テスト: snapshot未取得時の結果が想定外: ${JSON.stringify(plan)}`);
+    }
+  }
+  {
+    const plan = planDeletionRequestCleanup({ snapshotReady: true, before: [], after: [] });
+    if (plan.shouldCompare === true && plan.idsToDelete.length === 0) {
+      ok("planDeletionRequestCleanup単体テスト: snapshot正常取得(空→空)の場合、比較を実施し削除候補0件");
+    } else {
+      fail(`planDeletionRequestCleanup単体テスト: 正常系(空→空)の結果が想定外: ${JSON.stringify(plan)}`);
+    }
+  }
+  {
+    const plan = planDeletionRequestCleanup({ snapshotReady: true, before: [existingRow], after: [existingRow] });
+    if (plan.shouldCompare === true && plan.idsToDelete.length === 0) {
+      ok("planDeletionRequestCleanup単体テスト: snapshot正常取得(既存行→同じ行)の場合、比較を実施し削除候補0件");
+    } else {
+      fail(`planDeletionRequestCleanup単体テスト: 正常系(既存行→同じ行)の結果が想定外: ${JSON.stringify(plan)}`);
+    }
+  }
+  {
+    const plan = planDeletionRequestCleanup({ snapshotReady: true, before: [existingRow], after: [existingRow, newRow] });
+    if (plan.shouldCompare === true && plan.idsToDelete.length === 1 && plan.idsToDelete[0] === "new1") {
+      ok("planDeletionRequestCleanup単体テスト: afterに新規ID追加時、その新規IDだけがcleanup候補になる(既存行は対象外)");
+    } else {
+      fail(`planDeletionRequestCleanup単体テスト: 新規ID限定cleanup候補の結果が想定外: ${JSON.stringify(plan)}`);
+    }
+  }
+}
+
+/**
+ * withDeletionRequestGuard()自体の決定論的な単体テスト(DB・ブラウザ不要)。
+ * 実DB・実ブラウザの代わりにモック関数を注入し、特に「開始前snapshot取得が
+ * 失敗した場合に既存行を削除してしまわないか」を検証する。
+ */
+async function runWithDeletionRequestGuardUnitTests() {
+  // ケース1: 初期snapshot取得が失敗 → 比較しない・DELETE 0回・browser cleanupは実行される・元の例外が伝播する
+  {
+    const calls = [];
+    let readCallCount = 0;
+    const readSnapshot = async () => {
+      readCallCount++;
+      if (readCallCount === 1) throw new Error("SNAPSHOT_READ_FAILED");
+      return [{ id: "existing-1", status: "pending", requested_at: "t", completed_at: null, reason: "r" }];
+    };
+    const deleteById = async (id) => { calls.push(["delete", id]); };
+    const browserCleanup = async () => { calls.push(["browserCleanup"]); };
+    const runTests = async () => { calls.push(["runTests"]); };
+
+    let thrown = null;
+    try {
+      await withDeletionRequestGuard({ onboardingId: "u1", readSnapshot, runTests, deleteById, browserCleanup });
+    } catch (e) {
+      thrown = e;
+    }
+
+    const deleteCalls = calls.filter((c) => c[0] === "delete");
+    const browserCleanupCalls = calls.filter((c) => c[0] === "browserCleanup");
+    const runTestsCalls = calls.filter((c) => c[0] === "runTests");
+
+    if (thrown && thrown.message === "SNAPSHOT_READ_FAILED") {
+      ok("withDeletionRequestGuard単体テスト: 初期snapshot取得失敗時、元の例外がそのまま伝播しテスト失敗として扱われる(握りつぶさない)");
+    } else {
+      fail(`withDeletionRequestGuard単体テスト: 初期snapshot取得失敗時の例外伝播が想定外: ${thrown?.message}`);
+    }
+    if (deleteCalls.length === 0) {
+      ok("withDeletionRequestGuard単体テスト: 初期snapshot取得失敗時、DELETEは一度も呼ばれない(既存行を保護)");
+    } else {
+      fail(`withDeletionRequestGuard単体テスト: 初期snapshot取得失敗時にもDELETEが呼ばれた: ${JSON.stringify(deleteCalls)}`);
+    }
+    if (browserCleanupCalls.length === 1) {
+      ok("withDeletionRequestGuard単体テスト: 初期snapshot取得失敗時もbrowser/dev server cleanupは実行される");
+    } else {
+      fail(`withDeletionRequestGuard単体テスト: browser cleanupの呼び出し回数が想定外: ${browserCleanupCalls.length}`);
+    }
+    if (runTestsCalls.length === 0) {
+      ok("withDeletionRequestGuard単体テスト: 初期snapshot取得失敗時、runTestsは実行されない");
+    } else {
+      fail("withDeletionRequestGuard単体テスト: 初期snapshot取得失敗時にrunTestsが呼ばれてしまった");
+    }
+  }
+
+  // ケース2: snapshot正常取得(空→空) → 比較を実施し削除0件
+  {
+    const calls = [];
+    const readSnapshot = async () => [];
+    const deleteById = async (id) => { calls.push(id); };
+    const browserCleanup = async () => {};
+    const runTests = async () => {};
+    const result = await withDeletionRequestGuard({ onboardingId: "u2", readSnapshot, runTests, deleteById, browserCleanup });
+    if (result.plan?.shouldCompare === true && calls.length === 0) {
+      ok("withDeletionRequestGuard単体テスト: snapshot正常取得(空→空)時は比較を実施し削除0件");
+    } else {
+      fail(`withDeletionRequestGuard単体テスト: 正常系(空→空)の結果が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ケース3: snapshot正常取得、afterに新規1件追加 → その新規IDだけがcleanup対象
+  {
+    const before = [{ id: "e1", status: "pending", requested_at: "t1", completed_at: null, reason: "r1" }];
+    const after = [...before, { id: "new1", status: "pending", requested_at: "t2", completed_at: null, reason: "r2" }];
+    let readCallIndex = 0;
+    const readSnapshot = async () => (readCallIndex++ === 0 ? before : after);
+    const calls = [];
+    const deleteById = async (id) => { calls.push(id); };
+    const browserCleanup = async () => {};
+    const runTests = async () => {};
+    await withDeletionRequestGuard({ onboardingId: "u3", readSnapshot, runTests, deleteById, browserCleanup });
+    if (calls.length === 1 && calls[0] === "new1") {
+      ok("withDeletionRequestGuard単体テスト: 新規行が1件追加された場合、その新規IDだけがcleanup対象になる(既存行は削除されない)");
+    } else {
+      fail(`withDeletionRequestGuard単体テスト: 新規ID限定cleanupの結果が想定外: ${JSON.stringify(calls)}`);
+    }
+  }
+}
+
 async function main() {
   loadEnv();
   requireEnv([
@@ -202,9 +387,9 @@ async function main() {
   const admin = getAdminClient();
 
   runDiffDeletionRequestsUnitTests();
+  runPlanDeletionRequestCleanupUnitTests();
+  await runWithDeletionRequestGuardUnitTests();
 
-  let onboardingId = null;
-  let deletionRequestsBefore = [];
   let dev;
   let browser;
 
@@ -565,50 +750,59 @@ async function main() {
     }
   }
 
-  try {
-    const { data: onboardingProfile } = await admin
-      .from("profiles").select("id").eq("email", TEST_ACCOUNTS.onboarding.email).maybeSingle();
-    onboardingId = onboardingProfile?.id;
-    if (!onboardingId) throw new Error("test+onboardingのuser_idが取得できない");
+  const { data: onboardingProfile } = await admin
+    .from("profiles").select("id").eq("email", TEST_ACCOUNTS.onboarding.email).maybeSingle();
+  const onboardingId = onboardingProfile?.id;
+  if (!onboardingId) throw new Error("test+onboardingのuser_idが取得できない");
 
-    deletionRequestsBefore = await readDeletionRequests(admin, onboardingId);
-    ok(`account_deletion_requests: テスト開始前のスナップショットを取得した(${deletionRequestsBefore.length}件、既存行があってもテストは正常に実行できる)`);
-
-    await runBrowserTests();
-  } finally {
+  async function readSnapshot(userId) {
+    return readDeletionRequests(admin, userId);
+  }
+  async function deleteById(id) {
+    const { error } = await admin.from("account_deletion_requests").delete().eq("id", id);
+    if (error) throw error;
+  }
+  async function browserCleanup() {
     async function safeCleanup(label, fn) {
       try { await fn(); } catch (e) { console.error(`cleanup失敗(${label}): ${e.message}`); }
     }
     if (browser) await safeCleanup("browser.close", () => browser.close());
     if (dev) await safeCleanup("stopDevServer", () => stopDevServer(dev));
-
-    // account_deletion_requestsはuser_id単位で無条件DELETEしない(P2-2対応)。
-    // 開始前スナップショットとの差分のみを検証し、万一route interception漏れで
-    // 新規行が作られていた場合は、その新規IDだけを個別に削除する。
-    if (onboardingId) {
-      try {
-        const deletionRequestsAfter = await readDeletionRequests(admin, onboardingId);
-        const { newRows, missingRows, changedRows } = diffDeletionRequests(deletionRequestsBefore, deletionRequestsAfter);
-
-        if (newRows.length === 0) {
-          ok("account_deletion_requests: テスト実行後も新規行が作成されていない(GET/POSTとも常時route interception済み)");
-        } else {
-          fail(`account_deletion_requests: 想定外の新規行が作成されている(route interception漏れの疑い、ID: ${newRows.map((r) => r.id).join(", ")})`);
-          for (const row of newRows) {
-            await safeCleanup(`新規行削除(${row.id})`, () => admin.from("account_deletion_requests").delete().eq("id", row.id));
-          }
-        }
-        if (missingRows.length === 0) ok("account_deletion_requests: テスト開始前から存在した行が全て残っている");
-        else fail(`account_deletion_requests: テスト開始前に存在した行が消えている(ID: ${missingRows.map((r) => r.id).join(", ")})`);
-
-        if (changedRows.length === 0) ok("account_deletion_requests: テスト開始前から存在した行の内容が変化していない");
-        else fail(`account_deletion_requests: テスト開始前から存在した行が変更されている: ${JSON.stringify(changedRows)}`);
-      } catch (e) {
-        fail(`account_deletion_requestsのスナップショット比較に失敗: ${e.message}`);
-      }
-    }
-    ok("cleanup完了");
   }
+
+  // account_deletion_requestsはuser_id単位で無条件DELETEしない(P2-2対応)。
+  // 開始前スナップショットとの差分のみを検証し、万一route interception漏れで
+  // 新規行が作られていた場合は、その新規IDだけを個別に削除する。
+  // 開始前スナップショット自体の取得に失敗した場合は、比較・削除を一切行わず
+  // 安全側にスキップする(withDeletionRequestGuard参照)。
+  const guardResult = await withDeletionRequestGuard({
+    onboardingId,
+    readSnapshot,
+    runTests: runBrowserTests,
+    deleteById,
+    browserCleanup,
+  });
+
+  if (!guardResult.snapshotReady) {
+    // ここに到達する場合、開始前snapshot取得自体は成功している(失敗していれば
+    // withDeletionRequestGuardが例外を伝播させ、main().catch()でクラッシュ扱いになるため)。
+    fail("account_deletion_requests: snapshotReadyがfalseのまま関数が正常終了した(想定外の状態)");
+  } else if (guardResult.afterReadError) {
+    fail(`account_deletion_requests: 終了後snapshotの取得に失敗したため、比較・cleanupを安全側でスキップした: ${guardResult.afterReadError.message}`);
+  } else if (guardResult.plan) {
+    const { plan } = guardResult;
+    if (plan.newRows.length === 0) {
+      ok("account_deletion_requests: テスト実行後も新規行が作成されていない(GET/POSTとも常時route interception済み)");
+    } else {
+      fail(`account_deletion_requests: 想定外の新規行が作成されていた(route interception漏れの疑い、ID: ${plan.newRows.map((r) => r.id).join(", ")}) — 該当IDのみcleanup済み`);
+    }
+    if (plan.missingRows.length === 0) ok("account_deletion_requests: テスト開始前から存在した行が全て残っている");
+    else fail(`account_deletion_requests: テスト開始前に存在した行が消えている(ID: ${plan.missingRows.map((r) => r.id).join(", ")})`);
+
+    if (plan.changedRows.length === 0) ok("account_deletion_requests: テスト開始前から存在した行の内容が変化していない");
+    else fail(`account_deletion_requests: テスト開始前から存在した行が変更されている: ${JSON.stringify(plan.changedRows)}`);
+  }
+  ok("cleanup完了");
 
   console.log(failed > 0 ? `\n=== a11y-async-feedback-batch4 RESULT: ${failed}件失敗 ===` : "\n=== a11y-async-feedback-batch4: ALL CHECKS PASSED ===");
   process.exit(failed > 0 ? 1 : 0);
