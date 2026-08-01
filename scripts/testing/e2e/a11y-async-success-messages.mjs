@@ -65,13 +65,34 @@ async function main() {
   let srsOriginalIsPremium = null;
   let extractBookId = null;
   let csvBookId = null;
+  let freeCsvBookId = null;
   let dev;
   let browser;
+
+  // 過去の失敗実行の残骸を、対象テストユーザーのuser_idと組み合わせてのみ削除する
+  // (タイトルだけでの削除は他ユーザーのデータを巻き込む恐れがあるため行わない)。
+  async function cleanupStaleFixturesByTitle(userId, titles) {
+    const { data: stale } = await admin
+      .from("word_books")
+      .select("id")
+      .eq("user_id", userId)
+      .in("title", titles);
+    for (const b of stale ?? []) {
+      await admin.from("words").delete().eq("word_book_id", b.id);
+      await admin.from("word_books").delete().eq("id", b.id);
+    }
+  }
 
   async function runBrowserTests() {
     dev = await ensureDevServer(PORT);
     const baseUrl = dev.url;
     browser = await chromium.launch();
+
+    await cleanupStaleFixturesByTitle(srsId, [
+      "TEST_extract検証用単語帳",
+      "TEST_csv検証用単語帳",
+      "TEST_csv非Premium検証用単語帳",
+    ]);
 
     // ============================================================
     // A. ClaimDailyTicketButton
@@ -154,7 +175,8 @@ async function main() {
       }
       await pageA2.close();
 
-      // ---- A3. エラー時: role="alert"で通知され、claimedへは切り替わらないこと ----
+      // ---- A3. エラー時: role="alert"が重複せず1件だけ、role="status"は汚染されず、
+      //          ボタンは再操作可能な状態へ戻り、その後の成功操作で古いエラーが消えること ----
       await resetOnboardingUser(admin, onboardingId);
       await admin.from("reward_tickets").delete().eq("user_id", onboardingId);
       await admin.from("daily_stats").upsert(
@@ -164,12 +186,16 @@ async function main() {
 
       const pageA3 = await browser.newPage();
       await pageA3.addInitScript(() => localStorage.setItem("loop_onboarding_done", "1"));
+      // 1回目のクリックはエラー、2回目のクリックは成功を返す(同一routeハンドラを
+      // 呼び出し回数で切り替えることで、両方のシナリオを決定論的に再現する)。
+      let claimCallCount = 0;
       await pageA3.route("**/api/gamification/claim-daily-ticket", async (route) => {
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ error: "internal" }),
-        });
+        claimCallCount++;
+        if (claimCallCount === 1) {
+          await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "internal" }) });
+        } else {
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ claimed: true }) });
+        }
       });
       await login(pageA3, baseUrl, TEST_ACCOUNTS.onboarding.email, process.env[TEST_ACCOUNTS.onboarding.passwordEnvKey]);
       const claimBtn3 = pageA3.locator('[data-testid="claim-daily-ticket-button"]');
@@ -182,13 +208,43 @@ async function main() {
       if (role3 === "alert") ok('ClaimDailyTicketButton(エラー): 可視のメッセージ要素にrole="alert"が設定されている');
       else fail(`ClaimDailyTicketButton(エラー): role属性が想定外: "${role3}"`);
 
+      // アプリ側のrole="alert"要素数を明示的に数える(.first()で偶然正しい要素を
+      // 拾うのではなく、重複読み上げが無いことをカウントで直接検証する)。
+      // Next.jsの#__next-route-announcer__は除外済み(appAlertLocator)。
+      const appAlertCount3 = await appAlertLocator(pageA3).count();
+      if (appAlertCount3 === 1) ok('ClaimDailyTicketButton(エラー): アプリ側role="alert"要素がちょうど1件(二重読み上げなし)');
+      else fail(`ClaimDailyTicketButton(エラー): アプリ側role="alert"要素数が想定外: ${appAlertCount3}件`);
+
       const errText3 = await alertText(pageA3);
       if (errText3.includes("記録に失敗しました")) ok(`ClaimDailyTicketButton(エラー): role="alert"領域の内容が正しい: "${errText3}"`);
       else fail(`ClaimDailyTicketButton(エラー): role="alert"領域の内容が想定外: "${errText3}"`);
 
+      const statusA3duringError = await statusText(pageA3);
+      if (statusA3duringError === "") ok('ClaimDailyTicketButton(エラー): role="status"領域にはエラーテキストが入っていない(汚染なし)');
+      else fail(`ClaimDailyTicketButton(エラー): role="status"領域にエラー由来と思われるテキストが混入: "${statusA3duringError}"`);
+
       const stillClaimed = await pageA3.locator('[data-testid="claim-daily-ticket-claimed"]').count();
       if (stillClaimed === 0) ok("ClaimDailyTicketButton(エラー): claimed表示へは切り替わらず、ボタンのまま維持される");
       else fail("ClaimDailyTicketButton(エラー): エラーなのにclaimed表示へ切り替わってしまった");
+
+      const reOperable3 = await claimBtn3.isEnabled().catch(() => false);
+      if (reOperable3) ok("ClaimDailyTicketButton(エラー): エラー後、ボタンは再操作可能な状態(disabled解除)へ戻る");
+      else fail("ClaimDailyTicketButton(エラー): エラー後もボタンがdisabledのまま");
+
+      // ---- A3続き: エラー後に成功操作を行うと、古いエラーが消え成功通知だけになること ----
+      await claimBtn3.click();
+      await pageA3.locator('[data-testid="claim-daily-ticket-claimed"]').waitFor({ state: "visible", timeout: 8000 });
+
+      const appAlertCountAfterSuccess = await appAlertLocator(pageA3).count();
+      if (appAlertCountAfterSuccess === 0) ok('ClaimDailyTicketButton(エラー後の成功): 古いrole="alert"は成功後に消えている');
+      else fail(`ClaimDailyTicketButton(エラー後の成功): role="alert"が成功後も残っている(${appAlertCountAfterSuccess}件)`);
+
+      const statusA3afterSuccess = await statusText(pageA3);
+      if (statusA3afterSuccess.includes("🎉 今日の達成を記録しました！")) {
+        ok(`ClaimDailyTicketButton(エラー後の成功): role="status"領域が成功通知のみへ正しく更新されている: "${statusA3afterSuccess}"`);
+      } else {
+        fail(`ClaimDailyTicketButton(エラー後の成功): role="status"領域の内容が想定外: "${statusA3afterSuccess}"`);
+      }
       await pageA3.close();
     }
 
@@ -373,6 +429,9 @@ async function main() {
       await pageErr.close();
 
       // ---- C3. 非Premiumではインポート試行でUpsellModalが出ること(回帰確認) ----
+      // freeCsvBookIdは外側scopeの変数へ直接代入する(この後の操作のどこかで例外が
+      // 発生しても、外側のfinallyから削除できるようにするため。ローカル変数に
+      // していると、ブロック末尾の削除処理まで到達できない場合にDBへ残ってしまう)。
       await admin.from("profiles").update({ is_premium: false }).eq("id", srsId);
       const { data: freeBook, error: freeBookErr } = await admin
         .from("word_books")
@@ -380,12 +439,12 @@ async function main() {
         .select("id")
         .single();
       if (freeBookErr || !freeBook) throw new Error(`非Premium検証用単語帳の作成に失敗: ${freeBookErr?.message}`);
-      const freeBookId = freeBook.id;
+      freeCsvBookId = freeBook.id;
 
       const pageFree = await browser.newPage();
       await pageFree.addInitScript(() => localStorage.setItem("loop_onboarding_done", "1"));
       await login(pageFree, baseUrl, TEST_ACCOUNTS.srs.email, process.env[TEST_ACCOUNTS.srs.passwordEnvKey]);
-      await gotoReady(pageFree, `${baseUrl}/wordbooks/${freeBookId}/csv-import`);
+      await gotoReady(pageFree, `${baseUrl}/wordbooks/${freeCsvBookId}/csv-import`);
       await pageFree.setInputFiles('input[type="file"]', {
         name: "words3.csv",
         mimeType: "text/csv",
@@ -397,9 +456,6 @@ async function main() {
       await upsellDialog.waitFor({ state: "visible", timeout: 8000 });
       ok("CsvImportPanel(非Premium): インポート試行でUpsellModal(role=\"dialog\")が表示される(フラグメント再構成後も回帰なし)");
       await pageFree.close();
-
-      await admin.from("words").delete().eq("word_book_id", freeBookId);
-      await admin.from("word_books").delete().eq("id", freeBookId);
     }
   }
 
@@ -427,6 +483,10 @@ async function main() {
     if (csvBookId) {
       await safeCleanup("csv単語削除", () => admin.from("words").delete().eq("word_book_id", csvBookId));
       await safeCleanup("csv単語帳削除", () => admin.from("word_books").delete().eq("id", csvBookId));
+    }
+    if (freeCsvBookId) {
+      await safeCleanup("非Premium CSV単語削除", () => admin.from("words").delete().eq("word_book_id", freeCsvBookId));
+      await safeCleanup("非Premium CSV単語帳削除", () => admin.from("word_books").delete().eq("id", freeCsvBookId));
     }
     if (srsId && srsOriginalIsPremium !== null) {
       await safeCleanup("is_premium復元", () => admin.from("profiles").update({ is_premium: srsOriginalIsPremium }).eq("id", srsId));

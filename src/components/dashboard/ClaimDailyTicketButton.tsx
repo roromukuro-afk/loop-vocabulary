@@ -25,6 +25,11 @@ interface Props {
  * にも確実に伝わるようにしている（以前はmessageを表示するdiv自体がclaimed
  * ブランチへの切り替えで即座にアンマウントされ、成功メッセージが誰にも
  * 届いていなかった）。
+ *
+ * エラー通知はrole="status"と異なり、事前マウントされたライブリージョンが
+ * 無くても新規マウント時点で確実に読み上げられるため、可視のエラーメッセージ
+ * 要素自体にrole="alert"を付けるだけで足りる。常時マウント済みのsr-only領域を
+ * 別途重ねて用意すると、同じエラーが2回読み上げられてしまうため置いていない。
  */
 export function ClaimDailyTicketButton({ eligible, alreadyClaimedToday }: Props) {
   const [claimed, setClaimed] = useState(alreadyClaimedToday);
@@ -60,11 +65,12 @@ export function ClaimDailyTicketButton({ eligible, alreadyClaimedToday }: Props)
 
   return (
     <>
-      {/* role="status"/role="alert"はマウント前から存在するライブリージョンでないと
-          確実に読み上げられないため、claimed/locked/active間で表示が切り替わっても
-          常にDOMに存在し続ける専用領域を用意し、内容だけを差し替える */}
+      {/* role="status"はマウント前から存在するライブリージョンでないと確実に
+          読み上げられないため、claimed/locked/active間で表示が切り替わっても
+          常にDOMに存在し続ける専用領域を用意し、内容だけを差し替える。
+          role="alert"はこの制約が無いため、可視のエラーメッセージ要素(下記)に
+          直接付けるだけでよく、ここには重複して置かない(二重読み上げ防止)。 */}
       <div role="status" className="sr-only">{statusMessage ?? ""}</div>
-      <div role="alert" className="sr-only">{errorMessage ?? ""}</div>
 
       {claimed ? (
         <div className="px-4 py-3 bg-emerald-50 text-center text-xs text-emerald-700 font-semibold" data-testid="claim-daily-ticket-claimed">
