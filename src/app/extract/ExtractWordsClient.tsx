@@ -19,6 +19,9 @@ export function ExtractWordsClient({ wordbooks }: { wordbooks: { id: string; tit
   const [targetBook, setTargetBook] = useState(wordbooks[0]?.id ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
+  // 保存操作の完了時点でのみ確定する要約(件数・保存先名)。保存後にwords/targetBookが
+  // クリア・変更されても、通知文言に反映できるよう保存成功時点の値をここへ保持する。
+  const [savedSummary, setSavedSummary] = useState<{ count: number; bookTitle: string } | null>(null);
 
   async function extract() {
     if (!text.trim()) return;
@@ -26,6 +29,7 @@ export function ExtractWordsClient({ wordbooks }: { wordbooks: { id: string; tit
     setError("");
     setWords([]);
     setSaved(false);
+    setSavedSummary(null);
     try {
       const res = await fetch("/api/ai/extract-words", {
         method: "POST",
@@ -53,6 +57,7 @@ export function ExtractWordsClient({ wordbooks }: { wordbooks: { id: string; tit
   async function saveToWordbook() {
     const selected = words.filter((w) => w.selected);
     if (!selected.length || !targetBook) return;
+    const bookTitle = wordbooks.find((wb) => wb.id === targetBook)?.title ?? "単語帳";
     setSaving(true);
     try {
       const res = await fetch(`/api/wordbook/${targetBook}/bulk-add`, {
@@ -61,6 +66,8 @@ export function ExtractWordsClient({ wordbooks }: { wordbooks: { id: string; tit
         body: JSON.stringify({ words: selected.map((w) => ({ word: w.word, meaning: w.meaning, pos: w.pos })) }),
       });
       if (!res.ok) throw new Error("保存に失敗しました");
+      // words/textをクリアした後でも通知内容が保てるよう、件数・保存先名を先に確定させる。
+      setSavedSummary({ count: selected.length, bookTitle });
       setSaved(true);
       setWords([]);
       setText("");
@@ -108,6 +115,14 @@ export function ExtractWordsClient({ wordbooks }: { wordbooks: { id: string; tit
         <div role="alert" className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
+      {/* role="status"はマウント前から存在するライブリージョンでないと確実に読み上げ
+          られないため、常時マウント済みのsr-only領域を用意する。保存成功時にwords
+          がクリアされて{words.length > 0}のブロックごとアンマウントされても、この
+          領域は影響を受けない */}
+      <div role="status" className="sr-only">
+        {saved && savedSummary ? `${savedSummary.count}語を「${savedSummary.bookTitle}」に追加しました` : ""}
+      </div>
+
       {/* 抽出結果 */}
       {words.length > 0 && (
         <div>
@@ -153,11 +168,18 @@ export function ExtractWordsClient({ wordbooks }: { wordbooks: { id: string; tit
               className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 transition-colors disabled:opacity-50">
               {saving ? "保存中…" : `選択した ${selectedCount} 語を追加する`}
             </button>
-            {saved && (
-              <p className="text-xs text-emerald-600 font-semibold text-center mt-2">✅ 単語帳に追加しました！</p>
-            )}
           </div>
         </div>
+      )}
+
+      {/* 保存成功メッセージ。保存成功時にwords/textがクリアされるため、
+          {words.length > 0}ブロックの外側に置き、savedSummaryのみで表示を判定する
+          (以前はここが{words.length > 0}の内側にあり、保存直後にwordsが空になった
+          瞬間にメッセージごとアンマウントされ、誰にも表示されていなかった)。 */}
+      {saved && savedSummary && (
+        <p className="text-xs text-emerald-600 font-semibold text-center">
+          ✅ {savedSummary.count}語を「{savedSummary.bookTitle}」に追加しました！
+        </p>
       )}
     </div>
   );

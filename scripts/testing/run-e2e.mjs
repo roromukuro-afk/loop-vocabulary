@@ -220,6 +220,9 @@ async function main() {
 
     console.log("\n=== 59. アクセシビリティ(モーダルダイアログ) E2E ===");
     results.a11yModalDialogs = runNode("scripts/testing/e2e/a11y-modal-dialogs.mjs");
+
+    console.log("\n=== 60. アクセシビリティ(非同期処理成功メッセージの構造) E2E ===");
+    results.a11yAsyncSuccessMessages = runNode("scripts/testing/e2e/a11y-async-success-messages.mjs");
   } finally {
     stopDevServer(dev);
   }
