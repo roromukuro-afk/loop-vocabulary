@@ -7,11 +7,18 @@ interface Props {
   examDate: string | null;
 }
 
+// 「英検」「TOEIC」「大学受験」「日常英会話」「学び直し」は、OnboardingModalの
+// ざっくりした目標カテゴリ(GOALS)がexam_goalへ保存する値と一致させている。
+// これが無いと、オンボーディング経由で保存した値がこの<select>のどのoptionとも
+// 一致せず、編集時に選択状態が空欄になってしまう(chatgpt-codex-connectorのP2指摘対応)。
 const EXAM_OPTIONS = [
   "英検5級", "英検4級", "英検3級", "英検準2級", "英検2級",
-  "英検準1級", "英検1級", "TOEIC 600点", "TOEIC 700点",
-  "TOEIC 800点", "TOEIC 900点", "TOEFL", "IELTS", "共通テスト",
-  "大学受験（一般）", "大学院入試", "その他",
+  "英検準1級", "英検1級", "英検",
+  "TOEIC 600点", "TOEIC 700点",
+  "TOEIC 800点", "TOEIC 900点", "TOEIC",
+  "TOEFL", "IELTS", "共通テスト",
+  "大学受験（一般）", "大学受験", "大学院入試",
+  "日常英会話", "学び直し", "その他",
 ];
 
 function daysUntil(dateStr: string): number {

@@ -226,6 +226,9 @@ async function main() {
 
     console.log("\n=== 61. アクセシビリティ(非同期フィードバック第4弾) E2E ===");
     results.a11yAsyncFeedbackBatch4 = runNode("scripts/testing/e2e/a11y-async-feedback-batch4.mjs");
+
+    console.log("\n=== 62. オンボーディングのexam_goal永続化(Issue #65) E2E ===");
+    results.onboardingProfilePersistence = runNode("scripts/testing/e2e/onboarding-profile-persistence.mjs");
   } finally {
     stopDevServer(dev);
   }

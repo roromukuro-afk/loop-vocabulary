@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { trackEvent } from "@/lib/analytics/track";
 import { useModalA11y } from "@/lib/a11y/useModalA11y";
 
@@ -32,19 +31,42 @@ const MATERIAL_MAP: Record<string, string> = {
   other:      "/materials",
 };
 
-async function saveProfileToSupabase(goal: string, level: string) {
+// exam_goalは既存の正規保存先(profiles.exam_goal、007_exam_goal.sqlで追加済み)へ、
+// 既存の設定画面(ExamCountdown)と同じ/api/settings/exam-goal経由で保存する。
+// levelは現時点でOnboardingModal以外のどこからも読み取られておらず(読み取り側・
+// 保存先とも存在しない)、永続化しない(GitHub Issue参照)。
+//
+// DBへは、GOALSの内部id(例: "eiken")ではなく、その日本語ラベル(例: "英検")を
+// 保存する。exam_goalはExamCountdownがそのまま可視テキストとして表示する
+// フィールドのため、内部idをそのまま保存すると画面に"eiken"という文字列が
+// 表示されてしまう(chatgpt-codex-connectorのP2指摘対応)。ExamCountdownの
+// 編集用<select>にも同じラベルをoptionとして追加済み。
+async function saveExamGoal(goal: string): Promise<void> {
+  const goalOption = GOALS.find((g) => g.id === goal);
+  if (!goalOption) {
+    throw new Error("保存に失敗しました。もう一度お試しください");
+  }
+  let res: Response;
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from("profiles").upsert({
-      id: user.id,
-      exam_goal: goal,
-      level,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "id" });
+    res = await fetch("/api/settings/exam-goal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ exam_goal: goalOption.label }),
+    });
   } catch {
-    // non-critical: localStorage already recorded completion
+    throw new Error("保存に失敗しました。ネットワーク接続を確認してください");
+  }
+  if (!res.ok) {
+    throw new Error("保存に失敗しました。もう一度お試しください");
+  }
+  let json: { ok?: boolean };
+  try {
+    json = await res.json();
+  } catch {
+    throw new Error("保存に失敗しました。もう一度お試しください");
+  }
+  if (!json?.ok) {
+    throw new Error("保存に失敗しました。もう一度お試しください");
   }
 }
 
@@ -55,6 +77,14 @@ export function OnboardingModal() {
   const [goal, setGoal] = useState("");
   const [level, setLevel] = useState("");
   const [closing, setClosing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 二重送信防止用のガードはuseState(saving)ではなくuseRefで持つ。stateの更新は
+  // 次のレンダーまで反映されないため、ごく短い間隔で発生した2回目の呼び出しが
+  // 同じ古いsavingの値を読んでガードをすり抜けてしまう可能性がある(実際に
+  // E2Eで再現した)。refへの代入は同期的に即座に反映されるため、この種の
+  // レースを構造的に防げる。
+  const savingRef = useRef(false);
 
   useEffect(() => {
     if (!localStorage.getItem(STORAGE_KEY)) {
@@ -66,18 +96,52 @@ export function OnboardingModal() {
     }
   }, []);
 
-  const finish = (goToMaterials: boolean) => {
+  // 保存せずに閉じる(×ボタン・Escape・背景クリック)。DB/APIへは一切リクエストしない。
+  // goal・levelの部分的な選択状態も保存しないため、保存成功として扱われることはない。
+  const dismissOnboarding = () => {
+    if (savingRef.current) return;
     localStorage.setItem(STORAGE_KEY, "1");
-    // Save to Supabase (fire-and-forget, non-blocking)
-    if (goal) saveProfileToSupabase(goal, level);
     setClosing(true);
-    setTimeout(() => {
-      setShow(false);
-      if (goToMaterials && goal) router.push(MATERIAL_MAP[goal]);
-    }, 300);
+    setTimeout(() => setShow(false), 300);
   };
 
-  const { containerRef, handleKeyDown } = useModalA11y(show, () => finish(false));
+  // 最終ステップの完了操作。exam_goalの保存に成功した場合のみ、完了状態を記録して閉じる。
+  // 失敗時はモーダルを開いたまま最終ステップに留め、可視のエラーのみを表示する。
+  const completeOnboarding = async (goToMaterials: boolean) => {
+    if (savingRef.current) return; // 二重送信防止(同期的なref)
+    savingRef.current = true;
+    setErrorMessage(null);
+    setSaving(true);
+    try {
+      await saveExamGoal(goal);
+      localStorage.setItem(STORAGE_KEY, "1");
+      setClosing(true);
+      setTimeout(() => {
+        setShow(false);
+        if (goToMaterials) {
+          router.push(MATERIAL_MAP[goal]);
+        } else {
+          // ダッシュボードに留まる場合、dashboard自体は保存前のexam_goalで
+          // 既にサーバーレンダリング済みのため、明示的にrefreshしないと
+          // ExamCountdown等が保存した値を反映しないまま表示され続けてしまう
+          // (chatgpt-codex-connectorのP2指摘対応)。
+          router.refresh();
+        }
+      }, 300);
+      // 成功時はsavingRef/savingを意図的にリセットしない。ローカルdev server相手だと
+      // 保存自体の往復が300msの閉じるアニメーションより速く終わることがあり、finallyで
+      // 毎回リセットしているとアニメーション中にボタンが再度クリック可能な状態へ戻って
+      // しまい、フェードアウト中の誤クリックで同じ保存を二重送信してしまう(実際に
+      // E2Eの二重クリックテストで再現した)。モーダルはこの後アンマウントされるため、
+      // 成功時にstateを戻す必要はない。
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : "保存に失敗しました。もう一度お試しください");
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  const { containerRef, handleKeyDown } = useModalA11y(show, dismissOnboarding);
 
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -116,7 +180,7 @@ export function OnboardingModal() {
             <span id="onboarding-modal-title" className="text-[11px] font-semibold text-sky-600 uppercase tracking-wide">
               ようこそ · {step + 1} / 3
             </span>
-            <button onClick={() => finish(false)} aria-label="閉じる" className="text-navy-400 hover:text-navy-600 text-xl leading-none">×</button>
+            <button onClick={dismissOnboarding} disabled={saving} aria-label="閉じる" className="text-navy-400 hover:text-navy-600 text-xl leading-none disabled:opacity-40">×</button>
           </div>
           <div className="flex gap-1 mt-2">
             {[0,1,2].map(i => (
@@ -162,7 +226,7 @@ export function OnboardingModal() {
           {step === 1 && (
             <>
               <h2 ref={stepHeadingRef} tabIndex={-1} className="text-xl font-bold text-navy-800 mt-4">今の英語レベルは？</h2>
-              <p className="text-sm text-navy-500 mt-1">正直に答えてください。後から変えられます。</p>
+              <p className="text-sm text-navy-500 mt-1">今の感覚に近いものを選んでください。</p>
               <div className="mt-4 space-y-2">
                 {LEVELS.map(l => (
                   <button
@@ -207,18 +271,23 @@ export function OnboardingModal() {
                   <br />教材から一括インポートするのが一番早いです。
                 </p>
               </div>
-              <div className="mt-6 space-y-2">
+              <div className="mt-6 space-y-2" aria-busy={saving}>
+                {errorMessage && (
+                  <p role="alert" className="text-sm text-red-600 text-center">{errorMessage}</p>
+                )}
                 <button
-                  onClick={() => finish(true)}
-                  className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3.5 rounded-2xl text-sm transition-colors"
+                  onClick={() => completeOnboarding(true)}
+                  disabled={saving}
+                  className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3.5 rounded-2xl text-sm transition-colors disabled:opacity-50"
                 >
-                  おすすめ教材を見る →
+                  {saving ? "保存中…" : "おすすめ教材を見る →"}
                 </button>
                 <button
-                  onClick={() => finish(false)}
-                  className="w-full border border-navy-200 text-navy-600 font-semibold py-3 rounded-2xl text-sm hover:bg-navy-50"
+                  onClick={() => completeOnboarding(false)}
+                  disabled={saving}
+                  className="w-full border border-navy-200 text-navy-600 font-semibold py-3 rounded-2xl text-sm hover:bg-navy-50 disabled:opacity-50"
                 >
-                  まずはダッシュボードを見る
+                  {saving ? "保存中…" : "まずはダッシュボードを見る"}
                 </button>
               </div>
               <div className="mt-4 bg-amber-50 border border-amber-200 rounded-2xl p-3">
