@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -29,28 +29,61 @@ function LoginForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
+  // 二重送信防止は同期的なrefで持つ(state更新は次のレンダーまで反映されないため)。
+  const submittingRef = useRef(false);
+  const googleSubmittingRef = useRef(false);
+  // next=/login等、遷移先が現在のページと同一ルートの場合はアンマウントされず
+  // busyが解除されないまま固まってしまうため、マウント状態を追跡する。
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    // Strict Modeではsetup→cleanup→setupが2回走るため、setup側でも
+    // trueへ戻さないとcleanupのfalseが残ったままになる。
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const onSubmitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setError(null);
     setBusy(true);
+    // 成功後はnextへ遷移するため、遷移中はbusyをtrueのまま維持し、遷移完了前の
+    // クリックで二重ログイン試行が発生しないようにする。ただしnextが現在の
+    // ログインページ自身を指す場合はアンマウントされず固まるため、一定時間後も
+    // マウントされたままならセーフティネットとしてbusyを解除する。
+    let navigating = false;
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      setBusy(false);
       if (error) { setError(error.message); return; }
+      navigating = true;
       trackLoginComplete("email");
       router.replace(next);
       router.refresh();
+      setTimeout(() => {
+        if (mountedRef.current) setBusy(false);
+      }, 2000);
     } catch (e) {
-      setBusy(false);
-      if (isSupabaseNotConfigured(e)) { router.push("/setup"); return; }
+      if (isSupabaseNotConfigured(e)) {
+        navigating = true;
+        router.push("/setup");
+        setTimeout(() => {
+          if (mountedRef.current) setBusy(false);
+        }, 2000);
+        return;
+      }
       setError(e instanceof Error ? e.message : "予期せぬエラー");
+    } finally {
+      submittingRef.current = false;
+      if (!navigating) setBusy(false);
     }
   };
 
   const onSubmitMagic = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setError(null);
     setMessage(null);
     setBusy(true);
@@ -62,19 +95,23 @@ function LoginForm() {
           emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         },
       });
-      setBusy(false);
       if (error) { setError(error.message); return; }
       setMessage(`${email} にログインリンクを送信しました。メールのリンクをクリックしてください。`);
     } catch (e) {
-      setBusy(false);
       if (isSupabaseNotConfigured(e)) { router.push("/setup"); return; }
       setError(e instanceof Error ? e.message : "予期せぬエラー");
+    } finally {
+      submittingRef.current = false;
+      setBusy(false);
     }
   };
 
   const onGoogle = async () => {
+    if (googleSubmittingRef.current) return;
+    googleSubmittingRef.current = true;
     setError(null);
     setGoogleBusy(true);
+    let navigating = false;
     try {
       const supabase = createClient();
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
@@ -84,17 +121,20 @@ function LoginForm() {
       });
       if (error) {
         setError(`Googleログインエラー: ${error.message}`);
-        setGoogleBusy(false);
-      } else if (!data.url) {
-        setError("Google認証URLが取得できませんでした。SupabaseダッシュボードでGoogle Providerを有効化してください。");
-        setGoogleBusy(false);
-      } else {
-        trackLoginComplete("google");
-        window.location.href = data.url;
+        return;
       }
+      if (!data.url) {
+        setError("Google認証URLが取得できませんでした。SupabaseダッシュボードでGoogle Providerを有効化してください。");
+        return;
+      }
+      navigating = true;
+      trackLoginComplete("google");
+      window.location.href = data.url;
     } catch (e) {
-      setGoogleBusy(false);
       setError(e instanceof Error ? e.message : "予期せぬエラー");
+    } finally {
+      googleSubmittingRef.current = false;
+      if (!navigating) setGoogleBusy(false);
     }
   };
 
@@ -118,6 +158,7 @@ function LoginForm() {
         <button
           onClick={onGoogle}
           disabled={googleBusy || busy}
+          aria-busy={googleBusy}
           className="mt-5 w-full flex items-center justify-center gap-3 py-3 rounded-xl border-2 border-navy-200 text-navy-700 font-semibold text-sm hover:bg-navy-50 active:scale-[0.98] transition-all disabled:opacity-60"
         >
           <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
@@ -130,10 +171,24 @@ function LoginForm() {
         </button>
 
         {error && (
-          <div className="mt-3 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg border border-red-200">
+          <div role="alert" className="mt-3 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg border border-red-200">
             {error}
           </div>
         )}
+
+        {/* role="status"はマウント前から存在するライブリージョンでないと確実に読み上げ
+            られないため、常時マウント済みのsr-only領域を用意し、成功時にテキストだけを
+            更新する(role="alert"と異なり事前マウントが必要)。モード切替(password⇄magic)
+            を跨いでもこの要素自体はアンマウントされないよう、モード分岐の外側に置く。 */}
+        <div
+          role="status"
+          aria-live="polite"
+          className={message
+            ? "mt-3 text-sm text-emerald-700 bg-emerald-50 px-3 py-3 rounded-lg border border-emerald-200"
+            : "sr-only"}
+        >
+          {message ?? ""}
+        </div>
 
         <div className="relative mt-5 mb-2">
           <div className="absolute inset-0 flex items-center">
@@ -161,7 +216,7 @@ function LoginForm() {
         </div>
 
         {mode === "password" ? (
-          <form onSubmit={onSubmitPassword} className="space-y-4">
+          <form onSubmit={onSubmitPassword} className="space-y-4" aria-busy={busy}>
             <Field label="メールアドレス">
               <Input data-testid="login-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
             </Field>
@@ -173,15 +228,11 @@ function LoginForm() {
             </Button>
           </form>
         ) : (
-          <form onSubmit={onSubmitMagic} className="space-y-4">
+          <form onSubmit={onSubmitMagic} className="space-y-4" aria-busy={busy}>
             <Field label="メールアドレス" hint="登録済みのメールアドレスを入力してください">
               <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="example@gmail.com" />
             </Field>
-            {message ? (
-              <div className="text-sm text-emerald-700 bg-emerald-50 px-3 py-3 rounded-lg border border-emerald-200">
-                {message}
-              </div>
-            ) : (
+            {!message && (
               <Button type="submit" fullWidth size="lg" disabled={busy || googleBusy}>
                 {busy ? "送信中..." : "ログインリンクを送信"}
               </Button>

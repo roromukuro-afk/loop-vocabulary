@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -14,65 +14,113 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
+  // 二重送信防止は同期的なrefで持つ(state更新は次のレンダーまで反映されないため)。
+  const submittingRef = useRef(false);
+  const googleSubmittingRef = useRef(false);
+  // 遷移開始後に接続断等でdashboardへの遷移自体が完了しなかった場合、
+  // アンマウントされずbusyが解除されないまま固まってしまうため、マウント
+  // 状態を追跡する(router.replace/pushは遷移の完了・失敗を通知しない)。
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setError(null);
-    setMessage(null);
     setBusy(true);
     trackEvent("signup_started", { method: "email" });
+    // 成功後はdashboardへ遷移するため、遷移中はbusyをtrueのまま維持し、遷移完了
+    // 前のクリックで二重登録が発生しないようにする(遷移しない失敗経路でのみ
+    // finallyでbusyを解除する)。ただし遷移自体が完了しなかった場合に備え、
+    // 一定時間後もマウントされたままならセーフティネットとしてbusyを解除する。
+    let navigating = false;
     try {
-      // Step 1: サーバー側で管理API経由ユーザー作成（メール確認不要）
+      // Step 1: サーバー側で管理API経由ユーザー作成(メール確認不要)
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const json = await res.json();
+      let json: { error?: string };
+      try {
+        json = await res.json();
+      } catch {
+        setError("登録に失敗しました。もう一度お試しください");
+        return;
+      }
       if (!res.ok) {
-        setBusy(false);
-        return setError(json.error ?? "登録に失敗しました");
+        setError(json.error ?? "登録に失敗しました");
+        return;
       }
 
       // Step 2: 作成直後にサインイン
       const supabase = createClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      setBusy(false);
       if (signInError) {
         setError("アカウントは作成されました。ログインページからサインインしてください。");
         return;
       }
 
+      navigating = true;
       trackSignupComplete("email");
       trackEvent("signup_completed", { method: "email" });
       fetch("/api/email/welcome", { method: "POST" }).catch(() => {});
       router.replace("/dashboard");
       router.refresh();
+      setTimeout(() => {
+        if (mountedRef.current) setBusy(false);
+      }, 2000);
     } catch (e) {
-      setBusy(false);
-      if (isSupabaseNotConfigured(e)) { router.push("/setup"); return; }
+      if (isSupabaseNotConfigured(e)) {
+        navigating = true;
+        router.push("/setup");
+        setTimeout(() => {
+          if (mountedRef.current) setBusy(false);
+        }, 2000);
+        return;
+      }
       setError(e instanceof Error ? e.message : "予期せぬエラー");
+    } finally {
+      submittingRef.current = false;
+      if (!navigating) setBusy(false);
     }
   };
 
   const onGoogle = async () => {
+    if (googleSubmittingRef.current) return;
+    googleSubmittingRef.current = true;
     setError(null);
     setGoogleBusy(true);
     trackEvent("signup_started", { method: "google" });
+    let navigating = false;
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
       });
-      if (error) { setError(error.message); setGoogleBusy(false); }
-      else { trackSignupComplete("google"); trackEvent("signup_completed", { method: "google" }); }
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      if (!data.url) {
+        setError("Google認証URLが取得できませんでした。SupabaseダッシュボードでGoogle Providerを有効化してください。");
+        return;
+      }
+      navigating = true;
+      trackSignupComplete("google");
+      trackEvent("signup_completed", { method: "google" });
     } catch (e) {
-      setGoogleBusy(false);
       setError(e instanceof Error ? e.message : "予期せぬエラー");
+    } finally {
+      googleSubmittingRef.current = false;
+      if (!navigating) setGoogleBusy(false);
     }
   };
 
@@ -101,6 +149,7 @@ export default function SignupPage() {
         <button
           onClick={onGoogle}
           disabled={googleBusy || busy}
+          aria-busy={googleBusy}
           className="mt-5 w-full flex items-center justify-center gap-3 py-3 rounded-xl border-2 border-navy-200 text-navy-700 font-semibold text-sm hover:bg-navy-50 active:scale-[0.98] transition-all disabled:opacity-60"
         >
           <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
@@ -121,15 +170,14 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="space-y-4" aria-busy={busy}>
           <Field label="メールアドレス">
             <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
           </Field>
           <Field label="パスワード" hint="6文字以上">
             <Input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
           </Field>
-          {error && <div className="text-sm text-red-600">{error}</div>}
-          {message && <div className="text-sm text-navy-700 bg-sky-50 p-3 rounded-lg">{message}</div>}
+          {error && <div role="alert" className="text-sm text-red-600">{error}</div>}
           <Button type="submit" fullWidth size="lg" disabled={busy || googleBusy}>
             {busy ? "登録中..." : "無料で登録"}
           </Button>
