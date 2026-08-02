@@ -35,7 +35,12 @@ function LoginForm() {
   // next=/login等、遷移先が現在のページと同一ルートの場合はアンマウントされず
   // busyが解除されないまま固まってしまうため、マウント状態を追跡する。
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => {
+    // Strict Modeではsetup→cleanup→setupが2回走るため、setup側でも
+    // trueへ戻さないとcleanupのfalseが残ったままになる。
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const onSubmitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
