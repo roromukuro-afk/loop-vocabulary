@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -19,6 +19,14 @@ export default function SignupPage() {
   // 二重送信防止は同期的なrefで持つ(state更新は次のレンダーまで反映されないため)。
   const submittingRef = useRef(false);
   const googleSubmittingRef = useRef(false);
+  // 遷移開始後に接続断等でdashboardへの遷移自体が完了しなかった場合、
+  // アンマウントされずbusyが解除されないまま固まってしまうため、マウント
+  // 状態を追跡する(router.replace/pushは遷移の完了・失敗を通知しない)。
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +37,8 @@ export default function SignupPage() {
     trackEvent("signup_started", { method: "email" });
     // 成功後はdashboardへ遷移するため、遷移中はbusyをtrueのまま維持し、遷移完了
     // 前のクリックで二重登録が発生しないようにする(遷移しない失敗経路でのみ
-    // finallyでbusyを解除する)。
+    // finallyでbusyを解除する)。ただし遷移自体が完了しなかった場合に備え、
+    // 一定時間後もマウントされたままならセーフティネットとしてbusyを解除する。
     let navigating = false;
     try {
       // Step 1: サーバー側で管理API経由ユーザー作成(メール確認不要)
@@ -64,6 +73,9 @@ export default function SignupPage() {
       fetch("/api/email/welcome", { method: "POST" }).catch(() => {});
       router.replace("/dashboard");
       router.refresh();
+      setTimeout(() => {
+        if (mountedRef.current) setBusy(false);
+      }, 2000);
     } catch (e) {
       if (isSupabaseNotConfigured(e)) { navigating = true; router.push("/setup"); return; }
       setError(e instanceof Error ? e.message : "予期せぬエラー");

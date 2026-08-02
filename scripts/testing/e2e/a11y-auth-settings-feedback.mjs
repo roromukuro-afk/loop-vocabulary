@@ -163,6 +163,63 @@ async function runSignupTests(browser, baseUrl) {
     await page.close();
   }
 
+  // ---- A4b. 登録成功だがdashboardへの遷移自体が完了しない(接続断等を想定) ----
+  // chatgpt-codex-connectorのPR #71レビュー指摘: router.replace("/dashboard")は
+  // 遷移の完了・失敗を呼び出し側へ一切通知しないため、遷移自体が完了しなかった
+  // 場合(例: dashboardのRSCフェッチが固まる)、コンポーネントがアンマウントされず
+  // navigatingフラグによりfinallyでのbusy解除がスキップされ続け、登録ボタンが
+  // disabledのまま固まってしまっていた。loginと同じセーフティネット(2000ms)を
+  // 検証する。
+  {
+    const page = await browser.newPage();
+    const fakeUser = {
+      id: "00000000-0000-4000-8000-000000000002",
+      aud: "authenticated",
+      app_metadata: {}, user_metadata: {},
+      created_at: "2026-01-01T00:00:00Z",
+    };
+    await page.route("**/api/auth/signup", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true }) });
+    });
+    await page.route("**/auth/v1/token**", async (route) => {
+      await route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify({
+          access_token: "e2e-fake-access-token", token_type: "bearer",
+          expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600,
+          refresh_token: "e2e-fake-refresh-token", user: fakeUser,
+        }),
+      });
+    });
+    await page.route("**/auth/v1/user**", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeUser) });
+    });
+    await page.route("**/api/email/welcome", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    });
+    // dashboardへの遷移(RSCフェッチ)を意図的に応答せず固める(fulfill/abort/continue
+    // を一切呼ばない)。これにより「遷移開始はしたが完了しない」状態を再現する。
+    await page.route("**/dashboard**", async () => {});
+
+    await gotoReady(page, `${baseUrl}/signup`);
+    await page.locator('input[type="email"]').fill("e2e-signup-stalled@example.com");
+    await page.locator('input[type="password"]').fill("testpass123");
+    const submitBtn = page.locator('button[type="submit"]');
+    await submitBtn.click();
+
+    await page.waitForFunction(
+      () => document.querySelector('button[type="submit"]')?.textContent?.includes("登録中"),
+      null, { timeout: 5000 },
+    ).then(() => ok("signup(成功・遷移スタック): クリック直後にbusy状態(登録中...)へ切り替わる"))
+      .catch(() => fail("signup(成功・遷移スタック): busy状態への切り替わりを確認できなかった"));
+
+    await assertReOperable(submitBtn, "signup(成功・遷移スタック)");
+    const stillOnSignup = page.url().includes("/signup");
+    if (stillOnSignup) ok("signup(成功・遷移スタック): 想定どおり同一ページに留まっている(遷移が完了しないケースの再現)");
+    else fail(`signup(成功・遷移スタック): 想定外のURLへ遷移した: ${page.url()}`);
+    await page.close();
+  }
+
   // ---- A5. Googleボタン: クリック直後にaria-busyがtrueになり、実authorize遷移が発生しない ----
   // signInWithOAuth()の成功経路はPKCE code_challenge生成(crypto.subtle.digest)の後、
   // window.location.assign()による実際のページ遷移(実authorizeエンドポイントへの
