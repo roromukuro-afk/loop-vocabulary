@@ -35,8 +35,15 @@ const MATERIAL_MAP: Record<string, string> = {
 // 既存の設定画面(ExamCountdown)と同じ/api/settings/exam-goal経由で保存する。
 // levelは現時点でOnboardingModal以外のどこからも読み取られておらず(読み取り側・
 // 保存先とも存在しない)、永続化しない(GitHub Issue参照)。
+//
+// DBへは、GOALSの内部id(例: "eiken")ではなく、その日本語ラベル(例: "英検")を
+// 保存する。exam_goalはExamCountdownがそのまま可視テキストとして表示する
+// フィールドのため、内部idをそのまま保存すると画面に"eiken"という文字列が
+// 表示されてしまう(chatgpt-codex-connectorのP2指摘対応)。ExamCountdownの
+// 編集用<select>にも同じラベルをoptionとして追加済み。
 async function saveExamGoal(goal: string): Promise<void> {
-  if (!GOALS.some((g) => g.id === goal)) {
+  const goalOption = GOALS.find((g) => g.id === goal);
+  if (!goalOption) {
     throw new Error("保存に失敗しました。もう一度お試しください");
   }
   let res: Response;
@@ -44,7 +51,7 @@ async function saveExamGoal(goal: string): Promise<void> {
     res = await fetch("/api/settings/exam-goal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ exam_goal: goal }),
+      body: JSON.stringify({ exam_goal: goalOption.label }),
     });
   } catch {
     throw new Error("保存に失敗しました。ネットワーク接続を確認してください");
@@ -111,7 +118,15 @@ export function OnboardingModal() {
       setClosing(true);
       setTimeout(() => {
         setShow(false);
-        if (goToMaterials) router.push(MATERIAL_MAP[goal]);
+        if (goToMaterials) {
+          router.push(MATERIAL_MAP[goal]);
+        } else {
+          // ダッシュボードに留まる場合、dashboard自体は保存前のexam_goalで
+          // 既にサーバーレンダリング済みのため、明示的にrefreshしないと
+          // ExamCountdown等が保存した値を反映しないまま表示され続けてしまう
+          // (chatgpt-codex-connectorのP2指摘対応)。
+          router.refresh();
+        }
       }, 300);
       // 成功時はsavingRef/savingを意図的にリセットしない。ローカルdev server相手だと
       // 保存自体の往復が300msの閉じるアニメーションより速く終わることがあり、finallyで

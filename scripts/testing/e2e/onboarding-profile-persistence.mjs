@@ -196,16 +196,20 @@ async function runOnboardingSuccessTest(browser, baseUrl, email, password, admin
   if (capturedBodies.length === 1) ok("オンボーディング成功フロー: 保存リクエストは1回だけ送信される(二重送信なし)");
   else fail(`オンボーディング成功フロー: 保存リクエストが${capturedBodies.length}回送信された(二重送信の疑い)`);
 
+  // OnboardingModalはGOALSの内部id("eiken")ではなく、対応する日本語ラベル("英検")を
+  // 送信する。ExamCountdownがexam_goalをそのまま可視テキストとして表示するため、
+  // 内部idをそのまま保存すると画面に"eiken"という文字列が表示されてしまう
+  // (chatgpt-codex-connectorのP2指摘対応)。
   const body = capturedBodies[0] ?? {};
   const bodyKeys = Object.keys(body);
-  if (bodyKeys.length === 1 && bodyKeys[0] === "exam_goal" && body.exam_goal === "eiken") {
-    ok('オンボーディング成功フロー: リクエストbodyは{ exam_goal: "eiken" }のみ(levelは含まれない)');
+  if (bodyKeys.length === 1 && bodyKeys[0] === "exam_goal" && body.exam_goal === "英検") {
+    ok('オンボーディング成功フロー: リクエストbodyは{ exam_goal: "英検" }のみ(内部id "eiken" ではなく日本語ラベル、levelは含まれない)');
   } else {
     fail(`オンボーディング成功フロー: リクエストbodyが想定外: ${JSON.stringify(body)}`);
   }
 
   const profileAfter = await readProfileColumns(admin, userId);
-  if (profileAfter.exam_goal === "eiken") ok("オンボーディング成功フロー: DBのexam_goalが正しく更新される");
+  if (profileAfter.exam_goal === "英検") ok("オンボーディング成功フロー: DBのexam_goalが日本語ラベルで正しく更新される");
   else fail(`オンボーディング成功フロー: DBのexam_goalが更新されていない: ${profileAfter.exam_goal}`);
   if (profileAfter.exam_date === examDateBefore) ok("オンボーディング成功フロー: exam_dateが変化しない");
   else fail(`オンボーディング成功フロー: exam_dateが意図せず変化した: ${profileAfter.exam_date} (before=${examDateBefore})`);
