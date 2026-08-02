@@ -229,6 +229,9 @@ async function main() {
 
     console.log("\n=== 62. オンボーディングのexam_goal永続化(Issue #65) E2E ===");
     results.onboardingProfilePersistence = runNode("scripts/testing/e2e/onboarding-profile-persistence.mjs");
+
+    console.log("\n=== 63. アクセシビリティ(認証・表示名フォーム第11弾) E2E ===");
+    results.a11yAuthSettingsFeedback = runNode("scripts/testing/e2e/a11y-auth-settings-feedback.mjs");
   } finally {
     stopDevServer(dev);
   }
