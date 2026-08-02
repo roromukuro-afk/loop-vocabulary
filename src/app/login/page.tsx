@@ -65,7 +65,14 @@ function LoginForm() {
         if (mountedRef.current) setBusy(false);
       }, 2000);
     } catch (e) {
-      if (isSupabaseNotConfigured(e)) { navigating = true; router.push("/setup"); return; }
+      if (isSupabaseNotConfigured(e)) {
+        navigating = true;
+        router.push("/setup");
+        setTimeout(() => {
+          if (mountedRef.current) setBusy(false);
+        }, 2000);
+        return;
+      }
       setError(e instanceof Error ? e.message : "予期せぬエラー");
     } finally {
       submittingRef.current = false;
