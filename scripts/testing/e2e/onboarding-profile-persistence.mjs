@@ -140,6 +140,131 @@ async function runApiPartialUpdateTests(browser, baseUrl, email, password, admin
   else fail(`API部分更新: 未認証リクエストが想定外のステータス: ${resAnon.status()}`);
   await anonContext.close();
 
+  // ---- A5. 不正入力はHTTP 400で拒否され、DBを一切変化させない ----
+  // (chatgpt-codex-connectorのP2指摘対応: 以前は不正な値を無条件でnullへ変換して
+  // おり、型不正・空文字送信で既存値が意図せず解除されていた)
+  async function rawPost(rawBody) {
+    return page.request.post(`${baseUrl}/api/settings/exam-goal`, {
+      data: rawBody,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  {
+    const before = await readProfileColumns(admin, userId);
+    const res = await page.request.post(`${baseUrl}/api/settings/exam-goal`, { data: { exam_goal: 123 } });
+    if (res.status() === 400) ok('API入力検証: {"exam_goal":123} → HTTP 400で拒否される');
+    else fail(`API入力検証: {"exam_goal":123} → 想定外のステータス: ${res.status()}`);
+    const after = await readProfileColumns(admin, userId);
+    if (after.exam_goal === before.exam_goal && after.exam_date === before.exam_date) ok('API入力検証: {"exam_goal":123} → DBが一切変化しない');
+    else fail(`API入力検証: {"exam_goal":123} → DBが変化してしまった: ${JSON.stringify(after)}`);
+  }
+  {
+    const before = await readProfileColumns(admin, userId);
+    const res = await page.request.post(`${baseUrl}/api/settings/exam-goal`, { data: { exam_goal: "" } });
+    if (res.status() === 400) ok('API入力検証: {"exam_goal":""} → HTTP 400で拒否される');
+    else fail(`API入力検証: {"exam_goal":""} → 想定外のステータス: ${res.status()}`);
+    const after = await readProfileColumns(admin, userId);
+    if (after.exam_goal === before.exam_goal && after.exam_date === before.exam_date) ok('API入力検証: {"exam_goal":""} → DBが一切変化しない');
+    else fail(`API入力検証: {"exam_goal":""} → DBが変化してしまった: ${JSON.stringify(after)}`);
+  }
+  {
+    const before = await readProfileColumns(admin, userId);
+    const res = await page.request.post(`${baseUrl}/api/settings/exam-goal`, { data: { exam_goal: " " } });
+    if (res.status() === 400) ok('API入力検証: {"exam_goal":" "} → HTTP 400で拒否される');
+    else fail(`API入力検証: {"exam_goal":" "} → 想定外のステータス: ${res.status()}`);
+    const after = await readProfileColumns(admin, userId);
+    if (after.exam_goal === before.exam_goal && after.exam_date === before.exam_date) ok('API入力検証: {"exam_goal":" "} → DBが一切変化しない');
+    else fail(`API入力検証: {"exam_goal":" "} → DBが変化してしまった: ${JSON.stringify(after)}`);
+  }
+  {
+    const before = await readProfileColumns(admin, userId);
+    const res = await page.request.post(`${baseUrl}/api/settings/exam-goal`, { data: { exam_date: false } });
+    if (res.status() === 400) ok('API入力検証: {"exam_date":false} → HTTP 400で拒否される');
+    else fail(`API入力検証: {"exam_date":false} → 想定外のステータス: ${res.status()}`);
+    const after = await readProfileColumns(admin, userId);
+    if (after.exam_goal === before.exam_goal && after.exam_date === before.exam_date) ok('API入力検証: {"exam_date":false} → DBが一切変化しない');
+    else fail(`API入力検証: {"exam_date":false} → DBが変化してしまった: ${JSON.stringify(after)}`);
+  }
+  {
+    const before = await readProfileColumns(admin, userId);
+    const res = await page.request.post(`${baseUrl}/api/settings/exam-goal`, { data: { exam_date: "" } });
+    if (res.status() === 400) ok('API入力検証: {"exam_date":""} → HTTP 400で拒否される');
+    else fail(`API入力検証: {"exam_date":""} → 想定外のステータス: ${res.status()}`);
+    const after = await readProfileColumns(admin, userId);
+    if (after.exam_goal === before.exam_goal && after.exam_date === before.exam_date) ok('API入力検証: {"exam_date":""} → DBが一切変化しない');
+    else fail(`API入力検証: {"exam_date":""} → DBが変化してしまった: ${JSON.stringify(after)}`);
+  }
+  {
+    const before = await readProfileColumns(admin, userId);
+    const res = await page.request.post(`${baseUrl}/api/settings/exam-goal`, { data: { exam_date: "2026-02-30" } });
+    if (res.status() === 400) ok('API入力検証: {"exam_date":"2026-02-30"}(実在しない日付) → HTTP 400で拒否される');
+    else fail(`API入力検証: {"exam_date":"2026-02-30"} → 想定外のステータス: ${res.status()}`);
+    const after = await readProfileColumns(admin, userId);
+    if (after.exam_goal === before.exam_goal && after.exam_date === before.exam_date) ok('API入力検証: {"exam_date":"2026-02-30"} → DBが一切変化しない');
+    else fail(`API入力検証: {"exam_date":"2026-02-30"} → DBが変化してしまった: ${JSON.stringify(after)}`);
+  }
+  {
+    const before = await readProfileColumns(admin, userId);
+    const res = await page.request.post(`${baseUrl}/api/settings/exam-goal`, { data: { exam_date: "2026-13-01" } });
+    if (res.status() === 400) ok('API入力検証: {"exam_date":"2026-13-01"}(実在しない月) → HTTP 400で拒否される');
+    else fail(`API入力検証: {"exam_date":"2026-13-01"} → 想定外のステータス: ${res.status()}`);
+    const after = await readProfileColumns(admin, userId);
+    if (after.exam_goal === before.exam_goal && after.exam_date === before.exam_date) ok('API入力検証: {"exam_date":"2026-13-01"} → DBが一切変化しない');
+    else fail(`API入力検証: {"exam_date":"2026-13-01"} → DBが変化してしまった: ${JSON.stringify(after)}`);
+  }
+  {
+    const before = await readProfileColumns(admin, userId);
+    const res = await rawPost("null");
+    if (res.status() === 400) ok("API入力検証: bodyがnullリテラル → HTTP 400で拒否される");
+    else fail(`API入力検証: bodyがnullリテラル → 想定外のステータス: ${res.status()}`);
+    const after = await readProfileColumns(admin, userId);
+    if (after.exam_goal === before.exam_goal && after.exam_date === before.exam_date) ok("API入力検証: bodyがnullリテラル → DBが一切変化しない");
+    else fail(`API入力検証: bodyがnullリテラル → DBが変化してしまった: ${JSON.stringify(after)}`);
+  }
+  {
+    const before = await readProfileColumns(admin, userId);
+    const res = await rawPost(JSON.stringify(["exam_goal", "eiken"]));
+    if (res.status() === 400) ok("API入力検証: bodyが配列 → HTTP 400で拒否される");
+    else fail(`API入力検証: bodyが配列 → 想定外のステータス: ${res.status()}`);
+    const after = await readProfileColumns(admin, userId);
+    if (after.exam_goal === before.exam_goal && after.exam_date === before.exam_date) ok("API入力検証: bodyが配列 → DBが一切変化しない");
+    else fail(`API入力検証: bodyが配列 → DBが変化してしまった: ${JSON.stringify(after)}`);
+  }
+  {
+    const before = await readProfileColumns(admin, userId);
+    const res = await page.request.post(`${baseUrl}/api/settings/exam-goal`, { data: { unknown_field: "x" } });
+    if (res.status() === 400) ok("API入力検証: 未知キーのみのbody → HTTP 400で拒否される");
+    else fail(`API入力検証: 未知キーのみのbody → 想定外のステータス: ${res.status()}`);
+    const after = await readProfileColumns(admin, userId);
+    if (after.exam_goal === before.exam_goal && after.exam_date === before.exam_date) ok("API入力検証: 未知キーのみのbody → DBが一切変化しない");
+    else fail(`API入力検証: 未知キーのみのbody → DBが変化してしまった: ${JSON.stringify(after)}`);
+  }
+  // ---- A6. 明示的なnullで個別に解除できる ----
+  const beforeNullClear = await readProfileColumns(admin, userId);
+  {
+    const res = await page.request.post(`${baseUrl}/api/settings/exam-goal`, { data: { exam_goal: null } });
+    if (res.ok()) ok("API入力検証: {exam_goal:null} → リクエスト成功");
+    else fail(`API入力検証: {exam_goal:null} → 想定外のステータス: ${res.status()}`);
+    const after = await readProfileColumns(admin, userId);
+    if (after.exam_goal === null) ok("API入力検証: {exam_goal:null} → exam_goalだけが解除される");
+    else fail(`API入力検証: {exam_goal:null} → exam_goalが解除されていない: ${after.exam_goal}`);
+    if (after.exam_date === beforeNullClear.exam_date) ok("API入力検証: {exam_goal:null} → exam_dateは変化しない");
+    else fail(`API入力検証: {exam_goal:null} → exam_dateが変化してしまった: ${after.exam_date}`);
+  }
+  {
+    const res = await page.request.post(`${baseUrl}/api/settings/exam-goal`, { data: { exam_date: null } });
+    if (res.ok()) ok("API入力検証: {exam_date:null} → リクエスト成功");
+    else fail(`API入力検証: {exam_date:null} → 想定外のステータス: ${res.status()}`);
+    const after = await readProfileColumns(admin, userId);
+    if (after.exam_date === null) ok("API入力検証: {exam_date:null} → exam_dateだけが解除される");
+    else fail(`API入力検証: {exam_date:null} → exam_dateが解除されていない: ${after.exam_date}`);
+    if (after.exam_goal === null) ok("API入力検証: {exam_date:null} → exam_goalは(A6で既に解除済みの)null値のまま変化しない");
+    else fail(`API入力検証: {exam_date:null} → exam_goalが想定外に変化した: ${after.exam_goal}`);
+  }
+  // A5/A6でexam_goal/exam_dateをnullへ解除したため、後続テスト(オンボーディング成功
+  // フロー等)へ影響しないよう、A1〜A4相当の既知の値へ明示的に復元しておく。
+  await admin.from("profiles").update({ exam_goal: "toeic", exam_date: "2031-12-25" }).eq("id", userId);
+
   await page.close();
 }
 
