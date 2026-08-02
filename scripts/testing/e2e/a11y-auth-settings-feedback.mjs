@@ -247,6 +247,57 @@ async function runLoginTests(browser, baseUrl) {
     await page.close();
   }
 
+  // ---- B1b. パスワードログイン成功だがnext=/login(同一ルート)のためアンマウントされない ----
+  // chatgpt-codex-connectorのPR #71レビュー指摘: router.replace(next)がログイン
+  // ページ自身を指す場合、コンポーネントがアンマウントされずbusyが解除されないまま
+  // 固まっていた(navigatingフラグにより遷移完了を前提にfinallyでの解除をスキップして
+  // いたため)。一定時間後もマウントされたままならセーフティネットでbusyを解除する
+  // 修正を検証する。
+  {
+    const page = await browser.newPage();
+    const fakeUser = {
+      id: "00000000-0000-4000-8000-000000000001",
+      aud: "authenticated",
+      app_metadata: {}, user_metadata: {},
+      created_at: "2026-01-01T00:00:00Z",
+    };
+    await page.route("**/auth/v1/token**", async (route) => {
+      await route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify({
+          access_token: "e2e-fake-access-token",
+          token_type: "bearer",
+          expires_in: 3600,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          refresh_token: "e2e-fake-refresh-token",
+          user: fakeUser,
+        }),
+      });
+    });
+    await page.route("**/auth/v1/user**", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeUser) });
+    });
+    await gotoReady(page, `${baseUrl}/login?next=%2Flogin`);
+    await page.locator('[data-testid="login-email"]').fill("e2e-login-samepage@example.com");
+    await page.locator('[data-testid="login-password"]').fill("testpass123");
+    const submitBtn = page.locator('[data-testid="login-submit"]');
+    await submitBtn.click();
+
+    await page.waitForFunction(
+      () => document.querySelector('[data-testid="login-submit"]')?.textContent?.includes("ログイン中"),
+      null, { timeout: 5000 },
+    ).then(() => ok("login(成功・next=/login): クリック直後にbusy状態(ログイン中...)へ切り替わる"))
+      .catch(() => fail("login(成功・next=/login): busy状態への切り替わりを確認できなかった"));
+
+    // アンマウントされないため、セーフティネット(2000ms)経過後にbusyが解除される
+    // ことを確認する(disabled解除まで最大4秒待つ)。
+    await assertReOperable(submitBtn, "login(成功・next=/login)");
+    const stillOnLogin = page.url().includes("/login");
+    if (stillOnLogin) ok("login(成功・next=/login): 想定どおり同一ページに留まっている(アンマウントされないケースの再現)");
+    else fail(`login(成功・next=/login): 想定外のURLへ遷移した: ${page.url()}`);
+    await page.close();
+  }
+
   // ---- B2. メールリンク成功 ----
   {
     const page = await browser.newPage();

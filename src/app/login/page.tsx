@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -32,6 +32,10 @@ function LoginForm() {
   // 二重送信防止は同期的なrefで持つ(state更新は次のレンダーまで反映されないため)。
   const submittingRef = useRef(false);
   const googleSubmittingRef = useRef(false);
+  // next=/login等、遷移先が現在のページと同一ルートの場合はアンマウントされず
+  // busyが解除されないまま固まってしまうため、マウント状態を追跡する。
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const onSubmitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +44,9 @@ function LoginForm() {
     setError(null);
     setBusy(true);
     // 成功後はnextへ遷移するため、遷移中はbusyをtrueのまま維持し、遷移完了前の
-    // クリックで二重ログイン試行が発生しないようにする。
+    // クリックで二重ログイン試行が発生しないようにする。ただしnextが現在の
+    // ログインページ自身を指す場合はアンマウントされず固まるため、一定時間後も
+    // マウントされたままならセーフティネットとしてbusyを解除する。
     let navigating = false;
     try {
       const supabase = createClient();
@@ -50,6 +56,9 @@ function LoginForm() {
       trackLoginComplete("email");
       router.replace(next);
       router.refresh();
+      setTimeout(() => {
+        if (mountedRef.current) setBusy(false);
+      }, 2000);
     } catch (e) {
       if (isSupabaseNotConfigured(e)) { navigating = true; router.push("/setup"); return; }
       setError(e instanceof Error ? e.message : "予期せぬエラー");
