@@ -9,18 +9,22 @@ type Props =
   | { action: "portal" };
 
 // リダイレクト先として安全なURLだけを許可する。javascript:/data: 等の危険なschemeや、
-// 空文字・型不正・不正なURL文字列はすべて拒否する。本番Stripe URLはHTTPSだが、
-// ローカルE2Eの安全な同一サイト遷移にHTTPを使えるようhttp:も許可する。
+// 空文字・型不正・不正なURL文字列はすべて拒否する。本番Stripe URLはHTTPSのみ許可し、
+// httpはローカルE2Eの安全な同一サイト遷移用にloopbackホストへ限定する。
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 function parseRedirectUrl(value: unknown): string | null {
   if (typeof value !== "string" || !value.trim()) {
     return null;
   }
   try {
     const parsed = new URL(value);
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-      return null;
+    if (parsed.protocol === "https:") {
+      return parsed.toString();
     }
-    return parsed.toString();
+    if (parsed.protocol === "http:" && LOOPBACK_HOSTS.has(parsed.hostname)) {
+      return parsed.toString();
+    }
+    return null;
   } catch {
     return null;
   }
@@ -70,6 +74,32 @@ const PORTAL_ERROR_MESSAGES: Record<string, string> = {
 };
 const FALLBACK_MESSAGE = "決済ページを開けませんでした。時間をおいてもう一度お試しください";
 
+// bracket accessだとerror codeがconstructor/__proto__/toString等のprototype継承
+// プロパティ名と一致した場合に文字列以外の値を拾ってしまうため、hasOwnPropertyで
+// own propertyだけに限定する(inはprototype chainを含むため使わない)。
+function resolveErrorMessage(messages: Readonly<Record<string, string>>, code: string | null): string {
+  if (code && Object.prototype.hasOwnProperty.call(messages, code)) {
+    return messages[code];
+  }
+  return FALLBACK_MESSAGE;
+}
+
+// analyticsはbest-effort。GA4(trackCheckoutStart)とGrowth OS(trackEvent)が
+// それぞれ独立に同期的にthrowしても、もう片方の実行とcheckout本体の処理を
+// 妨げてはならない。
+function trackCheckoutAnalyticsBestEffort(plan: "monthly" | "yearly") {
+  try {
+    trackCheckoutStart(plan);
+  } catch {
+    // analytics failure must not block checkout
+  }
+  try {
+    trackEvent("checkout_started", { plan });
+  } catch {
+    // analytics failure must not block checkout
+  }
+}
+
 export function PremiumCheckout(props: Props) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -82,12 +112,11 @@ export function PremiumCheckout(props: Props) {
     setErrorMessage(null);
     setLoading(true);
     // analyticsの二重送信を避けるため、同期的refガードの後で呼ぶ。
-    trackCheckoutStart(plan);
-    trackEvent("checkout_started", { plan });
+    trackCheckoutAnalyticsBestEffort(plan);
 
     const result = await callStripeApi("/api/stripe/checkout", { plan });
     if (!result.ok) {
-      setErrorMessage((result.code && CHECKOUT_ERROR_MESSAGES[result.code]) ?? FALLBACK_MESSAGE);
+      setErrorMessage(resolveErrorMessage(CHECKOUT_ERROR_MESSAGES, result.code));
       submittingRef.current = false;
       setLoading(false);
       return;
@@ -118,7 +147,7 @@ export function PremiumCheckout(props: Props) {
 
     const result = await callStripeApi("/api/stripe/portal");
     if (!result.ok) {
-      setErrorMessage((result.code && PORTAL_ERROR_MESSAGES[result.code]) ?? FALLBACK_MESSAGE);
+      setErrorMessage(resolveErrorMessage(PORTAL_ERROR_MESSAGES, result.code));
       submittingRef.current = false;
       setLoading(false);
       return;

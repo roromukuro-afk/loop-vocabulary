@@ -3,18 +3,31 @@
  * エラー処理を検証する。
  *
  * 修正前は、checkout側でfetch()のnetwork例外・res.json()失敗・HTTP非2xx判定が
- * 未処理で、portal側はさらにHTTP非2xx・非JSON・data.url欠如時の可視エラーが
- * 一切無くloadingが解除されないままになる欠陥があった。二重送信防止も
- * useStateのみでuseRefの同期ガードが無かった。
+ * 未処理で、portal側はさらにHTTP非2xxや非JSON応答時の可視エラーが一切無かった。
+ * data.url欠如時はloadingこそ解除されるが、可視エラーが一切無くユーザーが失敗理由を
+ * 把握できないままだった(Issue #74本文の内容)。二重送信防止もuseStateのみで
+ * useRefの同期ガードが無かった。
+ *
+ * Codexレビュー(P2×2)を受けて追加対応:
+ * - analyticsはbest-effort化(GA4/Growth OSどちらが同期的にthrowしてもcheckoutを
+ *   止めない)。GA4はwindow.gtagの一時差し替え、Growth OSはlv_aid cookieへ
+ *   decodeURIComponentが失敗する不正なpercent encodingを設定して決定論的に再現する。
+ * - error code辞書はObject.prototype.hasOwnPropertyでown propertyのみ参照し、
+ *   constructor/__proto__/toString等prototype継承由来の値を拾わないようにした。
+ * - リダイレクト先のhttp:はloopbackホストのみへ限定(http://example.com等は拒否)。
  *
  * checkout(実サブスクリプション作成)・portal(実billing portal session作成)は
  * いずれも実Stripe API呼び出しを伴うmutationのため、全シナリオでPlaywrightの
  * page.route()により固定応答へ差し替える(実Stripe checkout session作成・
  * 実customer作成・実billing portal session作成・実課金・実サブスクリプション
- * 変更はいずれも発生させない)。/premium到達のための認証のみ、既存の専用
- * テストアカウント(test+onboarding)による実ログインセッションを使用する。
- * portal UIの表示には既存のstripe_customer_id(実値、本テストのために新規
- * 作成・変更はしない)を利用し、is_premiumだけを一時的にtrue/falseへ切り替える。
+ * 変更はいずれも発生させない)。想定パス以外へのStripe APIリクエストが万一発生した
+ * 場合に検知してabort・failさせる安全網(installStripeSafetyNet)も全ページへ設置する。
+ * /premiumはマウント時に必ずGrowth OSのpremium_page_viewedイベントを送信するため、
+ * 全ページで/api/analytics/eventsも常にintercept(実insert 0件を保証)する。
+ * /premium到達のための認証のみ、既存の専用テストアカウント(test+onboarding)による
+ * 実ログインセッションを使用する。portal UIの表示には既存のstripe_customer_id
+ * (実値、本テストのために新規作成・変更はしない)を利用し、is_premiumだけを
+ * 一時的にtrue/falseへ切り替える。
  *
  * 使い方: node scripts/testing/e2e/a11y-premium-checkout-feedback.mjs
  */
@@ -28,12 +41,22 @@ import { login, collectErrors } from "./lib/login.mjs";
 import { gotoReady } from "./lib/nav.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
+const FALLBACK_MESSAGE = "決済ページを開けませんでした。時間をおいてもう一度お試しください";
 
 let failed = 0;
 function ok(msg) { console.log(`✅ ${msg}`); }
 function fail(msg) { console.error(`❌ FAIL: ${msg}`); failed++; }
+
+// cleanup失敗を握りつぶさない。失敗してもfailedを増やしてexit 1へ反映しつつ、
+// 呼び出し側の残りのcleanupステップは続行できるようthrowはしない。
 async function safeCleanup(label, fn) {
-  try { await fn(); } catch (e) { console.error(`cleanup失敗(${label}): ${e.message}`); }
+  try {
+    await fn();
+    return true;
+  } catch (e) {
+    fail(`cleanup失敗(${label}): ${e instanceof Error ? e.message : String(e)}`);
+    return false;
+  }
 }
 
 function appAlertLocator(page) {
@@ -67,6 +90,55 @@ function createDeferred() {
   return { promise, resolve };
 }
 
+// Stripe API安全網: 各シナリオのroute handlerより先に(コード上も呼び出し順としても)
+// 登録する。Playwrightは後から登録したhandlerを先に評価する(LIFO)ため、各シナリオが
+// このあとで登録する専用handlerが一致するリクエストを先取りする。専用handlerのglobに
+// 一致しない想定外のStripe APIリクエスト(タイポ・専用handler未登録・想定外の追加
+// リクエスト等)だけがこの安全網に落ち、即abortしテストをfailさせる。
+function installStripeSafetyNet(page) {
+  return page.route("**/api/stripe/**", async (route) => {
+    const req = route.request();
+    let pathname = "(unparseable)";
+    try { pathname = new URL(req.url()).pathname; } catch { /* noop */ }
+    fail(`Stripe safety net: 専用route handlerが一致しない想定外のStripe APIリクエストを検知しabortした(method=${req.method()}, path=${pathname})`);
+    await route.abort("blockedbyclient");
+  });
+}
+
+// /premiumはマウント時に必ずGrowth OSのpremium_page_viewedイベントを送信するため、
+// checkout/portal問わず全ページで/api/analytics/eventsを必ずintercept・実insert
+// 0件を保証する。captured配列はevent_nameベースの集計(HTTP request数だけでは
+// traffic_source_detected等の副次イベントと二重送信を混同しかねないため)に使う。
+async function installAnalyticsIntercept(page) {
+  const capturedEvents = [];
+  await page.route("**/api/analytics/events", async (route) => {
+    const raw = route.request().postData();
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        for (const ev of Array.isArray(parsed) ? parsed : [parsed]) capturedEvents.push(ev);
+      } catch {
+        capturedEvents.push(null);
+      }
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, accepted: 0 }) });
+  });
+  return capturedEvents;
+}
+function countEventName(capturedEvents, eventName) {
+  return capturedEvents.filter((e) => e && e.event_name === eventName).length;
+}
+
+// 各テストページ共通のセットアップ(Stripe安全網→analytics intercept→collectErrors)。
+// 呼び出し順が重要: 安全網を先に登録し、各シナリオの専用handlerは呼び出し側で
+// このあとに登録する。
+function setupPage(page) {
+  installStripeSafetyNet(page);
+  const analyticsEventsPromise = installAnalyticsIntercept(page);
+  const errors = collectErrors(page);
+  return { errors, analyticsEventsPromise };
+}
+
 // ============================================================
 // A. checkout(action="checkout")
 // ============================================================
@@ -82,7 +154,7 @@ async function runCheckoutTests(browser, baseUrl, email, password) {
   // (fixed waitForTimeoutに頼らず、かつ即時応答によるレースを避けるため)。
   {
     const page = await browser.newPage();
-    const errors = collectErrors(page);
+    const { errors } = setupPage(page);
     let callCount = 0;
     let lastBody = null;
     const gate = createDeferred();
@@ -130,6 +202,7 @@ async function runCheckoutTests(browser, baseUrl, email, password) {
   // ---- A2. 成功(月額) ----
   {
     const page = await browser.newPage();
+    setupPage(page);
     let callCount = 0;
     let lastBody = null;
     await page.route("**/api/stripe/checkout", async (route) => {
@@ -154,6 +227,7 @@ async function runCheckoutTests(browser, baseUrl, email, password) {
   // ---- A3. HTTP JSONエラー: already_premium(409) ----
   {
     const page = await browser.newPage();
+    setupPage(page);
     await page.route("**/api/stripe/checkout", async (route) => {
       await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ error: "already_premium" }) });
     });
@@ -172,6 +246,7 @@ async function runCheckoutTests(browser, baseUrl, email, password) {
   // ---- A4. HTTP JSONエラー: 未知のerror code ----
   {
     const page = await browser.newPage();
+    setupPage(page);
     await page.route("**/api/stripe/checkout", async (route) => {
       await route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: "some_unknown_internal_code_xyz" }) });
     });
@@ -183,7 +258,7 @@ async function runCheckoutTests(browser, baseUrl, email, password) {
     const alertText = (await appAlertLocator(page).first().textContent())?.trim() ?? "";
     if (alertText.includes("some_unknown_internal_code_xyz")) {
       fail(`checkout(未知error code): 生のerror codeがそのまま表示されている: "${alertText}"`);
-    } else if (alertText === "決済ページを開けませんでした。時間をおいてもう一度お試しください") {
+    } else if (alertText === FALLBACK_MESSAGE) {
       ok(`checkout(未知error code): 一般化したメッセージが表示される: "${alertText}"`);
     } else {
       fail(`checkout(未知error code): メッセージが想定外: "${alertText}"`);
@@ -195,6 +270,7 @@ async function runCheckoutTests(browser, baseUrl, email, password) {
   // ---- A5. HTTP 500 ----
   {
     const page = await browser.newPage();
+    setupPage(page);
     await page.route("**/api/stripe/checkout", async (route) => {
       await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Internal Server Error: connection to Stripe timed out at line 42" }) });
     });
@@ -216,7 +292,7 @@ async function runCheckoutTests(browser, baseUrl, email, password) {
   // ---- A6. HTTP非JSONエラー ----
   {
     const page = await browser.newPage();
-    const errors = collectErrors(page);
+    const { errors } = setupPage(page);
     await page.route("**/api/stripe/checkout", async (route) => {
       await route.fulfill({ status: 502, contentType: "text/html", body: "<html>Bad Gateway</html>" });
     });
@@ -236,6 +312,7 @@ async function runCheckoutTests(browser, baseUrl, email, password) {
   // ---- A7. HTTP 200・URL欠如 ----
   {
     const page = await browser.newPage();
+    setupPage(page);
     await page.route("**/api/stripe/checkout", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
     });
@@ -255,6 +332,7 @@ async function runCheckoutTests(browser, baseUrl, email, password) {
   // ---- A8. HTTP 200・URL型不正 ----
   {
     const page = await browser.newPage();
+    setupPage(page);
     await page.route("**/api/stripe/checkout", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ url: 123 }) });
     });
@@ -273,7 +351,7 @@ async function runCheckoutTests(browser, baseUrl, email, password) {
   // ---- A9. 不正scheme(javascript:) ----
   {
     const page = await browser.newPage();
-    const errors = collectErrors(page);
+    const { errors } = setupPage(page);
     await page.route("**/api/stripe/checkout", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ url: "javascript:alert(1)" }) });
     });
@@ -290,9 +368,30 @@ async function runCheckoutTests(browser, baseUrl, email, password) {
     await page.close();
   }
 
-  // ---- A10. network abort ----
+  // ---- A10. HTTP 200・URLは有効だがloopback以外のhttpホスト(http://example.com) ----
   {
     const page = await browser.newPage();
+    setupPage(page);
+    await page.route("**/api/stripe/checkout", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ url: "http://example.com/path" }) });
+    });
+    await login(page, baseUrl, email, password);
+    await gotoReady(page, `${baseUrl}/premium`);
+
+    const urlBefore = page.url();
+    await yearlyBtn(page).click();
+    await waitForAppAlertCount(page, 1);
+    ok("checkout(非loopback http): alertが表示される");
+    if (page.url() === urlBefore) ok("checkout(非loopback http): 遷移していない(loopback以外のhttp:は拒否される)");
+    else fail(`checkout(非loopback http): 想定外に遷移した(現在のURL: ${page.url()})`);
+    await assertReOperable(yearlyBtn(page), "checkout(非loopback http)");
+    await page.close();
+  }
+
+  // ---- A11. network abort ----
+  {
+    const page = await browser.newPage();
+    setupPage(page);
     await page.route("**/api/stripe/checkout", async (route) => { await route.abort("failed"); });
     await login(page, baseUrl, email, password);
     await gotoReady(page, `${baseUrl}/premium`);
@@ -304,9 +403,10 @@ async function runCheckoutTests(browser, baseUrl, email, password) {
     await page.close();
   }
 
-  // ---- A11. 二重送信防止(deferred gateで実測) ----
+  // ---- A12. 二重送信防止(deferred gateで実測) ----
   {
     const page = await browser.newPage();
+    const { analyticsEventsPromise } = setupPage(page);
     let callCount = 0;
     const gate = createDeferred();
     await page.route("**/api/stripe/checkout", async (route) => {
@@ -340,6 +440,115 @@ async function runCheckoutTests(browser, baseUrl, email, password) {
       .catch(() => fail(`checkout(二重送信防止): レスポンス解放後も遷移しなかった(現在のURL: ${page.url()})`));
     if (callCount === 1) ok("checkout(二重送信防止): 完了後もAPI呼び出しは1回のまま");
     else fail(`checkout(二重送信防止): 完了後にAPIが${callCount}回になっていた`);
+
+    // HTTP request総数ではなく、payload内のevent_nameを集計してcheckout_startedの
+    // 送信回数を確認する(traffic_source_detected等の副次イベントが別リクエストとして
+    // 混在し得るため)。
+    const analyticsEvents = await analyticsEventsPromise;
+    const checkoutStartedCount = countEventName(analyticsEvents, "checkout_started");
+    if (checkoutStartedCount === 1) ok("checkout(二重送信防止): analyticsのcheckout_startedイベントも1回だけ送信された");
+    else fail(`checkout(二重送信防止): checkout_startedイベントが${checkoutStartedCount}回送信された`);
+    await page.close();
+  }
+
+  // ---- A13. analytics例外(GA4/window.gtag)がcheckoutを止めない ----
+  {
+    const page = await browser.newPage();
+    setupPage(page);
+    let callCount = 0;
+    let lastBody = null;
+    await page.route("**/api/stripe/checkout", async (route) => {
+      callCount++;
+      lastBody = JSON.parse(route.request().postData() ?? "{}");
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ url: `${baseUrl}/premium?checkout_test=ga4-throw` }) });
+    });
+    await login(page, baseUrl, email, password);
+    await gotoReady(page, `${baseUrl}/premium`);
+    // マウント時のPremiumTracker(本PR対象外・無関係のコード)による呼び出しを巻き込まない
+    // よう、hydration完了後・クリック直前にwindow.gtagを差し替える。
+    await page.evaluate(() => {
+      window.gtag = () => { throw new Error("intentional analytics test error (GA4)"); };
+    });
+
+    await yearlyBtn(page).click();
+    await page.waitForURL(/checkout_test=ga4-throw/, { timeout: 8000 })
+      .then(() => ok("checkout(analytics例外・GA4): window.gtagが同期的にthrowしても安全なURLへ遷移する"))
+      .catch(() => fail(`checkout(analytics例外・GA4): 遷移しなかった(loadingで永久停止した可能性。現在のURL: ${page.url()})`));
+    if (callCount === 1) ok("checkout(analytics例外・GA4): /api/stripe/checkoutは1回だけ呼ばれた");
+    else fail(`checkout(analytics例外・GA4): APIが${callCount}回呼ばれた`);
+    if (lastBody?.plan === "yearly") ok("checkout(analytics例外・GA4): request bodyのplanが'yearly'");
+    else fail(`checkout(analytics例外・GA4): request bodyのplanが想定外: ${JSON.stringify(lastBody)}`);
+    await page.close();
+  }
+
+  // ---- A14. analytics例外(Growth OS/trackEventのcookie decode失敗)がcheckoutを止めない ----
+  {
+    const page = await browser.newPage();
+    const { errors } = setupPage(page);
+    let callCount = 0;
+    let lastBody = null;
+    await page.route("**/api/stripe/checkout", async (route) => {
+      callCount++;
+      lastBody = JSON.parse(route.request().postData() ?? "{}");
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ url: `${baseUrl}/premium?checkout_test=growthos-throw` }) });
+    });
+    await login(page, baseUrl, email, password);
+    await gotoReady(page, `${baseUrl}/premium`);
+    // trackEvent()内部のgetAnonymousSessionId()→readCookie()のdecodeURIComponentを
+    // 決定論的にthrowさせるため、クリック直前にlv_aidへ不正なpercent encodingを設定する。
+    await page.evaluate(() => { document.cookie = "lv_aid=%zz;path=/"; });
+
+    await yearlyBtn(page).click();
+    await page.waitForURL(/checkout_test=growthos-throw/, { timeout: 8000 })
+      .then(() => ok("checkout(analytics例外・Growth OS): cookie decodeが同期的にthrowしても安全なURLへ遷移する"))
+      .catch(() => fail(`checkout(analytics例外・Growth OS): 遷移しなかった(loadingで永久停止した可能性。現在のURL: ${page.url()})`));
+    if (callCount === 1) ok("checkout(analytics例外・Growth OS): /api/stripe/checkoutは1回だけ呼ばれた");
+    else fail(`checkout(analytics例外・Growth OS): APIが${callCount}回呼ばれた`);
+    if (lastBody?.plan === "yearly") ok("checkout(analytics例外・Growth OS): request bodyのplanが'yearly'");
+    else fail(`checkout(analytics例外・Growth OS): request bodyのplanが想定外: ${JSON.stringify(lastBody)}`);
+    if (errors.length) fail(`checkout(analytics例外・Growth OS)操作中にエラー(try/catchで握り潰されるはずが漏れている):\n  ${errors.join("\n  ")}`);
+    else ok("checkout(analytics例外・Growth OS): console error / pageerror なし(例外はtry/catchで正しく吸収された)");
+    await page.close();
+  }
+
+  // ---- A15. prototype継承由来のerror code("constructor")はfallbackメッセージになる ----
+  {
+    const page = await browser.newPage();
+    setupPage(page);
+    await page.route("**/api/stripe/checkout", async (route) => {
+      await route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: "constructor" }) });
+    });
+    await login(page, baseUrl, email, password);
+    await gotoReady(page, `${baseUrl}/premium`);
+
+    await yearlyBtn(page).click();
+    await waitForAppAlertCount(page, 1);
+    const alertCount = await appAlertLocator(page).count();
+    const alertText = (await appAlertLocator(page).first().textContent())?.trim() ?? "";
+    if (alertCount === 1) ok("checkout(prototype由来code=constructor): alertはちょうど1件");
+    else fail(`checkout(prototype由来code=constructor): alertが${alertCount}件`);
+    if (alertText === FALLBACK_MESSAGE) ok(`checkout(prototype由来code=constructor): fallbackメッセージが表示される(空alertや[object Object]にならない): "${alertText}"`);
+    else fail(`checkout(prototype由来code=constructor): メッセージが想定外: "${alertText}"`);
+    await assertReOperable(yearlyBtn(page), "checkout(prototype由来code=constructor)");
+    await page.close();
+  }
+
+  // ---- A16. prototype継承由来のerror code("toString")もfallbackメッセージになる ----
+  {
+    const page = await browser.newPage();
+    setupPage(page);
+    await page.route("**/api/stripe/checkout", async (route) => {
+      await route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: "toString" }) });
+    });
+    await login(page, baseUrl, email, password);
+    await gotoReady(page, `${baseUrl}/premium`);
+
+    await yearlyBtn(page).click();
+    await waitForAppAlertCount(page, 1);
+    const alertText = (await appAlertLocator(page).first().textContent())?.trim() ?? "";
+    if (alertText === FALLBACK_MESSAGE) ok(`checkout(prototype由来code=toString): fallbackメッセージが表示される: "${alertText}"`);
+    else fail(`checkout(prototype由来code=toString): メッセージが想定外: "${alertText}"`);
+    await assertReOperable(yearlyBtn(page), "checkout(prototype由来code=toString)");
     await page.close();
   }
 }
@@ -354,7 +563,7 @@ async function runPortalTests(browser, baseUrl, email, password) {
   // レスポンスをdeferred gateで保留し、busy/disabled状態を確定的に観測してから解放する。
   {
     const page = await browser.newPage();
-    const errors = collectErrors(page);
+    const { errors } = setupPage(page);
     let callCount = 0;
     const gate = createDeferred();
     await page.route("**/api/stripe/portal", async (route) => {
@@ -402,6 +611,7 @@ async function runPortalTests(browser, baseUrl, email, password) {
   // ---- B2. no_subscription(404) ----
   {
     const page = await browser.newPage();
+    setupPage(page);
     await page.route("**/api/stripe/portal", async (route) => {
       await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "no_subscription" }) });
     });
@@ -421,6 +631,7 @@ async function runPortalTests(browser, baseUrl, email, password) {
   // ---- B3. HTTP 500 ----
   {
     const page = await browser.newPage();
+    setupPage(page);
     await page.route("**/api/stripe/portal", async (route) => {
       await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "StripeConnectionError: could not reach api.stripe.com" }) });
     });
@@ -443,7 +654,7 @@ async function runPortalTests(browser, baseUrl, email, password) {
   // ---- B4. HTTP非JSONエラー ----
   {
     const page = await browser.newPage();
-    const errors = collectErrors(page);
+    const { errors } = setupPage(page);
     await page.route("**/api/stripe/portal", async (route) => {
       await route.fulfill({ status: 502, contentType: "text/html", body: "<html>Bad Gateway</html>" });
     });
@@ -463,6 +674,7 @@ async function runPortalTests(browser, baseUrl, email, password) {
   // ---- B5. HTTP 200・URL欠如(Issue #74の直接的な再現テスト) ----
   {
     const page = await browser.newPage();
+    setupPage(page);
     await page.route("**/api/stripe/portal", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
     });
@@ -473,7 +685,7 @@ async function runPortalTests(browser, baseUrl, email, password) {
     const urlBefore = page.url();
     await portalBtn(page).click();
     await waitForAppAlertCount(page, 1);
-    ok("portal(HTTP200・URL欠如、Issue #74再現): 成功扱いにせずalertが表示される(修正前はここが無言で固まっていた)");
+    ok("portal(HTTP200・URL欠如、Issue #74再現): 成功扱いにせずalertが表示される(修正前はloadingは解除されるが可視エラーが無く失敗理由が分からないままだった)");
     if (page.url() === urlBefore) ok("portal(HTTP200・URL欠如): 遷移していない");
     else fail(`portal(HTTP200・URL欠如): 想定外に遷移した(現在のURL: ${page.url()})`);
     await assertReOperable(portalBtn(page), "portal(HTTP200・URL欠如)");
@@ -483,6 +695,7 @@ async function runPortalTests(browser, baseUrl, email, password) {
   // ---- B6. HTTP 200・URL型不正 ----
   {
     const page = await browser.newPage();
+    setupPage(page);
     await page.route("**/api/stripe/portal", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ url: 123 }) });
     });
@@ -502,6 +715,7 @@ async function runPortalTests(browser, baseUrl, email, password) {
   // ---- B7. 不正scheme(javascript:) ----
   {
     const page = await browser.newPage();
+    setupPage(page);
     await page.route("**/api/stripe/portal", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ url: "javascript:alert(1)" }) });
     });
@@ -518,9 +732,31 @@ async function runPortalTests(browser, baseUrl, email, password) {
     await page.close();
   }
 
-  // ---- B8. network abort ----
+  // ---- B8. HTTP 200・URLは有効だがloopback以外のhttpホスト(http://example.com) ----
   {
     const page = await browser.newPage();
+    setupPage(page);
+    await page.route("**/api/stripe/portal", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ url: "http://example.com/path" }) });
+    });
+    await login(page, baseUrl, email, password);
+    await gotoReady(page, `${baseUrl}/premium`);
+
+    await portalBtn(page).waitFor({ state: "visible", timeout: 8000 });
+    const urlBefore = page.url();
+    await portalBtn(page).click();
+    await waitForAppAlertCount(page, 1);
+    ok("portal(非loopback http): alertが表示される");
+    if (page.url() === urlBefore) ok("portal(非loopback http): 遷移していない(loopback以外のhttp:は拒否される)");
+    else fail(`portal(非loopback http): 想定外に遷移した(現在のURL: ${page.url()})`);
+    await assertReOperable(portalBtn(page), "portal(非loopback http)");
+    await page.close();
+  }
+
+  // ---- B9. network abort ----
+  {
+    const page = await browser.newPage();
+    setupPage(page);
     await page.route("**/api/stripe/portal", async (route) => { await route.abort("failed"); });
     await login(page, baseUrl, email, password);
     await gotoReady(page, `${baseUrl}/premium`);
@@ -533,9 +769,10 @@ async function runPortalTests(browser, baseUrl, email, password) {
     await page.close();
   }
 
-  // ---- B9. 二重送信防止(deferred gateで実測) ----
+  // ---- B10. 二重送信防止(deferred gateで実測) ----
   {
     const page = await browser.newPage();
+    setupPage(page);
     let callCount = 0;
     const gate = createDeferred();
     await page.route("**/api/stripe/portal", async (route) => {
@@ -561,6 +798,51 @@ async function runPortalTests(browser, baseUrl, email, password) {
     else fail(`portal(二重送信防止): 完了後にAPIが${callCount}回になっていた`);
     await page.close();
   }
+
+  // ---- B11. prototype継承由来のerror code("__proto__")はfallbackメッセージになる ----
+  // オブジェクトリテラル経由(JSON.stringify({error:"__proto__"}))ではなく、route
+  // 応答bodyには生のJSON文字列を直接与える(念のための防御的な書き方の指定)。
+  {
+    const page = await browser.newPage();
+    setupPage(page);
+    await page.route("**/api/stripe/portal", async (route) => {
+      await route.fulfill({ status: 400, contentType: "application/json", body: '{"error":"__proto__"}' });
+    });
+    await login(page, baseUrl, email, password);
+    await gotoReady(page, `${baseUrl}/premium`);
+
+    await portalBtn(page).waitFor({ state: "visible", timeout: 8000 });
+    await portalBtn(page).click();
+    await waitForAppAlertCount(page, 1);
+    const alertCount = await appAlertLocator(page).count();
+    const alertText = (await appAlertLocator(page).first().textContent())?.trim() ?? "";
+    if (alertCount === 1) ok("portal(prototype由来code=__proto__): alertはちょうど1件");
+    else fail(`portal(prototype由来code=__proto__): alertが${alertCount}件`);
+    if (alertText === FALLBACK_MESSAGE) ok(`portal(prototype由来code=__proto__): fallbackメッセージが表示される(空alertにならない): "${alertText}"`);
+    else fail(`portal(prototype由来code=__proto__): メッセージが想定外: "${alertText}"`);
+    await assertReOperable(portalBtn(page), "portal(prototype由来code=__proto__)");
+    await page.close();
+  }
+
+  // ---- B12. prototype継承由来のerror code("toString")もfallbackメッセージになる ----
+  {
+    const page = await browser.newPage();
+    setupPage(page);
+    await page.route("**/api/stripe/portal", async (route) => {
+      await route.fulfill({ status: 400, contentType: "application/json", body: '{"error":"toString"}' });
+    });
+    await login(page, baseUrl, email, password);
+    await gotoReady(page, `${baseUrl}/premium`);
+
+    await portalBtn(page).waitFor({ state: "visible", timeout: 8000 });
+    await portalBtn(page).click();
+    await waitForAppAlertCount(page, 1);
+    const alertText = (await appAlertLocator(page).first().textContent())?.trim() ?? "";
+    if (alertText === FALLBACK_MESSAGE) ok(`portal(prototype由来code=toString): fallbackメッセージが表示される: "${alertText}"`);
+    else fail(`portal(prototype由来code=toString): メッセージが想定外: "${alertText}"`);
+    await assertReOperable(portalBtn(page), "portal(prototype由来code=toString)");
+    await page.close();
+  }
 }
 
 async function main() {
@@ -579,11 +861,19 @@ async function main() {
   // is_premiumだけをテスト用に一時変更する。stripe_customer_idは既存の実値を
   // そのまま使い、本テストのために新規作成・変更はしない(portal APIは
   // route interceptionで遮断するため実値がなくても安全にUI検証できる)。
+  // updated_atは復元後の完全一致確認用に併せてスナップショットする(ただし
+  // このテーブルにはis_premiumの値を変えないno-op UPDATEでも必ずupdated_atを
+  // 更新するトリガーが存在することを実測で確認済みのため、updated_atの一致は
+  // 期待しない。理由を明示した上で「DB差分0」を安易に主張しないよう扱う)。
   const { data: preSeedProfile, error: preSeedErr } = await admin
-    .from("profiles").select("id, is_premium").eq("id", userId).maybeSingle();
+    .from("profiles").select("id, is_premium, stripe_customer_id, updated_at").eq("id", userId).maybeSingle();
   if (preSeedErr) throw new Error(`profilesスナップショット取得失敗: ${preSeedErr.message}`);
   if (!preSeedProfile) throw new Error("対象profileが見つからない");
-  const originalIsPremium = preSeedProfile.is_premium;
+  const originalSnapshot = {
+    is_premium: preSeedProfile.is_premium,
+    stripe_customer_id: preSeedProfile.stripe_customer_id,
+    updated_at: preSeedProfile.updated_at,
+  };
 
   let testError = null;
   const dev = await ensureDevServer(PORT);
@@ -606,24 +896,29 @@ async function main() {
   } finally {
     await safeCleanup("stopDevServer", () => stopDevServer(dev));
 
-    let restoreError = null;
-    try {
-      const { error } = await admin.from("profiles").update({ is_premium: originalIsPremium }).eq("id", userId);
+    // 復元自体が失敗してもここで止めず、可能な範囲の確認(取得・比較)を試みる。
+    const restoreOk = await safeCleanup("profiles復元", async () => {
+      const { error } = await admin.from("profiles").update({ is_premium: originalSnapshot.is_premium }).eq("id", userId);
       if (error) throw new Error(`is_premium復元失敗: ${error.message}`);
-    } catch (e) {
-      restoreError = e;
-    }
-    if (restoreError) {
-      fail(`profiles復元に失敗した: ${restoreError.message}`);
-    } else {
-      const { data: afterRestore, error: afterErr } = await admin
-        .from("profiles").select("id, is_premium").eq("id", userId).maybeSingle();
-      if (afterErr) {
-        fail(`復元後のprofiles取得に失敗した: ${afterErr.message}`);
-      } else if (afterRestore?.is_premium === originalIsPremium) {
-        ok("DB snapshot: 復元後、is_premiumがテスト開始前の値と完全一致");
-      } else {
-        fail(`DB snapshot: 復元後のis_premiumが想定外(期待=${originalIsPremium}, 実際=${afterRestore?.is_premium})`);
+    });
+
+    if (restoreOk) {
+      const afterOk = await safeCleanup("復元後profilesスナップショット取得", async () => {
+        const { data, error } = await admin
+          .from("profiles").select("id, is_premium, stripe_customer_id, updated_at").eq("id", userId).maybeSingle();
+        if (error) throw new Error(`復元後のprofiles取得失敗: ${error.message}`);
+        if (!data) throw new Error("復元後のprofileが見つからない");
+
+        if (data.is_premium === originalSnapshot.is_premium) ok("DB snapshot: 復元後、is_premiumがテスト開始前の値と完全一致");
+        else fail(`DB snapshot: 復元後のis_premiumが想定外(期待=${originalSnapshot.is_premium}, 実際=${data.is_premium})`);
+
+        if (data.stripe_customer_id === originalSnapshot.stripe_customer_id) ok("DB snapshot: stripe_customer_idはテスト前後で不変(本テストでは一切書き込んでいない)");
+        else fail("DB snapshot: stripe_customer_idがテスト前後で変化した(想定外。本テストは一切書き込んでいないはず)");
+
+        ok(`DB snapshot: updated_atはis_premiumのno-op UPDATEでも必ず更新される仕様のため一致を期待しない(実測確認済み。開始前=${originalSnapshot.updated_at} → 復元後=${data.updated_at})。is_premium/stripe_customer_idの完全一致のみを「復元確認済み」の根拠とする`);
+      });
+      if (!afterOk) {
+        // afterOk===falseの場合、safeCleanup内で既にfail()記録済み。
       }
     }
   }
@@ -632,7 +927,7 @@ async function main() {
     throw testError;
   }
 
-  ok("cleanup完了(checkout/portalいずれのシナリオもrequestは全てintercept済みで実Stripe API呼び出し0件。/premium到達のための認証には既存テストアカウントの実認証セッションを使用し、is_premiumのみ一時変更してテスト開始前の値へ完全復元した。stripe_customer_idは既存の実値を変更していない)");
+  ok("cleanup完了(checkout/portalいずれのシナリオもStripe API(/api/stripe/checkout・/api/stripe/portal)・analytics API(/api/analytics/events)ともに全リクエストをroute interceptionし、実Stripe API呼び出し・実analytics_events insertはいずれも0件。想定外のStripe APIリクエストを検知した場合は安全網が即abort・failさせる設計。/premium到達のための認証には既存テストアカウントの実認証セッションを使用し、is_premiumのみ一時変更してテスト開始前の値へ完全復元した(stripe_customer_idは不変を確認、updated_atはDBトリガー仕様により不一致が期待どおりであることを明示した))");
 
   console.log(failed > 0 ? `\n=== a11y-premium-checkout-feedback RESULT: ${failed}件失敗 ===` : "\n=== a11y-premium-checkout-feedback: ALL CHECKS PASSED ===");
   process.exit(failed > 0 ? 1 : 0);
