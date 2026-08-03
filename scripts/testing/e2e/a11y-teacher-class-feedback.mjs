@@ -990,6 +990,33 @@ async function main() {
       }
     }
 
+    // seedTeacherClass内部の未検査lookupクエリが一時的に失敗すると、既存クラスが
+    // あるにもかかわらず別のclasses行を新規作成してしまう可能性がある。その場合
+    // seededで得たclassIdがpreSeed.classRow.idと一致しない。そのままpreSeedの値を
+    // 新しい行へ上書きするとinvite_codeのunique制約に抵触し復元不能になるため、
+    // 新規作成された重複行は削除し、本来のpre-seed時点の行はそちらのidで復元する。
+    if (preSeed.classRow && classId && classId !== preSeed.classRow.id) {
+      const duplicateClassId = classId;
+      let dupCleanupError = null;
+      try {
+        const { error: memberDelErr } = await admin
+          .from("class_members").delete()
+          .eq("class_id", duplicateClassId).eq("student_id", srsId);
+        if (memberDelErr) throw new Error(`重複class_members削除失敗: ${memberDelErr.message}`);
+        const { error: classDelErr } = await admin
+          .from("classes").delete().eq("id", duplicateClassId);
+        if (classDelErr) throw new Error(`重複classes行削除失敗: ${classDelErr.message}`);
+      } catch (e) {
+        dupCleanupError = e;
+      }
+      if (dupCleanupError) {
+        fail(`重複クラス行(id=${duplicateClassId})の削除に失敗した: ${dupCleanupError.message}`);
+      } else {
+        ok(`DB snapshot: seedTeacherClassが作成した重複クラス行(id=${duplicateClassId})を削除した`);
+      }
+      classId = preSeed.classRow.id;
+    }
+
     if (classId) {
       // fixtureをpre-seedスナップショットへ、対象class_id + student_idの行だけを
       // 対象に正確に復元する。復元に失敗した場合は黙って成功終了せず、E2E失敗として扱う。
