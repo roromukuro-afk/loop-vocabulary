@@ -967,6 +967,17 @@ async function main() {
   // 除外されてしまうため)。
   const preSeed = await snapshotFixture(admin, teacherId, onboardingId, srsId);
 
+  // snapshotFixture/restoreFixtureはTEST_CLASS_NAMEのクラスのみを追跡する。
+  // CreateClassFormのroute interceptionが何らかの理由(APIパス変更等)で
+  // すり抜けた場合、実際には別名(例:"E2Eテストクラス")で実クラスが作成される
+  // ため、名前ベースの追跡だけでは検知できない。teacherId単位で保有する全
+  // classes idを事前に記録しておき、テスト完了後に新規出現したidをすべて
+  // 想定外の実mutationとして検出・削除する安全網として使う。
+  const { data: preExistingClassRows, error: preExistingClassErr } = await admin
+    .from("classes").select("id").eq("teacher_id", teacherId);
+  if (preExistingClassErr) throw new Error(`teacherクラスID一覧取得失敗: ${preExistingClassErr.message}`);
+  const preExistingClassIds = new Set((preExistingClassRows ?? []).map((r) => r.id));
+
   // seedTeacherClass実行・dev server起動・browser起動・4テストスイート実行の
   // いずれで例外が投げられても(assertion失敗ではなくPlaywright自体のtimeout/
   // crash、あるいはseed自体がclasses行更新後にclass_members upsertで失敗する
@@ -1090,6 +1101,36 @@ async function main() {
     } else {
       // クラス行自体が存在しない(seedが行の作成前に失敗した)場合は復元対象がない。
       ok("DB snapshot: 復元対象のクラス行が存在しない(seed未完了のため復元をスキップ)");
+    }
+
+    // CreateClassFormのroute interceptionがすり抜けた場合、TEST_CLASS_NAME以外の
+    // 名前で実クラスが作成される可能性があり、名前ベースの追跡だけでは検知でき
+    // ない。ここまでの処理でTEST_CLASS_NAMEのクラス行は復元済み(または削除済み)
+    // のはずなので、この時点でteacherId単位の全classesをpreExistingClassIdsと
+    // 比較し、新規に出現したidがあれば想定外の実mutationとして検出・削除する。
+    let leakedClassesError = null;
+    try {
+      const { data: currentTeacherClassRows, error: curErr } = await admin
+        .from("classes").select("id").eq("teacher_id", teacherId);
+      if (curErr) throw new Error(`teacherクラスID一覧取得失敗(leak検査): ${curErr.message}`);
+      const leakedIds = (currentTeacherClassRows ?? [])
+        .map((r) => r.id)
+        .filter((id) => !preExistingClassIds.has(id));
+      for (const leakedId of leakedIds) {
+        const { error: memErr } = await admin.from("class_members").delete().eq("class_id", leakedId);
+        if (memErr) throw new Error(`想定外クラス(id=${leakedId})のclass_members削除失敗: ${memErr.message}`);
+        const { error: clsErr } = await admin.from("classes").delete().eq("id", leakedId);
+        if (clsErr) throw new Error(`想定外クラス(id=${leakedId})の削除失敗: ${clsErr.message}`);
+        fail(`実API mutationにより想定外のクラス行(id=${leakedId})が作成されていた形跡があり、削除した(route interceptionがすり抜けた可能性がある)`);
+      }
+      if (leakedIds.length === 0) {
+        ok("DB snapshot: teacherId単位でも新規classes行の出現0件(TEST_CLASS_NAME以外の名前での実mutationも発生していない)");
+      }
+    } catch (e) {
+      leakedClassesError = e;
+    }
+    if (leakedClassesError) {
+      fail(`想定外クラスの検出・削除処理自体が失敗した: ${leakedClassesError.message}`);
     }
   }
 
