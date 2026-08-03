@@ -827,7 +827,13 @@ async function snapshotFixture(admin, teacherId, onboardingId, srsId) {
     .eq("teacher_id", teacherId).eq("name", TEST_CLASS_NAME).maybeSingle();
   if (classErr) throw new Error(`classesスナップショット取得失敗: ${classErr.message}`);
 
+  // srsIdはinviteCodeライフサイクルのfixture(seedTeacherClass)対象、
+  // onboardingIdはrunJoinConsentTestsが実際にログインして操作するユーザー。
+  // join系のroute interceptionが何らかの理由(APIパス変更等)ですり抜けた
+  // 場合、実際に変更されるのはonboardingIdのclass_members行であり、srsId
+  // だけを追跡していると検知できないため、両方をスナップショットする。
   let memberRow = null;
+  let onboardingMemberRow = null;
   if (classRow) {
     const { data, error: memberErr } = await admin
       .from("class_members")
@@ -835,8 +841,15 @@ async function snapshotFixture(admin, teacherId, onboardingId, srsId) {
       .eq("class_id", classRow.id).eq("student_id", srsId).maybeSingle();
     if (memberErr) throw new Error(`class_membersスナップショット取得失敗: ${memberErr.message}`);
     memberRow = data ?? null;
+
+    const { data: onbData, error: onbMemberErr } = await admin
+      .from("class_members")
+      .select("class_id, student_id, status, consent, joined_at")
+      .eq("class_id", classRow.id).eq("student_id", onboardingId).maybeSingle();
+    if (onbMemberErr) throw new Error(`onboarding class_membersスナップショット取得失敗: ${onbMemberErr.message}`);
+    onboardingMemberRow = onbData ?? null;
   }
-  return { profiles: profileRows ?? [], classRow: classRow ?? null, memberRow };
+  return { profiles: profileRows ?? [], classRow: classRow ?? null, memberRow, onboardingMemberRow };
 }
 
 function diffFixture(before, after) {
@@ -850,13 +863,16 @@ function diffFixture(before, after) {
   if (JSON.stringify(before.memberRow) !== JSON.stringify(after.memberRow)) {
     diffs.push(`class_members row changed: before=${JSON.stringify(before.memberRow)} after=${JSON.stringify(after.memberRow)}`);
   }
+  if (JSON.stringify(before.onboardingMemberRow) !== JSON.stringify(after.onboardingMemberRow)) {
+    diffs.push(`onboarding class_members row changed: before=${JSON.stringify(before.onboardingMemberRow)} after=${JSON.stringify(after.onboardingMemberRow)}`);
+  }
   return diffs;
 }
 
 // pre-seedスナップショットへ、対象class_id + student_idの行だけを対象に正確に
 // 復元する。teacher_id単位の全クラス削除・user_id単位の全membership削除・
 // TEST_プレフィックス全件削除などの広い操作は行わない。
-async function restoreFixture(admin, preSeed, classId, srsId) {
+async function restoreFixture(admin, preSeed, classId, srsId, onboardingId) {
   const { data: currentMember, error: currentMemberErr } = await admin
     .from("class_members").select("class_id, student_id")
     .eq("class_id", classId).eq("student_id", srsId).maybeSingle();
@@ -873,6 +889,26 @@ async function restoreFixture(admin, preSeed, classId, srsId) {
       .from("class_members").delete()
       .eq("class_id", classId).eq("student_id", srsId);
     if (error) throw new Error(`class_members復元(削除)失敗: ${error.message}`);
+  }
+
+  // runJoinConsentTestsが実際にログインするonboardingIdのmembershipも、
+  // join系route interceptionがすり抜けた場合に備えて同様に復元する。
+  const { data: currentOnboardingMember, error: currentOnbErr } = await admin
+    .from("class_members").select("class_id, student_id")
+    .eq("class_id", classId).eq("student_id", onboardingId).maybeSingle();
+  if (currentOnbErr) throw new Error(`onboarding class_members現在値取得失敗: ${currentOnbErr.message}`);
+
+  if (preSeed.onboardingMemberRow) {
+    const { error } = await admin
+      .from("class_members")
+      .update({ status: preSeed.onboardingMemberRow.status, consent: preSeed.onboardingMemberRow.consent })
+      .eq("class_id", classId).eq("student_id", onboardingId);
+    if (error) throw new Error(`onboarding class_members復元(更新)失敗: ${error.message}`);
+  } else if (currentOnboardingMember) {
+    const { error } = await admin
+      .from("class_members").delete()
+      .eq("class_id", classId).eq("student_id", onboardingId);
+    if (error) throw new Error(`onboarding class_members復元(削除)失敗: ${error.message}`);
   }
 
   if (preSeed.classRow) {
@@ -996,6 +1032,10 @@ async function main() {
             .from("class_members").delete()
             .eq("class_id", dupId).eq("student_id", srsId);
           if (memberDelErr) throw new Error(`重複class_members削除失敗: ${memberDelErr.message}`);
+          const { error: onbMemberDelErr } = await admin
+            .from("class_members").delete()
+            .eq("class_id", dupId).eq("student_id", onboardingId);
+          if (onbMemberDelErr) throw new Error(`重複onboarding class_members削除失敗: ${onbMemberDelErr.message}`);
           const { error: classDelErr } = await admin
             .from("classes").delete().eq("id", dupId);
           if (classDelErr) throw new Error(`重複classes行削除失敗: ${classDelErr.message}`);
@@ -1012,13 +1052,26 @@ async function main() {
       classId = correctId;
     }
 
+    // profilesの復元はclassIdの有無と無関係に必ず実行する。PromoteTeacherButton
+    // のroute interceptionがすり抜けた場合、クラスが存在しない標準的な実行でも
+    // 実role変更を検知・復元できる必要があるため、restoreFixture(class側)とは
+    // 独立させている。
+    let profileRestoreError = null;
+    try {
+      await restoreProfilesIfChanged(admin, preSeed, teacherId, onboardingId);
+    } catch (e) {
+      profileRestoreError = e;
+    }
+    if (profileRestoreError) {
+      fail(`profiles復元に失敗した: ${profileRestoreError.message}`);
+    }
+
     if (classId) {
       // fixtureをpre-seedスナップショットへ、対象class_id + student_idの行だけを
       // 対象に正確に復元する。復元に失敗した場合は黙って成功終了せず、E2E失敗として扱う。
       let restoreError = null;
       try {
-        await restoreFixture(admin, preSeed, classId, srsId);
-        await restoreProfilesIfChanged(admin, preSeed, teacherId, onboardingId);
+        await restoreFixture(admin, preSeed, classId, srsId, onboardingId);
       } catch (e) {
         restoreError = e;
       }
