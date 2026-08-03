@@ -1015,7 +1015,11 @@ async function main() {
   } catch (e) {
     testError = e;
   } finally {
-    // classIdの特定はseededの戻り値に頼らず、常にteacher_id + TEST_CLASS_NAME
+    // このinvocationがseedTeacherClass呼び出しで実際に取得したclassId(seed自体が
+    // 成功していれば既知)。classIdはこの後すぐ再代入されるため、先に保持しておく。
+    const ownSeededClassId = classId;
+
+    // classIdの特定はseededの戻り値だけに頼らず、常にteacher_id + TEST_CLASS_NAME
     // に一致する行を全件クエリして判定する(.maybeSingle()は複数行があると
     // エラーになるため使えない)。理由: seedTeacherClass内部の未検査lookup
     // クエリが一時的に失敗すると、既存クラスがあるにもかかわらず別のclasses
@@ -1023,7 +1027,10 @@ async function main() {
     // 成功して戻り値のclassIdが重複行を指す場合と、(b) その後のupsertが失敗し
     // seedTeacherClass自体が例外を投げて戻り値すら得られない場合の両方が
     // あり得る。どちらの場合も「pre-seed時点で存在した行(あれば)」を正として
-    // 扱い、それ以外の一致行はすべて重複として削除する。
+    // 扱う。pre-seed時点で存在しなかった場合(correctId候補がnull)でも、この
+    // invocation自身が実際に作成できたclassId(ownSeededClassId)が既知であれば、
+    // それを「重複」として誤って削除しないよう正として扱う(でなければnullに
+    // フォールバックし、その場合は一致行すべてを重複として削除する)。
     const { data: matchingRows, error: matchErr } = await admin
       .from("classes").select("id")
       .eq("teacher_id", teacherId).eq("name", TEST_CLASS_NAME);
@@ -1031,7 +1038,7 @@ async function main() {
     if (matchErr) {
       fail(`復元対象クラスの特定に失敗した: ${matchErr.message}`);
     } else {
-      const correctId = preSeed.classRow ? preSeed.classRow.id : null;
+      const correctId = preSeed.classRow ? preSeed.classRow.id : (ownSeededClassId ?? null);
       const duplicateIds = (matchingRows ?? [])
         .map((r) => r.id)
         .filter((id) => id !== correctId);
