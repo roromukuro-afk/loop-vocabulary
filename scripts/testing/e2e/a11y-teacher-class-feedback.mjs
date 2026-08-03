@@ -968,53 +968,48 @@ async function main() {
   } catch (e) {
     testError = e;
   } finally {
-    // seedTeacherClassがclasses行の作成/更新までは成功したがclass_members
-    // upsertで失敗した場合、戻り値からclassIdを得られない。既存fixture
-    // (pre-seed時点で既にクラスが存在した場合)はpreSeedスナップショットの
-    // idが既に判明しているためそれを優先して使う(追加クエリが失敗すると
-    // 復元不能になるため、既知の値がある限りクエリに頼らない)。pre-seed時点で
-    // クラスが存在せず今回のseedで新規作成された場合のみ、
-    // teacher_id + TEST_CLASS_NAMEから直接引き当てる。
-    if (!classId) {
-      if (preSeed.classRow) {
-        classId = preSeed.classRow.id;
-      } else {
-        const { data: cls, error } = await admin
-          .from("classes").select("id")
-          .eq("teacher_id", teacherId).eq("name", TEST_CLASS_NAME).maybeSingle();
-        if (error) {
-          fail(`復元対象クラスの特定に失敗した: ${error.message}`);
+    // classIdの特定はseededの戻り値に頼らず、常にteacher_id + TEST_CLASS_NAME
+    // に一致する行を全件クエリして判定する(.maybeSingle()は複数行があると
+    // エラーになるため使えない)。理由: seedTeacherClass内部の未検査lookup
+    // クエリが一時的に失敗すると、既存クラスがあるにもかかわらず別のclasses
+    // 行を新規作成してしまうことがあり、(a) その後のclass_members upsertが
+    // 成功して戻り値のclassIdが重複行を指す場合と、(b) その後のupsertが失敗し
+    // seedTeacherClass自体が例外を投げて戻り値すら得られない場合の両方が
+    // あり得る。どちらの場合も「pre-seed時点で存在した行(あれば)」を正として
+    // 扱い、それ以外の一致行はすべて重複として削除する。
+    const { data: matchingRows, error: matchErr } = await admin
+      .from("classes").select("id")
+      .eq("teacher_id", teacherId).eq("name", TEST_CLASS_NAME);
+
+    if (matchErr) {
+      fail(`復元対象クラスの特定に失敗した: ${matchErr.message}`);
+    } else {
+      const correctId = preSeed.classRow ? preSeed.classRow.id : null;
+      const duplicateIds = (matchingRows ?? [])
+        .map((r) => r.id)
+        .filter((id) => id !== correctId);
+
+      for (const dupId of duplicateIds) {
+        let dupCleanupError = null;
+        try {
+          const { error: memberDelErr } = await admin
+            .from("class_members").delete()
+            .eq("class_id", dupId).eq("student_id", srsId);
+          if (memberDelErr) throw new Error(`重複class_members削除失敗: ${memberDelErr.message}`);
+          const { error: classDelErr } = await admin
+            .from("classes").delete().eq("id", dupId);
+          if (classDelErr) throw new Error(`重複classes行削除失敗: ${classDelErr.message}`);
+        } catch (e) {
+          dupCleanupError = e;
+        }
+        if (dupCleanupError) {
+          fail(`重複クラス行(id=${dupId})の削除に失敗した: ${dupCleanupError.message}`);
         } else {
-          classId = cls?.id ?? null;
+          ok(`DB snapshot: 重複クラス行(id=${dupId})を削除した`);
         }
       }
-    }
 
-    // seedTeacherClass内部の未検査lookupクエリが一時的に失敗すると、既存クラスが
-    // あるにもかかわらず別のclasses行を新規作成してしまう可能性がある。その場合
-    // seededで得たclassIdがpreSeed.classRow.idと一致しない。そのままpreSeedの値を
-    // 新しい行へ上書きするとinvite_codeのunique制約に抵触し復元不能になるため、
-    // 新規作成された重複行は削除し、本来のpre-seed時点の行はそちらのidで復元する。
-    if (preSeed.classRow && classId && classId !== preSeed.classRow.id) {
-      const duplicateClassId = classId;
-      let dupCleanupError = null;
-      try {
-        const { error: memberDelErr } = await admin
-          .from("class_members").delete()
-          .eq("class_id", duplicateClassId).eq("student_id", srsId);
-        if (memberDelErr) throw new Error(`重複class_members削除失敗: ${memberDelErr.message}`);
-        const { error: classDelErr } = await admin
-          .from("classes").delete().eq("id", duplicateClassId);
-        if (classDelErr) throw new Error(`重複classes行削除失敗: ${classDelErr.message}`);
-      } catch (e) {
-        dupCleanupError = e;
-      }
-      if (dupCleanupError) {
-        fail(`重複クラス行(id=${duplicateClassId})の削除に失敗した: ${dupCleanupError.message}`);
-      } else {
-        ok(`DB snapshot: seedTeacherClassが作成した重複クラス行(id=${duplicateClassId})を削除した`);
-      }
-      classId = preSeed.classRow.id;
+      classId = correctId;
     }
 
     if (classId) {
