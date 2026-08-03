@@ -238,6 +238,9 @@ async function main() {
 
     console.log("\n=== 65. アクセシビリティ(Premium決済導線第13弾/Issue #74) E2E ===");
     results.a11yPremiumCheckoutFeedback = runNode("scripts/testing/e2e/a11y-premium-checkout-feedback.mjs");
+
+    console.log("\n=== 66. PremiumTrackerのanalytics例外耐性(Issue #77) E2E ===");
+    results.premiumTrackerResilience = runNode("scripts/testing/e2e/premium-tracker-resilience.mjs");
   } finally {
     stopDevServer(dev);
   }
