@@ -232,6 +232,9 @@ async function main() {
 
     console.log("\n=== 63. アクセシビリティ(認証・表示名フォーム第11弾) E2E ===");
     results.a11yAuthSettingsFeedback = runNode("scripts/testing/e2e/a11y-auth-settings-feedback.mjs");
+
+    console.log("\n=== 64. アクセシビリティ(教室・教師管理第12弾) E2E ===");
+    results.a11yTeacherClassFeedback = runNode("scripts/testing/e2e/a11y-teacher-class-feedback.mjs");
   } finally {
     stopDevServer(dev);
   }
