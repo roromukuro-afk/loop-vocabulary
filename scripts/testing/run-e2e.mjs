@@ -235,6 +235,9 @@ async function main() {
 
     console.log("\n=== 64. アクセシビリティ(教室・教師管理第12弾) E2E ===");
     results.a11yTeacherClassFeedback = runNode("scripts/testing/e2e/a11y-teacher-class-feedback.mjs");
+
+    console.log("\n=== 65. アクセシビリティ(Premium決済導線第13弾/Issue #74) E2E ===");
+    results.a11yPremiumCheckoutFeedback = runNode("scripts/testing/e2e/a11y-premium-checkout-feedback.mjs");
   } finally {
     stopDevServer(dev);
   }
