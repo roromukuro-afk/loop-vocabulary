@@ -31,6 +31,9 @@ const PORT = Number(process.env.TEST_PORT || 3799);
 let failed = 0;
 function ok(msg) { console.log(`✅ ${msg}`); }
 function fail(msg) { console.error(`❌ FAIL: ${msg}`); failed++; }
+async function safeCleanup(label, fn) {
+  try { await fn(); } catch (e) { console.error(`cleanup失敗(${label}): ${e.message}`); }
+}
 
 function appAlertLocator(page) {
   return page.locator('[role="alert"]:not(#__next-route-announcer__)');
@@ -799,18 +802,27 @@ async function runInviteCodeTests(browser, baseUrl, teacherEmail, teacherPasswor
 // クラスが存在しない場合はclassRow/memberRowともにnullを返す(seed前は
 // クラス自体が存在しない可能性があるため)。
 async function snapshotFixture(admin, teacherId, onboardingId, srsId) {
-  const { data: profileRows } = await admin
+  // クエリ自体が(一時的なネットワーク障害等で)失敗した場合にdata:nullを
+  // 「行が存在しない」と誤認すると、後続のrestoreFixtureが実在する行を
+  // 誤って削除しかねない。全クエリでerrorを明示的に検査し、失敗時は
+  // スナップショット取得自体を失敗させる。
+  const { data: profileRows, error: profileErr } = await admin
     .from("profiles").select("id, role").in("id", [teacherId, onboardingId]).order("id");
-  const { data: classRow } = await admin
+  if (profileErr) throw new Error(`profilesスナップショット取得失敗: ${profileErr.message}`);
+
+  const { data: classRow, error: classErr } = await admin
     .from("classes")
     .select("id, teacher_id, name, invite_code, archived, created_at, invite_code_expires_at, invite_code_revoked_at, invite_code_updated_at")
     .eq("teacher_id", teacherId).eq("name", TEST_CLASS_NAME).maybeSingle();
+  if (classErr) throw new Error(`classesスナップショット取得失敗: ${classErr.message}`);
+
   let memberRow = null;
   if (classRow) {
-    const { data } = await admin
+    const { data, error: memberErr } = await admin
       .from("class_members")
       .select("class_id, student_id, status, consent, joined_at")
       .eq("class_id", classRow.id).eq("student_id", srsId).maybeSingle();
+    if (memberErr) throw new Error(`class_membersスナップショット取得失敗: ${memberErr.message}`);
     memberRow = data ?? null;
   }
   return { profiles: profileRows ?? [], classRow: classRow ?? null, memberRow };
@@ -834,9 +846,10 @@ function diffFixture(before, after) {
 // 復元する。teacher_id単位の全クラス削除・user_id単位の全membership削除・
 // TEST_プレフィックス全件削除などの広い操作は行わない。
 async function restoreFixture(admin, preSeed, classId, srsId) {
-  const { data: currentMember } = await admin
+  const { data: currentMember, error: currentMemberErr } = await admin
     .from("class_members").select("class_id, student_id")
     .eq("class_id", classId).eq("student_id", srsId).maybeSingle();
+  if (currentMemberErr) throw new Error(`class_members現在値取得失敗: ${currentMemberErr.message}`);
 
   if (preSeed.memberRow) {
     const { error } = await admin
@@ -907,31 +920,35 @@ async function main() {
   // 除外されてしまうため)。
   const preSeed = await snapshotFixture(admin, teacherId, onboardingId, srsId);
 
-  const { classId } = await seedTeacherClass(admin, teacherId, srsId);
-  console.log(`Test class ready: classId=${classId}, inviteCode=${TEST_CLASS_INVITE_CODE}`);
-
-  const postSeed = await snapshotFixture(admin, teacherId, onboardingId, srsId);
-
-  // dev server起動・browser起動・4テストスイートのいずれかで例外が投げられても
-  // (assertion失敗ではなくPlaywright自体のtimeout/crash等)、fixture復元だけは
-  // 必ず実行する。復元をtry/finallyの外に置くと、例外発生時に復元がスキップされ、
-  // seedTeacherClassが書き込んだ状態がDBに残ったままになってしまうため。
+  // seedTeacherClass実行・dev server起動・browser起動・4テストスイート実行の
+  // いずれで例外が投げられても(assertion失敗ではなくPlaywright自体のtimeout/
+  // crash、あるいはseed自体がclasses行更新後にclass_members upsertで失敗する
+  // ような部分失敗等)、fixture復元だけは必ず実行する。dev serverの停止は、
+  // browser起動自体が失敗した場合でも漏れないようbrowser用try/finallyのさらに
+  // 外側のfinallyに置く。
+  let classId = null;
   let testError = null;
   let uiDrift = null;
   try {
+    const seeded = await seedTeacherClass(admin, teacherId, srsId);
+    classId = seeded.classId;
+    console.log(`Test class ready: classId=${classId}, inviteCode=${seeded.inviteCode}`);
+
+    const postSeed = await snapshotFixture(admin, teacherId, onboardingId, srsId);
+
     const dev = await ensureDevServer(PORT);
-    const baseUrl = dev.url;
-    const browser = await chromium.launch();
     try {
-      await runJoinConsentTests(browser, baseUrl, onboardingEmail, onboardingPassword);
-      await runPromoteTeacherTests(browser, baseUrl, onboardingEmail, onboardingPassword);
-      await runCreateClassTests(browser, baseUrl, teacherEmail, teacherPassword);
-      await runInviteCodeTests(browser, baseUrl, teacherEmail, teacherPassword, classId);
-    } finally {
-      async function safeCleanup(label, fn) {
-        try { await fn(); } catch (e) { console.error(`cleanup失敗(${label}): ${e.message}`); }
+      const baseUrl = dev.url;
+      const browser = await chromium.launch();
+      try {
+        await runJoinConsentTests(browser, baseUrl, onboardingEmail, onboardingPassword);
+        await runPromoteTeacherTests(browser, baseUrl, onboardingEmail, onboardingPassword);
+        await runCreateClassTests(browser, baseUrl, teacherEmail, teacherPassword);
+        await runInviteCodeTests(browser, baseUrl, teacherEmail, teacherPassword, classId);
+      } finally {
+        if (browser) await safeCleanup("browser.close", () => browser.close());
       }
-      if (browser) await safeCleanup("browser.close", () => browser.close());
+    } finally {
       if (dev) await safeCleanup("stopDevServer", () => stopDevServer(dev));
     }
 
@@ -940,26 +957,46 @@ async function main() {
   } catch (e) {
     testError = e;
   } finally {
-    // fixtureをpre-seedスナップショットへ、対象class_id + student_idの行だけを
-    // 対象に正確に復元する。復元に失敗した場合は黙って成功終了せず、E2E失敗として扱う。
-    let restoreError = null;
-    try {
-      await restoreFixture(admin, preSeed, classId, srsId);
-      await restoreProfilesIfChanged(admin, preSeed, teacherId, onboardingId);
-    } catch (e) {
-      restoreError = e;
+    // seedTeacherClassがclasses行の作成/更新までは成功したがclass_members
+    // upsertで失敗した場合、戻り値からclassIdを得られない。その場合は
+    // teacher_id + TEST_CLASS_NAMEから直接引き当てる(snapshotFixtureと同じ
+    // 検索条件)。
+    if (!classId) {
+      const { data: cls, error } = await admin
+        .from("classes").select("id")
+        .eq("teacher_id", teacherId).eq("name", TEST_CLASS_NAME).maybeSingle();
+      if (error) {
+        fail(`復元対象クラスの特定に失敗した: ${error.message}`);
+      } else {
+        classId = cls?.id ?? null;
+      }
     }
 
-    if (restoreError) {
-      fail(`fixture復元に失敗した: ${restoreError.message}`);
-    } else {
-      const afterRestore = await snapshotFixture(admin, teacherId, onboardingId, srsId);
-      const restoreDrift = diffFixture(preSeed, afterRestore);
-      if (restoreDrift.length === 0) {
-        ok("DB snapshot: 復元後、seed実行前のpre-seedスナップショットと完全一致(新規行0件・欠損0件・変更0件)");
-      } else {
-        fail(`fixture復元後もpre-seedスナップショットと差分がある:\n  ${restoreDrift.join("\n  ")}`);
+    if (classId) {
+      // fixtureをpre-seedスナップショットへ、対象class_id + student_idの行だけを
+      // 対象に正確に復元する。復元に失敗した場合は黙って成功終了せず、E2E失敗として扱う。
+      let restoreError = null;
+      try {
+        await restoreFixture(admin, preSeed, classId, srsId);
+        await restoreProfilesIfChanged(admin, preSeed, teacherId, onboardingId);
+      } catch (e) {
+        restoreError = e;
       }
+
+      if (restoreError) {
+        fail(`fixture復元に失敗した: ${restoreError.message}`);
+      } else {
+        const afterRestore = await snapshotFixture(admin, teacherId, onboardingId, srsId);
+        const restoreDrift = diffFixture(preSeed, afterRestore);
+        if (restoreDrift.length === 0) {
+          ok("DB snapshot: 復元後、seed実行前のpre-seedスナップショットと完全一致(新規行0件・欠損0件・変更0件)");
+        } else {
+          fail(`fixture復元後もpre-seedスナップショットと差分がある:\n  ${restoreDrift.join("\n  ")}`);
+        }
+      }
+    } else {
+      // クラス行自体が存在しない(seedが行の作成前に失敗した)場合は復元対象がない。
+      ok("DB snapshot: 復元対象のクラス行が存在しない(seed未完了のため復元をスキップ)");
     }
   }
 
