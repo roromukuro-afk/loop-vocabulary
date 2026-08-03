@@ -316,7 +316,16 @@ async function runPromoteTeacherTests(browser, baseUrl, studentEmail, studentPas
     ).then(() => ok("PromoteTeacherButton(成功): クリック直後にbusy状態へ切り替わる"))
       .catch(() => fail("PromoteTeacherButton(成功): busy状態への切り替わりを確認できなかった"));
 
-    await assertReOperable(btn, "PromoteTeacherButton(成功)");
+    await waitForStatusIncludes(page, null, "有効にしました", 8000)
+      .then(() => ok('PromoteTeacherButton(成功): role="status"領域が成功メッセージへ更新される(スクリーンリーダーへ通知される)'))
+      .catch(() => fail('PromoteTeacherButton(成功): role="status"領域が成功メッセージへ更新されなかった'));
+
+    await page.waitForFunction(
+      () => !Array.from(document.querySelectorAll("button")).some((b) => b.textContent?.includes("先生機能を有効にする")),
+      null, { timeout: 5000 },
+    ).then(() => ok("PromoteTeacherButton(成功): 成功後はボタン自体が非表示になる(role変更後のUIへ遷移するため)"))
+      .catch(() => fail("PromoteTeacherButton(成功): 成功後もボタンが表示されたままだった"));
+
     const alertCount = await appAlertLocator(page).count();
     if (alertCount === 0) ok('PromoteTeacherButton(成功): role="alert"は0件');
     else fail(`PromoteTeacherButton(成功): role="alert"が想定外に存在する: ${alertCount}件`);
@@ -419,7 +428,9 @@ async function runPromoteTeacherTests(browser, baseUrl, studentEmail, studentPas
     else fail(`PromoteTeacherButton(二重送信防止): レスポンス保留中にAPIが${callCount}回送信された`);
 
     gate.resolve();
-    await assertReOperable(btn, "PromoteTeacherButton(二重送信防止、解放後)");
+    await waitForStatusIncludes(page, null, "有効にしました", 8000)
+      .then(() => ok("PromoteTeacherButton(二重送信防止、解放後): role=\"status\"領域が成功メッセージへ更新される"))
+      .catch(() => fail("PromoteTeacherButton(二重送信防止、解放後): role=\"status\"領域が成功メッセージへ更新されなかった"));
     if (callCount === 1) ok("PromoteTeacherButton(二重送信防止): 完了後もAPI呼び出しは1回のまま");
     else fail(`PromoteTeacherButton(二重送信防止): 完了後にAPIが${callCount}回になっていた`);
     await page.close();
@@ -958,17 +969,24 @@ async function main() {
     testError = e;
   } finally {
     // seedTeacherClassがclasses行の作成/更新までは成功したがclass_members
-    // upsertで失敗した場合、戻り値からclassIdを得られない。その場合は
-    // teacher_id + TEST_CLASS_NAMEから直接引き当てる(snapshotFixtureと同じ
-    // 検索条件)。
+    // upsertで失敗した場合、戻り値からclassIdを得られない。既存fixture
+    // (pre-seed時点で既にクラスが存在した場合)はpreSeedスナップショットの
+    // idが既に判明しているためそれを優先して使う(追加クエリが失敗すると
+    // 復元不能になるため、既知の値がある限りクエリに頼らない)。pre-seed時点で
+    // クラスが存在せず今回のseedで新規作成された場合のみ、
+    // teacher_id + TEST_CLASS_NAMEから直接引き当てる。
     if (!classId) {
-      const { data: cls, error } = await admin
-        .from("classes").select("id")
-        .eq("teacher_id", teacherId).eq("name", TEST_CLASS_NAME).maybeSingle();
-      if (error) {
-        fail(`復元対象クラスの特定に失敗した: ${error.message}`);
+      if (preSeed.classRow) {
+        classId = preSeed.classRow.id;
       } else {
-        classId = cls?.id ?? null;
+        const { data: cls, error } = await admin
+          .from("classes").select("id")
+          .eq("teacher_id", teacherId).eq("name", TEST_CLASS_NAME).maybeSingle();
+        if (error) {
+          fail(`復元対象クラスの特定に失敗した: ${error.message}`);
+        } else {
+          classId = cls?.id ?? null;
+        }
       }
     }
 
