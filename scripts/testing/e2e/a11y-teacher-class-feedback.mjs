@@ -912,50 +912,67 @@ async function main() {
 
   const postSeed = await snapshotFixture(admin, teacherId, onboardingId, srsId);
 
-  const dev = await ensureDevServer(PORT);
-  const baseUrl = dev.url;
-  const browser = await chromium.launch();
+  // dev server起動・browser起動・4テストスイートのいずれかで例外が投げられても
+  // (assertion失敗ではなくPlaywright自体のtimeout/crash等)、fixture復元だけは
+  // 必ず実行する。復元をtry/finallyの外に置くと、例外発生時に復元がスキップされ、
+  // seedTeacherClassが書き込んだ状態がDBに残ったままになってしまうため。
+  let testError = null;
+  let uiDrift = null;
   try {
-    await runJoinConsentTests(browser, baseUrl, onboardingEmail, onboardingPassword);
-    await runPromoteTeacherTests(browser, baseUrl, onboardingEmail, onboardingPassword);
-    await runCreateClassTests(browser, baseUrl, teacherEmail, teacherPassword);
-    await runInviteCodeTests(browser, baseUrl, teacherEmail, teacherPassword, classId);
-  } finally {
-    async function safeCleanup(label, fn) {
-      try { await fn(); } catch (e) { console.error(`cleanup失敗(${label}): ${e.message}`); }
+    const dev = await ensureDevServer(PORT);
+    const baseUrl = dev.url;
+    const browser = await chromium.launch();
+    try {
+      await runJoinConsentTests(browser, baseUrl, onboardingEmail, onboardingPassword);
+      await runPromoteTeacherTests(browser, baseUrl, onboardingEmail, onboardingPassword);
+      await runCreateClassTests(browser, baseUrl, teacherEmail, teacherPassword);
+      await runInviteCodeTests(browser, baseUrl, teacherEmail, teacherPassword, classId);
+    } finally {
+      async function safeCleanup(label, fn) {
+        try { await fn(); } catch (e) { console.error(`cleanup失敗(${label}): ${e.message}`); }
+      }
+      if (browser) await safeCleanup("browser.close", () => browser.close());
+      if (dev) await safeCleanup("stopDevServer", () => stopDevServer(dev));
     }
-    if (browser) await safeCleanup("browser.close", () => browser.close());
-    if (dev) await safeCleanup("stopDevServer", () => stopDevServer(dev));
+
+    const afterUiTests = await snapshotFixture(admin, teacherId, onboardingId, srsId);
+    uiDrift = diffFixture(postSeed, afterUiTests);
+  } catch (e) {
+    testError = e;
+  } finally {
+    // fixtureをpre-seedスナップショットへ、対象class_id + student_idの行だけを
+    // 対象に正確に復元する。復元に失敗した場合は黙って成功終了せず、E2E失敗として扱う。
+    let restoreError = null;
+    try {
+      await restoreFixture(admin, preSeed, classId, srsId);
+      await restoreProfilesIfChanged(admin, preSeed, teacherId, onboardingId);
+    } catch (e) {
+      restoreError = e;
+    }
+
+    if (restoreError) {
+      fail(`fixture復元に失敗した: ${restoreError.message}`);
+    } else {
+      const afterRestore = await snapshotFixture(admin, teacherId, onboardingId, srsId);
+      const restoreDrift = diffFixture(preSeed, afterRestore);
+      if (restoreDrift.length === 0) {
+        ok("DB snapshot: 復元後、seed実行前のpre-seedスナップショットと完全一致(新規行0件・欠損0件・変更0件)");
+      } else {
+        fail(`fixture復元後もpre-seedスナップショットと差分がある:\n  ${restoreDrift.join("\n  ")}`);
+      }
+    }
   }
 
-  const afterUiTests = await snapshotFixture(admin, teacherId, onboardingId, srsId);
-  const uiDrift = diffFixture(postSeed, afterUiTests);
+  if (testError) {
+    // fixture復元は上のfinallyで完了済み。テスト自体の失敗はここで再送出し、
+    // main().catch()の通常のクラッシュ処理(ログ出力・exit 1)に委ねる。
+    throw testError;
+  }
+
   if (uiDrift.length === 0) {
     ok("DB snapshot: UIテスト実行前後でseed直後の状態から差分0件(UI操作由来の実mutationは発生していない)");
   } else {
     fail(`DB snapshotにUIテスト由来の差分が検出された:\n  ${uiDrift.join("\n  ")}`);
-  }
-
-  // fixtureをpre-seedスナップショットへ、対象class_id + student_idの行だけを
-  // 対象に正確に復元する。復元に失敗した場合は黙って成功終了せず、E2E失敗として扱う。
-  let restoreError = null;
-  try {
-    await restoreFixture(admin, preSeed, classId, srsId);
-    await restoreProfilesIfChanged(admin, preSeed, teacherId, onboardingId);
-  } catch (e) {
-    restoreError = e;
-  }
-
-  if (restoreError) {
-    fail(`fixture復元に失敗した: ${restoreError.message}`);
-  } else {
-    const afterRestore = await snapshotFixture(admin, teacherId, onboardingId, srsId);
-    const restoreDrift = diffFixture(preSeed, afterRestore);
-    if (restoreDrift.length === 0) {
-      ok("DB snapshot: 復元後、seed実行前のpre-seedスナップショットと完全一致(新規行0件・欠損0件・変更0件)");
-    } else {
-      fail(`fixture復元後もpre-seedスナップショットと差分がある:\n  ${restoreDrift.join("\n  ")}`);
-    }
   }
 
   ok("cleanup完了(UIから発生するrole変更・クラス作成・クラス参加・招待コード変更requestは全てintercept済みで実API mutation 0件。テストfixture準備として専用テスト行だけをseedし、検証後にseed実行前のスナップショットへ完全復元した。教室/教師ページ到達のための認証には既存テストアカウントの実認証セッションを使用している)");
