@@ -92,6 +92,9 @@ async function installAnalyticsIntercept(page) {
 function hasEventName(capturedEvents, eventName) {
   return capturedEvents.some((e) => e && e.event_name === eventName);
 }
+function countEventName(capturedEvents, eventName) {
+  return capturedEvents.filter((e) => e && e.event_name === eventName).length;
+}
 // マウント時のanalytics送信(成功時)は非同期fetchのため、固定waitForTimeoutではなく
 // capturedEvents配列という具体的な状態の変化をポーリングして待つ。trackEvent()は
 // セッション最初の呼び出し時にtraffic_source_detectedを別リクエストとして先に(または
@@ -100,6 +103,17 @@ function hasEventName(capturedEvents, eventName) {
 async function waitForEventName(capturedEvents, eventName, timeout = 8000) {
   const start = Date.now();
   while (!hasEventName(capturedEvents, eventName)) {
+    if (Date.now() - start > timeout) return false;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return true;
+}
+// 特定のevent_nameの出現回数がminCount以上になるまで待つ。「N回目の訪問による
+// イベントが届いた」ことを、直前の出現回数(ベースライン)からの増加として厳密に
+// 判定するために使う。
+async function waitForEventNameCount(capturedEvents, eventName, minCount, timeout = 8000) {
+  const start = Date.now();
+  while (countEventName(capturedEvents, eventName) < minCount) {
     if (Date.now() - start > timeout) return false;
     await new Promise((r) => setTimeout(r, 50));
   }
@@ -282,23 +296,26 @@ async function runAllScenarios(browser, baseUrl) {
     const { errors, analyticsEventsPromise } = setupPage(page);
     const analyticsEvents = await analyticsEventsPromise;
     await page.goto(`${baseUrl}/premium`, { waitUntil: "load" });
+
+    // 1回目の訪問によるpremium_page_viewedが実際に届くまで待ってから離脱する。
+    // sendPayload()はkeepalive:trueで送るため、離脱前に確実に発火はするが、この
+    // 待機を入れないと1回目の訪問の(遅延して到着する)イベントを「2回目の訪問による
+    // 新規イベント」と誤認しかねない(Codexレビュー指摘)。
+    const firstVisitOk = await waitForEventName(analyticsEvents, "premium_page_viewed");
+    if (!firstVisitOk) fail("E(再訪問): 1回目の訪問のpremium_page_viewedを確認できなかった(タイムアウト)");
+    const countAfterFirstVisit = countEventName(analyticsEvents, "premium_page_viewed");
+
     await page.goto(`${baseUrl}/`, { waitUntil: "load" });
 
     // waitUntil:"load"はHTML/リソース読み込み完了までしか保証せず、React hydration・
     // PremiumTrackerのuseEffect完了までは待たない。2回目のマウント自体が実際に
-    // 実行完了したことを、その効果として送信されるanalyticsイベント件数の増加
-    // (具体的な状態変化)で確認してから初めてerrorsを判定する。そうしないと、
-    // 2回目のeffectがまだ走っていない/例外を投げた直後にpage.close()してしまい、
-    // 未処理例外を見逃したまま緑判定になり得る(Codexレビュー指摘)。
-    const countBeforeSecondVisit = analyticsEvents.length;
+    // 実行完了したことを、premium_page_viewedの出現回数が1回目の訪問時点の値から
+    // 厳密に増加したこと(具体的な状態変化)で確認してから初めてerrorsを判定する。
+    // そうしないと、2回目のeffectがまだ走っていない/例外を投げた直後にpage.close()
+    // してしまい、未処理例外を見逃したまま緑判定になり得る(Codexレビュー指摘)。
     await page.goto(`${baseUrl}/premium`, { waitUntil: "load" });
-    const deadline = Date.now() + 8000;
-    let secondMountObserved = false;
-    while (Date.now() < deadline) {
-      if (analyticsEvents.length > countBeforeSecondVisit) { secondMountObserved = true; break; }
-      await new Promise((r) => setTimeout(r, 50));
-    }
-    if (secondMountObserved) ok("E(再訪問): 2回目のマウントのeffectが実際に完了したことを確認(analyticsイベント件数の増加で観測)");
+    const secondMountObserved = await waitForEventNameCount(analyticsEvents, "premium_page_viewed", countAfterFirstVisit + 1);
+    if (secondMountObserved) ok("E(再訪問): 2回目のマウントのeffectが実際に完了したことを確認(premium_page_viewedの新規出現で観測)");
     else fail("E(再訪問): 2回目のマウントのeffect完了を確認できなかった(タイムアウト)");
 
     const bodyVisible = await page.locator("body").isVisible().catch(() => false);
