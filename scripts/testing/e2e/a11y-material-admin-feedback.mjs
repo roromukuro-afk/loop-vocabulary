@@ -762,6 +762,53 @@ async function runSetStatusTests(browser, baseUrl, adminEmail, adminPassword, fi
     assertNoUnexpectedErrors(errors, "setStatus(pending中の2回目change)");
     await page.close();
   }
+
+  // ---- C6. 連続保存: 1回目成功後、2回目が失敗した場合のロールバック値(Codexレビュー指摘 P2) ----
+  {
+    // 1回目成功直後はrouter.refresh()の新しいpropsがまだ届いていないことがある。
+    // その間に2回目の変更を行い失敗した場合、ロールバック先はstale prop
+    // (m.license_status、実DBは変化しないため常にpendingのまま)ではなく、
+    // 直前に確定保存した値(approved)であるべきことを検証する。stale propを
+    // 参照する実装だと、この監視窓の有無に関わらず常にpendingへ戻ってしまう
+    // (実DBが変化しないモックのため)ので、この2値の違いで正しく判定できる。
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, {
+      allowedStatuses: [{ status: 500, urlIncludes: "/api/admin/materials/" }],
+    });
+    let callCount = 0;
+    await guardMaterialsRoute(page, [{ method: "PATCH", urlIncludes: "/api/admin/materials/" }], async (route) => {
+      callCount++;
+      if (callCount === 1) {
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ material: { license_status: "approved" } }) });
+      } else {
+        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "update_failed", detail: "raw db message" }) });
+      }
+    });
+    const row = await fixtureRow(page);
+    const select = row.locator('[data-testid="material-license-status"]');
+
+    await select.selectOption("approved");
+    await waitForStatusIncludes(page, "許諾ステータスを更新しました")
+      .then(() => ok("setStatus(連続保存のロールバック): 1回目が成功する"))
+      .catch(() => fail("setStatus(連続保存のロールバック): 1回目が成功しなかった"));
+    await page.waitForFunction(
+      () => document.querySelector('[data-testid="material-license-status"]')?.disabled === false,
+      null, { timeout: 5000 },
+    ).then(() => ok("setStatus(連続保存のロールバック): 1回目完了後、selectがenabledへ戻る"))
+      .catch(() => fail("setStatus(連続保存のロールバック): 1回目完了後もselectがenabledへ戻らない"));
+
+    await select.selectOption("denied");
+    await waitForAppAlertCount(page, 1);
+    const rolledBackValue = await select.inputValue();
+    if (rolledBackValue === "approved") {
+      ok("setStatus(連続保存のロールバック): 2回目失敗時、直前に確定保存した値(approved)へロールバックする(stale propのpendingへ戻らない)");
+    } else {
+      fail(`setStatus(連続保存のロールバック): ロールバック値が想定外(stale propの可能性): "${rolledBackValue}"`);
+    }
+    if (callCount === 2) ok("setStatus(連続保存のロールバック): PATCHは合計2回発生した");
+    else fail(`setStatus(連続保存のロールバック): PATCH回数が想定外(${callCount})`);
+    assertNoUnexpectedErrors(errors, "setStatus(連続保存のロールバック)");
+    await page.close();
+  }
 }
 
 // ============================================================

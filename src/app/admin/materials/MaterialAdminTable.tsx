@@ -90,6 +90,11 @@ export function MaterialAdminTable({ materials }: { materials: M[] }) {
   // 異なる教材IDの操作を誤って同じpending扱いにしない。
   const pendingActionsRef = useRef<Set<string>>(new Set());
   const [pendingActions, setPendingActions] = useState<Set<string>>(new Set());
+  // setStatus成功直後はrouter.refresh()の新しいpropsがまだ届いていないことがある。
+  // その間にstatusを続けて変更して失敗した場合、ロールバック先はstale propの
+  // m.license_status(refresh前の古い値)ではなく、直前に確定保存した値であるべき
+  // なので、教材IDごとに最後に成功保存した値をここへ保持する。
+  const lastSavedStatusRef = useRef<Map<string, string>>(new Map());
 
   function beginAction(key: string): boolean {
     if (pendingActionsRef.current.has(key)) return false;
@@ -143,7 +148,10 @@ export function MaterialAdminTable({ materials }: { materials: M[] }) {
 
   const setStatus = async (m: M, nextStatus: string, selectEl: HTMLSelectElement) => {
     const key = `status:${m.id}`;
-    const previousValue = m.license_status;
+    // ロールバック先は「直前に確定保存した値」を優先する。router.refresh()の
+    // 新しいpropsがまだ届いていない間に連続して変更・失敗した場合でも、
+    // stale propのm.license_status(refresh前の古い値)へ誤って戻さないため。
+    const previousValue = lastSavedStatusRef.current.get(m.id) ?? m.license_status;
     // 同じ教材への2回目以降のchangeが(1回目がまだpending中のため)拒否される場合、
     // DOM上は既に新しい値へ変わっているselectを、未送信のまま成功したように
     // 見せないよう元の値へ戻す。
@@ -162,6 +170,7 @@ export function MaterialAdminTable({ materials }: { materials: M[] }) {
       setErrorMessage(resolveErrorMessage(STATUS_ERROR_MESSAGES, result.code));
       return;
     }
+    lastSavedStatusRef.current.set(m.id, nextStatus);
     setStatusMessage("許諾ステータスを更新しました");
     router.refresh();
   };
