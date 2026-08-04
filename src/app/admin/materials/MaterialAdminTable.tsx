@@ -280,8 +280,9 @@ export function MaterialAdminTable({ materials }: { materials: M[] }) {
                   {m.publisher && <div className="text-xs text-navy-500">{m.publisher}</div>}
                   {m.source_url && <a className="text-xs text-navy-600 underline" href={m.source_url} target="_blank" rel="noreferrer">出典</a>}
                   <input
-                    className="mt-1 w-full text-xs border border-navy-200 rounded px-2 py-1"
+                    className="mt-1 w-full text-xs border border-navy-200 rounded px-2 py-1 disabled:cursor-not-allowed disabled:opacity-60"
                     data-testid="material-license-note"
+                    disabled={pendingActions.has(`note:${m.id}`)}
                     defaultValue={m.license_note ?? ""}
                     onBlur={(e) => updateNote(m, e.target.value)}
                     placeholder="許諾メモ"

@@ -17,7 +17,7 @@ import { loadEnv, requireEnv } from "../lib/env.mjs";
 import { getAdminClient } from "../lib/supabaseAdmin.mjs";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { TEST_ACCOUNTS } from "../lib/testAccounts.mjs";
-import { login, collectErrors } from "./lib/login.mjs";
+import { login } from "./lib/login.mjs";
 import { gotoReady } from "./lib/nav.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
@@ -26,8 +26,17 @@ const MATERIALS_PATH = "/admin/materials";
 let failed = 0;
 function ok(msg) { console.log(`✅ ${msg}`); }
 function fail(msg) { console.error(`❌ FAIL: ${msg}`); failed++; }
+
+// cleanup失敗を握りつぶさない: 失敗した場合はfail()でテスト全体の失敗として
+// 記録しつつ、falseを返して呼び出し側が残りのcleanupを継続できるようにする。
 async function safeCleanup(label, fn) {
-  try { await fn(); } catch (e) { console.error(`cleanup失敗(${label}): ${e.message}`); }
+  try {
+    await fn();
+    return true;
+  } catch (e) {
+    fail(`cleanup失敗(${label}): ${e instanceof Error ? e.message : String(e)}`);
+    return false;
+  }
 }
 
 function appAlertLocator(page) {
@@ -54,11 +63,6 @@ async function waitForStatusIncludes(page, substring, timeout = 8000) {
     substring,
     { timeout },
   );
-}
-async function assertStatusEmpty(label) {
-  // 呼び出し側でDOM取得済みのテキストを渡して判定するのではなく、
-  // 都度クエリして最新状態を見る(下のヘルパー参照)。
-  return label;
 }
 async function getStatusText(page) {
   return (await page.locator('[data-testid="material-mutation-status"]').textContent().catch(() => "")) ?? "";
@@ -100,6 +104,22 @@ async function assertNoRefreshWithin(page, label, windowMs = 1200) {
   }
 }
 
+// 「requestが発生しないこと」の確認専用helper。timeout以外の例外(呼び出し側の
+// バグ等)まで「発生しなかった」扱いにしないよう、PlaywrightのTimeoutErrorか
+// どうかを判定する。
+async function assertNoMaterialsRequestWithin(page, predicate, label, timeout = 1200) {
+  try {
+    await page.waitForRequest(predicate, { timeout });
+    fail(`${label}: 発生してはならないrequestが発生した`);
+  } catch (e) {
+    if (e?.name === "TimeoutError") {
+      ok(`${label}: 対象requestは発生しない`);
+    } else {
+      fail(`${label}: request監視自体が失敗した: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+}
+
 async function routeAnalyticsNoop(page) {
   await page.route("**/api/analytics/events", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
@@ -122,18 +142,90 @@ async function guardMaterialsRoute(page, expected, handler) {
   });
 }
 
-async function openMaterialsPage(browser, baseUrl, adminEmail, adminPassword) {
+// この修正と無関係な既存の軽微な既知事象(login.mjsのcollectErrors()と同じ基準)は
+// fatal扱いから除外する。
+const KNOWN_NONFATAL = [
+  /Hydration failed because the server rendered/,
+  /Minified React error #418/,
+];
+
+// シナリオ単位のエラーコレクター。汎用のcollectErrors()と異なり、このシナリオが
+// 意図的に発生させたadmin APIのHTTP 4xx/5xx・network abortに対応する、ブラウザが
+// 出す定型の"Failed to load resource"メッセージだけを許容し、それ以外の
+// pageerror/console error/想定外HTTP 5xxは全て失敗として扱う。イベント到達順に
+// 依存しないよう、判定はassertNoUnexpectedErrors()呼び出し時に一括で行う
+// (「実際に期待したadmin API応答が到達した件数」を予算として持ち、その範囲内の
+// "Failed to load resource"だけを相殺する)。
+function createScenarioErrorCollector(page, { allowedStatuses = [], allowAbort = false } = {}) {
+  const state = {
+    pageErrors: [],
+    otherConsoleErrors: [],
+    resourceLoadErrorMessages: [],
+    unexpectedNetworkProblems: [],
+    allowedResponseCount: 0,
+    allowedAbortCount: 0,
+  };
+
+  page.on("pageerror", (e) => state.pageErrors.push(`pageerror: ${e.message}`));
+
+  page.on("response", (res) => {
+    const matches = allowedStatuses.some((s) => res.status() === s.status && res.url().includes(s.urlIncludes));
+    if (matches) {
+      state.allowedResponseCount++;
+      return;
+    }
+    if (res.status() >= 500) state.unexpectedNetworkProblems.push(`http ${res.status()}: ${res.url()}`);
+  });
+
+  page.on("requestfailed", (req) => {
+    // Next.jsのLinkプリフェッチ等、admin materials mutationと無関係な
+    // background requestのabortは対象外(ナビゲーションに伴う正常な挙動であり、
+    // このE2Eが検証する対象ではない)。
+    if (!req.url().includes("/api/admin/materials")) return;
+    if (allowAbort) {
+      state.allowedAbortCount++;
+      return;
+    }
+    state.unexpectedNetworkProblems.push(`requestfailed: ${req.method()} ${req.url()} (${req.failure()?.errorText ?? "unknown"})`);
+  });
+
+  page.on("console", (msg) => {
+    if (msg.type() !== "error") return;
+    const text = msg.text();
+    if (KNOWN_NONFATAL.some((re) => re.test(text))) return;
+    if (/Failed to load resource/.test(text)) {
+      state.resourceLoadErrorMessages.push(text);
+      return;
+    }
+    state.otherConsoleErrors.push(`console.error: ${text}`);
+  });
+
+  return state;
+}
+
+function assertNoUnexpectedErrors(state, label) {
+  const allowedResourceMsgBudget = state.allowedResponseCount + state.allowedAbortCount;
+  const excessCount = Math.max(0, state.resourceLoadErrorMessages.length - allowedResourceMsgBudget);
+  const excessResourceMsgs = excessCount > 0
+    ? state.resourceLoadErrorMessages.slice(0, excessCount).map((m) => `console.error: ${m}`)
+    : [];
+  const problems = [
+    ...state.pageErrors,
+    ...state.otherConsoleErrors,
+    ...state.unexpectedNetworkProblems,
+    ...excessResourceMsgs,
+  ];
+  if (problems.length) fail(`${label}: 想定外のエラー:\n  ${problems.join("\n  ")}`);
+  else ok(`${label}: pageerror/想定外console error/想定外HTTP 5xx なし`);
+}
+
+async function openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, errorOptions = {}) {
   const page = await browser.newPage();
   await routeAnalyticsNoop(page);
-  const errors = collectErrors(page);
+  const errors = createScenarioErrorCollector(page, errorOptions);
   await login(page, baseUrl, adminEmail, adminPassword);
   await gotoReady(page, `${baseUrl}${MATERIALS_PATH}`);
   return { page, errors };
-}
-
-function assertNoErrors(errors, label) {
-  if (errors.length) fail(`${label}: 操作中にエラー:\n  ${errors.join("\n  ")}`);
-  else ok(`${label}: console error / pageerror なし`);
 }
 
 // ============================================================
@@ -193,16 +285,15 @@ async function runCreateTests(browser, baseUrl, adminEmail, adminPassword) {
     if (titleAfterReopen === "") ok("create(成功): 再度開くとdraftが初期化されている");
     else fail(`create(成功): draftが初期化されていない (title="${titleAfterReopen}")`);
 
-    assertNoErrors(errors, "create(成功)");
+    assertNoUnexpectedErrors(errors, "create(成功)");
     await page.close();
   }
 
   // ---- A2. HTTP JSONエラー ----
   {
-    // このシナリオは意図的にHTTP 500を返させるため、collectErrors()は使わない
-    // (500応答自体・それに伴うconsole.errorはcollectErrors()が拾ってしまい、
-    // 意図した失敗レスポンスを誤ってpageerror扱いしてしまうため)。
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, {
+      allowedStatuses: [{ status: 500, urlIncludes: "/api/admin/materials" }],
+    });
     const title = `TEST_createJSONエラー_${Date.now()}`;
     await guardMaterialsRoute(page, [{ method: "POST", urlIncludes: "/api/admin/materials" }], async (route) => {
       await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "insert_failed", detail: "raw supabase error message must not leak" }) });
@@ -231,12 +322,15 @@ async function runCreateTests(browser, baseUrl, adminEmail, adminPassword) {
 
     await assertReOperable(page.locator('[data-testid="material-create-submit"]'), "create(HTTP JSONエラー)");
     await assertNoRefreshWithin(page, "create(HTTP JSONエラー)");
+    assertNoUnexpectedErrors(errors, "create(HTTP JSONエラー)");
     await page.close();
   }
 
   // ---- A3. HTTP非JSONエラー ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, {
+      allowedStatuses: [{ status: 500, urlIncludes: "/api/admin/materials" }],
+    });
     await guardMaterialsRoute(page, [{ method: "POST", urlIncludes: "/api/admin/materials" }], async (route) => {
       await route.fulfill({ status: 500, contentType: "text/html", body: "<html>Internal Server Error</html>" });
     });
@@ -250,12 +344,13 @@ async function runCreateTests(browser, baseUrl, adminEmail, adminPassword) {
     else fail(`create(HTTP非JSONエラー): alert文言が想定外: "${alertText}"`);
     await assertReOperable(page.locator('[data-testid="material-create-submit"]'), "create(HTTP非JSONエラー)");
     await assertNoRefreshWithin(page, "create(HTTP非JSONエラー)");
+    assertNoUnexpectedErrors(errors, "create(HTTP非JSONエラー)");
     await page.close();
   }
 
   // ---- A4. networkレベルのabort ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, { allowAbort: true });
     let callCount = 0;
     await guardMaterialsRoute(page, [{ method: "POST", urlIncludes: "/api/admin/materials" }], async (route) => {
       callCount++;
@@ -273,12 +368,15 @@ async function runCreateTests(browser, baseUrl, adminEmail, adminPassword) {
     else fail(`create(network abort): request試行回数が想定外(${callCount})`);
     await assertReOperable(page.locator('[data-testid="material-create-submit"]'), "create(network abort)");
     await assertNoRefreshWithin(page, "create(network abort)");
+    assertNoUnexpectedErrors(errors, "create(network abort)");
     await page.close();
   }
 
   // ---- A5. unknown/prototype error code ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, {
+      allowedStatuses: [{ status: 400, urlIncludes: "/api/admin/materials" }],
+    });
     await guardMaterialsRoute(page, [{ method: "POST", urlIncludes: "/api/admin/materials" }], async (route) => {
       await route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: "constructor" }) });
     });
@@ -293,12 +391,13 @@ async function runCreateTests(browser, baseUrl, adminEmail, adminPassword) {
     } else {
       fail(`create(unknown/prototype code): alert文言が想定外: "${alertText}"`);
     }
+    assertNoUnexpectedErrors(errors, "create(unknown/prototype code)");
     await page.close();
   }
 
   // ---- A6. 二重送信防止 ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
     let callCount = 0;
     const gate = createDeferred();
     await guardMaterialsRoute(page, [{ method: "POST", urlIncludes: "/api/admin/materials" }], async (route) => {
@@ -331,6 +430,7 @@ async function runCreateTests(browser, baseUrl, adminEmail, adminPassword) {
       .catch(() => fail("create(二重送信防止): レスポンス解放後も成功statusへ更新されなかった"));
     if (callCount === 1) ok("create(二重送信防止): 完了後もPOSTは1回のまま");
     else fail(`create(二重送信防止): 完了後にPOSTが${callCount}回になっていた`);
+    assertNoUnexpectedErrors(errors, "create(二重送信防止)");
     await page.close();
   }
 }
@@ -377,13 +477,15 @@ async function runTogglePublicTests(browser, baseUrl, adminEmail, adminPassword,
     else fail(`togglePublic(成功): alertが${alertAfter}件存在する`);
     await refreshPromise.then(() => ok("togglePublic(成功): 成功時にrefresh相当のrequestが発生する"))
       .catch(() => fail("togglePublic(成功): 成功時にrefresh相当のrequestが発生しなかった"));
-    assertNoErrors(errors, "togglePublic(成功)");
+    assertNoUnexpectedErrors(errors, "togglePublic(成功)");
     await page.close();
   }
 
   // ---- B2. HTTP JSONエラー ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, {
+      allowedStatuses: [{ status: 500, urlIncludes: "/api/admin/materials/" }],
+    });
     await guardMaterialsRoute(page, [{ method: "PATCH", urlIncludes: "/api/admin/materials/" }], async (route) => {
       await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "update_failed", detail: "raw db message" }) });
     });
@@ -407,12 +509,15 @@ async function runTogglePublicTests(browser, baseUrl, adminEmail, adminPassword,
     else fail(`togglePublic(HTTP JSONエラー): ボタン表示が変化した ("${labelBefore}" → "${labelAfter}")`);
     await assertReOperable(toggleBtn, "togglePublic(HTTP JSONエラー)");
     await assertNoRefreshWithin(page, "togglePublic(HTTP JSONエラー)");
+    assertNoUnexpectedErrors(errors, "togglePublic(HTTP JSONエラー)");
     await page.close();
   }
 
   // ---- B3. HTTP非JSONエラー ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, {
+      allowedStatuses: [{ status: 502, urlIncludes: "/api/admin/materials/" }],
+    });
     await guardMaterialsRoute(page, [{ method: "PATCH", urlIncludes: "/api/admin/materials/" }], async (route) => {
       await route.fulfill({ status: 502, contentType: "text/plain", body: "bad gateway" });
     });
@@ -423,12 +528,13 @@ async function runTogglePublicTests(browser, baseUrl, adminEmail, adminPassword,
     if (alertText.includes("操作に失敗しました")) ok("togglePublic(HTTP非JSONエラー): フォールバック文言のalertが1件表示される");
     else fail(`togglePublic(HTTP非JSONエラー): alert文言が想定外: "${alertText}"`);
     await assertNoRefreshWithin(page, "togglePublic(HTTP非JSONエラー)");
+    assertNoUnexpectedErrors(errors, "togglePublic(HTTP非JSONエラー)");
     await page.close();
   }
 
   // ---- B4. network abort ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, { allowAbort: true });
     await guardMaterialsRoute(page, [{ method: "PATCH", urlIncludes: "/api/admin/materials/" }], async (route) => {
       await route.abort("failed");
     });
@@ -439,12 +545,13 @@ async function runTogglePublicTests(browser, baseUrl, adminEmail, adminPassword,
     if (alertText.includes("操作に失敗しました")) ok("togglePublic(network abort): フォールバック文言のalertが1件表示される");
     else fail(`togglePublic(network abort): alert文言が想定外: "${alertText}"`);
     await assertReOperable(row.locator('[data-testid="material-toggle-public"]'), "togglePublic(network abort)");
+    assertNoUnexpectedErrors(errors, "togglePublic(network abort)");
     await page.close();
   }
 
   // ---- B5. 二重クリック防止 ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
     let callCount = 0;
     const gate = createDeferred();
     await guardMaterialsRoute(page, [{ method: "PATCH", urlIncludes: "/api/admin/materials/" }], async (route) => {
@@ -475,6 +582,7 @@ async function runTogglePublicTests(browser, baseUrl, adminEmail, adminPassword,
       .catch(() => fail("togglePublic(二重クリック防止): レスポンス解放後も成功statusへ更新されなかった"));
     if (callCount === 1) ok("togglePublic(二重クリック防止): 完了後もPATCHは1回のまま");
     else fail(`togglePublic(二重クリック防止): 完了後にPATCHが${callCount}回になっていた`);
+    assertNoUnexpectedErrors(errors, "togglePublic(二重クリック防止)");
     await page.close();
   }
 }
@@ -516,13 +624,15 @@ async function runSetStatusTests(browser, baseUrl, adminEmail, adminPassword, fi
     else fail(`setStatus(成功): alertが${alertAfter}件存在する`);
     await refreshPromise.then(() => ok("setStatus(成功): 成功時にrefresh相当のrequestが発生する"))
       .catch(() => fail("setStatus(成功): 成功時にrefresh相当のrequestが発生しなかった"));
-    assertNoErrors(errors, "setStatus(成功)");
+    assertNoUnexpectedErrors(errors, "setStatus(成功)");
     await page.close();
   }
 
   // ---- C2. HTTP JSONエラー(失敗時の元値復元を兼ねる) ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, {
+      allowedStatuses: [{ status: 500, urlIncludes: "/api/admin/materials/" }],
+    });
     await guardMaterialsRoute(page, [{ method: "PATCH", urlIncludes: "/api/admin/materials/" }], async (route) => {
       await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "update_failed", detail: "raw db message" }) });
     });
@@ -547,12 +657,15 @@ async function runSetStatusTests(browser, baseUrl, adminEmail, adminPassword, fi
       .catch(() => fail("setStatus(HTTP JSONエラー): selectの値が元の値へ復元されなかった"));
     await assertReOperable(select, "setStatus(HTTP JSONエラー)");
     await assertNoRefreshWithin(page, "setStatus(HTTP JSONエラー)");
+    assertNoUnexpectedErrors(errors, "setStatus(HTTP JSONエラー)");
     await page.close();
   }
 
   // ---- C3. HTTP非JSONエラー ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, {
+      allowedStatuses: [{ status: 500, urlIncludes: "/api/admin/materials/" }],
+    });
     await guardMaterialsRoute(page, [{ method: "PATCH", urlIncludes: "/api/admin/materials/" }], async (route) => {
       await route.fulfill({ status: 500, contentType: "text/html", body: "<html>error</html>" });
     });
@@ -568,12 +681,13 @@ async function runSetStatusTests(browser, baseUrl, adminEmail, adminPassword, fi
       null, { timeout: 5000 },
     ).then(() => ok("setStatus(HTTP非JSONエラー): selectの値が元の値(pending)へ復元される"))
       .catch(() => fail("setStatus(HTTP非JSONエラー): selectの値が元の値へ復元されなかった"));
+    assertNoUnexpectedErrors(errors, "setStatus(HTTP非JSONエラー)");
     await page.close();
   }
 
   // ---- C4. network abort ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, { allowAbort: true });
     await guardMaterialsRoute(page, [{ method: "PATCH", urlIncludes: "/api/admin/materials/" }], async (route) => {
       await route.abort("failed");
     });
@@ -589,12 +703,13 @@ async function runSetStatusTests(browser, baseUrl, adminEmail, adminPassword, fi
       null, { timeout: 5000 },
     ).then(() => ok("setStatus(network abort): selectの値が元の値(pending)へ復元される"))
       .catch(() => fail("setStatus(network abort): selectの値が元の値へ復元されなかった"));
+    assertNoUnexpectedErrors(errors, "setStatus(network abort)");
     await page.close();
   }
 
   // ---- C5. pending中の2回目change(二重送信防止 + disabled/aria-busy実測) ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
     let callCount = 0;
     const capturedBodies = [];
     const gate = createDeferred();
@@ -644,6 +759,7 @@ async function runSetStatusTests(browser, baseUrl, adminEmail, adminPassword, fi
     } else {
       fail(`setStatus(pending中の2回目change): 完了後の状態が想定外 (callCount=${callCount}, bodies=${JSON.stringify(capturedBodies)})`);
     }
+    assertNoUnexpectedErrors(errors, "setStatus(pending中の2回目change)");
     await page.close();
   }
 }
@@ -660,7 +776,7 @@ async function runUpdateNoteTests(browser, baseUrl, adminEmail, adminPassword, f
 
   // ---- D1. 変更なし(request 0件) ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
     let callCount = 0;
     await guardMaterialsRoute(page, [{ method: "PATCH", urlIncludes: "/api/admin/materials/" }], async (route) => {
       callCount++;
@@ -670,13 +786,18 @@ async function runUpdateNoteTests(browser, baseUrl, adminEmail, adminPassword, f
     const noteInput = row.locator('[data-testid="material-license-note"]');
     await noteInput.click();
     await noteInput.blur();
-    await page.waitForTimeout(300); // blur直後、PATCHを発火させない実装であることの確認用の短い監視窓(固定待ちで成功を判定しているわけではない)
+    await assertNoMaterialsRequestWithin(
+      page,
+      (req) => req.method() === "PATCH" && req.url().includes("/api/admin/materials/"),
+      "updateNote(変更なし)",
+    );
     if (callCount === 0) ok("updateNote(変更なし): 値が変わっていないためPATCHは発火しない");
     else fail(`updateNote(変更なし): 変更していないのにPATCHが${callCount}回発火した`);
     const statusText = await getStatusText(page);
     const alertCount = await appAlertLocator(page).count();
     if (statusText.trim() === "" && alertCount === 0) ok("updateNote(変更なし): status/alertともに変化しない");
     else fail(`updateNote(変更なし): status/alertが変化した (status="${statusText}", alert=${alertCount}件)`);
+    assertNoUnexpectedErrors(errors, "updateNote(変更なし)");
     await page.close();
   }
 
@@ -709,13 +830,15 @@ async function runUpdateNoteTests(browser, baseUrl, adminEmail, adminPassword, f
     else fail(`updateNote(成功): alertが${alertAfter}件存在する`);
     await refreshPromise.then(() => ok("updateNote(成功): 成功時にrefresh相当のrequestが発生する"))
       .catch(() => fail("updateNote(成功): 成功時にrefresh相当のrequestが発生しなかった"));
-    assertNoErrors(errors, "updateNote(成功)");
+    assertNoUnexpectedErrors(errors, "updateNote(成功)");
     await page.close();
   }
 
   // ---- D3. HTTP JSONエラー ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, {
+      allowedStatuses: [{ status: 500, urlIncludes: "/api/admin/materials/" }],
+    });
     const noteText = `TEST_noteJSONエラー_${Date.now()}`;
     await guardMaterialsRoute(page, [{ method: "PATCH", urlIncludes: "/api/admin/materials/" }], async (route) => {
       await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "update_failed", detail: "raw db message" }) });
@@ -739,12 +862,15 @@ async function runUpdateNoteTests(browser, baseUrl, adminEmail, adminPassword, f
     if (retained === noteText) ok("updateNote(HTTP JSONエラー): 入力した文字が保持される");
     else fail(`updateNote(HTTP JSONエラー): 入力内容が失われた (value="${retained}")`);
     await assertNoRefreshWithin(page, "updateNote(HTTP JSONエラー)");
+    assertNoUnexpectedErrors(errors, "updateNote(HTTP JSONエラー)");
     await page.close();
   }
 
   // ---- D4. HTTP非JSONエラー ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, {
+      allowedStatuses: [{ status: 502, urlIncludes: "/api/admin/materials/" }],
+    });
     const noteText = `TEST_note非JSON_${Date.now()}`;
     await guardMaterialsRoute(page, [{ method: "PATCH", urlIncludes: "/api/admin/materials/" }], async (route) => {
       await route.fulfill({ status: 502, contentType: "text/plain", body: "bad gateway" });
@@ -760,12 +886,13 @@ async function runUpdateNoteTests(browser, baseUrl, adminEmail, adminPassword, f
     const retained = await noteInput.inputValue();
     if (retained === noteText) ok("updateNote(HTTP非JSONエラー): 入力した文字が保持される");
     else fail(`updateNote(HTTP非JSONエラー): 入力内容が失われた (value="${retained}")`);
+    assertNoUnexpectedErrors(errors, "updateNote(HTTP非JSONエラー)");
     await page.close();
   }
 
   // ---- D5. network abort ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, { allowAbort: true });
     const noteText = `TEST_noteabort_${Date.now()}`;
     await guardMaterialsRoute(page, [{ method: "PATCH", urlIncludes: "/api/admin/materials/" }], async (route) => {
       await route.abort("failed");
@@ -781,42 +908,122 @@ async function runUpdateNoteTests(browser, baseUrl, adminEmail, adminPassword, f
     const retained = await noteInput.inputValue();
     if (retained === noteText) ok("updateNote(network abort): 入力した文字が保持される");
     else fail(`updateNote(network abort): 入力内容が失われた (value="${retained}")`);
+    assertNoUnexpectedErrors(errors, "updateNote(network abort)");
     await page.close();
   }
 
-  // ---- D6. 同じ値についてdeferred response中の複数blur(二重送信防止) ----
+  // ---- D6. 保存中は編集不能で、完了後の新しい編集は正常に保存できる ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
     let callCount = 0;
+    const capturedBodies = [];
     const gate = createDeferred();
-    const noteText = `TEST_note二重blur_${Date.now()}`;
     await guardMaterialsRoute(page, [{ method: "PATCH", urlIncludes: "/api/admin/materials/" }], async (route) => {
       callCount++;
-      await gate.promise;
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ material: { license_note: noteText } }) });
+      capturedBodies.push(route.request().postDataJSON());
+      if (callCount === 1) {
+        await gate.promise; // 1回目だけ保留し、2回目以降(完了後の新しい編集)は即応答する
+      }
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ material: {} }) });
     });
-    const row = await fixtureRow(page);
-    const noteInput = row.locator('[data-testid="material-license-note"]');
-    await noteInput.fill(noteText);
+
+    const noteTextA = `TEST_note編集不能_A_${Date.now()}`;
+    let row = await fixtureRow(page);
+    let noteInput = row.locator('[data-testid="material-license-note"]');
+    await noteInput.fill(noteTextA);
     await noteInput.blur();
 
-    await page.waitForFunction(() => document.querySelectorAll('[aria-busy="true"]').length > 0, null, { timeout: 5000 })
-      .then(() => ok("updateNote(二重blur防止): レスポンス保留中はaria-busy=\"true\""))
-      .catch(() => fail("updateNote(二重blur防止): レスポンス保留中にaria-busyが確認できなかった"));
+    await page.waitForFunction(
+      () => document.querySelector('[data-testid="material-license-note"]')?.disabled === true,
+      null, { timeout: 5000 },
+    ).then(() => ok("updateNote(保存中編集不能): 1回目のPATCHがpending中はnote inputがdisabled"))
+      .catch(() => fail("updateNote(保存中編集不能): pending中にnote inputがdisabledにならなかった"));
 
-    // pending中に再度focus→blur(同じ値)しても、requestが増えないことを確認する。
-    await noteInput.focus();
-    await noteInput.blur();
+    if (callCount === 1) ok("updateNote(保存中編集不能): 1回目のPATCHが到達した");
+    else fail(`updateNote(保存中編集不能): 1回目のPATCH到達回数が想定外(${callCount})`);
 
-    if (callCount === 1) ok("updateNote(二重blur防止): レスポンス保留中の複数blurでもPATCHは1回だけ");
-    else fail(`updateNote(二重blur防止): PATCHが${callCount}回送信された`);
+    const busyContainer = page.locator('[aria-busy]').first();
+    const busyDuring = await busyContainer.getAttribute("aria-busy").catch(() => null);
+    if (busyDuring === "true") ok('updateNote(保存中編集不能): pending中はコンテナのaria-busy="true"');
+    else fail(`updateNote(保存中編集不能): pending中のaria-busyが想定外: "${busyDuring}"`);
 
+    const valueDuringPending = await noteInput.inputValue();
+    if (valueDuringPending === noteTextA) ok("updateNote(保存中編集不能): pending中もinputの値はAのまま");
+    else fail(`updateNote(保存中編集不能): pending中にinputの値が変わった (value="${valueDuringPending}")`);
+
+    // pending中に、通常のPlaywright操作(force:true不使用、DOMのvalue直接書き換え
+    // なし、dispatchEventでの実在しないユーザー操作の生成なし)で値Bへの変更を
+    // 試みる。disabledのため通常のfill()はactionability待ちのままtimeoutし、
+    // 成立しないはずである。
+    const noteTextB = `TEST_note編集不能_B_${Date.now()}`;
+    let fillDuringPendingSucceeded = false;
+    try {
+      await noteInput.fill(noteTextB, { timeout: 1500 });
+      fillDuringPendingSucceeded = true;
+    } catch {
+      fillDuringPendingSucceeded = false;
+    }
+    if (!fillDuringPendingSucceeded) {
+      ok("updateNote(保存中編集不能): pending中は通常のfill()操作が成立しない(disabledのため)");
+    } else {
+      fail("updateNote(保存中編集不能): pending中にもかかわらずfill()が成立してしまった");
+    }
+
+    const valueAfterAttempt = await noteInput.inputValue();
+    if (valueAfterAttempt === noteTextA) ok("updateNote(保存中編集不能): 編集拒否後もinputの値はAのまま");
+    else fail(`updateNote(保存中編集不能): 編集拒否後にinputの値が変わった (value="${valueAfterAttempt}")`);
+    if (callCount === 1) ok("updateNote(保存中編集不能): 編集拒否後もPATCH数は1回のまま");
+    else fail(`updateNote(保存中編集不能): 編集拒否後にPATCHが${callCount}回になっていた`);
+    const statusDuringPending = await getStatusText(page);
+    if (statusDuringPending.trim() === "") ok("updateNote(保存中編集不能): pending中はまだ成功statusが表示されていない");
+    else fail(`updateNote(保存中編集不能): pending中に想定外のstatusが表示された: "${statusDuringPending}"`);
+
+    // 1回目のresponseを解放する。refresh検知用のwaitForRequestは、実際の
+    // request発生より後に登録すると取りこぼすため、解放前に登録しておく。
+    const refreshPromise = waitForRefresh(page);
     gate.resolve();
     await waitForStatusIncludes(page, "許諾メモを保存しました")
-      .then(() => ok("updateNote(二重blur防止): レスポンス解放後、成功statusへ更新される"))
-      .catch(() => fail("updateNote(二重blur防止): レスポンス解放後も成功statusへ更新されなかった"));
-    if (callCount === 1) ok("updateNote(二重blur防止): 完了後もPATCHは1回のまま");
-    else fail(`updateNote(二重blur防止): 完了後にPATCHが${callCount}回になっていた`);
+      .then(() => ok("updateNote(保存中編集不能): 1回目解放後、成功statusへ更新される"))
+      .catch(() => fail("updateNote(保存中編集不能): 1回目解放後も成功statusへ更新されなかった"));
+    await refreshPromise
+      .then(() => ok("updateNote(保存中編集不能): 1回目成功時にrefresh相当のrequestが発生する"))
+      .catch(() => fail("updateNote(保存中編集不能): 1回目成功時にrefresh相当のrequestが発生しなかった"));
+
+    // refresh後の行・inputを再取得する。
+    row = page.locator("tr", { hasText: fixtureTitle });
+    await row.waitFor({ state: "visible", timeout: 8000 });
+    noteInput = row.locator('[data-testid="material-license-note"]');
+
+    await page.waitForFunction(
+      () => document.querySelector('[data-testid="material-license-note"]')?.disabled === false,
+      null, { timeout: 5000 },
+    ).then(() => ok("updateNote(保存中編集不能): 完了後、note inputがenabledへ戻る"))
+      .catch(() => fail("updateNote(保存中編集不能): 完了後もnote inputがenabledへ戻らない"));
+
+    // 完了後の新しい編集: 値Bを入力してblurする。同じroute handlerが
+    // 2回目のPATCHにも応答する(1回目のgateとは独立)。
+    await noteInput.fill(noteTextB);
+    await noteInput.blur();
+
+    await page.waitForFunction(
+      (s) => {
+        const el = document.querySelector('[data-testid="material-mutation-status"]');
+        return !!el && !!el.textContent && el.textContent.includes(s);
+      },
+      "許諾メモを保存しました",
+      { timeout: 8000 },
+    ).then(() => ok("updateNote(保存中編集不能): 完了後の新しい編集(値B)も成功statusになる"))
+      .catch(() => fail("updateNote(保存中編集不能): 完了後の新しい編集(値B)が成功statusにならなかった"));
+
+    if (callCount === 2) ok("updateNote(保存中編集不能): 完了後の新しい編集で2回目のPATCHが発生した(pending中の重複PATCHは0件)");
+    else fail(`updateNote(保存中編集不能): 総PATCH数が想定外(${callCount})`);
+    if (capturedBodies[1]?.license_note === noteTextB) {
+      ok("updateNote(保存中編集不能): 2回目のPATCH bodyが値Bと一致する(黙って破棄されていない)");
+    } else {
+      fail(`updateNote(保存中編集不能): 2回目のPATCH bodyが想定外: ${JSON.stringify(capturedBodies[1])}`);
+    }
+
+    assertNoUnexpectedErrors(errors, "updateNote(保存中編集不能)");
     await page.close();
   }
 }
@@ -833,17 +1040,28 @@ async function runRemoveTests(browser, baseUrl, adminEmail, adminPassword, fixtu
 
   // ---- E1. confirmキャンセル ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
     let callCount = 0;
     await guardMaterialsRoute(page, [{ method: "DELETE", urlIncludes: "/api/admin/materials/" }], async (route) => {
       callCount++;
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
     });
-    page.on("dialog", (d) => d.dismiss());
+    const dialogDismissed = new Promise((resolve) => {
+      page.on("dialog", async (d) => {
+        await d.dismiss();
+        resolve();
+      });
+    });
     const row = await fixtureRow(page);
     const deleteBtn = row.locator('[data-testid="material-delete"]');
     await deleteBtn.click();
-    await page.waitForTimeout(300); // confirm()はブラウザの同期ダイアログのため、dismiss処理完了を待つための短い監視窓
+    await dialogDismissed;
+
+    await assertNoMaterialsRequestWithin(
+      page,
+      (req) => req.method() === "DELETE" && req.url().includes("/api/admin/materials/"),
+      "remove(confirmキャンセル)",
+    );
 
     if (callCount === 0) ok("remove(confirmキャンセル): DELETEは発生しない");
     else fail(`remove(confirmキャンセル): キャンセルしたのにDELETEが${callCount}回発生した`);
@@ -855,6 +1073,7 @@ async function runRemoveTests(browser, baseUrl, adminEmail, adminPassword, fixtu
     const rowStillThere = await page.locator("tr", { hasText: fixtureTitle }).count();
     if (rowStillThere === 1) ok("remove(confirmキャンセル): 行が削除されずに残っている");
     else fail(`remove(confirmキャンセル): 行の件数が想定外 (${rowStillThere})`);
+    assertNoUnexpectedErrors(errors, "remove(confirmキャンセル)");
     await page.close();
   }
 
@@ -903,13 +1122,15 @@ async function runRemoveTests(browser, baseUrl, adminEmail, adminPassword, fixtu
     else fail(`remove(成功): alertが${alertAfter}件存在する`);
     await refreshPromise.then(() => ok("remove(成功): 成功時にrefresh相当のrequestが発生する"))
       .catch(() => fail("remove(成功): 成功時にrefresh相当のrequestが発生しなかった"));
-    assertNoErrors(errors, "remove(成功)");
+    assertNoUnexpectedErrors(errors, "remove(成功)");
     await page.close();
   }
 
   // ---- E3. HTTP JSONエラー ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, {
+      allowedStatuses: [{ status: 500, urlIncludes: "/api/admin/materials/" }],
+    });
     await guardMaterialsRoute(page, [{ method: "DELETE", urlIncludes: "/api/admin/materials/" }], async (route) => {
       await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "delete_failed", detail: "raw db message" }) });
     });
@@ -932,12 +1153,15 @@ async function runRemoveTests(browser, baseUrl, adminEmail, adminPassword, fixtu
     else fail(`remove(HTTP JSONエラー): 行の件数が想定外 (${rowStillThere})`);
     await assertReOperable(row.locator('[data-testid="material-delete"]'), "remove(HTTP JSONエラー)");
     await assertNoRefreshWithin(page, "remove(HTTP JSONエラー)");
+    assertNoUnexpectedErrors(errors, "remove(HTTP JSONエラー)");
     await page.close();
   }
 
   // ---- E4. HTTP非JSONエラー ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, {
+      allowedStatuses: [{ status: 502, urlIncludes: "/api/admin/materials/" }],
+    });
     await guardMaterialsRoute(page, [{ method: "DELETE", urlIncludes: "/api/admin/materials/" }], async (route) => {
       await route.fulfill({ status: 502, contentType: "text/plain", body: "bad gateway" });
     });
@@ -951,12 +1175,13 @@ async function runRemoveTests(browser, baseUrl, adminEmail, adminPassword, fixtu
     const rowStillThere = await page.locator("tr", { hasText: fixtureTitle }).count();
     if (rowStillThere === 1) ok("remove(HTTP非JSONエラー): 行を成功したように消していない");
     else fail(`remove(HTTP非JSONエラー): 行の件数が想定外 (${rowStillThere})`);
+    assertNoUnexpectedErrors(errors, "remove(HTTP非JSONエラー)");
     await page.close();
   }
 
   // ---- E5. network abort ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, { allowAbort: true });
     await guardMaterialsRoute(page, [{ method: "DELETE", urlIncludes: "/api/admin/materials/" }], async (route) => {
       await route.abort("failed");
     });
@@ -970,12 +1195,15 @@ async function runRemoveTests(browser, baseUrl, adminEmail, adminPassword, fixtu
     const rowStillThere = await page.locator("tr", { hasText: fixtureTitle }).count();
     if (rowStillThere === 1) ok("remove(network abort): 行を成功したように消していない");
     else fail(`remove(network abort): 行の件数が想定外 (${rowStillThere})`);
+    assertNoUnexpectedErrors(errors, "remove(network abort)");
     await page.close();
   }
 
   // ---- E6. not_found ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword, {
+      allowedStatuses: [{ status: 404, urlIncludes: "/api/admin/materials/" }],
+    });
     await guardMaterialsRoute(page, [{ method: "DELETE", urlIncludes: "/api/admin/materials/" }], async (route) => {
       await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not_found" }) });
     });
@@ -986,12 +1214,13 @@ async function runRemoveTests(browser, baseUrl, adminEmail, adminPassword, fixtu
     const alertText = (await appAlertLocator(page).textContent().catch(() => "")) ?? "";
     if (alertText.includes("対象の教材が見つかりません")) ok("remove(not_found): 既知codeに対応した文言のalertが1件表示される");
     else fail(`remove(not_found): alert文言が想定外: "${alertText}"`);
+    assertNoUnexpectedErrors(errors, "remove(not_found)");
     await page.close();
   }
 
   // ---- E7. confirm承認後のdeferred response中の再操作(二重送信防止) ----
   {
-    const { page } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
+    const { page, errors } = await openMaterialsPage(browser, baseUrl, adminEmail, adminPassword);
     let callCount = 0;
     let dialogCount = 0;
     const gate = createDeferred();
@@ -1018,12 +1247,24 @@ async function runRemoveTests(browser, baseUrl, adminEmail, adminPassword, fixtu
     // disabled状態を無視してDOM操作で強制的に2回目のクリックを発火させる
     // (同期refガードがdisabled有無に依存せず機能することの確認)。
     await deleteBtn.evaluate((el) => el.click());
-    await page.waitForTimeout(300);
+
+    await assertNoMaterialsRequestWithin(
+      page,
+      (req) => req.method() === "DELETE" && req.url().includes("/api/admin/materials/"),
+      "remove(二重送信防止・pending中の再クリック)",
+    );
 
     if (dialogCount === 1) ok("remove(二重送信防止): pending中の再クリックでは2回目のconfirmが表示されない");
     else fail(`remove(二重送信防止): confirmダイアログが${dialogCount}回表示された`);
     if (callCount === 1) ok("remove(二重送信防止): pending中の再クリックでもDELETEは1回だけ");
     else fail(`remove(二重送信防止): DELETEが${callCount}回送信された`);
+    const stillDisabled = await deleteBtn.isDisabled();
+    if (stillDisabled) ok("remove(二重送信防止): pending中の再クリック後も削除ボタンはdisabledのまま");
+    else fail("remove(二重送信防止): pending中の再クリック後に削除ボタンのdisabledが外れた");
+    const busyContainer = page.locator('[aria-busy]').first();
+    const busyStill = await busyContainer.getAttribute("aria-busy").catch(() => null);
+    if (busyStill === "true") ok('remove(二重送信防止): pending中の再クリック後もaria-busy="true"のまま');
+    else fail(`remove(二重送信防止): pending中の再クリック後のaria-busyが想定外: "${busyStill}"`);
 
     gate.resolve();
     await waitForStatusIncludes(page, "教材を削除しました")
@@ -1031,6 +1272,7 @@ async function runRemoveTests(browser, baseUrl, adminEmail, adminPassword, fixtu
       .catch(() => fail("remove(二重送信防止): レスポンス解放後も成功statusへ更新されなかった"));
     if (callCount === 1) ok("remove(二重送信防止): 完了後もDELETEは1回のまま");
     else fail(`remove(二重送信防止): 完了後にDELETEが${callCount}回になっていた`);
+    assertNoUnexpectedErrors(errors, "remove(二重送信防止)");
     await page.close();
   }
 }
@@ -1074,13 +1316,21 @@ async function main() {
     if (browser) await safeCleanup("browser.close", () => browser.close());
     if (dev) await safeCleanup("stopDevServer", () => stopDevServer(dev));
     if (fixtureId) {
-      const { error: delErr } = await admin.from("materials").delete().eq("id", fixtureId);
-      if (delErr) {
-        fail(`fixture教材(id=${fixtureId})の削除に失敗した: ${delErr.message}`);
-      } else {
-        const { data: stillThere } = await admin.from("materials").select("id").eq("id", fixtureId).maybeSingle();
-        if (stillThere) fail(`fixture教材(id=${fixtureId})削除後も存在が確認された`);
-        else ok(`fixture教材(id=${fixtureId})の削除・削除後の非存在を確認した`);
+      const deleted = await safeCleanup("fixture削除", async () => {
+        const { error: delErr } = await admin.from("materials").delete().eq("id", fixtureId);
+        if (delErr) throw new Error(`fixture教材(id=${fixtureId})の削除に失敗した: ${delErr.message}`);
+      });
+      if (deleted) {
+        await safeCleanup("fixture削除後の非存在確認", async () => {
+          const { data: stillThere, error: verifyError } = await admin
+            .from("materials")
+            .select("id")
+            .eq("id", fixtureId)
+            .maybeSingle();
+          if (verifyError) throw new Error(`fixture教材の削除後確認に失敗した: ${verifyError.message}`);
+          if (stillThere) throw new Error("fixture教材が削除後も存在している");
+          ok(`fixture教材(id=${fixtureId})の削除と削除後の非存在を確認した`);
+        });
       }
     }
   }
