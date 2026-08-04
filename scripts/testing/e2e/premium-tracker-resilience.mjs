@@ -257,10 +257,27 @@ async function main() {
     // (重複の有無)はこのIssueのスコープ外のため固定件数へは依存しない。
     {
       const page = await browser.newPage();
-      const { errors } = setupPage(page);
+      const { errors, analyticsEventsPromise } = setupPage(page);
+      const analyticsEvents = await analyticsEventsPromise;
       await page.goto(`${baseUrl}/premium`, { waitUntil: "load" });
       await page.goto(`${baseUrl}/`, { waitUntil: "load" });
+
+      // waitUntil:"load"はHTML/リソース読み込み完了までしか保証せず、React hydration・
+      // PremiumTrackerのuseEffect完了までは待たない。2回目のマウント自体が実際に
+      // 実行完了したことを、その効果として送信されるanalyticsイベント件数の増加
+      // (具体的な状態変化)で確認してから初めてerrorsを判定する。そうしないと、
+      // 2回目のeffectがまだ走っていない/例外を投げた直後にpage.close()してしまい、
+      // 未処理例外を見逃したまま緑判定になり得る(Codexレビュー指摘)。
+      const countBeforeSecondVisit = analyticsEvents.length;
       await page.goto(`${baseUrl}/premium`, { waitUntil: "load" });
+      const deadline = Date.now() + 8000;
+      let secondMountObserved = false;
+      while (Date.now() < deadline) {
+        if (analyticsEvents.length > countBeforeSecondVisit) { secondMountObserved = true; break; }
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      if (secondMountObserved) ok("E(再訪問): 2回目のマウントのeffectが実際に完了したことを確認(analyticsイベント件数の増加で観測)");
+      else fail("E(再訪問): 2回目のマウントのeffect完了を確認できなかった(タイムアウト)");
 
       const bodyVisible = await page.locator("body").isVisible().catch(() => false);
       if (bodyVisible) ok("E(再訪問): 2回目のマウントでもページが正常に表示される");
