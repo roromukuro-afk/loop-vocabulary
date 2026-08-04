@@ -82,6 +82,7 @@
     "test:a11y-teacher-class-feedback": "node scripts/testing/e2e/a11y-teacher-class-feedback.mjs",
     "test:a11y-premium-checkout-feedback": "node scripts/testing/e2e/a11y-premium-checkout-feedback.mjs",
     "test:premium-tracker-resilience": "node scripts/testing/e2e/premium-tracker-resilience.mjs",
+    "test:a11y-material-admin-feedback": "node scripts/testing/e2e/a11y-material-admin-feedback.mjs",
     "test:external-material-rights": "node scripts/testing/e2e/external-material-rights.mjs",
     "test:recovery-mode": "node scripts/testing/e2e/recovery-mode.mjs",
     "test:internal-links": "node scripts/testing/e2e/internal-links.mjs",
