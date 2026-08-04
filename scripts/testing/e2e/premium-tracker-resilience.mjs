@@ -204,30 +204,35 @@ async function main() {
       if (bodyVisible) ok("C(GA4同期throw): ページが正常に表示される");
       else fail("C(GA4同期throw): ページが表示されていない");
 
-      // 意図的なテスト用例外文字列("intentional GA4 test failure")自体はGA4呼び出し側の
-      // try/catchで吸収され外部へ漏れないはずなので、成功判定に混ぜず素通りさせる。
-      // 実アプリ由来の未処理pageerror/console errorのみを失敗として扱う。
-      const genuineErrors = errors.filter((e) => !e.includes("intentional GA4 test failure"));
-      if (genuineErrors.length === 0) ok("C(GA4同期throw): pageerror / console error 0件(意図した例外文字列自体は除く)");
-      else fail(`C(GA4同期throw)でエラー:\n  ${genuineErrors.join("\n  ")}`);
+      // PremiumTrackerのtry/catchが正しく機能していれば、intentional GA4 test failureは
+      // console.warn等を含めどこにも一切出力されない(catchブロックは何もしない設計)。
+      // 例外文字列を含むかどうかで絞り込むと、ガードが外れて本当にpageerrorへ漏れた
+      // 場合までここで隠してしまう(このシナリオが検知すべき本来の回帰そのもの)ため、
+      // フィルタせずerrors.length自体を判定する。
+      if (errors.length === 0) ok("C(GA4同期throw): pageerror / console error 0件(例外は正しく吸収され、どこにも漏れていない)");
+      else fail(`C(GA4同期throw)でエラー:\n  ${errors.join("\n  ")}`);
       await page.close();
     }
 
     // ---- D. Growth OS前処理(trackEvent内部)の例外がGA4実行を妨げないことの決定論的確認 ----
-    // Bとは別のmalformed値・別の設定手段(addInitScript経由でdocument.cookieへ直接設定)を
-    // 使い、GA4側をthrowしない記録用スパイに差し替えることで、Growth OSがthrowする状況
-    // でもGA4呼び出し(trackPremiumPageView、PremiumTracker内でtrackEventより先に実行
-    // される)自体は正常に完了することを確認する。
+    // malformed cookie自体は本PRのreadCookie()修正によりもはやthrowしなくなったため
+    // (nullを返すだけになった)、Bと同じ手段では guard(trackEventの内側try/catch・
+    // PremiumTrackerのGrowth OS側try/catch)を実際には通過しない空振りテストになって
+    // しまう(Codexレビュー指摘)。guardへ確実に到達する別の失敗点として、
+    // getAnonymousSessionId()がcookie無し時に呼ぶrandomId()内部のcrypto.randomUUID()
+    // 自体をthrowするよう差し替える。GA4側はthrowしない記録用スパイに差し替え、
+    // 呼び出しがあったこと自体を window.__gtagCalls で観測する。
     {
       const page = await browser.newPage();
       const { errors } = setupPage(page);
-      // addInitScriptはnavigationごとに新しいdocumentへ適用される。GA4側はthrowしない
-      // 記録用スパイに差し替え、呼び出しがあったこと自体を window.__gtagCalls で観測する。
       await page.addInitScript(() => {
         window.__gtagCalls = [];
         window.gtag = (...args) => { window.__gtagCalls.push(args); };
       });
-      await page.addInitScript(() => { document.cookie = "lv_aid=%;path=/"; });
+      await page.addInitScript(() => {
+        window.crypto.randomUUID = () => { throw new Error("intentional Growth OS test failure"); };
+      });
+      await page.context().clearCookies();
 
       await page.goto(`${baseUrl}/premium`, { waitUntil: "load" });
       await page.waitForFunction(() => Array.isArray(window.__gtagCalls) && window.__gtagCalls.length > 0, null, { timeout: 8000 })
