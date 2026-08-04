@@ -15,10 +15,18 @@ const SESSION_COOKIE_NAME = "lv_aid";
 const SESSION_COOKIE_DAYS = 365;
 const SOURCE_STORAGE_KEY = "lv_traffic_source";
 
+// cookie値がpercent-encodingとして不正な場合、decodeURIComponentは同期的にthrowする。
+// 破損したcookie値をmalformedのまま使わず、null(=既存IDなし扱い)を返す。呼び出し元の
+// getAnonymousSessionId()はnullを受けて新しい安全なIDを生成しcookieを上書きする。
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
 }
 
 function writeCookie(name: string, value: string, days: number) {
@@ -127,30 +135,40 @@ export function trackEvent(
   if (typeof window === "undefined") return;
   if (!(eventName in EVENT_SCHEMAS)) return; // 未登録イベント名はクライアント側でも送らない
 
-  const anonymousSessionId = getAnonymousSessionId();
-  const { source, medium, campaign, content } = detectTrafficSource();
+  // cookie読み取り・referrer/sessionStorage解析等の同期的な前処理は、想定外の入力
+  // (壊れたcookie値等)で例外を投げ得る。analyticsはbest-effortであり、呼び出し元の
+  // ページ表示や他の処理を絶対に止めてはならないため、ここで必ず吸収する。
+  try {
+    const anonymousSessionId = getAnonymousSessionId();
+    const { source, medium, campaign, content } = detectTrafficSource();
 
-  // セッションで最初のイベント送信時に一度だけ traffic_source_detected を発火する
-  if (!trafficSourceDetectedFired) {
-    trafficSourceDetectedFired = true;
-    if (eventName !== "traffic_source_detected") {
-      void sendPayload([
-        buildPayload("traffic_source_detected", { source, medium }, anonymousSessionId, source, campaign),
-      ]);
+    // セッションで最初のイベント送信時に一度だけ traffic_source_detected を発火する
+    if (!trafficSourceDetectedFired) {
+      trafficSourceDetectedFired = true;
+      if (eventName !== "traffic_source_detected") {
+        void sendPayload([
+          buildPayload("traffic_source_detected", { source, medium }, anonymousSessionId, source, campaign),
+        ]);
+      }
+    }
+
+    // utm_source/utm_medium/utm_campaign/utm_contentはイベントごとのproperties whitelist
+    // (eventSchema.ts)で許可されたイベントにのみ実際に保存される。未許可のイベントでは
+    // API側のsanitizePropertiesが黙って除外するため、ここで無条件にマージしても安全。
+    const mergedProperties = {
+      ...properties,
+      utm_source: source,
+      utm_medium: medium,
+      utm_campaign: campaign,
+      utm_content: content,
+    };
+    void sendPayload([buildPayload(eventName, mergedProperties, anonymousSessionId, source, campaign)]);
+  } catch (error) {
+    // cookie値・properties・PII・stackは出さない。development限定で発生自体のみ記録する。
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[analytics/track] event preparation failed", error instanceof Error ? error.name : typeof error);
     }
   }
-
-  // utm_source/utm_medium/utm_campaign/utm_contentはイベントごとのproperties whitelist
-  // (eventSchema.ts)で許可されたイベントにのみ実際に保存される。未許可のイベントでは
-  // API側のsanitizePropertiesが黙って除外するため、ここで無条件にマージしても安全。
-  const mergedProperties = {
-    ...properties,
-    utm_source: source,
-    utm_medium: medium,
-    utm_campaign: campaign,
-    utm_content: content,
-  };
-  void sendPayload([buildPayload(eventName, mergedProperties, anonymousSessionId, source, campaign)]);
 }
 
 function buildPayload(
