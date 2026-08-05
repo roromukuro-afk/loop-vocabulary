@@ -241,6 +241,9 @@ async function main() {
 
     console.log("\n=== 66. PremiumTrackerのanalytics例外耐性(Issue #77) E2E ===");
     results.premiumTrackerResilience = runNode("scripts/testing/e2e/premium-tracker-resilience.mjs");
+
+    console.log("\n=== 67. 教材管理操作の失敗通知・二重送信(Issue #73) E2E ===");
+    results.materialAdminFeedback = runNode("scripts/testing/e2e/a11y-material-admin-feedback.mjs");
   } finally {
     stopDevServer(dev);
   }
