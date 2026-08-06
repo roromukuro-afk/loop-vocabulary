@@ -244,6 +244,9 @@ async function main() {
 
     console.log("\n=== 67. 教材管理操作の失敗通知・二重送信(Issue #73) E2E ===");
     results.materialAdminFeedback = runNode("scripts/testing/e2e/a11y-material-admin-feedback.mjs");
+
+    console.log("\n=== 68. 通知設定schema分離とサイレント失敗修正(Issue #80) E2E ===");
+    results.notificationSettingsFeedback = runNode("scripts/testing/e2e/a11y-notification-settings-feedback.mjs");
   } finally {
     stopDevServer(dev);
   }

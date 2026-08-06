@@ -22,11 +22,31 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const { user, supabase } = await requireUser();
-  const { data: profile } = await supabase
+
+  // 基本プロフィールと通知設定は別クエリに分離する。1回の結合select()だと、
+  // notify_weekly_email/notify_push_enabled等どちらかの列がDB上に存在しない
+  // だけでクエリ全体が失敗し、アカウント・Premium状態・AI利用量・試験日・
+  // SRS設定・先生機能まで巻き込んで表示できなくなってしまうため
+  // (Issue #80: plan列は本コード内で未使用のため削除)。
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("display_name, is_admin, is_premium, plan, daily_ai_used, daily_ai_reset_at, notify_weekly_email, notify_push_enabled, exam_goal, exam_date, srs_v2, role")
+    .select("display_name, is_admin, is_premium, daily_ai_used, daily_ai_reset_at, exam_goal, exam_date, srs_v2, role")
     .eq("id", user.id)
     .maybeSingle();
+  if (profileError) {
+    // メールアドレス・user ID・SQL文言は出さない。
+    console.error("settings: 基本プロフィールの取得に失敗した");
+  }
+  const profileLoadFailed = !!profileError;
+
+  const { data: notificationSettings, error: notificationError } = await supabase
+    .from("profiles")
+    .select("notify_weekly_email, notify_push_enabled")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (notificationError) {
+    console.error("settings: 通知設定の取得に失敗した");
+  }
 
   const { data: memberships } = await supabase.rpc("get_my_memberships");
   const myClasses = (memberships ?? []) as {
@@ -37,8 +57,18 @@ export default async function SettingsPage() {
     <AppShell>
       <h1 className="text-xl font-bold text-navy-800">設定</h1>
 
-      {/* プレミアムバナー（無料ユーザーのみ） */}
-      {!profile?.is_premium && (
+      {profileLoadFailed && (
+        <p
+          role="alert"
+          data-testid="settings-basic-profile-alert"
+          className="mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"
+        >
+          設定情報の読み込みに失敗しました。時間をおいてもう一度お試しください
+        </p>
+      )}
+
+      {/* プレミアムバナー（無料ユーザーのみ。取得失敗時は実際のプラン不明のため表示しない） */}
+      {!profileLoadFailed && !profile?.is_premium && (
         <div className="mt-4 bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-4 text-white">
           <div className="text-xs font-bold uppercase tracking-widest text-sky-300 mb-1">Premium</div>
           <div className="font-bold text-base">広告ゼロ・AI解説300回/日</div>
@@ -56,21 +86,23 @@ export default async function SettingsPage() {
         <CardTitle>アカウント</CardTitle>
         <div className="text-sm text-navy-700 space-y-1">
           <div>メール: <span className="font-mono">{user.email}</span></div>
-          <div>表示名: {profile?.display_name ?? "未設定"}</div>
+          <div>表示名: {profileLoadFailed ? "取得できませんでした" : (profile?.display_name ?? "未設定")}</div>
           <DisplayNameForm current={profile?.display_name ?? null} />
           <div className="flex items-center gap-2">
             <span>プラン:</span>
-            {profile?.is_premium ? (
+            {profileLoadFailed ? (
+              <span className="px-2 py-0.5 rounded-full bg-navy-100 text-navy-600 text-xs">取得できませんでした</span>
+            ) : profile?.is_premium ? (
               <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">Premium ✓</span>
             ) : (
               <span className="px-2 py-0.5 rounded-full bg-navy-100 text-navy-600 text-xs">Free</span>
             )}
           </div>
-          <div>本日の AI 利用: {profile?.daily_ai_used ?? 0} / {profile?.is_premium ? "∞" : "5"}</div>
-          {profile?.is_admin && <div className="text-navy-800 font-semibold">管理者アカウント</div>}
+          <div>本日の AI 利用: {profileLoadFailed ? "取得できませんでした" : `${profile?.daily_ai_used ?? 0} / ${profile?.is_premium ? "∞" : "5"}`}</div>
+          {!profileLoadFailed && profile?.is_admin && <div className="text-navy-800 font-semibold">管理者アカウント</div>}
         </div>
         <div className="mt-3 flex flex-col gap-2">
-          {profile?.is_premium && (
+          {!profileLoadFailed && profile?.is_premium && (
             <PortalButton />
           )}
           <LogoutButton />
@@ -80,7 +112,9 @@ export default async function SettingsPage() {
       {/* 学習データエクスポート */}
       <Card className="mt-4">
         <CardTitle>学習データ</CardTitle>
-        {profile?.is_premium ? (
+        {profileLoadFailed ? (
+          <p className="text-sm text-navy-600">プラン情報を取得できなかったため表示できません。</p>
+        ) : profile?.is_premium ? (
           <div className="space-y-2">
             <p className="text-xs text-navy-500">単語・学習履歴を CSV ファイルでダウンロードできます。</p>
             <ExportButton />
@@ -99,25 +133,43 @@ export default async function SettingsPage() {
       <Card className="mt-4">
         <CardTitle>学習目標・試験日</CardTitle>
         <p className="text-xs text-navy-500 mb-1">設定した試験日はダッシュボードにカウントダウン表示されます。</p>
-        <ExamCountdown
-          examGoal={profile?.exam_goal ?? null}
-          examDate={profile?.exam_date ?? null}
-        />
+        {profileLoadFailed ? (
+          <p className="text-sm text-navy-600">取得できませんでした。</p>
+        ) : (
+          <ExamCountdown
+            examGoal={profile?.exam_goal ?? null}
+            examDate={profile?.exam_date ?? null}
+          />
+        )}
       </Card>
 
       {/* 通知設定 */}
       <Card className="mt-4">
         <CardTitle>通知設定</CardTitle>
-        <NotificationToggles
-          weeklyEmail={profile?.notify_weekly_email ?? true}
-          pushEnabled={profile?.notify_push_enabled ?? true}
-        />
+        {notificationError ? (
+          <p
+            role="alert"
+            data-testid="notification-settings-load-alert"
+            className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"
+          >
+            通知設定を読み込めませんでした。時間をおいてもう一度お試しください
+          </p>
+        ) : (
+          <NotificationToggles
+            weeklyEmail={notificationSettings?.notify_weekly_email ?? false}
+            pushEnabled={notificationSettings?.notify_push_enabled ?? false}
+          />
+        )}
       </Card>
 
       {/* 学習設定 */}
       <Card className="mt-4">
         <CardTitle>学習設定</CardTitle>
-        <SrsModeToggle enabled={profile?.srs_v2 ?? false} />
+        {profileLoadFailed ? (
+          <p className="text-sm text-navy-600">取得できませんでした。</p>
+        ) : (
+          <SrsModeToggle enabled={profile?.srs_v2 ?? false} />
+        )}
       </Card>
 
       {/* 参加中のクラス（生徒向け・同意管理） */}
@@ -141,7 +193,7 @@ export default async function SettingsPage() {
           href="/teacher"
           className="mt-3 inline-block px-4 py-2 rounded-lg bg-navy-800 text-white text-xs font-bold hover:bg-navy-700 transition-colors"
         >
-          {profile?.role === "teacher" ? "先生ダッシュボードへ" : "先生機能を見る"} →
+          {!profileLoadFailed && profile?.role === "teacher" ? "先生ダッシュボードへ" : "先生機能を見る"} →
         </Link>
       </Card>
 

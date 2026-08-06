@@ -511,6 +511,24 @@ async function runLoginTests(browser, baseUrl) {
 // ============================================================
 // C. settings/DisplayNameForm.tsx
 // ============================================================
+// DisplayNameFormはIssue #80以降、同じ/settingsページ上に独立した
+// NotificationTogglesの通知カード(こちらも自身のrole="alert"を持つ)と共存する。
+// ページ全体のalert数ではなく、DisplayNameForm自身のalertだけを数える。
+function displayNameFormAlertLocator(page) {
+  return page.locator("#display-name-input").locator('xpath=ancestor::div[contains(concat(" ", @class, " "), " mt-3 ")][1]').locator('[role="alert"]');
+}
+async function waitForDisplayNameFormAlertCount(page, expectedCount, timeout = 8000) {
+  await page.waitForFunction(
+    (expected) => {
+      const container = document.querySelector("#display-name-input")?.closest(".mt-3");
+      const els = container ? Array.from(container.querySelectorAll('[role="alert"]')) : [];
+      return els.length === expected;
+    },
+    expectedCount,
+    { timeout },
+  );
+}
+
 async function runDisplayNameFormTests(browser, baseUrl, email, password) {
   // ---- C1. 成功 ----
   {
@@ -545,7 +563,7 @@ async function runDisplayNameFormTests(browser, baseUrl, email, password) {
     );
     ok('DisplayNameForm(成功): role="status"領域が成功メッセージへ更新される');
 
-    const alertCount = await appAlertLocator(page).count();
+    const alertCount = await displayNameFormAlertLocator(page).count();
     if (alertCount === 0) ok('DisplayNameForm(成功): role="alert"は0件');
     else fail(`DisplayNameForm(成功): role="alert"が想定外に存在する: ${alertCount}件`);
 
@@ -577,9 +595,9 @@ async function runDisplayNameFormTests(browser, baseUrl, email, password) {
     const saveBtn = page.locator("#display-name-input").locator("xpath=following-sibling::button[1]");
     await saveBtn.click();
 
-    await waitForAppAlertCount(page, 1);
+    await waitForDisplayNameFormAlertCount(page, 1);
     ok('DisplayNameForm(HTTP JSONエラー): アプリ側role="alert"要素がちょうど1件');
-    const alertText = (await appAlertLocator(page).first().textContent())?.trim() ?? "";
+    const alertText = (await displayNameFormAlertLocator(page).first().textContent())?.trim() ?? "";
     if (alertText.includes("duplicate key") || alertText.includes("profiles_pkey")) {
       fail(`DisplayNameForm(HTTP JSONエラー): 生のDBエラーがそのまま表示されている: "${alertText}"`);
     } else if (alertText.includes("更新に失敗しました")) {
@@ -615,7 +633,7 @@ async function runDisplayNameFormTests(browser, baseUrl, email, password) {
     const saveBtn = page.locator("#display-name-input").locator("xpath=following-sibling::button[1]");
     await saveBtn.click();
 
-    await waitForAppAlertCount(page, 1);
+    await waitForDisplayNameFormAlertCount(page, 1);
     ok('DisplayNameForm(HTTP非JSONエラー): crashせず、アプリ側role="alert"要素がちょうど1件');
     await assertReOperable(saveBtn, "DisplayNameForm(HTTP非JSONエラー)");
     const inputValueAfter = await input.inputValue();
@@ -641,7 +659,7 @@ async function runDisplayNameFormTests(browser, baseUrl, email, password) {
     const saveBtn = page.locator("#display-name-input").locator("xpath=following-sibling::button[1]");
     await saveBtn.click();
 
-    await waitForAppAlertCount(page, 1);
+    await waitForDisplayNameFormAlertCount(page, 1);
     ok('DisplayNameForm(network abort): アプリ側role="alert"要素がちょうど1件');
     await assertReOperable(saveBtn, "DisplayNameForm(network abort)");
     const inputValueAfter = await input.inputValue();
