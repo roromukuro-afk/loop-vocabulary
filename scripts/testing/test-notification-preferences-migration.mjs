@@ -91,6 +91,17 @@ function main() {
     bad("has_existing_rowsの行数チェックが見つからない");
   }
 
+  // --- 4b. 行数チェックの前にLOCK TABLE ... IN SHARE MODEを取得し、行数チェックと
+  //          後続のALTER COLUMN SET DEFAULTの間に新規INSERTがコミットされる
+  //          TOCTOUレースを防ぐこと(Codexレビュー指摘 P2) ---
+  const lockIndex = guardBlock.indexOf("execute 'lock table public.profiles in share mode'");
+  const rowsCheckIndex = guardBlock.indexOf("select exists (select 1 from public.profiles limit 1) into has_existing_rows");
+  if (lockIndex >= 0 && rowsCheckIndex > lockIndex) {
+    ok("行数チェックより前にLOCK TABLE public.profiles IN SHARE MODEを取得し、チェックと変更の間の新規INSERTをブロックする");
+  } else {
+    bad("行数チェック前のLOCK TABLEが見つからない、または位置が想定と異なる(TOCTOUレースが残る疑い)");
+  }
+
   // --- 5. has_existing_rowsがtrueの場合のみRAISE EXCEPTIONすること(errcode指定あり) ---
   const raisesOnlyWhenRows = /if has_existing_rows then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
   if (raisesOnlyWhenRows) {

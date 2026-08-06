@@ -42,6 +42,14 @@ begin
     return;
   end if;
 
+  -- 列は既に存在する。以降の「行数チェック」と「ALTER COLUMN SET DEFAULT」の
+  -- 間に新規registrationがコミットされると、その行は旧006由来のDEFAULT true
+  -- を引き継いだままmigrationが正常終了してしまうTOCTOUレースになり得る
+  -- (Codexレビュー指摘 P2)。そのため行数チェックの前にINSERTをブロックする
+  -- テーブルロックを取得し、このmigrationトランザクションが終わるまで新規
+  -- INSERTを待たせることで、チェックと変更を実質的に不可分にする。
+  execute 'lock table public.profiles in share mode';
+
   select exists (select 1 from public.profiles limit 1) into has_existing_rows;
 
   if has_existing_rows then
