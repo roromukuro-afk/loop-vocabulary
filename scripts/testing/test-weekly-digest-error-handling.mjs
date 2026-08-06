@@ -89,6 +89,18 @@ function main() {
     bad("query失敗チェックとメール送信呼び出しの位置関係が想定と異なる(送信ループへ到達してしまう可能性がある)");
   }
 
+  // --- 6b. resend.emails.send()の戻り値のerrorをsent加算前に検査すること
+  //         (Codexレビュー指摘 P1: resendは通常のAPIエラーではPromiseを
+  //         rejectせず、{error, data:null}で解決するため、catchだけでは
+  //         レート制限・不正な送信先等の実際の送信失敗を検知できない) ---
+  const checksSendErrorBeforeCountingSent = /const\s*\{\s*error:\s*sendError\s*\}\s*=\s*await getResend\(\)\.emails\.send\(/.test(source)
+    && /if\s*\(sendError\)\s*failed\+\+;\s*\n\s*else\s*sent\+\+;/.test(source);
+  if (checksSendErrorBeforeCountingSent) {
+    ok("emails.send()の戻り値のerrorを検査し、errorがあればfailedへ・無ければsentへ計上する(通常のAPIエラーもtry/catchのcatchに頼らず検知する)");
+  } else {
+    bad("emails.send()の戻り値のerrorを検査せずsentへ計上している疑いがある(レート制限等の通常API失敗を見逃す)");
+  }
+
   // --- 7. 成功時にsent/failedの両方を件数で報告すること ---
   const finalReturnMatch = source.match(/return NextResponse\.json\(\{ sent, failed \}\);/);
   if (finalReturnMatch) ok("最終応答はsent/failed両方の件数を報告する({sent, failed}形式)");

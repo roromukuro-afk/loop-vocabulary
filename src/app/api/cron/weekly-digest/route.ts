@@ -84,7 +84,12 @@ export async function GET(req: NextRequest) {
 
     // 学習ゼロのユーザーにも送信（復習催促）
     try {
-      await getResend().emails.send({
+      // resendのemails.send()は、レート制限・不正な送信先等の通常のAPI
+      // エラーではPromiseをrejectせず、{error, data:null}で解決する
+      // (rejectするのはネットワーク例外等に限られる)。そのためcatchだけでは
+      // 検知できず、戻り値のerrorも明示的に確認する必要がある
+      // (Codexレビュー指摘 P1)。
+      const { error: sendError } = await getResend().emails.send({
         from: FROM_EMAIL,
         to: email,
         subject: `📚 今週の学習レポート — ${weeklyStudied}語学習しました`,
@@ -97,7 +102,8 @@ export async function GET(req: NextRequest) {
           isPremium: (profile as Record<string, unknown>).is_premium as boolean ?? false,
         }),
       });
-      sent++;
+      if (sendError) failed++;
+      else sent++;
     } catch {
       // 個別メールアドレスはログへ出さない。件数だけ集計する。
       failed++;
