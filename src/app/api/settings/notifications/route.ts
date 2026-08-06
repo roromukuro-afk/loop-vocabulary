@@ -60,6 +60,28 @@ export async function PATCH(req: NextRequest) {
 
   const { error } = await supabase.from("profiles").update(updates).eq("id", user.id);
   if (error) {
+    // supabase-jsの.update()がerrorを返しても、PostgreSQL側では実際に
+    // commitが完了しており、応答(トランスポート層)だけが失われている
+    // ことがある(Codexレビュー指摘 P2)。この場合に一律update_failedを
+    // 返すと、クライアント側は既知のerror codeとして確定的失敗とみなし
+    // (ambiguous:false)GETでの再同期を行わずに反転してロールバックして
+    // しまい、実際にはDBへ反映済みなのにUIだけ反転して見える恐れがある。
+    // そのため、実際の現在値を読み直し、意図した値と一致していれば
+    // (実際には反映されていたとみなし)成功として扱う。
+    const { data: reread, error: rereadError } = await supabase
+      .from("profiles")
+      .select("notify_weekly_email, notify_push_enabled")
+      .eq("id", user.id)
+      .maybeSingle();
+    const actuallyApplied =
+      !rereadError &&
+      !!reread &&
+      Object.entries(updates).every(
+        ([key, value]) => (reread as Record<string, unknown>)[key] === value,
+      );
+    if (actuallyApplied) {
+      return NextResponse.json({ ok: true });
+    }
     // 生のSupabaseエラーメッセージはクライアントへ返さない。
     return NextResponse.json({ error: "update_failed" }, { status: 500 });
   }
