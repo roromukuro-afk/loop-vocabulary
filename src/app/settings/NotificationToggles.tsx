@@ -29,9 +29,19 @@ function resolveErrorMessage(code: string | null): string {
 // 失敗(network例外・応答本文が読めない等)。この場合は楽観的更新を無条件で
 // 反転せず、GET /api/settings/notificationsで実際の現在値へ再同期する
 // (Codexレビュー指摘 P2: 反転で決め打ちすると、実際にはDBへ反映されているのに
-// UIだけが古い値へ戻ってしまう恐れがある)。HTTPエラー応答が明確に返った場合は
-// サーバーが更新を適用しなかったことが確定しているため、ambiguousではない。
+// UIだけが古い値へ戻ってしまう恐れがある)。
+//
+// 「確定的(ambiguous:false)」とみなすのは、自分のAPIが返す既知のerror code
+// (ERROR_MESSAGESに列挙された値)を含む応答が返った場合だけに限定する。
+// Vercel等のプロキシが返す502/504のようなgateway応答は、origin側で実際に
+// commitが完了した後にレスポンスが失われて発生することがあり、その場合も
+// 「サーバーが明確に拒否した」わけではないため、確定的失敗として扱っては
+// ならない(Codexレビュー指摘 P2)。
 type ApiResult = { ok: true } | { ok: false; code: string | null; ambiguous: boolean };
+
+function isKnownErrorCode(code: string | null): boolean {
+  return code !== null && Object.prototype.hasOwnProperty.call(ERROR_MESSAGES, code);
+}
 
 async function patchNotificationSetting(key: string, value: boolean): Promise<ApiResult> {
   let res: Response;
@@ -48,7 +58,9 @@ async function patchNotificationSetting(key: string, value: boolean): Promise<Ap
   const body = json && typeof json === "object" ? (json as Record<string, unknown>) : null;
   if (!res.ok) {
     const code = body && typeof body.error === "string" ? body.error : null;
-    return { ok: false, code, ambiguous: false };
+    // 既知のerror codeを含む応答だけを「自分のAPIが明確に拒否した」ものとして
+    // 確定的失敗とみなす。それ以外(gatewayエラー・未知のcode等)はambiguous。
+    return { ok: false, code, ambiguous: !isKnownErrorCode(code) };
   }
   if (!body || body.ok !== true) {
     // HTTP 2xxだが応答本文が想定外(壊れている)。サーバーがどこまで処理を

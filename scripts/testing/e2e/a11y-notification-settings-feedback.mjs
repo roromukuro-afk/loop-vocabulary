@@ -257,18 +257,43 @@ async function runToggleTests(browser, baseUrl, email, password) {
       await page.close();
     }
 
-    // ---- HTTP非JSONエラー ----
+    // ---- HTTP非JSONエラー(gateway 502相当): 既知のerror codeを含まないため
+    //      ambiguousとして扱われ、GETで再同期される ----
+    // Codexレビュー指摘P2: Vercel等のproxyが返す502/504は、origin側で実際には
+    // commitが完了した後にレスポンスが失われて発生することもあるため、
+    // 「自分のAPIが明確に拒否した」(既知のerror code)場合だけを確定的失敗とし、
+    // それ以外は反転前の値へ決め打ちで戻さずGETで実際の値を再取得する。
     {
       const { page } = await openSettingsPage(browser, baseUrl, email, password);
-      await routeNotificationsApi(page, async (route) => {
-        await route.fulfill({ status: 502, contentType: "text/plain", body: "bad gateway" });
-      });
       const toggle = page.locator(`[data-testid="${s.testId}"]`);
+      const before = await toggle.getAttribute("aria-pressed");
+      const nextValue = before !== "true";
+      let getCallCount = 0;
+      await routeNotificationsMethods(page, {
+        onPatch: async (route) => {
+          await route.fulfill({ status: 502, contentType: "text/plain", body: "bad gateway" });
+        },
+        onGet: async (route) => {
+          getCallCount++;
+          const body = { ok: true, notify_weekly_email: false, notify_push_enabled: false };
+          body[s.apiKey] = nextValue;
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+        },
+      });
       await toggle.click();
       await waitForAppAlertCount(page, 1);
       const alertText = (await appAlertLocator(page).textContent().catch(() => "")) ?? "";
-      if (alertText.includes("通知設定を更新できませんでした")) ok(`${s.key}(HTTP非JSONエラー): フォールバック文言のalertが表示される`);
-      else fail(`${s.key}(HTTP非JSONエラー): alert文言が想定外: "${alertText}"`);
+      if (alertText.includes("通知設定を更新できませんでした")) ok(`${s.key}(HTTP非JSONエラー/gateway 502): フォールバック文言のalertが表示される`);
+      else fail(`${s.key}(HTTP非JSONエラー/gateway 502): alert文言が想定外: "${alertText}"`);
+      if (getCallCount === 1) ok(`${s.key}(HTTP非JSONエラー/gateway 502): 既知のerror codeを含まないためambiguousとして扱われ、GETで実際の値を再取得する`);
+      else fail(`${s.key}(HTTP非JSONエラー/gateway 502): GET再取得が${getCallCount}回だった(想定は1回、502を確定的失敗として誤扱いしている疑い)`);
+      const after = await toggle.getAttribute("aria-pressed");
+      const expectedPressed = String(nextValue);
+      if (after === expectedPressed) {
+        ok(`${s.key}(HTTP非JSONエラー/gateway 502): サーバーに実際に反映されていた値(${expectedPressed})を正しく表示する`);
+      } else {
+        fail(`${s.key}(HTTP非JSONエラー/gateway 502): aria-pressedが想定外(期待=${expectedPressed}, 実際=${after})`);
+      }
       await page.close();
     }
 
