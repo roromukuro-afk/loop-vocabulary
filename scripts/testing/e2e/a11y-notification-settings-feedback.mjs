@@ -298,13 +298,34 @@ async function runToggleTests(browser, baseUrl, email, password) {
     }
 
     // ---- network abort(GET再同期も失敗する場合の安全側フォールバック) ----
+    // Codexレビュー指摘P2: PATCHが曖昧な失敗(network例外)で終わり、続く再同期用
+    // GETも失敗すると、実際にサーバーへ反映されたかを一切確認できない。この場合
+    // 反転で決め打ちすると、実際にはサーバーへ反映済みなのに画面だけ反転して
+    // 見えてしまう恐れがある(例: ONへ変更したのに画面上OFFへ戻り、ユーザーは
+    // 通知が無効だと誤認するが実際は有効なまま)。そのため直前の楽観的更新の値
+    // (nextValue)を維持したまま、状態を確認できなかった旨の専用メッセージを
+    // 表示する。
     {
       const { page } = await openSettingsPage(browser, baseUrl, email, password);
-      await routeNotificationsApi(page, async (route) => { await route.abort("failed"); });
       const toggle = page.locator(`[data-testid="${s.testId}"]`);
+      const before = await toggle.getAttribute("aria-pressed");
+      const nextValue = before !== "true";
+      await routeNotificationsApi(page, async (route) => { await route.abort("failed"); });
       await toggle.click();
       await waitForAppAlertCount(page, 1);
-      ok(`${s.key}(network abort): alertが1件表示される`);
+      const alertText = (await appAlertLocator(page).textContent().catch(() => "")) ?? "";
+      if (alertText.includes("反映できたか確認できませんでした")) {
+        ok(`${s.key}(network abort/GET再同期も失敗): 状態未確認である旨の専用メッセージのalertが表示される`);
+      } else {
+        fail(`${s.key}(network abort/GET再同期も失敗): alert文言が想定外: "${alertText}"`);
+      }
+      const after = await toggle.getAttribute("aria-pressed");
+      const expectedPressed = String(nextValue);
+      if (after === expectedPressed) {
+        ok(`${s.key}(network abort/GET再同期も失敗): 状態を確認できないため楽観的更新の値(${expectedPressed})を維持し、反転前の値へ決め打ちで戻さない`);
+      } else {
+        fail(`${s.key}(network abort/GET再同期も失敗): aria-pressedが想定外(期待=${expectedPressed}, 実際=${after})`);
+      }
       await page.close();
     }
 

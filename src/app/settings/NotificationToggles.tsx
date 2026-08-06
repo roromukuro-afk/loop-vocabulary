@@ -9,6 +9,10 @@ interface Props {
 }
 
 const FALLBACK_MESSAGE = "通知設定を更新できませんでした。時間をおいてもう一度お試しください";
+// 曖昧な失敗の後、再同期用GETも失敗し実際の状態を確認できなかった場合の
+// メッセージ。反転で決め打ちしないため(下記handleToggle参照)、他の失敗
+// メッセージと区別して状態未確認である旨を明示する。
+const UNRESOLVED_MESSAGE = "設定を反映できたか確認できませんでした。画面を再読み込みしてご確認ください";
 
 // bracket accessだとerror codeがconstructor/__proto__/toString等のprototype継承
 // プロパティ名と一致した場合に文字列以外の値を拾ってしまうため、hasOwnPropertyで
@@ -148,18 +152,30 @@ export function NotificationToggles({ weeklyEmail, pushEnabled }: Props) {
     setLocal(nextValue); // optimistic更新。失敗時は下で反転前の値(または実際の現在値)へ戻す。
     const result = await patchNotificationSetting(apiKey, nextValue);
     if (!result.ok) {
+      let unresolved = false;
       if (result.ambiguous) {
         // サーバーへ実際に反映されたか不明なため、反転で決め打ちせず
         // 現在の実際の値を再取得して画面へ反映する。
         const reconciled = await fetchAuthoritativeValue(apiKey);
-        setLocal(reconciled ?? !nextValue);
+        if (reconciled !== null) {
+          setLocal(reconciled);
+        } else {
+          // 再同期用GETも失敗し、実際の状態を確認できなかった
+          // (Codexレビュー指摘 P2)。ここで反転で決め打ちすると、実際には
+          // サーバーへ反映済みなのに画面だけ反転して見えてしまう恐れがある
+          // (例: ONへ変更したのに画面上OFFに戻り、ユーザーは通知が
+          // 無効だと誤認するが実際は有効なまま、というケース)。そのため
+          // 直前の楽観的更新の値(nextValue)を維持したまま、状態を確認
+          // できなかった旨を明示するメッセージへ切り替える。
+          unresolved = true;
+        }
       } else {
         // サーバーが明確に更新を適用しなかったことが確定しているため、
         // 反転前の値へ戻して問題ない。
         setLocal(!nextValue);
       }
       endAction(key);
-      setErrorMessage(resolveErrorMessage(result.code));
+      setErrorMessage(unresolved ? UNRESOLVED_MESSAGE : resolveErrorMessage(result.code));
       return;
     }
     endAction(key);
