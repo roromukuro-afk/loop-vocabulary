@@ -25,7 +25,13 @@ function resolveErrorMessage(code: string | null): string {
   return FALLBACK_MESSAGE;
 }
 
-type ApiResult = { ok: true } | { ok: false; code: string | null };
+// ambiguous: サーバーへ実際に反映されたかどうかクライアント側で判別できない
+// 失敗(network例外・応答本文が読めない等)。この場合は楽観的更新を無条件で
+// 反転せず、GET /api/settings/notificationsで実際の現在値へ再同期する
+// (Codexレビュー指摘 P2: 反転で決め打ちすると、実際にはDBへ反映されているのに
+// UIだけが古い値へ戻ってしまう恐れがある)。HTTPエラー応答が明確に返った場合は
+// サーバーが更新を適用しなかったことが確定しているため、ambiguousではない。
+type ApiResult = { ok: true } | { ok: false; code: string | null; ambiguous: boolean };
 
 async function patchNotificationSetting(key: string, value: boolean): Promise<ApiResult> {
   let res: Response;
@@ -36,18 +42,35 @@ async function patchNotificationSetting(key: string, value: boolean): Promise<Ap
       body: JSON.stringify({ [key]: value }),
     });
   } catch {
-    return { ok: false, code: null };
+    return { ok: false, code: null, ambiguous: true };
   }
   const json: unknown = await res.json().catch(() => null);
   const body = json && typeof json === "object" ? (json as Record<string, unknown>) : null;
   if (!res.ok) {
     const code = body && typeof body.error === "string" ? body.error : null;
-    return { ok: false, code };
+    return { ok: false, code, ambiguous: false };
   }
   if (!body || body.ok !== true) {
-    return { ok: false, code: null };
+    // HTTP 2xxだが応答本文が想定外(壊れている)。サーバーがどこまで処理を
+    // 終えたか確定できないため、曖昧な失敗として扱う。
+    return { ok: false, code: null, ambiguous: true };
   }
   return { ok: true };
+}
+
+// 曖昧な失敗の後、実際の現在値をサーバーから再取得する。取得自体にも
+// 失敗した場合はnullを返し、呼び出し側が安全側(反転前の値)へフォールバックする。
+async function fetchAuthoritativeValue(apiKey: "notify_weekly_email" | "notify_push_enabled"): Promise<boolean | null> {
+  try {
+    const res = await fetch("/api/settings/notifications");
+    if (!res.ok) return null;
+    const json: unknown = await res.json().catch(() => null);
+    if (!json || typeof json !== "object") return null;
+    const value = (json as Record<string, unknown>)[apiKey];
+    return typeof value === "boolean" ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 function Toggle({
@@ -110,14 +133,24 @@ export function NotificationToggles({ weeklyEmail, pushEnabled }: Props) {
     successMessage: string,
   ) {
     if (!beginAction(key)) return;
-    setLocal(nextValue); // optimistic更新。失敗時は下でnextValue反転前の値へ戻す。
+    setLocal(nextValue); // optimistic更新。失敗時は下で反転前の値(または実際の現在値)へ戻す。
     const result = await patchNotificationSetting(apiKey, nextValue);
-    endAction(key);
     if (!result.ok) {
-      setLocal(!nextValue);
+      if (result.ambiguous) {
+        // サーバーへ実際に反映されたか不明なため、反転で決め打ちせず
+        // 現在の実際の値を再取得して画面へ反映する。
+        const reconciled = await fetchAuthoritativeValue(apiKey);
+        setLocal(reconciled ?? !nextValue);
+      } else {
+        // サーバーが明確に更新を適用しなかったことが確定しているため、
+        // 反転前の値へ戻して問題ない。
+        setLocal(!nextValue);
+      }
+      endAction(key);
       setErrorMessage(resolveErrorMessage(result.code));
       return;
     }
+    endAction(key);
     setStatusMessage(successMessage);
     router.refresh();
   }

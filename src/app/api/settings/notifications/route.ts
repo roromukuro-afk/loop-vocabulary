@@ -5,6 +5,31 @@ export const runtime = "nodejs";
 
 const ALLOWED_KEYS = ["notify_weekly_email", "notify_push_enabled"] as const;
 
+// PATCHの結果が曖昧(network例外・応答本文が読めない等、サーバーへ実際に
+// 反映されたかクライアント側で判別できない)だった場合に、クライアントが
+// 実際の現在値へ再同期するための読み取り専用エンドポイント
+// (Codexレビュー指摘 P2: 曖昧な失敗時に楽観的更新を無条件で反転すると、
+// 実際にはDBへ反映されているのにUIだけが古い値へ戻ってしまう恐れがある)。
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("notify_weekly_email, notify_push_enabled")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (error) {
+    return NextResponse.json({ error: "fetch_failed" }, { status: 500 });
+  }
+  return NextResponse.json({
+    ok: true,
+    notify_weekly_email: data?.notify_weekly_email ?? false,
+    notify_push_enabled: data?.notify_push_enabled ?? false,
+  });
+}
+
 export async function PATCH(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

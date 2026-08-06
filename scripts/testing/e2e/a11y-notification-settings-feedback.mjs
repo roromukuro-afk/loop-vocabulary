@@ -127,6 +127,14 @@ async function assertNoMaterialsRequestWithin(page, predicate, label, timeout = 
 async function routeNotificationsApi(page, handler) {
   await page.route("**/api/settings/notifications", handler);
 }
+async function routeNotificationsMethods(page, { onPatch, onGet }) {
+  await page.route("**/api/settings/notifications", async (route) => {
+    const method = route.request().method();
+    if (method === "PATCH" && onPatch) return onPatch(route);
+    if (method === "GET" && onGet) return onGet(route);
+    await route.continue();
+  });
+}
 
 async function openSettingsPage(browser, baseUrl, email, password) {
   const page = await browser.newPage();
@@ -264,7 +272,7 @@ async function runToggleTests(browser, baseUrl, email, password) {
       await page.close();
     }
 
-    // ---- network abort ----
+    // ---- network abort(GET再同期も失敗する場合の安全側フォールバック) ----
     {
       const { page } = await openSettingsPage(browser, baseUrl, email, password);
       await routeNotificationsApi(page, async (route) => { await route.abort("failed"); });
@@ -272,6 +280,43 @@ async function runToggleTests(browser, baseUrl, email, password) {
       await toggle.click();
       await waitForAppAlertCount(page, 1);
       ok(`${s.key}(network abort): alertが1件表示される`);
+      await page.close();
+    }
+
+    // ---- network abort後の再同期(GETは成功し、サーバーに実際は反映されていた場合)----
+    // Codexレビュー指摘P2: PATCHがnetwork例外で失敗しても、実際にはサーバー側で
+    // 更新が完了していることがある。この場合、楽観的更新を無条件で反転せず、
+    // 再取得した実際の値(=ユーザーが意図した値)を表示すべきで、反転前の
+    // 古い値へ戻してはならない。
+    {
+      const { page } = await openSettingsPage(browser, baseUrl, email, password);
+      const toggle = page.locator(`[data-testid="${s.testId}"]`);
+      const before = await toggle.getAttribute("aria-pressed");
+      const nextValue = before !== "true";
+      let getCallCount = 0;
+      // 再同期GETは、このシナリオでユーザーが実際に選んだ値(nextValue)を
+      // サーバーの実際の状態として返す(=PATCHはclient側からは失敗に見えた
+      // だけで、実際にはDBへ反映されていたことを模擬する)。
+      await routeNotificationsMethods(page, {
+        onPatch: async (route) => { await route.abort("failed"); },
+        onGet: async (route) => {
+          getCallCount++;
+          const body = { ok: true, notify_weekly_email: false, notify_push_enabled: false };
+          body[s.apiKey] = nextValue;
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+        },
+      });
+      await toggle.click();
+      await waitForAppAlertCount(page, 1);
+      if (getCallCount === 1) ok(`${s.key}(network abort後の再同期): 曖昧な失敗後にGETで実際の値を1回再取得する`);
+      else fail(`${s.key}(network abort後の再同期): GET再取得が${getCallCount}回だった(想定は1回)`);
+      const after = await toggle.getAttribute("aria-pressed");
+      const expectedPressed = String(nextValue);
+      if (after === expectedPressed) {
+        ok(`${s.key}(network abort後の再同期): サーバーに実際に反映されていた値(${expectedPressed})を正しく表示する(反転前の古い値へ決め打ちで戻さない)`);
+      } else {
+        fail(`${s.key}(network abort後の再同期): aria-pressedが想定外(期待=${expectedPressed}, 実際=${after})`);
+      }
       await page.close();
     }
 
