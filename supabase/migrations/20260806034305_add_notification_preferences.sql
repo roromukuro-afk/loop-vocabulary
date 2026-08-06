@@ -1,17 +1,38 @@
--- Issue #80: 通知設定列を追加する。既存の006_notify_settings.sqlは本番へ
--- 未適用のまま履歴資料として残し、直接編集しない(本番migration履歴との
--- 不整合をさらに分かりにくくしないため)。
+-- Issue #80:
+-- 通知設定列を明示的なopt-inとして追加する。
 --
--- 006とは異なり、初期値をfalseにする: 既存006のDEFAULT trueをそのまま
--- 適用すると、明示的にONへ変更した記憶のない既存ユーザー全員が週次メール
--- の配信対象になり得るため。週次メール・プッシュ通知とも、ユーザーが
--- 明示的にONへ変更した場合にのみ対象とする。
+-- 旧006_notify_settings.sqlが適用済みの環境では、
+-- 既存ユーザーがDEFAULT trueによって自動的にopt-in扱いに
+-- なっている可能性がある。
 --
--- 既存のprofiles RLS・policyは変更しない(新policyも追加しない)。
-alter table public.profiles
-  add column if not exists notify_weekly_email boolean not null default false,
-  add column if not exists notify_push_enabled boolean not null default false;
+-- しかし、既存のtrue値が旧default由来か、
+-- ユーザーが実際に選択した値かはDB上から判別できない。
+-- そのため既存値を一括UPDATEせず、列が既に存在する環境では
+-- migrationを中断して個別監査を要求する。
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'profiles'
+      and column_name in (
+        'notify_weekly_email',
+        'notify_push_enabled'
+      )
+  ) then
+    raise exception using
+      errcode = '55000',
+      message =
+        'notification preference columns already exist; '
+        'audit legacy values before applying this migration';
+  end if;
+end
+$$;
 
 alter table public.profiles
-  alter column notify_weekly_email set default false,
-  alter column notify_push_enabled set default false;
+  add column notify_weekly_email
+    boolean not null default false,
+  add column notify_push_enabled
+    boolean not null default false;

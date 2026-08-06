@@ -67,6 +67,7 @@
     "test:materials-visibility": "node scripts/testing/test-materials-visibility.mjs",
     "test:admin-materials-api": "node scripts/testing/test-admin-materials-api.mjs",
     "test:weekly-digest-error-handling": "node scripts/testing/test-weekly-digest-error-handling.mjs",
+    "test:notification-preferences-migration": "node scripts/testing/test-notification-preferences-migration.mjs",
     "test:admin-materials-words-import-api": "node scripts/testing/test-admin-materials-words-import-api.mjs",
     "test:admin-materials-words-import-notify-invariant": "node scripts/testing/test-admin-materials-words-import-notify-invariant.mjs",
     "test:indexnow-static-content-diff-extraction": "node scripts/testing/test-indexnow-static-content-diff-extraction.mjs",
