@@ -13,6 +13,15 @@
  * 実コード上の危険パターンとして検出しないよう、`--`行コメントと
  * `/* ... *\/`ブロックコメントを除去した後のSQLに対して検証する。
  *
+ * ## guardの3分岐(Codexレビュー指摘: フレッシュ環境でのmigration再生問題への対応)
+ * 1. 列が存在しない → ADD COLUMN(default false)して終了(通常の初回適用パス)
+ * 2. 列は存在し、profilesに1行以上の実データがある → RAISE EXCEPTIONで中断
+ *    (旧default由来かユーザー選択由来か判別できないtrue値を保護するため)
+ * 3. 列は存在するがprofilesが0行(例: CI・supabase db reset・新規Supabase
+ *    プロジェクトで006がこのmigrationより先に走った直後、まだ1ユーザーも
+ *    存在しない場合) → 対象行が無くUPDATEは発生しないため、列defaultだけを
+ *    falseへ揃えて正常終了する
+ *
  * 使い方: node scripts/testing/test-notification-preferences-migration.mjs
  */
 import { readFileSync } from "node:fs";
@@ -48,32 +57,49 @@ function main() {
   const rawSource = readFileSync(MIGRATION_PATH, "utf8");
   const source = stripSqlComments(rawSource);
 
-  // --- 1. guardのDO $$ ブロックが、ALTER TABLEより前に存在すること ---
-  const guardIndex = source.indexOf("do $$");
-  const alterIndex = source.indexOf("alter table public.profiles\n  add column notify_weekly_email");
-  if (guardIndex >= 0 && alterIndex > guardIndex) {
-    ok("guard(DO $$ ブロック)がALTER TABLEより前のコード位置にある");
-  } else {
-    bad("guardがALTER TABLEより前に存在しない、または見つからない");
-  }
-
-  // --- 2. guardが2列のどちらかの存在を確認し、存在すればRAISE EXCEPTIONすること ---
-  const guardBlockMatch = source.match(/do \$\$([\s\S]*?)\$\$;/);
+  const guardBlockMatch = source.match(/do \$\$([\s\S]*)\$\$;/);
   const guardBlock = guardBlockMatch ? guardBlockMatch[1] : "";
-  const checksExistence = /select 1\s*\n\s*from information_schema\.columns\s*\n\s*where table_schema = 'public'\s*\n\s*and table_name = 'profiles'\s*\n\s*and column_name in \(\s*\n\s*'notify_weekly_email',\s*\n\s*'notify_push_enabled'\s*\n\s*\)/.test(guardBlock);
-  if (checksExistence) {
-    ok("guardはnotify_weekly_email・notify_push_enabledのいずれかがprofilesに既に存在するかをinformation_schema.columnsで確認する");
+
+  // --- 1. guardが単一のDO $$ ブロックであり、全ての分岐がその内側にあること ---
+  if (guardBlock) {
+    ok("guardはDO $$ ブロックとして存在する(3分岐すべてが単一のPL/pgSQLブロック内にある)");
   } else {
-    bad("guardの列存在チェック条件が想定した形になっていない");
-  }
-  const raisesException = /raise exception using[\s\S]*errcode = '55000'/.test(guardBlock);
-  if (raisesException) {
-    ok("列が存在する場合はRAISE EXCEPTIONで中断する(errcode指定あり)");
-  } else {
-    bad("列存在時のRAISE EXCEPTIONが見つからない");
+    bad("guardのDO $$ ブロックが見つからない");
   }
 
-  // --- 3. guardに例外を握りつぶすEXCEPTIONハンドラ(begin...exception when...end)が
+  // --- 2. 列存在チェック(columns_exist)がinformation_schema.columnsで両列を確認すること ---
+  const checksExistence = /select exists \(\s*\n\s*select 1\s*\n\s*from information_schema\.columns\s*\n\s*where table_schema = 'public'\s*\n\s*and table_name = 'profiles'\s*\n\s*and column_name in \(\s*\n\s*'notify_weekly_email',\s*\n\s*'notify_push_enabled'\s*\n\s*\)\s*\n\s*\) into columns_exist/.test(guardBlock);
+  if (checksExistence) {
+    ok("guardはnotify_weekly_email・notify_push_enabledのいずれかがprofilesに既に存在するかをinformation_schema.columnsで確認しcolumns_existへ格納する");
+  } else {
+    bad("列存在チェック(columns_exist)の条件が想定した形になっていない");
+  }
+
+  // --- 3. 列が存在しない場合、ADD COLUMN(default false)して早期returnすること ---
+  const notExistsBranch = /if not columns_exist then\s*\n\s*execute\s*\n\s*'alter table public\.profiles '\s*\n\s*'add column notify_weekly_email boolean not null default false, '\s*\n\s*'add column notify_push_enabled boolean not null default false';\s*\n\s*return;\s*\n\s*end if;/.test(guardBlock);
+  if (notExistsBranch) {
+    ok("列が存在しない場合はADD COLUMN(default false, 両列)を実行しreturnで抜ける(通常の初回適用パス)");
+  } else {
+    bad("列不存在時のADD COLUMN分岐が想定した形で見つからない");
+  }
+
+  // --- 4. has_existing_rowsがprofilesに1行以上あるかをexistsで確認すること ---
+  const checksRows = /select exists \(select 1 from public\.profiles limit 1\) into has_existing_rows/.test(guardBlock);
+  if (checksRows) {
+    ok("列が既に存在する場合、has_existing_rowsでprofilesに1行以上の実データがあるかを確認する");
+  } else {
+    bad("has_existing_rowsの行数チェックが見つからない");
+  }
+
+  // --- 5. has_existing_rowsがtrueの場合のみRAISE EXCEPTIONすること(errcode指定あり) ---
+  const raisesOnlyWhenRows = /if has_existing_rows then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
+  if (raisesOnlyWhenRows) {
+    ok("has_existing_rowsがtrueの場合のみRAISE EXCEPTIONで中断する(列が存在するだけでは中断しない)");
+  } else {
+    bad("has_existing_rows条件付きのRAISE EXCEPTIONが見つからない");
+  }
+
+  // --- 6. guardに例外を握りつぶすEXCEPTIONハンドラ(exception when ... end)が
   // 無く、RAISEした例外がそのままmigration全体を中断させること ---
   const hasSwallowingExceptionHandler = /exception\s+when\s+/i.test(guardBlock);
   if (!hasSwallowingExceptionHandler) {
@@ -82,7 +108,17 @@ function main() {
     bad("guard内にEXCEPTION WHENハンドラが存在し、RAISEが握りつぶされる可能性がある");
   }
 
-  // --- 4. UPDATE public.profiles が存在しないこと(無条件UPDATE禁止) ---
+  // --- 7. 列が存在し、かつprofilesが0行の場合は、ADD COLUMNではなくALTER COLUMN
+  //         SET DEFAULT(両列false)だけを実行して正常終了すること(実データが無く
+  //         UPDATEは発生しない) ---
+  const zeroRowsBranch = /execute\s*\n\s*'alter table public\.profiles '\s*\n\s*'alter column notify_weekly_email set default false, '\s*\n\s*'alter column notify_push_enabled set default false';/.test(guardBlock);
+  if (zeroRowsBranch) {
+    ok("列が既に存在しprofilesが0行の場合は、ADD COLUMNではなくALTER COLUMN SET DEFAULT(両列false)だけを実行する(実データ無し、UPDATE発生なし)");
+  } else {
+    bad("0行時のALTER COLUMN SET DEFAULT分岐が想定した形で見つからない");
+  }
+
+  // --- 8. UPDATE public.profiles が存在しないこと(無条件UPDATE禁止、EXECUTE文字列内も含む) ---
   const hasUpdateStatement = /update\s+public\.profiles/i.test(source);
   if (!hasUpdateStatement) {
     ok("UPDATE public.profilesが存在しない(既存ユーザーの値を一切変更しない)");
@@ -90,7 +126,7 @@ function main() {
     bad("UPDATE public.profilesが検出された(既存値を上書きする禁止パターン)");
   }
 
-  // --- 5. DEFAULT true が存在しないこと ---
+  // --- 9. DEFAULT true が存在しないこと ---
   const hasDefaultTrue = /default\s+true/i.test(source);
   if (!hasDefaultTrue) {
     ok("DEFAULT trueが存在しない");
@@ -98,24 +134,24 @@ function main() {
     bad("DEFAULT trueが検出された(旧006と同じ自動opt-inパターン)");
   }
 
-  // --- 6. ADD COLUMN IF NOT EXISTS が存在しないこと(schema driftを隠さない) ---
+  // --- 10. ADD COLUMN IF NOT EXISTS が存在しないこと(schema driftを隠さない) ---
   const hasIfNotExists = /add column if not exists/i.test(source);
   if (!hasIfNotExists) {
-    ok("ADD COLUMN IF NOT EXISTSが存在しない(guardが列不存在を保証するため不要、かつschema driftを隠さない)");
+    ok("ADD COLUMN IF NOT EXISTSが存在しない(guardの分岐が列の状態を判別するため不要、かつschema driftを隠さない)");
   } else {
     bad("ADD COLUMN IF NOT EXISTSが検出された(guardと矛盾し、schema driftを隠す禁止パターン)");
   }
 
-  // --- 7. 新規追加列のdefaultが両方falseであること ---
-  const weeklyDefaultFalse = /add column notify_weekly_email\s*\n?\s*boolean not null default false/i.test(source);
-  const pushDefaultFalse = /add column notify_push_enabled\s*\n?\s*boolean not null default false/i.test(source);
+  // --- 11. 新規追加列のdefaultが両方falseであること(列不存在時のADD COLUMN分岐) ---
+  const weeklyDefaultFalse = /add column notify_weekly_email boolean not null default false/i.test(source);
+  const pushDefaultFalse = /add column notify_push_enabled boolean not null default false/i.test(source);
   if (weeklyDefaultFalse && pushDefaultFalse) {
     ok("notify_weekly_email・notify_push_enabledとも、新規追加時のdefaultがfalseになっている");
   } else {
     bad("新規追加列のdefault falseが想定した形で見つからない");
   }
 
-  // --- 8. 既存の006_notify_settings.sqlを変更していないこと(git管理下のoriginと比較) ---
+  // --- 12. 既存の006_notify_settings.sqlを変更していないこと(git管理下のoriginと比較) ---
   try {
     const diffOutput = execSync(
       `git diff --stat origin/main -- "${LEGACY_MIGRATION_PATH.replace(/\\/g, "/")}"`,
