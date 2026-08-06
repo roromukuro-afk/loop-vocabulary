@@ -162,19 +162,39 @@ function main() {
     bad("新規追加列のdefault falseが想定した形で見つからない");
   }
 
-  // --- 12. 既存の006_notify_settings.sqlを変更していないこと(git管理下のoriginと比較) ---
+  // --- 12. 既存の006_notify_settings.sqlを変更していないこと ---
+  // Codexレビュー指摘 P2: origin/mainとの比較は、shallow clone・レビュー用
+  // checkout等でorigin/mainのremote-trackingが存在しないと
+  // `fatal: bad revision 'origin/main'`で失敗する(実際に再現された)。
+  // そのため外部refに依存せず、このリポジトリ内で自己完結する基準を使う:
+  // 新migrationファイルを最初に追加したコミットの直前(その親コミット)を
+  // 基準とし、そこから現在までの間に006が変更されていないかを確認する。
+  // このコミットは新migrationファイル自体から特定できるため、origin/main
+  // 等のリモートrefの有無に関わらず常に存在する。
+  const repoRoot = resolve(__dirname, "../..");
   try {
-    const diffOutput = execSync(
-      `git diff --stat origin/main -- "${LEGACY_MIGRATION_PATH.replace(/\\/g, "/")}"`,
-      { cwd: resolve(__dirname, "../.."), encoding: "utf8" },
-    ).trim();
-    if (diffOutput === "") {
-      ok("既存の006_notify_settings.sqlはorigin/mainから変更されていない(git diffで確認)");
+    const newMigrationRelPath = "supabase/migrations/20260806034305_add_notification_preferences.sql";
+    const addedCommits = execSync(
+      `git log --diff-filter=A --format=%H -- "${newMigrationRelPath}"`,
+      { cwd: repoRoot, encoding: "utf8" },
+    ).trim().split("\n").filter(Boolean);
+    const firstCommit = addedCommits[addedCommits.length - 1]; // git logは新しい順、末尾が最古
+    if (!firstCommit) {
+      bad("新migrationファイルを追加したコミットが見つからず、006の変更有無を確認する基準を特定できなかった");
     } else {
-      bad(`006_notify_settings.sqlがorigin/mainから変更されている: ${diffOutput}`);
+      const baseRef = `${firstCommit}^`;
+      const diffOutput = execSync(
+        `git diff --stat ${baseRef} -- "${LEGACY_MIGRATION_PATH.replace(/\\/g, "/")}"`,
+        { cwd: repoRoot, encoding: "utf8" },
+      ).trim();
+      if (diffOutput === "") {
+        ok(`既存の006_notify_settings.sqlは、新migrationファイルを追加した最初のコミットの直前(${baseRef.slice(0, 7)})から変更されていない(外部refに依存しない自己完結的なgit diffで確認)`);
+      } else {
+        bad(`006_notify_settings.sqlが変更されている: ${diffOutput}`);
+      }
     }
   } catch (e) {
-    bad(`006_notify_settings.sqlの変更有無をgit diffで確認できなかった: ${e.message}`);
+    bad(`006_notify_settings.sqlの変更有無を確認できなかった: ${e.message}`);
   }
 
   console.log(`\n=== test:notification-preferences-migration RESULT: ${pass} passed, ${fail} failed ===`);

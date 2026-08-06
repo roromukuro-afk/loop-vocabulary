@@ -366,20 +366,39 @@ async function runToggleTests(browser, baseUrl, email, password) {
       await page.close();
     }
 
-    // ---- {ok:true}欠如 ----
+    // ---- {ok:true}欠如(PATCHは曖昧な失敗、GET再同期は成功し
+    //      サーバー側の実際の値=変更前のままだったことを確認できる場合) ----
+    // Codexレビュー指摘 P2: PATCH・GETの両方を同一ハンドラで{}に固定すると、
+    // GET再同期も有効なbooleanを返せず必ずambiguous(状態未確認)になり、
+    // migration適用後は「反転前の値へロールバックされる」という当時の
+    // アサーションが常に成立しなくなる(値を維持する新しい仕様と矛盾する)。
+    // PATCHとGETを別々にモックし、GETは「サーバー側は実際には変更前の値の
+    // ままだった」という有効なboolean応答を返すことで、曖昧な失敗から
+    // 確定的な再同期が行われるケースを検証する。
     {
       const { page } = await openSettingsPage(browser, baseUrl, email, password);
-      await routeNotificationsApi(page, async (route) => {
-        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
-      });
       const toggle = page.locator(`[data-testid="${s.testId}"]`);
       const before = await toggle.getAttribute("aria-pressed");
+      const beforeValue = before === "true";
+      await routeNotificationsMethods(page, {
+        onPatch: async (route) => {
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+        },
+        onGet: async (route) => {
+          const body = { ok: true, notify_weekly_email: false, notify_push_enabled: false };
+          body[s.apiKey] = beforeValue; // サーバー側は実際には変更されていなかった
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+        },
+      });
       await toggle.click();
       await waitForAppAlertCount(page, 1);
       ok(`${s.key}({ok:true}欠如): HTTP 200でも{ok:true}が無ければ失敗扱いになりalertが表示される`);
       const after = await toggle.getAttribute("aria-pressed");
-      if (after === before) ok(`${s.key}({ok:true}欠如): ロールバックされる`);
-      else fail(`${s.key}({ok:true}欠如): ロールバックされなかった`);
+      if (after === before) {
+        ok(`${s.key}({ok:true}欠如): GET再同期でサーバー側の実際の値(変更前のまま)を確認しロールバックされる(決め打ちではなく確認済みの値)`);
+      } else {
+        fail(`${s.key}({ok:true}欠如): aria-pressedが想定外(期待=${before}, 実際=${after})`);
+      }
       await page.close();
     }
 
