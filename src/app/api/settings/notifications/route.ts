@@ -73,16 +73,24 @@ export async function PATCH(req: NextRequest) {
       .select("notify_weekly_email, notify_push_enabled")
       .eq("id", user.id)
       .maybeSingle();
-    const actuallyApplied =
-      !rereadError &&
-      !!reread &&
-      Object.entries(updates).every(
-        ([key, value]) => (reread as Record<string, unknown>)[key] === value,
-      );
+    if (rereadError || !reread) {
+      // 読み直し自体も失敗し、実際に反映されたか確認できなかった
+      // (Codexレビュー指摘 P2、上記読み直し対応自体への追加指摘)。この
+      // ケースでupdate_failedを返すと、クライアント側は既知のerror code
+      // として確定的失敗とみなしGETでの再同期を行わずに反転してしまう
+      // ため、ここではNotificationToggles.tsx側のERROR_MESSAGESに含まれ
+      // ない別のcodeを返し、クライアント側の既存ロジックにより自動的に
+      // ambiguous(状態未確認)として扱われるようにする。
+      return NextResponse.json({ error: "verification_failed" }, { status: 500 });
+    }
+    const actuallyApplied = Object.entries(updates).every(
+      ([key, value]) => (reread as Record<string, unknown>)[key] === value,
+    );
     if (actuallyApplied) {
       return NextResponse.json({ ok: true });
     }
-    // 生のSupabaseエラーメッセージはクライアントへ返さない。
+    // 読み直しにより、実際に適用されていないことを確認できた
+    // (確定的失敗)。生のSupabaseエラーメッセージはクライアントへ返さない。
     return NextResponse.json({ error: "update_failed" }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
