@@ -151,36 +151,50 @@ export function NotificationToggles({ weeklyEmail, pushEnabled }: Props) {
     if (!beginAction(key)) return;
     setLocal(nextValue); // optimistic更新。失敗時は下で反転前の値(または実際の現在値)へ戻す。
     const result = await patchNotificationSetting(apiKey, nextValue);
-    if (!result.ok) {
-      let unresolved = false;
-      if (result.ambiguous) {
-        // サーバーへ実際に反映されたか不明なため、反転で決め打ちせず
-        // 現在の実際の値を再取得して画面へ反映する。
-        const reconciled = await fetchAuthoritativeValue(apiKey);
-        if (reconciled !== null) {
-          setLocal(reconciled);
-        } else {
-          // 再同期用GETも失敗し、実際の状態を確認できなかった
-          // (Codexレビュー指摘 P2)。ここで反転で決め打ちすると、実際には
-          // サーバーへ反映済みなのに画面だけ反転して見えてしまう恐れがある
-          // (例: ONへ変更したのに画面上OFFに戻り、ユーザーは通知が
-          // 無効だと誤認するが実際は有効なまま、というケース)。そのため
-          // 直前の楽観的更新の値(nextValue)を維持したまま、状態を確認
-          // できなかった旨を明示するメッセージへ切り替える。
-          unresolved = true;
-        }
-      } else {
-        // サーバーが明確に更新を適用しなかったことが確定しているため、
-        // 反転前の値へ戻して問題ない。
-        setLocal(!nextValue);
-      }
+    if (result.ok) {
       endAction(key);
-      setErrorMessage(unresolved ? UNRESOLVED_MESSAGE : resolveErrorMessage(result.code));
+      setStatusMessage(successMessage);
+      router.refresh();
       return;
     }
+
+    if (result.ambiguous) {
+      // サーバーへ実際に反映されたか不明なため、反転で決め打ちせず
+      // 現在の実際の値を再取得して画面へ反映する。
+      const reconciled = await fetchAuthoritativeValue(apiKey);
+      if (reconciled === null) {
+        // 再同期用GETも失敗し、実際の状態を確認できなかった
+        // (Codexレビュー指摘 P2)。ここで反転で決め打ちすると、実際には
+        // サーバーへ反映済みなのに画面だけ反転して見えてしまう恐れがある
+        // (例: ONへ変更したのに画面上OFFに戻り、ユーザーは通知が
+        // 無効だと誤認するが実際は有効なまま、というケース)。そのため
+        // 直前の楽観的更新の値(nextValue)を維持したまま、状態を確認
+        // できなかった旨を明示するメッセージへ切り替える。
+        endAction(key);
+        setErrorMessage(UNRESOLVED_MESSAGE);
+        return;
+      }
+      setLocal(reconciled);
+      endAction(key);
+      if (reconciled === nextValue) {
+        // 曖昧な失敗(PATCH応答消失・gateway 5xx等)だったが、GET再同期に
+        // より実際には意図した値(nextValue)が反映されていたことを確認
+        // できた(Codexレビュー指摘 P2)。ここで失敗表示のままにすると、
+        // 成功した変更をユーザーが失敗と誤認して再度クリックし、意図と
+        // 逆方向へ反転させてしまう恐れがあるため、成功として扱う。
+        setStatusMessage(successMessage);
+        router.refresh();
+      } else {
+        setErrorMessage(resolveErrorMessage(result.code));
+      }
+      return;
+    }
+
+    // サーバーが明確に更新を適用しなかったことが確定しているため、
+    // 反転前の値へ戻して問題ない。
+    setLocal(!nextValue);
     endAction(key);
-    setStatusMessage(successMessage);
-    router.refresh();
+    setErrorMessage(resolveErrorMessage(result.code));
   }
 
   return (

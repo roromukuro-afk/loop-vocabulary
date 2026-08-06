@@ -258,11 +258,15 @@ async function runToggleTests(browser, baseUrl, email, password) {
     }
 
     // ---- HTTP非JSONエラー(gateway 502相当): 既知のerror codeを含まないため
-    //      ambiguousとして扱われ、GETで再同期される ----
+    //      ambiguousとして扱われ、GETで再同期される。GET再同期の結果、
+    //      実際には反映されていなかった(意図した値と一致しない)ことが
+    //      確認できるケース ----
     // Codexレビュー指摘P2: Vercel等のproxyが返す502/504は、origin側で実際には
     // commitが完了した後にレスポンスが失われて発生することもあるため、
     // 「自分のAPIが明確に拒否した」(既知のerror code)場合だけを確定的失敗とし、
     // それ以外は反転前の値へ決め打ちで戻さずGETで実際の値を再取得する。
+    // (GET再同期の結果、意図した値どおりに反映されていたことが確認できる
+    // ケースは「network abort後の再同期」シナリオで別途検証する)
     {
       const { page } = await openSettingsPage(browser, baseUrl, email, password);
       const toggle = page.locator(`[data-testid="${s.testId}"]`);
@@ -275,8 +279,10 @@ async function runToggleTests(browser, baseUrl, email, password) {
         },
         onGet: async (route) => {
           getCallCount++;
+          // サーバー側では実際には反映されていなかった(=変更前の値のまま)
+          // ことを模擬する。
           const body = { ok: true, notify_weekly_email: false, notify_push_enabled: false };
-          body[s.apiKey] = nextValue;
+          body[s.apiKey] = !nextValue;
           await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
         },
       });
@@ -288,9 +294,9 @@ async function runToggleTests(browser, baseUrl, email, password) {
       if (getCallCount === 1) ok(`${s.key}(HTTP非JSONエラー/gateway 502): 既知のerror codeを含まないためambiguousとして扱われ、GETで実際の値を再取得する`);
       else fail(`${s.key}(HTTP非JSONエラー/gateway 502): GET再取得が${getCallCount}回だった(想定は1回、502を確定的失敗として誤扱いしている疑い)`);
       const after = await toggle.getAttribute("aria-pressed");
-      const expectedPressed = String(nextValue);
+      const expectedPressed = String(!nextValue);
       if (after === expectedPressed) {
-        ok(`${s.key}(HTTP非JSONエラー/gateway 502): サーバーに実際に反映されていた値(${expectedPressed})を正しく表示する`);
+        ok(`${s.key}(HTTP非JSONエラー/gateway 502): サーバーに実際に反映されていた値(${expectedPressed}、変更前のまま)を正しく表示する`);
       } else {
         fail(`${s.key}(HTTP非JSONエラー/gateway 502): aria-pressedが想定外(期待=${expectedPressed}, 実際=${after})`);
       }
@@ -334,6 +340,10 @@ async function runToggleTests(browser, baseUrl, email, password) {
     // 更新が完了していることがある。この場合、楽観的更新を無条件で反転せず、
     // 再取得した実際の値(=ユーザーが意図した値)を表示すべきで、反転前の
     // 古い値へ戻してはならない。
+    // Codexレビュー指摘P2(追加): さらに、GET再同期が「意図した値どおりに反映
+    // されていた」ことを確認できた場合は、失敗表示のままにせず成功として扱う
+    // べき。失敗表示のままだと、ユーザーが成功した変更を誤って再度クリックし、
+    // 意図と逆方向へ反転させてしまう恐れがある。
     {
       const { page } = await openSettingsPage(browser, baseUrl, email, password);
       const toggle = page.locator(`[data-testid="${s.testId}"]`);
@@ -353,9 +363,14 @@ async function runToggleTests(browser, baseUrl, email, password) {
         },
       });
       await toggle.click();
-      await waitForAppAlertCount(page, 1);
+      await waitForStatusIncludes(page, s.successMsg)
+        .then(() => ok(`${s.key}(network abort後の再同期): 実際には意図した値が反映されていたため成功として扱われ、statusへ成功文言が反映される(失敗表示のまま放置しない)`))
+        .catch(() => fail(`${s.key}(network abort後の再同期): statusへ成功文言が反映されなかった`));
       if (getCallCount === 1) ok(`${s.key}(network abort後の再同期): 曖昧な失敗後にGETで実際の値を1回再取得する`);
       else fail(`${s.key}(network abort後の再同期): GET再取得が${getCallCount}回だった(想定は1回)`);
+      const alertCount = await appAlertLocator(page).count();
+      if (alertCount === 0) ok(`${s.key}(network abort後の再同期): alertは0件(失敗表示していない)`);
+      else fail(`${s.key}(network abort後の再同期): alertが${alertCount}件表示されている(成功したのに失敗表示している)`);
       const after = await toggle.getAttribute("aria-pressed");
       const expectedPressed = String(nextValue);
       if (after === expectedPressed) {
