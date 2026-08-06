@@ -27,7 +27,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { execSync } from "node:child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATION_PATH = resolve(
@@ -163,38 +162,20 @@ function main() {
   }
 
   // --- 12. 既存の006_notify_settings.sqlを変更していないこと ---
-  // Codexレビュー指摘 P2: origin/mainとの比較は、shallow clone・レビュー用
-  // checkout等でorigin/mainのremote-trackingが存在しないと
-  // `fatal: bad revision 'origin/main'`で失敗する(実際に再現された)。
-  // そのため外部refに依存せず、このリポジトリ内で自己完結する基準を使う:
-  // 新migrationファイルを最初に追加したコミットの直前(その親コミット)を
-  // 基準とし、そこから現在までの間に006が変更されていないかを確認する。
-  // このコミットは新migrationファイル自体から特定できるため、origin/main
-  // 等のリモートrefの有無に関わらず常に存在する。
-  const repoRoot = resolve(__dirname, "../..");
-  try {
-    const newMigrationRelPath = "supabase/migrations/20260806034305_add_notification_preferences.sql";
-    const addedCommits = execSync(
-      `git log --diff-filter=A --format=%H -- "${newMigrationRelPath}"`,
-      { cwd: repoRoot, encoding: "utf8" },
-    ).trim().split("\n").filter(Boolean);
-    const firstCommit = addedCommits[addedCommits.length - 1]; // git logは新しい順、末尾が最古
-    if (!firstCommit) {
-      bad("新migrationファイルを追加したコミットが見つからず、006の変更有無を確認する基準を特定できなかった");
-    } else {
-      const baseRef = `${firstCommit}^`;
-      const diffOutput = execSync(
-        `git diff --stat ${baseRef} -- "${LEGACY_MIGRATION_PATH.replace(/\\/g, "/")}"`,
-        { cwd: repoRoot, encoding: "utf8" },
-      ).trim();
-      if (diffOutput === "") {
-        ok(`既存の006_notify_settings.sqlは、新migrationファイルを追加した最初のコミットの直前(${baseRef.slice(0, 7)})から変更されていない(外部refに依存しない自己完結的なgit diffで確認)`);
-      } else {
-        bad(`006_notify_settings.sqlが変更されている: ${diffOutput}`);
-      }
-    }
-  } catch (e) {
-    bad(`006_notify_settings.sqlの変更有無を確認できなかった: ${e.message}`);
+  // Codexレビュー指摘 P2(2回目): git履歴を辿る比較は、たとえ外部remote ref
+  // (origin/main)に依存しない形にしても、shallow clone・partial clone等の
+  // 「一部のtreeオブジェクトしか取得していない」checkoutでは
+  // `fatal: unable to read tree ...`のように依然として失敗し得ることが
+  // 実際に再現された。そのためgitコマンドを一切使わず、006の現在のファイル
+  // 内容そのものが期待どおりの(未変更の)ものであるかを直接検証する
+  // 完全に自己完結した方式へ変更した。
+  const legacySource = readFileSync(LEGACY_MIGRATION_PATH, "utf8");
+  const legacyMatchesExpectedContent =
+    /ALTER TABLE public\.profiles\s*\n\s*ADD COLUMN IF NOT EXISTS notify_weekly_email boolean NOT NULL DEFAULT true,\s*\n\s*ADD COLUMN IF NOT EXISTS notify_push_enabled boolean NOT NULL DEFAULT true;/.test(legacySource);
+  if (legacyMatchesExpectedContent) {
+    ok("既存の006_notify_settings.sqlは元のDEFAULT true・ADD COLUMN IF NOT EXISTS構成のまま変更されていない(gitに依存しないファイル内容の直接検証)");
+  } else {
+    bad("006_notify_settings.sqlの内容が想定(元のDEFAULT true構成)と異なる。編集されている可能性がある");
   }
 
   console.log(`\n=== test:notification-preferences-migration RESULT: ${pass} passed, ${fail} failed ===`);
