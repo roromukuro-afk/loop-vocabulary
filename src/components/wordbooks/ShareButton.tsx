@@ -108,7 +108,12 @@ export function ShareButton({ wordbookId, initialShared, initialCode }: Props) {
       setCopied(true);
       setStatusMessage(COPY_SUCCESS_MESSAGE);
       setErrorMessage(null);
-      setTimeout(() => setCopied(false), 2000);
+      // このtimerも呼び出し単位で紐付ける。2秒以内に別の成功コピーが起きて
+      // いた場合、その新しい試行のチェックマークを古いtimerが誤って消さない
+      // ようにする。
+      setTimeout(() => {
+        if (copySeqRef.current === seq) setCopied(false);
+      }, 2000);
     } catch {
       if (copySeqRef.current !== seq) return;
       setStatusMessage(null);

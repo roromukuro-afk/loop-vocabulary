@@ -516,6 +516,44 @@ async function main() {
       await page.close();
     }
 
+    // ---- copy(2秒以内の連続成功): 1回目のリセットtimerが2回目のチェックマークを
+    //       誤って早期に消さないこと(timerも呼び出し単位で紐付けられていること) ----
+    {
+      const page = await browser.newPage();
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, "clipboard", {
+          value: { writeText: () => Promise.resolve() },
+          configurable: true,
+        });
+      });
+      await login(page, baseUrl, email, password);
+      await gotoReady(page, `${baseUrl}/wordbooks/${bookId}`);
+      await routeShareApi(page, async (route) => {
+        const method = route.request().method();
+        if (method === "POST") {
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, share_code: "COPYTIMER0000001" }) });
+        } else {
+          await route.continue();
+        }
+      });
+      await page.locator('[aria-label="この単語帳を共有"]').click();
+      await waitForStatusIncludes(page, "単語帳の共有を開始しました");
+      const timerBtn = page.locator('[aria-label="共有URLをコピー"]');
+      await timerBtn.click(); // 1回目の成功(2秒後にsetCopied(false)が予約される)
+      await waitForStatusIncludes(page, "共有URLをコピーしました");
+      await page.waitForTimeout(1500); // 1回目のtimer(2000ms)発火前に2回目を開始する
+      await timerBtn.click(); // 2回目の成功(新たに2秒後のtimerが予約される)
+      await page.waitForTimeout(700); // 合計約2200ms経過(1回目のtimerは発火済みのはずの時刻)
+      const stillCheckedText = (await timerBtn.textContent().catch(() => "")) ?? "";
+      if (stillCheckedText.includes("✓")) ok("copy(2秒以内の連続成功): 1回目のtimerが発火する時刻を過ぎても、2回目(最新)のチェックマークが消えていない");
+      else fail(`copy(2秒以内の連続成功): 1回目の古いtimerが2回目のチェックマークを早期に消してしまった: "${stillCheckedText}"`);
+      await page.waitForTimeout(1500); // 2回目のtimer(2000ms、2回目クリックから)も発火する時刻まで待つ
+      const finallyUncheckedText = (await timerBtn.textContent().catch(() => "")) ?? "";
+      if (!finallyUncheckedText.includes("✓")) ok("copy(2秒以内の連続成功): 2回目自身のtimerが発火すると、最終的にチェックマークが消える");
+      else fail(`copy(2秒以内の連続成功): 2回目自身のtimerが発火してもチェックマークが残っている: "${finallyUncheckedText}"`);
+      await page.close();
+    }
+
     // ---- 最終cleanup: is_sharedを確実にfalseへ戻す(UI経路の実mutationは0件のため
     //       このtoggle操作自体は不要だが、念のためDB側の状態を確認する) ----
     {
