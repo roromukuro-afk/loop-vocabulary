@@ -65,6 +65,12 @@ export function ShareButton({ wordbookId, initialShared, initialCode }: Props) {
     setPending(true);
     setStatusMessage(null);
     setErrorMessage(null);
+    // 進行中のcopy()を無効化する。コピーボタンは有効化/無効化の操作中も
+    // 押せる状態のままのため、コピー実行中に共有トグルが開始された場合、
+    // トグルの結果を古いコピーの結果で上書きしてしまう可能性がある。
+    // トグル開始時点でシーケンスを進め、それ以前に呼ばれたcopy()の結果が
+    // 後から解決してもUIへ反映されないようにする。
+    copySeqRef.current++;
     return true;
   }
   function endAction() {

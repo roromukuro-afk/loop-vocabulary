@@ -14,6 +14,7 @@ do $$
 declare
   share_code_exists boolean;
   share_code_type text;
+  share_code_nullable text;
   is_shared_exists boolean;
   is_shared_type text;
   is_shared_nullable text;
@@ -21,7 +22,13 @@ declare
   has_unique_on_share_code boolean;
   share_code_key_relation_exists boolean;
 begin
-  -- --- share_code: text であること以外は問わない ---
+  -- --- share_code: text かつ nullable であることを検査する。
+  -- アプリケーション層(POST /api/wordbook/[id]/share)は未共有行を
+  -- share_code IS NULLで判別し、新規割当UPDATEも.is("share_code", null)の
+  -- compare-and-setに依存している。既存のshare_codeがNOT NULL(かつdefault
+  -- 無し)だと、通常のwordbook作成・共有インポートがshare_codeを指定せずに
+  -- insertするため即座にNOT NULL制約違反で失敗し、共有の新規割当も一切
+  -- 機能しなくなる。型だけでなくnullableも契約として検査する。 ---
   select exists (
     select 1
     from information_schema.columns
@@ -31,18 +38,18 @@ begin
   ) into share_code_exists;
 
   if share_code_exists then
-    select data_type into share_code_type
+    select data_type, is_nullable into share_code_type, share_code_nullable
     from information_schema.columns
     where table_schema = 'public'
       and table_name = 'word_books'
       and column_name = 'share_code';
 
-    if share_code_type <> 'text' then
+    if share_code_type <> 'text' or share_code_nullable <> 'YES' then
       raise exception using
         errcode = '55000',
         message = format(
-          'word_books.share_code already exists with unexpected type %s (expected text); audit before applying this migration',
-          share_code_type
+          'word_books.share_code already exists with unexpected contract (type=%s, nullable=%s; expected text, nullable); audit before applying this migration',
+          share_code_type, share_code_nullable
         );
     end if;
   else
@@ -96,19 +103,25 @@ begin
   -- indisvalidも検査する: CREATE UNIQUE INDEX CONCURRENTLYが途中で失敗した
   -- 場合など、indisunique=trueのままindisvalid=falseのindexが残ることがある。
   -- このようなindexはbuild時に全行を検証しきれていない可能性があり、既存の
-  -- 重複を見逃したまま「既存の有効なunique」とみなしてしまうため対象外とする。 ---
+  -- 重複を見逃したまま「既存の有効なunique」とみなしてしまうため対象外とする。
+  -- 列数の判定はindnkeyatts(実際にunique制約へ参加するkey列数。INCLUDE句の
+  -- covering列を含まない)を使う。array_length(indkey,1)はINCLUDE列も
+  -- 数えてしまうため、例えば`UNIQUE (share_code) INCLUDE (user_id)`のような
+  -- 実質的に単一列unique indexを誤って「複数列」と判定してしまう。
+  -- indkey[0]はkey列(INCLUDE列より必ず前)の先頭を指すため、indnkeyatts=1と
+  -- 組み合わせることで「keyがshare_code一列だけ」を正確に判定できる。 ---
   select exists (
     select 1
     from pg_index i
     join pg_class c on c.oid = i.indrelid
     join pg_namespace n on n.oid = c.relnamespace
-    join pg_attribute a on a.attrelid = c.oid and a.attnum = any(i.indkey)
+    join pg_attribute a on a.attrelid = c.oid and a.attnum = i.indkey[0]
     where n.nspname = 'public'
       and c.relname = 'word_books'
       and a.attname = 'share_code'
       and i.indisunique
       and i.indisvalid
-      and array_length(i.indkey, 1) = 1
+      and i.indnkeyatts = 1
       and (
         i.indpred is null
         or lower(regexp_replace(pg_get_expr(i.indpred, i.indrelid), '[\s()]', '', 'g')) = 'share_codeisnotnull'

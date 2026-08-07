@@ -73,12 +73,16 @@ function main() {
     bad("005_wordbook_share.sqlの内容が想定と異なる。編集されている可能性がある");
   }
 
-  // --- 3. share_codeが存在する場合、text型以外ならRAISE EXCEPTION ---
-  const shareCodeGuard = /if share_code_type <> 'text' then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
+  // --- 3. share_codeが存在する場合、text型・nullable以外ならRAISE EXCEPTION
+  //         (NOT NULLだと通常のwordbook作成・共有インポートがshare_code無しで
+  //         insertするため即座に制約違反となり、新規共有の.is("share_code", null)
+  //         によるcompare-and-setも一切機能しなくなるため、型だけでなくnullableも
+  //         契約として検査すること) ---
+  const shareCodeGuard = /if share_code_type <> 'text' or share_code_nullable <> 'YES' then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
   if (shareCodeGuard) {
-    ok("share_codeが既に存在する場合、text型でなければRAISE EXCEPTIONで中断する");
+    ok("share_codeが既に存在する場合、text型・nullable以外ならRAISE EXCEPTIONで中断する");
   } else {
-    bad("share_codeの型チェックによるRAISE EXCEPTIONが見つからない");
+    bad("share_codeの型・nullableチェックによるRAISE EXCEPTIONが見つからない");
   }
 
   // --- 4. is_sharedが存在する場合、boolean・NOT NULL・DEFAULT false以外ならRAISE EXCEPTION
@@ -101,14 +105,22 @@ function main() {
     bad("is_shared_defaultの比較に素の<>が残っている(NULL default時にguardをすり抜ける禁止パターン)");
   }
 
-  // --- 4c. share_codeのunique index判定がindkeyの列数を1に限定していること
-  //          (share_codeを含む複合unique indexを誤って「既存の単独unique」と
-  //          みなさないため) ---
-  const restrictsToSingleColumnIndex = /and i\.indisunique\s*\n\s*and i\.indisvalid\s*\n\s*and array_length\(i\.indkey, 1\) = 1/.test(guardBlock);
+  // --- 4c. share_codeのunique index判定が実際のkey列数(indnkeyatts)を1に
+  //          限定していること。array_length(indkey,1)はINCLUDE句のcovering列も
+  //          数えてしまい、`UNIQUE (share_code) INCLUDE (user_id)`のような
+  //          実質的に単一列unique indexを誤って「複数列」と判定してしまうため、
+  //          indnkeyatts(実際にunique制約へ参加するkey列数のみ)を使うこと ---
+  const restrictsToSingleColumnIndex = /and i\.indisunique\s*\n\s*and i\.indisvalid\s*\n\s*and i\.indnkeyatts = 1/.test(guardBlock);
   if (restrictsToSingleColumnIndex) {
-    ok("share_codeのunique index判定が単一列のindexのみを対象にする(複合unique indexを誤検知しない)");
+    ok("share_codeのunique index判定が実際のkey列数(indnkeyatts)を1に限定する(INCLUDE句のcovering列を誤って複数列と数えない)");
   } else {
-    bad("share_codeのunique index判定に単一列限定の条件(array_length(i.indkey, 1) = 1)が見つからない");
+    bad("share_codeのunique index判定に単一key列限定の条件(indnkeyatts = 1)が見つからない");
+  }
+  const joinsOnFirstKeyAttribute = /join pg_attribute a on a\.attrelid = c\.oid and a\.attnum = i\.indkey\[0\]/.test(guardBlock);
+  if (joinsOnFirstKeyAttribute) {
+    ok("share_codeのunique index判定がindkey[0](key列の先頭)でjoinする(INCLUDE列を含むany(indkey)による誤マッチを避ける)");
+  } else {
+    bad("share_codeのunique index判定のjoin条件がindkey[0]になっていない");
   }
 
   // --- 4e. share_codeのunique index判定がindisvalidも検証していること

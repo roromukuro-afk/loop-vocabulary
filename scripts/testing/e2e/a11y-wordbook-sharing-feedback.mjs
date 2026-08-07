@@ -554,6 +554,48 @@ async function main() {
       await page.close();
     }
 
+    // ---- copy() vs トグル(disable)の競合: コピーボタンはトグル操作中も押せる
+    //       ままのため、進行中の(遅い)copyが、後から開始・先に完了したトグルの
+    //       結果を上書きしないこと ----
+    {
+      const page = await browser.newPage();
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, "clipboard", {
+          value: { writeText: () => new Promise((resolve) => setTimeout(resolve, 300)) },
+          configurable: true,
+        });
+      });
+      await login(page, baseUrl, email, password);
+      await gotoReady(page, `${baseUrl}/wordbooks/${bookId}`);
+      await routeShareApi(page, async (route) => {
+        const method = route.request().method();
+        if (method === "POST") {
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, share_code: "COPYVSTOGGLE0001" }) });
+        } else if (method === "DELETE") {
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+        } else {
+          await route.continue();
+        }
+      });
+      await page.locator('[aria-label="この単語帳を共有"]').click();
+      await waitForStatusIncludes(page, "単語帳の共有を開始しました");
+      await page.locator('[aria-label="共有URLをコピー"]').click(); // 300ms後に解決する遅いcopy
+      await page.waitForTimeout(20); // copyが確実に開始した直後にトグル(停止)を開始する
+      await page.locator('[aria-label="共有を停止"]').click();
+      await waitForStatusIncludes(page, "単語帳の共有を停止しました");
+      await page.waitForTimeout(350); // 遅いcopyが後から解決するのを待つ猶予
+      const finalStatusText = (await page.locator('[data-testid="wordbook-share-status"]').textContent().catch(() => "")) ?? "";
+      const finalAlertCount = await page.locator('[role="alert"]:not(#__next-route-announcer__)').count();
+      const shareBtnVisible = await page.locator('[aria-label="この単語帳を共有"]').isVisible().catch(() => false);
+      if (finalStatusText.includes("共有を停止しました")) ok("copy() vs トグル: 進行中のcopyが後から解決しても、トグル(停止)の成功文言が上書きされない");
+      else fail(`copy() vs トグル: statusが遅れたcopyの結果で上書きされた疑いがある: "${finalStatusText}"`);
+      if (finalAlertCount === 0) ok("copy() vs トグル: 遅れて解決したcopyの結果によるalertが表示されない");
+      else fail(`copy() vs トグル: 想定外のalertが表示された(${finalAlertCount}件)`);
+      if (shareBtnVisible) ok("copy() vs トグル: UIはトグル(停止)後の未共有状態のまま(遅れたcopyの成功で誤って共有中表示に戻らない)");
+      else fail("copy() vs トグル: UIが未共有状態に留まっていない");
+      await page.close();
+    }
+
     // ---- 最終cleanup: is_sharedを確実にfalseへ戻す(UI経路の実mutationは0件のため
     //       このtoggle操作自体は不要だが、念のためDB側の状態を確認する) ----
     {
