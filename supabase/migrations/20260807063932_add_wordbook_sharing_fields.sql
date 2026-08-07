@@ -19,6 +19,7 @@ declare
   is_shared_nullable text;
   is_shared_default text;
   has_unique_on_share_code boolean;
+  share_code_key_relation_exists boolean;
 begin
   -- --- share_code: text であること以外は問わない ---
   select exists (
@@ -115,6 +116,27 @@ begin
   ) into has_unique_on_share_code;
 
   if not has_unique_on_share_code then
+    -- CREATE UNIQUE INDEXがこれから作成しようとしている名前
+    -- (word_books_share_code_key)を、既存の(無効・条件不一致等の)relationが
+    -- 既に占有していないか事前に確認する。占有されている場合、CREATE UNIQUE
+    -- INDEXは「relation already exists」という不明瞭なnative errorで
+    -- 失敗するだけになってしまう。このmigrationはfail-closedの方針上、
+    -- 素性の分からない既存relationを黙って削除・上書きしたりはしないため、
+    -- 監査が必要である旨を明示するRAISE EXCEPTIONで中断する。
+    select exists (
+      select 1
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public'
+        and c.relname = 'word_books_share_code_key'
+    ) into share_code_key_relation_exists;
+
+    if share_code_key_relation_exists then
+      raise exception using
+        errcode = '55000',
+        message = 'a relation named public.word_books_share_code_key already exists but does not satisfy the expected unique-enforcement contract (e.g. an invalid index left by a failed CREATE UNIQUE INDEX CONCURRENTLY, or an index with a different predicate/columns); audit and resolve manually before applying this migration';
+    end if;
+
     execute
       'create unique index word_books_share_code_key '
       'on public.word_books (share_code) '

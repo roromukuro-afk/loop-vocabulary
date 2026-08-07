@@ -195,11 +195,29 @@ function main() {
   // --- 12. unique enforcementが存在すること(既存unique有無を判定したうえで
   //          1本だけ作成する設計) ---
   const checksExistingUnique = /select exists \(\s*\n\s*select 1\s*\n\s*from pg_index/.test(guardBlock);
-  const createsUniqueIndexOnlyWhenMissing = /if not has_unique_on_share_code then\s*\n\s*execute\s*\n\s*'create unique index word_books_share_code_key '\s*\n\s*'on public\.word_books \(share_code\) '\s*\n\s*'where share_code is not null';\s*\n\s*end if;/.test(guardBlock);
+  const createsUniqueIndexOnlyWhenMissing = /if not has_unique_on_share_code then[\s\S]*?execute\s*\n\s*'create unique index word_books_share_code_key '\s*\n\s*'on public\.word_books \(share_code\) '\s*\n\s*'where share_code is not null';\s*\n\s*end if;/.test(guardBlock);
   if (checksExistingUnique && createsUniqueIndexOnlyWhenMissing) {
     ok("既存unique index/constraintの有無をpg_indexで確認し、無い場合だけpartial unique indexを1本作成する");
   } else {
     bad("share_codeのunique enforcement(既存確認+条件付き作成)が想定した形で見つからない");
+  }
+
+  // --- 12b. CREATE UNIQUE INDEXが作成しようとする名前(word_books_share_code_key)
+  //           を、既存の(無効・条件不一致等の)relationが既に占有していないか
+  //           事前確認し、占有されている場合は黙って削除・上書きせずRAISE
+  //           EXCEPTIONで監査を促すこと(CREATE UNIQUE INDEXの不明瞭なnative
+  //           errorに任せない) ---
+  const checksNameCollisionBeforeCreate = /select exists \(\s*\n\s*select 1\s*\n\s*from pg_class c\s*\n\s*join pg_namespace n on n\.oid = c\.relnamespace\s*\n\s*where n\.nspname = 'public'\s*\n\s*and c\.relname = 'word_books_share_code_key'\s*\n\s*\) into share_code_key_relation_exists;/.test(guardBlock);
+  if (checksNameCollisionBeforeCreate) {
+    ok("CREATE UNIQUE INDEX実行前に、同名(word_books_share_code_key)の既存relationの有無を確認する");
+  } else {
+    bad("CREATE UNIQUE INDEX実行前の同名relation存在確認が見つからない");
+  }
+  const raisesOnNameCollision = /if share_code_key_relation_exists then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
+  if (raisesOnNameCollision) {
+    ok("同名relationが既に存在する場合、黙って削除・上書きせずRAISE EXCEPTIONで監査を促す");
+  } else {
+    bad("同名relation衝突時のRAISE EXCEPTIONが見つからない");
   }
 
   // --- 13. 重複既存share_codeを黙って修正するコード(DISTINCT ON・重複行の
