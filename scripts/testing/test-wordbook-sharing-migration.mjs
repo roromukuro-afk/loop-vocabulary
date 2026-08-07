@@ -81,12 +81,34 @@ function main() {
     bad("share_codeの型チェックによるRAISE EXCEPTIONが見つからない");
   }
 
-  // --- 4. is_sharedが存在する場合、boolean・NOT NULL・DEFAULT false以外ならRAISE EXCEPTION ---
-  const isSharedGuard = /if is_shared_type <> 'boolean'\s*\n\s*or is_shared_nullable <> 'NO'\s*\n\s*or is_shared_default <> 'false' then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
+  // --- 4. is_sharedが存在する場合、boolean・NOT NULL・DEFAULT false以外ならRAISE EXCEPTION
+  //         (column_defaultがNULLの場合に`<>`ではNULL(=falseとして扱われ、guardを
+  //         すり抜けてしまう)ため、IS DISTINCT FROMで比較しNULLも確実に不一致として
+  //         検出すること) ---
+  const isSharedGuard = /if is_shared_type <> 'boolean'\s*\n\s*or is_shared_nullable <> 'NO'\s*\n\s*or is_shared_default is distinct from 'false' then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
   if (isSharedGuard) {
-    ok("is_sharedが既に存在する場合、boolean・NOT NULL・DEFAULT false以外ならRAISE EXCEPTIONで中断する");
+    ok("is_sharedが既に存在する場合、boolean・NOT NULL・DEFAULT false以外ならRAISE EXCEPTIONで中断する(IS DISTINCT FROMでNULL defaultも検出)");
   } else {
     bad("is_sharedの契約チェックによるRAISE EXCEPTIONが見つからない");
+  }
+
+  // --- 4b. is_shared_defaultの比較に素の`<>`(NULLに対しNULLを返し、guardを
+  //          すり抜けさせてしまう)を使っていないこと ---
+  const usesUnsafeNullComparison = /is_shared_default\s*<>\s*'false'/.test(guardBlock);
+  if (!usesUnsafeNullComparison) {
+    ok("is_shared_defaultの比較で素の<>を使っていない(NULL defaultをすり抜けさせない)");
+  } else {
+    bad("is_shared_defaultの比較に素の<>が残っている(NULL default時にguardをすり抜ける禁止パターン)");
+  }
+
+  // --- 4c. share_codeのunique index判定がindkeyの列数を1に限定していること
+  //          (share_codeを含む複合unique indexを誤って「既存の単独unique」と
+  //          みなさないため) ---
+  const restrictsToSingleColumnIndex = /and i\.indisunique\s*\n\s*and array_length\(i\.indkey, 1\) = 1/.test(guardBlock);
+  if (restrictsToSingleColumnIndex) {
+    ok("share_codeのunique index判定が単一列のindexのみを対象にする(複合unique indexを誤検知しない)");
+  } else {
+    bad("share_codeのunique index判定に単一列限定の条件(array_length(i.indkey, 1) = 1)が見つからない");
   }
 
   // --- 5. 例外を握りつぶすハンドラが無いこと ---

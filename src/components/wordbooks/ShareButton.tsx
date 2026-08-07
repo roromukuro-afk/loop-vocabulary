@@ -102,6 +102,7 @@ export function ShareButton({ wordbookId, initialShared, initialCode }: Props) {
       setErrorMessage(null);
       setTimeout(() => setCopied(false), 2000);
     } catch {
+      setStatusMessage(null);
       setErrorMessage(COPY_FAILURE_MESSAGE);
     }
   }

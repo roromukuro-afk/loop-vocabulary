@@ -67,7 +67,7 @@ begin
 
     if is_shared_type <> 'boolean'
        or is_shared_nullable <> 'NO'
-       or is_shared_default <> 'false' then
+       or is_shared_default is distinct from 'false' then
       raise exception using
         errcode = '55000',
         message = format(
@@ -79,8 +79,11 @@ begin
     execute 'alter table public.word_books add column is_shared boolean not null default false';
   end if;
 
-  -- --- share_codeのunique enforcement: 既に同等のunique index/constraintが
-  -- 存在する場合は冗長な2本目を作らない。存在しない場合のみ1本作成する。
+  -- --- share_codeのunique enforcement: share_code単独のunique index/constraintが
+  -- 既に存在する場合は冗長な2本目を作らない。存在しない場合のみ1本作成する。
+  -- share_codeを含む複合unique index(例: (share_code, user_id))は
+  -- share_code自体の一意性を保証しないため、既存とはみなさない
+  -- (array_length(i.indkey, 1) = 1で単一列のindexのみを対象とする)。
   -- 既存の重複share_codeがある場合、このCREATE UNIQUE INDEX自体が失敗する
   -- ため、データを勝手に修正することはしない(失敗時は既存データへの変更
   -- なくmigrationが中断されるだけ)。 ---
@@ -94,6 +97,7 @@ begin
       and c.relname = 'word_books'
       and a.attname = 'share_code'
       and i.indisunique
+      and array_length(i.indkey, 1) = 1
   ) into has_unique_on_share_code;
 
   if not has_unique_on_share_code then
