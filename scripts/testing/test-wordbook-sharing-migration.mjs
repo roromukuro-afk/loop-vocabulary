@@ -111,6 +111,17 @@ function main() {
     bad("share_codeのunique index判定に単一列限定の条件(array_length(i.indkey, 1) = 1)が見つからない");
   }
 
+  // --- 4d. share_codeのunique index判定がpredicateも検証していること
+  //          (`WHERE source_type = 'material'`のような弱いpredicateを持つ
+  //          既存indexを、対象外の行同士の重複を防げないにもかかわらず
+  //          「既存の有効なunique」と誤認しないため) ---
+  const validatesIndexPredicate = /i\.indpred is null\s*\n\s*or lower\(regexp_replace\(pg_get_expr\(i\.indpred, i\.indrelid\), '\[\\s\(\)\]', '', 'g'\)\) = 'share_codeisnotnull'/.test(guardBlock);
+  if (validatesIndexPredicate) {
+    ok("share_codeのunique index判定がpredicateも検証する(predicate無し、またはshare_code IS NOT NULLと同値の場合のみ既存とみなす)");
+  } else {
+    bad("share_codeのunique index判定にpredicate検証(indpred is null または share_code IS NOT NULL相当)が見つからない");
+  }
+
   // --- 5. 例外を握りつぶすハンドラが無いこと ---
   const hasSwallowingExceptionHandler = /exception\s+when\s+/i.test(guardBlock);
   if (!hasSwallowingExceptionHandler) {

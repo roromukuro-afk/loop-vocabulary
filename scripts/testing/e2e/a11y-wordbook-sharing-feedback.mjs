@@ -383,7 +383,11 @@ async function main() {
 
     // ---- copy(clipboard rejection) ----
     {
-      const { page } = await openBookPage(browser, baseUrl, email, password, bookId);
+      // addInitScriptはページ読み込み前に登録する必要がある(読み込み後に
+      // 追加しても既存ドキュメントには反映されない)ため、openBookPage
+      // ヘルパーは使わずnewPage→addInitScript→login→gotoReadyの順で
+      // 手動で組み立てる。
+      const page = await browser.newPage();
       await page.addInitScript(() => {
         // navigator.clipboard.writeText を決定論的に失敗させる
         Object.defineProperty(navigator, "clipboard", {
@@ -391,6 +395,8 @@ async function main() {
           configurable: true,
         });
       });
+      await login(page, baseUrl, email, password);
+      await gotoReady(page, `${baseUrl}/wordbooks/${bookId}`);
       await routeShareApi(page, async (route) => {
         const method = route.request().method();
         if (method === "POST") {
@@ -406,6 +412,52 @@ async function main() {
       const alertText = (await appAlertLocator(page).textContent().catch(() => "")) ?? "";
       if (alertText.includes("共有URLをコピーできませんでした")) ok("copy(失敗): 失敗文言のalertが表示される(握りつぶさない)");
       else fail(`copy(失敗): alert文言が想定外: "${alertText}"`);
+      await page.close();
+    }
+
+    // ---- copy(成功→失敗): 直前のチェックマークが残らない ----
+    {
+      // addInitScriptはページ読み込み前に登録する必要がある(読み込み後に
+      // 追加しても既存ドキュメントには反映されない)ため、openBookPage
+      // ヘルパーは使わずnewPage→addInitScript→login→gotoReadyの順で
+      // 手動で組み立てる。
+      const page = await browser.newPage();
+      await page.addInitScript(() => {
+        let calls = 0;
+        Object.defineProperty(navigator, "clipboard", {
+          value: {
+            writeText: () => {
+              calls += 1;
+              if (calls === 1) return Promise.resolve();
+              return Promise.reject(new Error("denied"));
+            },
+          },
+          configurable: true,
+        });
+      });
+      await login(page, baseUrl, email, password);
+      await gotoReady(page, `${baseUrl}/wordbooks/${bookId}`);
+      await routeShareApi(page, async (route) => {
+        const method = route.request().method();
+        if (method === "POST") {
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, share_code: "COPYRESET0000001" }) });
+        } else {
+          await route.continue();
+        }
+      });
+      await page.locator('[aria-label="この単語帳を共有"]').click();
+      await waitForStatusIncludes(page, "単語帳の共有を開始しました");
+      const copyBtn = page.locator('[aria-label="共有URLをコピー"]');
+      await copyBtn.click();
+      await waitForStatusIncludes(page, "共有URLをコピーしました");
+      const checkedText = (await copyBtn.textContent().catch(() => "")) ?? "";
+      if (checkedText.includes("✓")) ok("copy(成功→失敗): 1回目コピー成功でチェックマークが表示される");
+      else fail(`copy(成功→失敗): 1回目コピー成功後のボタン表示が想定外: "${checkedText}"`);
+      await copyBtn.click();
+      await waitForAppAlertCount(page, 1);
+      const afterFailText = (await copyBtn.textContent().catch(() => "")) ?? "";
+      if (!afterFailText.includes("✓")) ok("copy(成功→失敗): 2回目コピー失敗後はチェックマークが残らない(最新の試行状態に一致)");
+      else fail(`copy(成功→失敗): 2回目コピー失敗後もチェックマークが残っている: "${afterFailText}"`);
       await page.close();
     }
 

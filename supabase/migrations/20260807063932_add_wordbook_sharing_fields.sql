@@ -84,6 +84,11 @@ begin
   -- share_codeを含む複合unique index(例: (share_code, user_id))は
   -- share_code自体の一意性を保証しないため、既存とはみなさない
   -- (array_length(i.indkey, 1) = 1で単一列のindexのみを対象とする)。
+  -- さらに、predicateが無い(全行対象)か、このmigrationが作成するものと同じ
+  -- `share_code IS NOT NULL`と同値である場合のみ「既存とみなす」。
+  -- 例えば`WHERE source_type = 'material'`のような弱いpredicateを持つ
+  -- 既存unique indexは、対象外の行同士でのshare_code重複を防げないため、
+  -- 既存とはみなさず新規にindexを作成する。
   -- 既存の重複share_codeがある場合、このCREATE UNIQUE INDEX自体が失敗する
   -- ため、データを勝手に修正することはしない(失敗時は既存データへの変更
   -- なくmigrationが中断されるだけ)。 ---
@@ -98,6 +103,10 @@ begin
       and a.attname = 'share_code'
       and i.indisunique
       and array_length(i.indkey, 1) = 1
+      and (
+        i.indpred is null
+        or lower(regexp_replace(pg_get_expr(i.indpred, i.indrelid), '[\s()]', '', 'g')) = 'share_codeisnotnull'
+      )
   ) into has_unique_on_share_code;
 
   if not has_unique_on_share_code then
