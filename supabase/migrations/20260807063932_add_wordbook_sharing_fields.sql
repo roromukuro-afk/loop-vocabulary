@@ -91,7 +91,11 @@ begin
   -- 既存とはみなさず新規にindexを作成する。
   -- 既存の重複share_codeがある場合、このCREATE UNIQUE INDEX自体が失敗する
   -- ため、データを勝手に修正することはしない(失敗時は既存データへの変更
-  -- なくmigrationが中断されるだけ)。 ---
+  -- なくmigrationが中断されるだけ)。
+  -- indisvalidも検査する: CREATE UNIQUE INDEX CONCURRENTLYが途中で失敗した
+  -- 場合など、indisunique=trueのままindisvalid=falseのindexが残ることがある。
+  -- このようなindexはbuild時に全行を検証しきれていない可能性があり、既存の
+  -- 重複を見逃したまま「既存の有効なunique」とみなしてしまうため対象外とする。 ---
   select exists (
     select 1
     from pg_index i
@@ -102,6 +106,7 @@ begin
       and c.relname = 'word_books'
       and a.attname = 'share_code'
       and i.indisunique
+      and i.indisvalid
       and array_length(i.indkey, 1) = 1
       and (
         i.indpred is null

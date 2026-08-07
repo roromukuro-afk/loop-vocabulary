@@ -104,11 +104,23 @@ function main() {
   // --- 4c. share_codeのunique index判定がindkeyの列数を1に限定していること
   //          (share_codeを含む複合unique indexを誤って「既存の単独unique」と
   //          みなさないため) ---
-  const restrictsToSingleColumnIndex = /and i\.indisunique\s*\n\s*and array_length\(i\.indkey, 1\) = 1/.test(guardBlock);
+  const restrictsToSingleColumnIndex = /and i\.indisunique\s*\n\s*and i\.indisvalid\s*\n\s*and array_length\(i\.indkey, 1\) = 1/.test(guardBlock);
   if (restrictsToSingleColumnIndex) {
     ok("share_codeのunique index判定が単一列のindexのみを対象にする(複合unique indexを誤検知しない)");
   } else {
     bad("share_codeのunique index判定に単一列限定の条件(array_length(i.indkey, 1) = 1)が見つからない");
+  }
+
+  // --- 4e. share_codeのunique index判定がindisvalidも検証していること
+  //          (CREATE UNIQUE INDEX CONCURRENTLYが途中で失敗した場合など、
+  //          indisunique=trueのままindisvalid=falseのindexが残ることがあり、
+  //          そのようなindexは全行を検証しきれていない可能性があるため
+  //          「既存の有効なunique」とみなさない) ---
+  const validatesIndexValidity = /and i\.indisvalid/.test(guardBlock);
+  if (validatesIndexValidity) {
+    ok("share_codeのunique index判定がindisvalidも検証する(CONCURRENTLY失敗等で残った無効indexを既存とみなさない)");
+  } else {
+    bad("share_codeのunique index判定にindisvalid検証が見つからない");
   }
 
   // --- 4d. share_codeのunique index判定がpredicateも検証していること
