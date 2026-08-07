@@ -13,25 +13,45 @@ export default async function SharedWordbookPage({ params }: { params: Promise<{
   const { code } = await params;
   const admin = createAdminClient();
 
-  const { data: book } = await admin
+  // このページはadmin client(RLSを経由しない)を使うため、公開条件は
+  // share/API側のUI制限に依存せず、必ずこのクエリ自身がDB側で強制する。
+  // source_typeもここで直接条件に含めることで、万一DB値が誤ってsharedに
+  // なっていても許諾教材をadmin client経由で公開しない(多層防御)。
+  const { data: book, error: bookError } = await admin
     .from("word_books")
-    .select("id, title, description, level, exam_type, user_id")
+    .select("id, title, description, level, exam_type")
     .eq("share_code", code)
     .eq("is_shared", true)
+    .eq("source_type", "custom")
     .maybeSingle();
 
+  // クエリ自体が失敗した場合(schema/接続障害等)は、存在しないと偽装せず
+  // 安全なerror境界へ委譲する(生のDBエラーはユーザーへ表示しない)。
+  if (bookError) {
+    console.error("share page: word_books query failed", { code: bookError.code });
+    throw new Error("共有ページの読み込みに失敗しました");
+  }
+  // クエリ自体は成功したが対象が存在しない(または非公開・非custom)場合のみ404。
   if (!book) notFound();
 
-  const { count: wordCount } = await admin
+  const { count: wordCount, error: countError } = await admin
     .from("words")
     .select("*", { count: "exact", head: true })
     .eq("word_book_id", book.id);
+  if (countError) {
+    console.error("share page: words count query failed", { code: countError.code });
+    throw new Error("共有ページの読み込みに失敗しました");
+  }
 
-  const { data: preview } = await admin
+  const { data: preview, error: previewError } = await admin
     .from("words")
     .select("word, meaning")
     .eq("word_book_id", book.id)
     .limit(10);
+  if (previewError) {
+    console.error("share page: words preview query failed", { code: previewError.code });
+    throw new Error("共有ページの読み込みに失敗しました");
+  }
 
   return (
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
