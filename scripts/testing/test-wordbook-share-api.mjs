@@ -151,18 +151,32 @@ function main() {
   }
 
   // --- 9. POST: CAS miss再取得後、share_codeが既に確定していればis_sharedの
-  //          真偽で分岐すること(true→そのまま返す、false→再有効化してから返す) ---
+  //          真偽で分岐すること(true→そのまま返す、false→安全にconflictで
+  //          失敗させる)。false時に再有効化してしまうと、「share_code確定
+  //          直後にDELETEで明示的に共有停止された」場合、この古い(負けた)
+  //          POSTがユーザーの停止操作を意図せず復活させてしまうため、
+  //          fail-closedで再有効化しない。 ---
   const casMissShareCodeIsSharedTrueReturnsCurrent = /if \(current\.share_code\) \{[\s\S]{0,120}if \(current\.is_shared\) \{\s*\n\s*return NextResponse\.json\(\{ ok: true, share_code: current\.share_code \}\);/.test(post);
   if (casMissShareCodeIsSharedTrueReturnsCurrent) {
     ok("POST: CAS miss後、競合リクエストが既にis_shared=trueへ確定させていた場合はそのDB上のcodeをそのまま返す");
   } else {
     bad("POST: CAS miss後のis_shared=true分岐が想定した形で見つからない");
   }
-  const casMissShareCodeIsSharedFalseReactivates = /if \(current\.is_shared\) \{[\s\S]{0,150}\}\s*\n\s*const result = await reactivateExistingShare\(supabase, id, user\.id\);/.test(post);
-  if (casMissShareCodeIsSharedFalseReactivates) {
-    ok("POST: CAS miss後、share_codeはあるがis_shared=falseの場合は再有効化処理(reactivateExistingShare)へ移行する");
+  const casMissShareCodeIsSharedFalseIsConflict = /if \(current\.is_shared\) \{[\s\S]{0,150}\}\s*\n[\s\S]{0,400}return NextResponse\.json\(\{ error: "conflict" \}, \{ status: 409 \}\);/.test(post);
+  if (casMissShareCodeIsSharedFalseIsConflict) {
+    ok("POST: CAS miss後、share_codeはあるがis_shared=falseの場合は再有効化せず安全にconflict(409)を返す(古い負けたリクエストによるDELETE後の意図しない再共有を防ぐ)");
   } else {
-    bad("POST: CAS miss後のis_shared=false再有効化分岐が見つからない");
+    bad("POST: CAS miss後のis_shared=false時のconflict(409)分岐が見つからない");
+  }
+  const noReactivateCallInCasMissBranch = (() => {
+    const branchMatch = post.match(/if \(current\.share_code\) \{[\s\S]*?return NextResponse\.json\(\{ error: "conflict" \}, \{ status: 409 \}\);\s*\n\s*\}/);
+    const branch = branchMatch ? branchMatch[0] : "";
+    return branch.length > 0 && !/reactivateExistingShare\(supabase, id, user\.id\)/.test(branch);
+  })();
+  if (noReactivateCallInCasMissBranch) {
+    ok("POST: CAS miss後のshare_code既存分岐内でreactivateExistingShareを呼んでいない(is_shared=falseを黙って再有効化しない)");
+  } else {
+    bad("POST: CAS miss後のshare_code既存分岐がreactivateExistingShareを呼んでいる疑いがある(意図しない再共有のリスク)");
   }
 
   // --- 10. POST: CAS miss再取得後もshare_codeが依然nullの場合、無限retryせず

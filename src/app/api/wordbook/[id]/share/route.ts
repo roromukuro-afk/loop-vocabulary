@@ -133,10 +133,14 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       if (current.is_shared) {
         return NextResponse.json({ ok: true, share_code: current.share_code });
       }
-      const result = await reactivateExistingShare(supabase, id, user.id);
-      if (result.kind === "error") return NextResponse.json({ error: "update_failed" }, { status: 500 });
-      if (result.kind === "not_found") return NextResponse.json({ error: "not_found" }, { status: 404 });
-      return NextResponse.json({ ok: true, share_code: result.shareCode });
+      // share_codeはあるがis_shared=falseの場合、この時点では
+      // 「まだ有効化中の競合(share_code確定直後)」なのか「別のDELETEが
+      // その後すでに共有を明示的に停止した後」なのかを区別できない。後者を
+      // ここで再有効化すると、ユーザーが明示的に停止した共有をこの古い
+      // (負けた)POSTリクエストが意図せず復活させてしまう。fail-closed:
+      // 曖昧な状態では安全側の失敗を返し、勝手に再有効化しない
+      // (ユーザーが改めて「共有する」を押せば、その時点で安全に処理される)。
+      return NextResponse.json({ error: "conflict" }, { status: 409 });
     }
     // share_codeが依然null(想定外の状態)。無限retryはせず安全に失敗させる。
     return NextResponse.json({ error: "update_failed" }, { status: 500 });
