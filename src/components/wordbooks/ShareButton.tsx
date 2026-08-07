@@ -48,6 +48,12 @@ export function ShareButton({ wordbookId, initialShared, initialCode }: Props) {
   // なので、1つの同期的refで二重送信を防止する。
   const pendingRef = useRef(false);
   const [pending, setPending] = useState(false);
+  // copy()はenable/disableと違い連打を弾かない(コピー自体は繰り返し安全な
+  // 操作のため)。ただしそのままだと2回連続クリック時、完了順序(呼び出し順序
+  // ではなく)でUI状態が決まってしまい、後から解決した古い試行の結果が新しい
+  // 試行の結果を上書きしうる。呼び出しごとに単調増加するトークンを持たせ、
+  // 解決時に自分が最新の呼び出しでなければ結果を反映しない。
+  const copySeqRef = useRef(0);
 
   const shareUrl = code
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/${code}`
@@ -95,13 +101,16 @@ export function ShareButton({ wordbookId, initialShared, initialCode }: Props) {
 
   async function copy() {
     if (!shareUrl) return;
+    const seq = ++copySeqRef.current;
     try {
       await navigator.clipboard.writeText(shareUrl);
+      if (copySeqRef.current !== seq) return; // 自分より新しい呼び出しが既にある場合、古い結果は無視する
       setCopied(true);
       setStatusMessage(COPY_SUCCESS_MESSAGE);
       setErrorMessage(null);
       setTimeout(() => setCopied(false), 2000);
     } catch {
+      if (copySeqRef.current !== seq) return;
       setStatusMessage(null);
       setCopied(false);
       setErrorMessage(COPY_FAILURE_MESSAGE);

@@ -461,6 +461,61 @@ async function main() {
       await page.close();
     }
 
+    // ---- copy(呼び出し順序 vs 解決順序): 1回目(遅い成功)より2回目(速い失敗)が
+    //       先に解決しても、最新の呼び出し(2回目)の結果が最終UIに反映されること
+    //       (単純な「後から解決した方が勝つ」実装だと、遅れて解決した1回目の
+    //       成功が2回目の失敗を上書きしてしまう) ----
+    {
+      const page = await browser.newPage();
+      await page.addInitScript(() => {
+        let calls = 0;
+        Object.defineProperty(navigator, "clipboard", {
+          value: {
+            writeText: () => {
+              calls += 1;
+              if (calls === 1) {
+                // 1回目: 呼び出しは先だが解決は遅い(成功)
+                return new Promise((resolve) => setTimeout(resolve, 150));
+              }
+              // 2回目: 呼び出しは後だが解決は速い(失敗)
+              return new Promise((_, reject) => setTimeout(() => reject(new Error("denied")), 20));
+            },
+          },
+          configurable: true,
+        });
+      });
+      await login(page, baseUrl, email, password);
+      await gotoReady(page, `${baseUrl}/wordbooks/${bookId}`);
+      await routeShareApi(page, async (route) => {
+        const method = route.request().method();
+        if (method === "POST") {
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, share_code: "COPYRACE00000001" }) });
+        } else {
+          await route.continue();
+        }
+      });
+      await page.locator('[aria-label="この単語帳を共有"]').click();
+      await waitForStatusIncludes(page, "単語帳の共有を開始しました");
+      const raceBtn = page.locator('[aria-label="共有URLをコピー"]');
+      await raceBtn.click();
+      await page.waitForTimeout(5);
+      await raceBtn.click();
+      // 2回目(速い失敗、解決は~20ms)が先に解決し、1回目(遅い成功、解決は~150ms)が
+      // 後から解決する。最終状態は最新の呼び出し(2回目=失敗)に一致するべき。
+      await waitForAppAlertCount(page, 1);
+      await page.waitForTimeout(200); // 1回目(遅い成功)が後から解決しても上書きされないことを確認する猶予
+      const raceAlertText = (await appAlertLocator(page).textContent().catch(() => "")) ?? "";
+      const raceStatusText = (await page.locator('[data-testid="wordbook-share-status"]').textContent().catch(() => "")) ?? "";
+      const raceBtnText = (await raceBtn.textContent().catch(() => "")) ?? "";
+      if (raceAlertText.includes("共有URLをコピーできませんでした")) ok("copy(呼び出し順序 vs 解決順序): 後から解決した1回目の成功が2回目(最新の呼び出し)の失敗を上書きしない(alertが失敗のまま)");
+      else fail(`copy(呼び出し順序 vs 解決順序): alertが最新の呼び出し(失敗)と一致しない: "${raceAlertText}"`);
+      if (!raceStatusText.includes("コピーしました")) ok("copy(呼び出し順序 vs 解決順序): 後から解決した1回目の成功文言がstatusへ反映されない");
+      else fail(`copy(呼び出し順序 vs 解決順序): 古い呼び出しの成功文言がstatusに残っている: "${raceStatusText}"`);
+      if (!raceBtnText.includes("✓")) ok("copy(呼び出し順序 vs 解決順序): 後から解決した1回目の成功でチェックマークが表示されない");
+      else fail(`copy(呼び出し順序 vs 解決順序): 古い呼び出しの成功でチェックマークが表示されてしまっている: "${raceBtnText}"`);
+      await page.close();
+    }
+
     // ---- 最終cleanup: is_sharedを確実にfalseへ戻す(UI経路の実mutationは0件のため
     //       このtoggle操作自体は不要だが、念のためDB側の状態を確認する) ----
     {
