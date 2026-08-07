@@ -73,19 +73,32 @@ function main() {
     bad("005_wordbook_share.sqlの内容が想定と異なる。編集されている可能性がある");
   }
 
-  // --- 3. share_codeが存在する場合、text型・nullable・DEFAULT無し(NULL)以外なら
-  //         RAISE EXCEPTION(NOT NULLだと通常のwordbook作成・共有インポートが
-  //         share_code無しでinsertするため即座に制約違反となり、新規共有の
-  //         .is("share_code", null)によるcompare-and-setも一切機能しなくなる。
-  //         NULL以外のDEFAULTがあると、share_code無指定のinsertが全て同じ値を
-  //         持つことになり「未共有行はshare_code IS NULL」という前提が崩れ、
-  //         unique制約にも抵触しうるため、型・nullableに加えてDEFAULTも
-  //         契約として検査すること) ---
-  const shareCodeGuard = /if share_code_type <> 'text' or share_code_nullable <> 'YES' or share_code_default is not null then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
+  // --- 3. share_codeが存在する場合、text型・nullable・DEFAULT無し(NULL)・
+  //         非generated列以外ならRAISE EXCEPTION(NOT NULLだと通常のwordbook
+  //         作成・共有インポートがshare_code無しでinsertするため即座に制約
+  //         違反となり、新規共有の.is("share_code", null)によるcompare-and-set
+  //         も一切機能しなくなる。NULL以外のDEFAULTがあると、share_code無指定
+  //         のinsertが全て同じ値を持つことになり「未共有行はshare_code IS
+  //         NULL」という前提が崩れ、unique制約にも抵触しうる。generated column
+  //         (GENERATED ALWAYS AS ... STORED)だと、型・nullable・DEFAULTだけ見ると
+  //         互換に見えてしまうが、生成列へは値をUPDATEできずPostgresがエラーを
+  //         返すため、共有機能自体が全面的に使用不能になる。型・nullable・
+  //         DEFAULTに加えてis_generatedも契約として検査すること) ---
+  const shareCodeGuard = /if share_code_type <> 'text'\s*\n\s*or share_code_nullable <> 'YES'\s*\n\s*or share_code_default is not null\s*\n\s*or share_code_is_generated <> 'NEVER' then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
   if (shareCodeGuard) {
-    ok("share_codeが既に存在する場合、text型・nullable・DEFAULT無し以外ならRAISE EXCEPTIONで中断する");
+    ok("share_codeが既に存在する場合、text型・nullable・DEFAULT無し・非generated列以外ならRAISE EXCEPTIONで中断する");
   } else {
-    bad("share_codeの型・nullable・DEFAULTチェックによるRAISE EXCEPTIONが見つからない");
+    bad("share_codeの型・nullable・DEFAULT・is_generatedチェックによるRAISE EXCEPTIONが見つからない");
+  }
+
+  // --- 3b. 最終検証: is_shared=trueなのにshare_codeがNULLの行が存在しないことを
+  //          確認すること(share_code新規追加時、既存のis_shared=true行が
+  //          「共有中と表示されるがURLが無い」壊れた状態になることを防ぐ) ---
+  const validatesNoOrphanedSharedRows = /if exists \(\s*\n\s*select 1 from public\.word_books where is_shared = true and share_code is null\s*\n\s*\) then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
+  if (validatesNoOrphanedSharedRows) {
+    ok("migration適用後、is_shared=trueかつshare_code IS NULLの行が存在しないことを最終検証する(share_code新規追加時の壊れた状態を検出)");
+  } else {
+    bad("is_shared=true and share_code is nullの最終検証が見つからない");
   }
 
   // --- 4. is_sharedが存在する場合、boolean・NOT NULL・DEFAULT false以外ならRAISE EXCEPTION

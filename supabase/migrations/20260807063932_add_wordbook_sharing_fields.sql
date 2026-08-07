@@ -16,6 +16,7 @@ declare
   share_code_type text;
   share_code_nullable text;
   share_code_default text;
+  share_code_is_generated text;
   is_shared_exists boolean;
   is_shared_type text;
   is_shared_nullable text;
@@ -33,7 +34,11 @@ begin
   -- されている場合も、share_code無指定のinsertが全て同じ値を持つことになり、
   -- 「未共有行はshare_code IS NULL」という前提が崩れ、unique制約にも
   -- 抵触しうる。型・nullableに加えてDEFAULTがNULLであることも契約として
-  -- 検査する。 ---
+  -- 検査する。generated column(GENERATED ALWAYS AS ... STORED)である場合、
+  -- information_schemaの型・nullable・DEFAULTだけを見ると"text・nullable・
+  -- DEFAULT無し"に見えてしまうことがあるが、生成列へは値をUPDATEできず
+  -- Postgresがエラーを返すため、共有機能自体が全面的に使用不能になる。
+  -- is_generatedも契約として検査する。 ---
   select exists (
     select 1
     from information_schema.columns
@@ -43,19 +48,22 @@ begin
   ) into share_code_exists;
 
   if share_code_exists then
-    select data_type, is_nullable, column_default
-    into share_code_type, share_code_nullable, share_code_default
+    select data_type, is_nullable, column_default, is_generated
+    into share_code_type, share_code_nullable, share_code_default, share_code_is_generated
     from information_schema.columns
     where table_schema = 'public'
       and table_name = 'word_books'
       and column_name = 'share_code';
 
-    if share_code_type <> 'text' or share_code_nullable <> 'YES' or share_code_default is not null then
+    if share_code_type <> 'text'
+       or share_code_nullable <> 'YES'
+       or share_code_default is not null
+       or share_code_is_generated <> 'NEVER' then
       raise exception using
         errcode = '55000',
         message = format(
-          'word_books.share_code already exists with unexpected contract (type=%s, nullable=%s, default=%s; expected text, nullable, no default); audit before applying this migration',
-          share_code_type, share_code_nullable, coalesce(share_code_default, 'null')
+          'word_books.share_code already exists with unexpected contract (type=%s, nullable=%s, default=%s, generated=%s; expected text, nullable, no default, not generated); audit before applying this migration',
+          share_code_type, share_code_nullable, coalesce(share_code_default, 'null'), share_code_is_generated
         );
     end if;
   else
@@ -160,6 +168,22 @@ begin
       'create unique index word_books_share_code_key '
       'on public.word_books (share_code) '
       'where share_code is not null';
+  end if;
+
+  -- --- 最終検証: is_shared=trueなのにshare_codeがNULLの行が存在しないことを
+  -- 確認する。share_codeが新規追加された場合、既存のis_shared=true行は
+  -- (このmigrationがADD COLUMNにDEFAULTを指定していないため)自動的に
+  -- share_code=NULLになる。このような行はUI上「共有中」と表示されながら
+  -- 実際にはコピーできるURLが存在せず、/share/[code]ページも成立しない
+  -- 壊れた状態になる。既存データを勝手に修正(share_code自動生成や
+  -- is_shared=falseへのUPDATE)せず、検出した場合はRAISE EXCEPTIONで
+  -- 中断し、監査を促す。 ---
+  if exists (
+    select 1 from public.word_books where is_shared = true and share_code is null
+  ) then
+    raise exception using
+      errcode = '55000',
+      message = 'one or more word_books rows have is_shared = true but share_code IS NULL after applying this migration (e.g. share_code newly added while is_shared already had true rows); audit and resolve manually (e.g. disable sharing for those rows) before applying this migration';
   end if;
 end
 $$;
