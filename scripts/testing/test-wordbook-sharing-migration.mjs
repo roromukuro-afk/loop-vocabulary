@@ -73,16 +73,19 @@ function main() {
     bad("005_wordbook_share.sqlの内容が想定と異なる。編集されている可能性がある");
   }
 
-  // --- 3. share_codeが存在する場合、text型・nullable以外ならRAISE EXCEPTION
-  //         (NOT NULLだと通常のwordbook作成・共有インポートがshare_code無しで
-  //         insertするため即座に制約違反となり、新規共有の.is("share_code", null)
-  //         によるcompare-and-setも一切機能しなくなるため、型だけでなくnullableも
+  // --- 3. share_codeが存在する場合、text型・nullable・DEFAULT無し(NULL)以外なら
+  //         RAISE EXCEPTION(NOT NULLだと通常のwordbook作成・共有インポートが
+  //         share_code無しでinsertするため即座に制約違反となり、新規共有の
+  //         .is("share_code", null)によるcompare-and-setも一切機能しなくなる。
+  //         NULL以外のDEFAULTがあると、share_code無指定のinsertが全て同じ値を
+  //         持つことになり「未共有行はshare_code IS NULL」という前提が崩れ、
+  //         unique制約にも抵触しうるため、型・nullableに加えてDEFAULTも
   //         契約として検査すること) ---
-  const shareCodeGuard = /if share_code_type <> 'text' or share_code_nullable <> 'YES' then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
+  const shareCodeGuard = /if share_code_type <> 'text' or share_code_nullable <> 'YES' or share_code_default is not null then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
   if (shareCodeGuard) {
-    ok("share_codeが既に存在する場合、text型・nullable以外ならRAISE EXCEPTIONで中断する");
+    ok("share_codeが既に存在する場合、text型・nullable・DEFAULT無し以外ならRAISE EXCEPTIONで中断する");
   } else {
-    bad("share_codeの型・nullableチェックによるRAISE EXCEPTIONが見つからない");
+    bad("share_codeの型・nullable・DEFAULTチェックによるRAISE EXCEPTIONが見つからない");
   }
 
   // --- 4. is_sharedが存在する場合、boolean・NOT NULL・DEFAULT false以外ならRAISE EXCEPTION

@@ -596,6 +596,76 @@ async function main() {
       await page.close();
     }
 
+    // ---- copy成功直後にトグル開始でチェックマークが即座にクリアされる
+    //       (古いresetタイマーがseq不一致でスキップされても、beginAction()
+    //       自体が明示的にクリアするため残留しない) ----
+    {
+      const page = await browser.newPage();
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, "clipboard", {
+          value: { writeText: () => Promise.resolve() },
+          configurable: true,
+        });
+      });
+      await login(page, baseUrl, email, password);
+      await gotoReady(page, `${baseUrl}/wordbooks/${bookId}`);
+      await routeShareApi(page, async (route) => {
+        const method = route.request().method();
+        if (method === "POST") {
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, share_code: "COPYCLEARONTOGGLE1" }) });
+        } else if (method === "DELETE") {
+          await new Promise((r) => setTimeout(r, 150));
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+        } else {
+          await route.continue();
+        }
+      });
+      await page.locator('[aria-label="この単語帳を共有"]').click();
+      await waitForStatusIncludes(page, "単語帳の共有を開始しました");
+      const copyBtn2 = page.locator('[aria-label="共有URLをコピー"]');
+      await copyBtn2.click();
+      await waitForStatusIncludes(page, "共有URLをコピーしました");
+      const checkedBeforeToggle = (await copyBtn2.textContent().catch(() => "")) ?? "";
+      if (checkedBeforeToggle.includes("✓")) ok("copy→トグルでのクリア: トグル開始前はチェックマークが表示されている");
+      else fail(`copy→トグルでのクリア: トグル開始前のボタン表示が想定外: "${checkedBeforeToggle}"`);
+      await page.locator('[aria-label="共有を停止"]').click();
+      await page.waitForTimeout(30); // DELETE(150ms)がまだ保留中、かつ同期的なsetCopied(false)は既に反映されているはずの時点
+      const clearedText = (await copyBtn2.textContent().catch(() => "")) ?? "";
+      if (!clearedText.includes("✓")) ok("copy→トグルでのクリア: トグル開始と同時にチェックマークが消える(古いresetタイマーの発火を待たない)");
+      else fail(`copy→トグルでのクリア: トグル開始後もチェックマークが残っている: "${clearedText}"`);
+      await waitForStatusIncludes(page, "単語帳の共有を停止しました");
+      await page.close();
+    }
+
+    // ---- トグル保留中はコピーボタンが無効化される(トグル完了後に開始した
+    //       copyがトグルの結果を上書きしてしまう経路そのものを塞ぐ) ----
+    {
+      const page = await browser.newPage();
+      await login(page, baseUrl, email, password);
+      await gotoReady(page, `${baseUrl}/wordbooks/${bookId}`);
+      await routeShareApi(page, async (route) => {
+        const method = route.request().method();
+        if (method === "POST") {
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, share_code: "COPYDISABLEWHILE01" }) });
+        } else if (method === "DELETE") {
+          await new Promise((r) => setTimeout(r, 200));
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+        } else {
+          await route.continue();
+        }
+      });
+      await page.locator('[aria-label="この単語帳を共有"]').click();
+      await waitForStatusIncludes(page, "単語帳の共有を開始しました");
+      await page.locator('[aria-label="共有を停止"]').click();
+      await page.waitForTimeout(30); // DELETE(200ms)がまだ保留中の時点
+      const copyBtnDuringToggle = page.locator('[aria-label="共有URLをコピー"]');
+      const isDisabledDuringToggle = await copyBtnDuringToggle.isDisabled().catch(() => false);
+      if (isDisabledDuringToggle) ok("トグル保留中の無効化: 共有停止処理中はコピーボタンが無効化される(トグル完了後開始のcopyによる上書きを経路自体で防ぐ)");
+      else fail("トグル保留中の無効化: 共有停止処理中もコピーボタンが有効なまま");
+      await waitForStatusIncludes(page, "単語帳の共有を停止しました");
+      await page.close();
+    }
+
     // ---- 最終cleanup: is_sharedを確実にfalseへ戻す(UI経路の実mutationは0件のため
     //       このtoggle操作自体は不要だが、念のためDB側の状態を確認する) ----
     {

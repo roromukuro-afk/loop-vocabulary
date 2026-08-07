@@ -71,6 +71,10 @@ export function ShareButton({ wordbookId, initialShared, initialCode }: Props) {
     // トグル開始時点でシーケンスを進め、それ以前に呼ばれたcopy()の結果が
     // 後から解決してもUIへ反映されないようにする。
     copySeqRef.current++;
+    // 無効化されたcopy()のresetタイマーはseq不一致でsetCopied(false)を
+    // スキップするようになるため、ここで明示的にクリアしないとチェック
+    // マークが消えないまま残留し続けてしまう。
+    setCopied(false);
     return true;
   }
   function endAction() {
@@ -187,8 +191,9 @@ export function ShareButton({ wordbookId, initialShared, initialCode }: Props) {
         />
         <button
           onClick={copy}
+          disabled={pending}
           aria-label="共有URLをコピー"
-          className="px-3 py-2 rounded-lg bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 transition-colors shrink-0"
+          className="px-3 py-2 rounded-lg bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 transition-colors shrink-0 disabled:opacity-50"
         >
           {copied ? "✓" : "コピー"}
         </button>

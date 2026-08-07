@@ -15,6 +15,7 @@ declare
   share_code_exists boolean;
   share_code_type text;
   share_code_nullable text;
+  share_code_default text;
   is_shared_exists boolean;
   is_shared_type text;
   is_shared_nullable text;
@@ -22,13 +23,17 @@ declare
   has_unique_on_share_code boolean;
   share_code_key_relation_exists boolean;
 begin
-  -- --- share_code: text かつ nullable であることを検査する。
+  -- --- share_code: text・nullable・DEFAULT無し(NULL)であることを検査する。
   -- アプリケーション層(POST /api/wordbook/[id]/share)は未共有行を
   -- share_code IS NULLで判別し、新規割当UPDATEも.is("share_code", null)の
   -- compare-and-setに依存している。既存のshare_codeがNOT NULL(かつdefault
   -- 無し)だと、通常のwordbook作成・共有インポートがshare_codeを指定せずに
   -- insertするため即座にNOT NULL制約違反で失敗し、共有の新規割当も一切
-  -- 機能しなくなる。型だけでなくnullableも契約として検査する。 ---
+  -- 機能しなくなる。また、NULL以外のDEFAULT(例: DEFAULT 'fixed')が設定
+  -- されている場合も、share_code無指定のinsertが全て同じ値を持つことになり、
+  -- 「未共有行はshare_code IS NULL」という前提が崩れ、unique制約にも
+  -- 抵触しうる。型・nullableに加えてDEFAULTがNULLであることも契約として
+  -- 検査する。 ---
   select exists (
     select 1
     from information_schema.columns
@@ -38,18 +43,19 @@ begin
   ) into share_code_exists;
 
   if share_code_exists then
-    select data_type, is_nullable into share_code_type, share_code_nullable
+    select data_type, is_nullable, column_default
+    into share_code_type, share_code_nullable, share_code_default
     from information_schema.columns
     where table_schema = 'public'
       and table_name = 'word_books'
       and column_name = 'share_code';
 
-    if share_code_type <> 'text' or share_code_nullable <> 'YES' then
+    if share_code_type <> 'text' or share_code_nullable <> 'YES' or share_code_default is not null then
       raise exception using
         errcode = '55000',
         message = format(
-          'word_books.share_code already exists with unexpected contract (type=%s, nullable=%s; expected text, nullable); audit before applying this migration',
-          share_code_type, share_code_nullable
+          'word_books.share_code already exists with unexpected contract (type=%s, nullable=%s, default=%s; expected text, nullable, no default); audit before applying this migration',
+          share_code_type, share_code_nullable, coalesce(share_code_default, 'null')
         );
     end if;
   else
