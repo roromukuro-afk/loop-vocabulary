@@ -189,12 +189,33 @@ function main() {
     bad("旧005 partial indexの厳密検証(legacy_partial_index_ok判定)が想定した形で見つからない");
   }
 
-  // --- 11. legacy_unique_ok・legacy_partial_index_okのいずれかがfalseなら
+  // --- 11. 共有列(share_code/is_shared)を参照する追加CHECK制約が存在しない
+  //           ことを、pg_constraint.contype='c'(CHECK)とconkey/pg_attributeで
+  //           厳密に検証すること。information_schemaの単純な
+  //           constraint_type='CHECK'判定(Postgresのバージョンによっては
+  //           NOT NULLもCHECKとして表現され誤検知しうる)は使わないこと。
+  //           制約名やpg_get_constraintdef()の文字列一致でも判定しないこと。 ---
+  const checksNoShareColumnCheckConstraints = /from pg_constraint con\s*\n\s*join pg_class c on c\.oid = con\.conrelid\s*\n\s*join pg_namespace n on n\.oid = c\.relnamespace\s*\n\s*where n\.nspname = 'public'\s*\n\s*and c\.relname = 'word_books'\s*\n\s*and con\.contype = 'c'\s*\n\s*and exists \(\s*\n\s*select 1\s*\n\s*from unnest\(con\.conkey\) as constrained_attnum\s*\n\s*join pg_attribute a\s*\n\s*on a\.attrelid = c\.oid\s*\n\s*and a\.attnum = constrained_attnum\s*\n\s*where a\.attname in \('share_code', 'is_shared'\)\s*\n\s*\)\s*\n\s*\) into legacy_check_constraints_absent;/.test(guardBlock);
+  if (checksNoShareColumnCheckConstraints) {
+    ok("share_code/is_sharedを参照する追加CHECK制約(pg_constraint.contype='c')が存在しないことを、conkey/pg_attributeで厳密に検証する(information_schemaの単純CHECK判定やconstraint名の文字列一致に依存しない)");
+  } else {
+    bad("共有列を参照するCHECK制約の不在検証(legacy_check_constraints_absent判定)が想定した形で見つからない");
+  }
+  const usesContypeCNotInformationSchema = /con\.contype = 'c'/.test(guardBlock) && !/constraint_type\s*=\s*'CHECK'/i.test(source);
+  if (usesContypeCNotInformationSchema) {
+    ok("CHECK制約の判定にpg_constraint.contype='c'を使用し、information_schemaのconstraint_type='CHECK'表現(NOT NULLを誤ってCHECKとして検出しうる)を使っていない");
+  } else {
+    bad("CHECK制約判定がinformation_schemaのconstraint_type='CHECK'を使っている疑いがある(NOT NULLを誤検知しうる禁止パターン)");
+  }
+
+  // --- 12. legacy_unique_ok・legacy_partial_index_ok・
+  //           legacy_check_constraints_absentのいずれかがfalseなら
   //           RAISE EXCEPTIONで中断すること(unique制約欠如・NULLS NOT
-  //           DISTINCT・partial index欠如/不一致のいずれも拒否) ---
-  const raisesWhenLegacySignatureMismatch = /if not legacy_unique_ok or not legacy_partial_index_ok then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
+  //           DISTINCT・partial index欠如/不一致・共有列を参照するCHECK
+  //           制約の存在のいずれも拒否) ---
+  const raisesWhenLegacySignatureMismatch = /if not legacy_unique_ok or not legacy_partial_index_ok or not legacy_check_constraints_absent then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
   if (raisesWhenLegacySignatureMismatch) {
-    ok("legacy_unique_ok・legacy_partial_index_okのいずれかがfalseならRAISE EXCEPTIONで中断する(1箇所でも旧005のsignatureと一致しなければno-op bypassしない)");
+    ok("legacy_unique_ok・legacy_partial_index_ok・legacy_check_constraints_absentのいずれかがfalseならRAISE EXCEPTIONで中断する(1箇所でも旧005のsignatureと一致しなければno-op bypassしない)");
   } else {
     bad("legacy signature不一致時のRAISE EXCEPTIONが見つからない");
   }

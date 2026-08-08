@@ -19,13 +19,15 @@
 --    (share_code text・nullable・default無し / is_shared boolean・
 --    NOT NULL・DEFAULT false / 単一列UNIQUE制約
 --    word_books_share_code_key(NULLS NOT DISTINCTではない)/ 冗長な
---    partial index word_books_share_code_idx)を隅々まで厳密一致で検証し、
---    1箇所でも一致しなければRAISE EXCEPTIONで中断する(部分的な列存在・
---    型不一致・generated column・UNIQUE制約欠如・NULLS NOT DISTINCT等の
---    malformed/partial schemaを「0行だから安全」と誤ってbypassしない)。
---    ここで検証するのは「あらゆる互換schema」ではなく、旧005という
---    既知・固定のmigrationが実際に作る一意のsignatureだけである。
---    一致した場合のみ、追加DDL無しでno-op成功する。
+--    partial index word_books_share_code_idx / share_code・is_sharedを
+--    参照する追加CHECK constraintが存在しないこと)を隅々まで厳密一致で
+--    検証し、1箇所でも一致しなければRAISE EXCEPTIONで中断する(部分的な
+--    列存在・型不一致・generated column・UNIQUE制約欠如・NULLS NOT
+--    DISTINCT・共有列を対象にした想定外のCHECK制約等のmalformed/partial
+--    schemaを「0行だから安全」と誤ってbypassしない)。ここで検証するのは
+--    「あらゆる互換schema」ではなく、旧005という既知・固定のmigrationが
+--    実際に作る一意のsignatureだけである。一致した場合のみ、追加DDL不要
+--    でno-op成功する。
 do $$
 declare
   share_code_exists boolean;
@@ -42,6 +44,7 @@ declare
   is_shared_is_generated text;
   legacy_unique_ok boolean;
   legacy_partial_index_ok boolean;
+  legacy_check_constraints_absent boolean;
 begin
   select exists (
     select 1
@@ -182,10 +185,46 @@ begin
       and lower(regexp_replace(pg_get_expr(i.indpred, i.indrelid), '[\s()]', '', 'g')) = 'share_codeisnotnull'
   ) into legacy_partial_index_ok;
 
-  if not legacy_unique_ok or not legacy_partial_index_ok then
+  -- 旧005はshare_code/is_sharedを参照する追加のCHECK制約を一切作成しない。
+  -- 例えば`CHECK (share_code IS NULL)`や`CHECK (is_shared = false)`の
+  -- ようなCHECK制約が別途追加されていた場合、上記の列型・unique制約・
+  -- index検証をすべて通過しても、後続のPOST(share_codeを設定・is_sharedを
+  -- trueへ更新)がCHECK違反で失敗してしまう。よって、共有列を参照する
+  -- CHECK制約が一切存在しないことも、旧005 exact signatureの一部として
+  -- 検証する。
+  --
+  -- pg_constraint.contype='c'(CHECK)のみを対象とし、conkey(制約が参照する
+  -- 列)にshare_code/is_sharedが含まれるものを検出する。NOT NULL制約は
+  -- contype='n'であり別種別のためここには含まれない(NOT NULL自体は既に
+  -- is_sharedの契約検査で許容されている)。information_schema側の
+  -- CHECK表現(table_constraints.constraint_type = 'CHECK')は、Postgresの
+  -- バージョンによってはNOT NULLもCHECKとして表現されうるため使わず、
+  -- pg_constraint.contypeで直接判定する。制約名やpg_get_constraintdef()の
+  -- 文字列一致では判定しない(名前を変えられただけの同種CHECKを
+  -- すり抜けさせないため)。VALID/NOT VALID・ENFORCED/NOT ENFORCEDの
+  -- いずれであっても、共有列を参照するCHECKが存在する時点で拒否する。
+  select not exists (
+    select 1
+    from pg_constraint con
+    join pg_class c on c.oid = con.conrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = 'word_books'
+      and con.contype = 'c'
+      and exists (
+        select 1
+        from unnest(con.conkey) as constrained_attnum
+        join pg_attribute a
+          on a.attrelid = c.oid
+         and a.attnum = constrained_attnum
+        where a.attname in ('share_code', 'is_shared')
+      )
+  ) into legacy_check_constraints_absent;
+
+  if not legacy_unique_ok or not legacy_partial_index_ok or not legacy_check_constraints_absent then
     raise exception using
       errcode = '55000',
-      message = 'wordbook sharing columns exist on an empty word_books table but the legacy unique constraint/index signature (word_books_share_code_key / word_books_share_code_idx) does not match exactly; audit before applying this migration';
+      message = 'wordbook sharing columns exist on an empty word_books table but the legacy unique/index/check signature does not match exactly; audit before applying this migration';
   end if;
 
   -- 旧005の既知signatureと厳密一致することを確認済み。追加DDL不要のno-op。
