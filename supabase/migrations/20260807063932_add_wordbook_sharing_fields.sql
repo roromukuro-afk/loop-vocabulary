@@ -2,35 +2,65 @@
 -- 単語帳共有機能(share_code/is_shared)のschema列を明示的に追加する。
 --
 -- 旧005_wordbook_share.sqlは本番へ未適用のまま履歴資料として残し、
--- 直接編集しない。ただしCI・`supabase db reset`・新規Supabaseプロジェクトの
--- 立ち上げ等でmigrationがゼロから再生される場合、005がこのmigrationより
--- 先に実行され、share_code/is_shared(および同名のunique制約
--- word_books_share_code_key)が既に作成された状態でこのmigrationが実行
--- される。この「フレッシュ再生」シナリオはword_booksが0行(実データが
--- 存在しない)であることで判別でき、005の列定義(share_code text UNIQUE・
--- is_shared boolean NOT NULL DEFAULT false)がこのmigrationの要求する契約と
--- 一致するため、追加のDDLなしで安全にスキップできる。
+-- 直接編集しない。
 --
--- 一方、両列のいずれかが既に存在し、かつword_booksに1行以上の実データが
--- ある場合(本番相当・legacy drift)は、そのschemaが一見互換に見えても
--- 自動修復・自動受理はせず、個別監査が必要である旨を明示するRAISE
--- EXCEPTIONで中断する(型・nullable・default等をこの場で推測・受理しない)。
--- 本番は読み取り専用確認により、share_code/is_sharedのいずれも不存在で
--- あることを確認済み。
+-- 3分岐のfail-closed設計:
+--
+-- A. share_code/is_sharedの両方が不存在 → 通常の新規適用(ALTER TABLE +
+--    partial unique index作成)。
+-- B. word_booksに1行以上の実データがある → schema・列の存在状況に関わらず
+--    RAISE EXCEPTION(自動修復・自動受理しない)。本番は読み取り専用確認に
+--    より両列とも不存在であることを確認済みのため、本番適用ではこの分岐を
+--    通らない。
+-- C. word_booksが0行、かつ列が既に存在する → CI・`supabase db reset`・
+--    新規Supabaseプロジェクトの立ち上げ等で旧005がこのmigrationより先に
+--    実行された「フレッシュ再生」の可能性がある。ただし0行だからといって
+--    無条件に互換とはみなさない: 旧005が実際に作成する既知のsignature
+--    (share_code text・nullable・default無し / is_shared boolean・
+--    NOT NULL・DEFAULT false / 単一列UNIQUE制約
+--    word_books_share_code_key(NULLS NOT DISTINCTではない)/ 冗長な
+--    partial index word_books_share_code_idx)を隅々まで厳密一致で検証し、
+--    1箇所でも一致しなければRAISE EXCEPTIONで中断する(部分的な列存在・
+--    型不一致・generated column・UNIQUE制約欠如・NULLS NOT DISTINCT等の
+--    malformed/partial schemaを「0行だから安全」と誤ってbypassしない)。
+--    ここで検証するのは「あらゆる互換schema」ではなく、旧005という
+--    既知・固定のmigrationが実際に作る一意のsignatureだけである。
+--    一致した場合のみ、追加DDL無しでno-op成功する。
 do $$
 declare
-  columns_exist boolean;
+  share_code_exists boolean;
+  is_shared_exists boolean;
   has_existing_rows boolean;
+  share_code_type text;
+  share_code_nullable text;
+  share_code_default text;
+  share_code_is_generated text;
+  is_shared_type text;
+  is_shared_nullable text;
+  is_shared_default text;
+  is_shared_default_normalized text;
+  is_shared_is_generated text;
+  legacy_unique_ok boolean;
+  legacy_partial_index_ok boolean;
 begin
   select exists (
     select 1
     from information_schema.columns
     where table_schema = 'public'
       and table_name = 'word_books'
-      and column_name in ('share_code', 'is_shared')
-  ) into columns_exist;
+      and column_name = 'share_code'
+  ) into share_code_exists;
 
-  if not columns_exist then
+  select exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'word_books'
+      and column_name = 'is_shared'
+  ) into is_shared_exists;
+
+  -- --- A: 両方とも不存在。通常の新規適用。 ---
+  if not share_code_exists and not is_shared_exists then
     alter table public.word_books
       add column share_code text,
       add column is_shared boolean not null default false;
@@ -41,16 +71,123 @@ begin
     return;
   end if;
 
+  -- --- 少なくとも1列は既に存在する。B/Cの分岐にはword_booksの行数が必要。 ---
   select exists (select 1 from public.word_books limit 1) into has_existing_rows;
 
+  -- --- B: 実データがある。schema詳細を問わずfail-closedで中断する。 ---
   if has_existing_rows then
     raise exception using
       errcode = '55000',
       message = 'wordbook sharing columns already exist with data; audit legacy schema and data before applying this migration';
   end if;
 
-  -- 列は既に存在するがword_booksは0行(フレッシュ再生シナリオ、005が
-  -- 先に実行済み)。005の列定義が既にこのmigrationの契約と一致するため、
-  -- 追加のDDLは不要。
+  -- --- C: 0行。旧005の既知signatureと厳密一致する場合のみno-opでbypassする。 ---
+
+  -- 片方だけ存在する場合(malformed/partial)は即座にabortする。
+  if not share_code_exists or not is_shared_exists then
+    raise exception using
+      errcode = '55000',
+      message = 'wordbook sharing columns partially exist on an empty word_books table (only one of share_code/is_shared); audit before applying this migration';
+  end if;
+
+  -- share_code: 旧005の`text UNIQUE`と一致する契約(text・nullable・
+  -- DEFAULT無し・非generated)を厳密に検査する。
+  select data_type, is_nullable, column_default, is_generated
+  into share_code_type, share_code_nullable, share_code_default, share_code_is_generated
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'word_books'
+    and column_name = 'share_code';
+
+  if share_code_type <> 'text'
+     or share_code_nullable <> 'YES'
+     or share_code_default is not null
+     or share_code_is_generated <> 'NEVER' then
+    raise exception using
+      errcode = '55000',
+      message = format(
+        'word_books.share_code exists on an empty table but does not match the expected legacy signature (type=%s, nullable=%s, default=%s, generated=%s); audit before applying this migration',
+        share_code_type, share_code_nullable, coalesce(share_code_default, 'null'), share_code_is_generated
+      );
+  end if;
+
+  -- is_shared: 旧005の`boolean NOT NULL DEFAULT false`と一致する契約を
+  -- 厳密に検査する。column_defaultの表記差異(false / false::boolean等)は
+  -- 正規化してから比較する。
+  select data_type, is_nullable, column_default, is_generated
+  into is_shared_type, is_shared_nullable, is_shared_default, is_shared_is_generated
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'word_books'
+    and column_name = 'is_shared';
+
+  is_shared_default_normalized := lower(regexp_replace(trim(coalesce(is_shared_default, '')), '::\s*boolean\s*$', ''));
+
+  if is_shared_type <> 'boolean'
+     or is_shared_nullable <> 'NO'
+     or is_shared_default_normalized <> 'false'
+     or is_shared_is_generated <> 'NEVER' then
+    raise exception using
+      errcode = '55000',
+      message = format(
+        'word_books.is_shared exists on an empty table but does not match the expected legacy signature (type=%s, nullable=%s, default=%s, generated=%s); audit before applying this migration',
+        is_shared_type, is_shared_nullable, coalesce(is_shared_default, 'null'), is_shared_is_generated
+      );
+  end if;
+
+  -- 旧005が`share_code text UNIQUE`で自動生成する単一列UNIQUE制約
+  -- (既知の名前 word_books_share_code_key)が、期待どおりの性質
+  -- (share_code単独のkey・validなbacking index・NULLS NOT DISTINCTでは
+  -- ない)を持って実在するかを厳密に検査する。NULLS NOT DISTINCTだと
+  -- share_code=NULLの行が1件しか持てなくなり、複数の未共有wordbookが
+  -- 存在できなくなるため、明示的に拒否する。ここではあらゆる互換unique
+  -- indexを広く認識しようとはせず、旧005が作る既知のconstraint名だけを
+  -- 確認対象とする。
+  select exists (
+    select 1
+    from pg_constraint con
+    join pg_class c on c.oid = con.conrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    join pg_index i on i.indexrelid = con.conindid
+    join pg_attribute a on a.attrelid = c.oid and a.attnum = con.conkey[1]
+    where n.nspname = 'public'
+      and c.relname = 'word_books'
+      and con.conname = 'word_books_share_code_key'
+      and con.contype = 'u'
+      and array_length(con.conkey, 1) = 1
+      and a.attname = 'share_code'
+      and i.indisvalid
+      and i.indisunique
+      and coalesce(i.indnullsnotdistinct, false) = false
+  ) into legacy_unique_ok;
+
+  -- 旧005が追加で作成する冗長なpartial index
+  -- (word_books_share_code_idx、predicate: share_code IS NOT NULL)も、
+  -- 「旧005が実際に先行実行された」ことのsignatureとして厳密に検査する
+  -- (unique enforcementとしてではなく、fresh replay判定の一部として)。
+  select exists (
+    select 1
+    from pg_index i
+    join pg_class c on c.oid = i.indrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    join pg_class ic on ic.oid = i.indexrelid
+    join pg_attribute a on a.attrelid = c.oid and a.attnum = i.indkey[0]
+    where n.nspname = 'public'
+      and c.relname = 'word_books'
+      and ic.relname = 'word_books_share_code_idx'
+      and i.indisvalid
+      and array_length(i.indkey, 1) = 1
+      and a.attname = 'share_code'
+      and i.indpred is not null
+      and lower(regexp_replace(pg_get_expr(i.indpred, i.indrelid), '[\s()]', '', 'g')) = 'share_codeisnotnull'
+  ) into legacy_partial_index_ok;
+
+  if not legacy_unique_ok or not legacy_partial_index_ok then
+    raise exception using
+      errcode = '55000',
+      message = 'wordbook sharing columns exist on an empty word_books table but the legacy unique constraint/index signature (word_books_share_code_key / word_books_share_code_idx) does not match exactly; audit before applying this migration';
+  end if;
+
+  -- 旧005の既知signatureと厳密一致することを確認済み。追加DDL不要のno-op。
 end
 $$;
