@@ -228,15 +228,33 @@ function main() {
     bad("追加unique indexの不在検証(legacy_no_extra_unique_ok判定、indkey/pg_dependの両方の依存経路)が想定した形で見つからない");
   }
 
+  // --- 11c. share_code/is_sharedのいずれかを参照するEXCLUSION制約
+  //           (pg_constraint.contype='x')が存在しないことを検証すること。
+  //           EXCLUSION制約のbacking indexはindisunique=falseで記録される
+  //           ため、legacy_no_extra_unique_okのindisunique条件では検出
+  //           できない独立した抜け道であり、別途検証する必要がある。
+  //           直接列参照(conkey)と、式による間接参照
+  //           (conkeyには0が入り、実際の列依存はEXCLUSION制約の
+  //           backing index=con.conindidに対するpg_dependとして記録される)
+  //           の両方を検出すること。 ---
+  const checksNoExclusionConstraintsDirect = /and con\.contype = 'x'\s*\n\s*and \(\s*\n\s*exists \(\s*\n\s*select 1\s*\n\s*from unnest\(con\.conkey\) as constrained_attnum\s*\n\s*join pg_attribute a\s*\n\s*on a\.attrelid = c\.oid\s*\n\s*and a\.attnum = constrained_attnum\s*\n\s*where a\.attname in \('share_code', 'is_shared'\)\s*\n\s*\)/.test(guardBlock);
+  const checksNoExclusionConstraintsViaPgDepend = /or exists \(\s*\n\s*select 1\s*\n\s*from pg_depend d\s*\n\s*join pg_attribute a\s*\n\s*on a\.attrelid = d\.refobjid\s*\n\s*and a\.attnum = d\.refobjsubid\s*\n\s*where d\.classid = 'pg_class'::regclass\s*\n\s*and d\.objid = con\.conindid\s*\n\s*and d\.refclassid = 'pg_class'::regclass\s*\n\s*and d\.refobjid = c\.oid\s*\n\s*and d\.refobjsubid > 0\s*\n\s*and a\.attname in \('share_code', 'is_shared'\)\s*\n\s*\)\s*\n\s*\)\s*\n\s*\) into legacy_no_exclusion_constraints_ok;/.test(guardBlock);
+  if (checksNoExclusionConstraintsDirect && checksNoExclusionConstraintsViaPgDepend) {
+    ok("share_code/is_sharedを参照するEXCLUSION制約(pg_constraint.contype='x')が存在しないことを、直接列参照(conkey)とcon.conindid経由のpg_depend(式による間接参照)の両方で厳密に検証する(indisunique=falseで記録されるためlegacy_no_extra_unique_okでは検出できない独立した抜け道)");
+  } else {
+    bad("EXCLUSION制約の不在検証(legacy_no_exclusion_constraints_ok判定、conkey/pg_dependの両方の依存経路)が想定した形で見つからない");
+  }
+
   // --- 12. legacy_unique_ok・legacy_partial_index_ok・
-  //           legacy_check_constraints_absent・legacy_no_extra_unique_okの
-  //           いずれかがfalseならRAISE EXCEPTIONで中断すること(unique制約
-  //           欠如・NULLS NOT DISTINCT・partial index欠如/不一致・共有列を
-  //           参照するCHECK制約の存在・別名の追加unique indexの存在の
-  //           いずれも拒否) ---
-  const raisesWhenLegacySignatureMismatch = /if not legacy_unique_ok or not legacy_partial_index_ok or not legacy_check_constraints_absent or not legacy_no_extra_unique_ok then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
+  //           legacy_check_constraints_absent・legacy_no_extra_unique_ok・
+  //           legacy_no_exclusion_constraints_okのいずれかがfalseなら
+  //           RAISE EXCEPTIONで中断すること(unique制約欠如・NULLS NOT
+  //           DISTINCT・partial index欠如/不一致・共有列を参照するCHECK
+  //           制約の存在・別名の追加unique indexの存在・EXCLUSION制約の
+  //           存在のいずれも拒否) ---
+  const raisesWhenLegacySignatureMismatch = /if not legacy_unique_ok or not legacy_partial_index_ok or not legacy_check_constraints_absent or not legacy_no_extra_unique_ok or not legacy_no_exclusion_constraints_ok then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
   if (raisesWhenLegacySignatureMismatch) {
-    ok("legacy_unique_ok・legacy_partial_index_ok・legacy_check_constraints_absent・legacy_no_extra_unique_okのいずれかがfalseならRAISE EXCEPTIONで中断する(1箇所でも旧005のsignatureと一致しなければno-op bypassしない)");
+    ok("legacy_unique_ok・legacy_partial_index_ok・legacy_check_constraints_absent・legacy_no_extra_unique_ok・legacy_no_exclusion_constraints_okのいずれかがfalseならRAISE EXCEPTIONで中断する(1箇所でも旧005のsignatureと一致しなければno-op bypassしない)");
   } else {
     bad("legacy signature不一致時のRAISE EXCEPTIONが見つからない");
   }
