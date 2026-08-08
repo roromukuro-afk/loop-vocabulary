@@ -11,29 +11,88 @@ function generateShareCode(): string {
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
+const NON_CUSTOM_SOURCE_MESSAGE =
+  "許諾教材からインポートした単語帳は共有できません。自分で作成した単語帳のみ共有可能です。";
+
 type ReactivateResult =
   | { kind: "error" }
+  | { kind: "verification_failed" }
   | { kind: "not_found" }
+  | { kind: "non_custom_source" }
+  | { kind: "conflict" }
   | { kind: "ok"; shareCode: string };
 
-// 既存share_codeを持つ単語帳をis_shared=trueへ戻す。UPDATE結果(実際に
-// 更新された行のshare_code)を確認し、事前のselectだけを根拠に成功と
-// みなさない(select〜UPDATE間に行が消えた場合を検出するため)。
+// 既存share_codeを持つ単語帳をis_shared=trueへ戻す。
+//
+// 並行実行の競合契約: word_books.updated_atをoptimistic concurrencyの
+// version tokenとして使う(word_booksには既にtrg_touch_word_booksトリガーが
+// あり、あらゆるUPDATEでupdated_atが自動的にnow()へ更新されるため、この
+// UPDATEで明示的にセットする必要はない)。呼び出し元が初回readした時点の
+// expectedUpdatedAtと一致する場合だけis_shared=trueへ更新する。これにより、
+// 「POSTが古いbook状態を読んだ後、別のDELETEが先にis_sharedをfalseへ進めた」
+// 場合、その古いPOSTのUPDATEはCAS missとなり、ユーザーが後から行った
+// 「共有停止」をこの古いPOSTが意図せず復活させることはない。CAS miss時は
+// 所有権条件付きで現在の状態を再取得し、既に別のenableが勝っていればそのDB
+// codeで成功、そうでなければ安全にconflict(409)を返す(無限retryしない。
+// ユーザーが改めて共有ボタンを押せば、新しいversionを読んだ新規リクエスト
+// として正常に処理される)。
 async function reactivateExistingShare(
   supabase: SupabaseClient,
   id: string,
   userId: string,
+  expectedUpdatedAt: string,
 ): Promise<ReactivateResult> {
   const { data, error } = await supabase
     .from("word_books")
     .update({ is_shared: true })
     .eq("id", id)
     .eq("user_id", userId)
+    .eq("is_shared", false)
+    .eq("updated_at", expectedUpdatedAt)
     .select("share_code")
     .maybeSingle();
   if (error) return { kind: "error" };
-  if (!data || !data.share_code) return { kind: "not_found" };
-  return { kind: "ok", shareCode: data.share_code };
+  if (data) {
+    if (!data.share_code) return { kind: "conflict" };
+    return { kind: "ok", shareCode: data.share_code };
+  }
+
+  // CAS miss: is_shared=falseまたはupdated_atが一致しなかった(別のmutationが
+  // 先に発生した可能性がある)。所有権条件付きで現在の状態を再取得する。
+  const { data: current, error: refetchError } = await supabase
+    .from("word_books")
+    .select("share_code, is_shared, source_type")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (refetchError) return { kind: "verification_failed" };
+  if (!current) return { kind: "not_found" };
+  if (current.source_type !== "custom") return { kind: "non_custom_source" };
+  if (current.share_code && current.is_shared) {
+    // 別のenableリクエストが先に勝っていた。そのDB上のcodeで成功扱いにする。
+    return { kind: "ok", shareCode: current.share_code };
+  }
+  // is_shared=false(別のDELETE等が先に進んでいた)、またはshare_codeが
+  // 想定外にnullになっていた。いずれも曖昧な状態であり、ここで勝手に
+  // 再有効化しない。fail-closedでconflictを返す。
+  return { kind: "conflict" };
+}
+
+function reactivateResultToResponse(result: ReactivateResult) {
+  switch (result.kind) {
+    case "error":
+      return NextResponse.json({ error: "update_failed" }, { status: 500 });
+    case "verification_failed":
+      return NextResponse.json({ error: "verification_failed" }, { status: 500 });
+    case "not_found":
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    case "non_custom_source":
+      return NextResponse.json({ error: "non_custom_source", message: NON_CUSTOM_SOURCE_MESSAGE }, { status: 403 });
+    case "conflict":
+      return NextResponse.json({ error: "conflict" }, { status: 409 });
+    case "ok":
+      return NextResponse.json({ ok: true, share_code: result.shareCode });
+  }
 }
 
 // POST: 共有を有効化(share_codeを生成、既存codeがあれば再利用)
@@ -45,7 +104,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   const { data: book, error: fetchError } = await supabase
     .from("word_books")
-    .select("id, share_code, is_shared, source_type")
+    .select("id, share_code, is_shared, source_type, updated_at")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -60,30 +119,34 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   // 詳細: SHARED_WORDBOOKS_DESIGN.md 4章。
   if (book.source_type !== "custom") {
     return NextResponse.json(
-      {
-        error: "non_custom_source",
-        message: "許諾教材からインポートした単語帳は共有できません。自分で作成した単語帳のみ共有可能です。",
-      },
+      { error: "non_custom_source", message: NON_CUSTOM_SOURCE_MESSAGE },
       { status: 403 },
     );
   }
 
   // 既にshare_codeを持つ場合は再利用する(既存の共有URLを壊さない)。
   if (book.share_code) {
-    const result = await reactivateExistingShare(supabase, id, user.id);
-    if (result.kind === "error") return NextResponse.json({ error: "update_failed" }, { status: 500 });
-    if (result.kind === "not_found") return NextResponse.json({ error: "not_found" }, { status: 404 });
-    return NextResponse.json({ ok: true, share_code: result.shareCode });
+    if (book.is_shared) {
+      // 既に共有中。writeせずそのまま返す。ここで無条件UPDATEすると、
+      // 「このPOSTが読んだ後、別のDELETEが先に共有を停止した」場合に、
+      // このPOSTがその停止を意図せず復活させてしまう。既に共有中なら
+      // 何もしないのが最も安全(write自体を発生させない)。
+      return NextResponse.json({ ok: true, share_code: book.share_code });
+    }
+    const result = await reactivateExistingShare(supabase, id, user.id, book.updated_at);
+    return reactivateResultToResponse(result);
   }
 
   // 新規share_codeを生成する。UNIQUE制約違反(23505)の場合だけ新しいcodeで
-  // 再試行する(最大5回)。それ以外のerrorは即座に確定的失敗として返す。
+  // 再試行する(最大5回、同じexpected updated_atを使う。23505はUPDATE自体が
+  // 成立していないためversionの問題ではない)。それ以外のerrorは即座に
+  // 確定的失敗として返す。
   //
-  // 割当UPDATEには.is("share_code", null)を必須で付ける(compare-and-set)。
-  // これが無いと、別タブ・別端末からの2リクエストが同時にshare_code=nullを
-  // 読んだ場合、後勝ちのUPDATEが先に確定したcodeを上書きし、先のリクエストが
-  // 既に無効になったローカル生成codeをsuccessとして返してしまう
-  // (レスポンスは常にDBへ実際に書き込まれた値をsource of truthとする)。
+  // 割当UPDATEには.is("share_code", null)と.eq("updated_at", book.updated_at)
+  // の両方を必須で付ける(compare-and-set)。.is("share_code", null)だけでは、
+  // 初回read後に別のmutation(例: DELETE)がshare_code以外のフィールドしか
+  // 変更しない場合にversionが進んでいることを検出できないため、updated_atも
+  // 合わせてversion tokenとして使う。
   for (let attempt = 0; attempt < 5; attempt++) {
     const shareCode = generateShareCode();
     const { data: updated, error: updateError } = await supabase
@@ -92,6 +155,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       .eq("id", id)
       .eq("user_id", user.id)
       .is("share_code", null)
+      .eq("updated_at", book.updated_at)
       .select("share_code")
       .maybeSingle();
 
@@ -105,8 +169,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     }
 
     // CAS miss: 0行更新 = このselect〜UPDATEの間に別リクエストがshare_codeを
-    // 既に設定した可能性がある。ローカルで生成したcodeを無条件に返さず、
-    // 所有権条件付きで現在の状態を再取得してから判断する。
+    // 既に設定した、またはupdated_atが変わる何らかのmutationが発生した
+    // 可能性がある。ローカルで生成したcodeを無条件に返さず、所有権条件付きで
+    // 現在の状態を再取得してから判断する。
     const { data: current, error: refetchError } = await supabase
       .from("word_books")
       .select("id, share_code, source_type, is_shared")
@@ -121,10 +186,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     }
     if (current.source_type !== "custom") {
       return NextResponse.json(
-        {
-          error: "non_custom_source",
-          message: "許諾教材からインポートした単語帳は共有できません。自分で作成した単語帳のみ共有可能です。",
-        },
+        { error: "non_custom_source", message: NON_CUSTOM_SOURCE_MESSAGE },
         { status: 403 },
       );
     }
@@ -142,8 +204,11 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       // (ユーザーが改めて「共有する」を押せば、その時点で安全に処理される)。
       return NextResponse.json({ error: "conflict" }, { status: 409 });
     }
-    // share_codeが依然null(想定外の状態)。無限retryはせず安全に失敗させる。
-    return NextResponse.json({ error: "update_failed" }, { status: 500 });
+    // share_codeが依然null。CAS missの原因はupdated_atの不一致(versionが
+    // 進んでいる)である可能性が高く、単純なサーバーエラーではないため
+    // 安全にconflictを返す(無限retryしない。ユーザーが改めて「共有する」を
+    // 押せば、新しいversionを読んだ新規リクエストとして正常に処理される)。
+    return NextResponse.json({ error: "conflict" }, { status: 409 });
   }
   return NextResponse.json({ error: "code_generation_failed" }, { status: 500 });
 }
@@ -168,6 +233,13 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  // DELETEはversion CASを行わない(「共有を停止する」というユーザーの
+  // 最新操作を無条件に反映させたいため)。word_booksのtrg_touch_word_books
+  // トリガーにより、このUPDATEでもupdated_atが自動的にnow()へ進む。これに
+  // より、このDELETEより前にbookを読んでいた古いPOST(再有効化・新規割当の
+  // いずれも)のupdated_at CASは以後失敗するようになり、「後から実行された
+  // 共有停止」を古いPOSTが復活させることはない。
+  //
   // 事前のselectだけを根拠に成功とみなさない。UPDATE結果(実際に更新された
   // 行の有無)を確認し、select〜UPDATE間に行が消えた場合は404として扱う。
   const { data: updated, error: updateError } = await supabase
