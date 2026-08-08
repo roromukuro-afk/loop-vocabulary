@@ -245,16 +245,28 @@ function main() {
     bad("EXCLUSION制約の不在検証(legacy_no_exclusion_constraints_ok判定、conkey/pg_dependの両方の依存経路)が想定した形で見つからない");
   }
 
+  // --- 11d. share_code/is_sharedのいずれかを参照するFOREIGN KEY制約
+  //           (pg_constraint.contype='f')が存在しないことを検証すること。
+  //           FOREIGN KEY制約は式ではなく実列のみを参照できるため、
+  //           conkeyへの直接列チェックのみで十分(pg_dependのfallback
+  //           不要)であることを実PostgreSQL 18.4で確認済み。 ---
+  const checksNoForeignKeys = /and con\.contype = 'f'\s*\n\s*and exists \(\s*\n\s*select 1\s*\n\s*from unnest\(con\.conkey\) as constrained_attnum\s*\n\s*join pg_attribute a\s*\n\s*on a\.attrelid = c\.oid\s*\n\s*and a\.attnum = constrained_attnum\s*\n\s*where a\.attname in \('share_code', 'is_shared'\)\s*\n\s*\)\s*\n\s*\) into legacy_no_foreign_keys_ok;/.test(guardBlock);
+  if (checksNoForeignKeys) {
+    ok("share_code/is_sharedを参照するFOREIGN KEY制約(pg_constraint.contype='f')が存在しないことを、conkey/pg_attributeで厳密に検証する(存在すると生成したshare_codeが参照先に無い限り23503で共有作成が失敗するため)");
+  } else {
+    bad("FOREIGN KEY制約の不在検証(legacy_no_foreign_keys_ok判定)が想定した形で見つからない");
+  }
+
   // --- 12. legacy_unique_ok・legacy_partial_index_ok・
   //           legacy_check_constraints_absent・legacy_no_extra_unique_ok・
-  //           legacy_no_exclusion_constraints_okのいずれかがfalseなら
-  //           RAISE EXCEPTIONで中断すること(unique制約欠如・NULLS NOT
-  //           DISTINCT・partial index欠如/不一致・共有列を参照するCHECK
-  //           制約の存在・別名の追加unique indexの存在・EXCLUSION制約の
-  //           存在のいずれも拒否) ---
-  const raisesWhenLegacySignatureMismatch = /if not legacy_unique_ok or not legacy_partial_index_ok or not legacy_check_constraints_absent or not legacy_no_extra_unique_ok or not legacy_no_exclusion_constraints_ok then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
+  //           legacy_no_exclusion_constraints_ok・legacy_no_foreign_keys_okの
+  //           いずれかがfalseならRAISE EXCEPTIONで中断すること(unique制約
+  //           欠如・NULLS NOT DISTINCT・partial index欠如/不一致・共有列を
+  //           参照するCHECK制約の存在・別名の追加unique indexの存在・
+  //           EXCLUSION制約の存在・FOREIGN KEY制約の存在のいずれも拒否) ---
+  const raisesWhenLegacySignatureMismatch = /if not legacy_unique_ok or not legacy_partial_index_ok or not legacy_check_constraints_absent or not legacy_no_extra_unique_ok or not legacy_no_exclusion_constraints_ok or not legacy_no_foreign_keys_ok then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
   if (raisesWhenLegacySignatureMismatch) {
-    ok("legacy_unique_ok・legacy_partial_index_ok・legacy_check_constraints_absent・legacy_no_extra_unique_ok・legacy_no_exclusion_constraints_okのいずれかがfalseならRAISE EXCEPTIONで中断する(1箇所でも旧005のsignatureと一致しなければno-op bypassしない)");
+    ok("legacy_unique_ok・legacy_partial_index_ok・legacy_check_constraints_absent・legacy_no_extra_unique_ok・legacy_no_exclusion_constraints_ok・legacy_no_foreign_keys_okのいずれかがfalseならRAISE EXCEPTIONで中断する(1箇所でも旧005のsignatureと一致しなければno-op bypassしない)");
   } else {
     bad("legacy signature不一致時のRAISE EXCEPTIONが見つからない");
   }
