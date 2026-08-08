@@ -3,11 +3,14 @@
  * のfail-closed guard設計を検証する。
  *
  * ## 設計方針(簡素化版)
- * このmigrationが自動適用するのは、share_code/is_sharedの両方が不存在の
- * 環境だけに限定する。どちらか一方でも既に存在する場合、そのschemaが
- * 一見互換に見えても自動修復・自動受理はせず、個別監査が必要である旨を
- * 明示するRAISE EXCEPTIONで中断する(型・nullable・default・generated
- * column・既存unique indexの互換性等をこの場で推測・受理しない)。
+ * このmigrationが無条件に自動適用するのは、share_code/is_sharedの両方が
+ * 不存在の環境だけに限定する。列が既に存在する場合、word_booksの行数で
+ * 分岐する: 0行(CI・supabase db reset・新規プロジェクト立ち上げ等で
+ * 旧005_wordbook_share.sqlが先に実行された「フレッシュ再生」シナリオ)
+ * ならDDL不要で安全にスキップし、1行以上(本番相当・legacy drift)なら
+ * そのschemaが一見互換に見えても自動修復・自動受理はせず、個別監査が
+ * 必要である旨を明示するRAISE EXCEPTIONで中断する(型・nullable・default・
+ * generated column・既存unique indexの互換性等をこの場で推測・受理しない)。
  * これにより、pg_catalogのedge case(UNIQUE NULLS NOT DISTINCT等)を
  * migration側で個別に判定する必要が無くなる。
  *
@@ -82,47 +85,49 @@ function main() {
     bad("005_wordbook_share.sqlの内容が想定と異なる。編集されている可能性がある");
   }
 
-  // --- 3. migration冒頭に、share_code・is_sharedのどちらか1列でも既に
-  //         存在すればRAISE EXCEPTIONする既存列guardがあること。片方だけの
-  //         存在・両方の存在いずれも同じ1つのIF文でabortする(部分互換判定を
-  //         行わない、fail-closedな最小契約)。 ---
-  const guardChecksEitherColumn = /if exists \(\s*\n\s*select 1\s*\n\s*from information_schema\.columns\s*\n\s*where table_schema = 'public'\s*\n\s*and table_name = 'word_books'\s*\n\s*and column_name in \('share_code', 'is_shared'\)\s*\n\s*\) then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
-  if (guardChecksEitherColumn) {
-    ok("share_code・is_sharedのどちらか1列でも既に存在すればRAISE EXCEPTIONで中断する既存列guardがある");
+  // --- 3. migration冒頭で、share_code・is_sharedのどちらか1列でも既に
+  //         存在するかどうかをcolumns_existへ判定していること ---
+  const checksColumnsExist = /select exists \(\s*\n\s*select 1\s*\n\s*from information_schema\.columns\s*\n\s*where table_schema = 'public'\s*\n\s*and table_name = 'word_books'\s*\n\s*and column_name in \('share_code', 'is_shared'\)\s*\n\s*\) into columns_exist;/.test(guardBlock);
+  if (checksColumnsExist) {
+    ok("share_code・is_sharedのどちらか1列でも既に存在するかをcolumns_existへ判定する");
   } else {
-    bad("既存列guard(share_code・is_sharedのいずれかの存在チェック)が想定した形で見つからない");
+    bad("既存列存在チェック(columns_exist判定)が想定した形で見つからない");
   }
 
-  // --- 4. ALTER TABLEがguard(RAISE EXCEPTION)より後に実行されること
-  //         (guardを通過した場合のみ列追加が実行される順序であること) ---
-  const guardIdx = guardBlock.search(/raise exception using/);
-  const alterIdx = guardBlock.search(/alter table public\.word_books/);
-  if (guardIdx >= 0 && alterIdx > guardIdx) {
-    ok("ALTER TABLEは既存列guard(RAISE EXCEPTION)より後に実行される(guard通過時のみ列追加)");
+  // --- 4. 列が不存在の場合のみALTER TABLE+CREATE UNIQUE INDEXを実行し、
+  //         returnで抜けること(列が既に存在する場合はこの分岐を通らない) ---
+  const notExistsBranchAltersAndReturns = /if not columns_exist then\s*\n\s*alter table public\.word_books\s*\n\s*add column share_code text,\s*\n\s*add column is_shared boolean not null default false;\s*\n\s*\n\s*create unique index word_books_share_code_key\s*\n\s*on public\.word_books \(share_code\)\s*\n\s*where share_code is not null;\s*\n\s*return;\s*\n\s*end if;/.test(guardBlock);
+  if (notExistsBranchAltersAndReturns) {
+    ok("列が不存在の場合のみALTER TABLE(share_code text・is_shared boolean not null default false)とCREATE UNIQUE INDEXを実行しreturnで抜ける");
   } else {
-    bad(`ALTER TABLEの実行順序が想定と異なる(guard位置=${guardIdx}, alter位置=${alterIdx})`);
+    bad("列不存在時のALTER TABLE+CREATE UNIQUE INDEX+return分岐が想定した形で見つからない");
   }
 
-  // --- 5. share_code列がtext・nullable(制約無し)で追加されること ---
-  const addsShareCodeText = /alter table public\.word_books\s*\n\s*add column share_code text,/.test(guardBlock);
-  if (addsShareCodeText) {
-    ok("share_code列をtext型・nullable(NOT NULL制約無し)で追加する");
+  // --- 5. 列が既に存在する場合、word_booksの行数(has_existing_rows)で
+  //         分岐すること: 1行以上ならRAISE EXCEPTION、0行(フレッシュ再生
+  //         シナリオ)なら追加DDL無しで安全にスキップすること ---
+  const checksExistingRows = /select exists \(select 1 from public\.word_books limit 1\) into has_existing_rows;/.test(guardBlock);
+  if (checksExistingRows) {
+    ok("列が既に存在する場合、word_booksの行数(has_existing_rows)を判定する");
   } else {
-    bad("share_code列の追加がtext・nullableの想定した形で見つからない");
+    bad("word_booksの行数判定(has_existing_rows)が見つからない");
   }
-  const shareCodeHasNoDefault = !/add column share_code text[^,]*default/i.test(guardBlock);
-  if (shareCodeHasNoDefault) {
-    ok("share_code列にDEFAULTを指定していない(未共有行はshare_code IS NULLになる)");
+  const raisesWhenRowsExist = /if has_existing_rows then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
+  if (raisesWhenRowsExist) {
+    ok("列が既に存在し、かつword_booksに1行以上の実データがある場合はRAISE EXCEPTIONで中断する(legacy drift扱い、自動修復しない)");
   } else {
-    bad("share_code列にDEFAULTが指定されている疑いがある");
+    bad("実データ有りの場合のRAISE EXCEPTIONが見つからない");
   }
-
-  // --- 6. is_shared列がboolean・NOT NULL・DEFAULT falseで追加されること ---
-  const addsIsSharedContract = /add column is_shared boolean not null default false;/.test(guardBlock);
-  if (addsIsSharedContract) {
-    ok("is_shared列をboolean・NOT NULL・DEFAULT falseで追加する");
+  const zeroRowBranchHasNoAlterOrIndex = (() => {
+    const raiseBlockEndIdx = guardBlock.search(/message = 'wordbook sharing columns already exist with data[^']*';\s*\n\s*end if;/);
+    if (raiseBlockEndIdx < 0) return false;
+    const tail = guardBlock.slice(raiseBlockEndIdx);
+    return !/alter table|create unique index/i.test(tail);
+  })();
+  if (zeroRowBranchHasNoAlterOrIndex) {
+    ok("列が既に存在し、かつword_booksが0行の場合(フレッシュ再生シナリオ)は追加のALTER/CREATE INDEXを実行しない(005の列定義が既に契約と一致するため)");
   } else {
-    bad("is_shared列の追加がboolean・NOT NULL・DEFAULT falseの想定した形で見つからない");
+    bad("0行ケース(フレッシュ再生シナリオ)の後に想定外のALTER/CREATE INDEXが検出された");
   }
 
   // --- 7. 例外を握りつぶすハンドラが無いこと ---
