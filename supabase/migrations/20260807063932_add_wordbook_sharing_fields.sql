@@ -20,11 +20,14 @@
 --    NOT NULL・DEFAULT false / 単一列UNIQUE制約
 --    word_books_share_code_key(NULLS NOT DISTINCTではない)/ 冗長な
 --    partial index word_books_share_code_idx / share_code・is_sharedを
---    参照する追加CHECK constraintが存在しないこと)を隅々まで厳密一致で
---    検証し、1箇所でも一致しなければRAISE EXCEPTIONで中断する(部分的な
---    列存在・型不一致・generated column・UNIQUE制約欠如・NULLS NOT
---    DISTINCT・共有列を対象にした想定外のCHECK制約等のmalformed/partial
---    schemaを「0行だから安全」と誤ってbypassしない)。ここで検証するのは
+--    参照する追加CHECK constraintが存在しないこと / word_books_share_code_key
+--    以外に、share_code・is_sharedのいずれかを参照する追加のUNIQUE index・
+--    制約(別名のUNIQUE NULLS NOT DISTINCT等)が一切存在しないこと)を
+--    隅々まで厳密一致で検証し、1箇所でも一致しなければRAISE EXCEPTIONで
+--    中断する(部分的な列存在・型不一致・generated column・UNIQUE制約欠如・
+--    NULLS NOT DISTINCT・共有列を対象にした想定外のCHECK制約・別名の追加
+--    UNIQUE制約等のmalformed/partial schemaを「0行だから安全」と誤って
+--    bypassしない)。ここで検証するのは
 --    「あらゆる互換schema」ではなく、旧005という既知・固定のmigrationが
 --    実際に作る一意のsignatureだけである。一致した場合のみ、追加DDL不要
 --    でno-op成功する。
@@ -45,6 +48,7 @@ declare
   legacy_unique_ok boolean;
   legacy_partial_index_ok boolean;
   legacy_check_constraints_absent boolean;
+  legacy_no_extra_unique_ok boolean;
 begin
   select exists (
     select 1
@@ -221,10 +225,40 @@ begin
       )
   ) into legacy_check_constraints_absent;
 
-  if not legacy_unique_ok or not legacy_partial_index_ok or not legacy_check_constraints_absent then
+  -- word_books_share_code_key以外に、share_code/is_sharedのいずれかを
+  -- 参照する追加のunique index(named UNIQUE制約由来か、素のCREATE UNIQUE
+  -- INDEXかを問わない)が一切存在しないことを検証する。legacy_unique_okは
+  -- 既知のconstraint名(word_books_share_code_key)自体の存在・性質しか
+  -- 見ないため、例えば別名でUNIQUE NULLS NOT DISTINCT (share_code)が追加で
+  -- 存在していても、legacy_unique_okはtrueのまま素通りしてしまう。この
+  -- ような追加のunique indexが存在すると、通常の未共有wordbook(share_code
+  -- =NULL)を複数作成できなくなり、no-op bypass後の通常利用が壊れるため、
+  -- pg_indexで直接、word_books_share_code_key以外のunique indexが共有列を
+  -- 一切参照していないことを確認する。
+  select not exists (
+    select 1
+    from pg_index i
+    join pg_class c on c.oid = i.indrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    join pg_class ic on ic.oid = i.indexrelid
+    where n.nspname = 'public'
+      and c.relname = 'word_books'
+      and i.indisunique
+      and ic.relname <> 'word_books_share_code_key'
+      and exists (
+        select 1
+        from unnest(i.indkey) as constrained_attnum
+        join pg_attribute a
+          on a.attrelid = c.oid
+         and a.attnum = constrained_attnum
+        where a.attname in ('share_code', 'is_shared')
+      )
+  ) into legacy_no_extra_unique_ok;
+
+  if not legacy_unique_ok or not legacy_partial_index_ok or not legacy_check_constraints_absent or not legacy_no_extra_unique_ok then
     raise exception using
       errcode = '55000',
-      message = 'wordbook sharing columns exist on an empty word_books table but the legacy unique/index/check signature does not match exactly; audit before applying this migration';
+      message = 'wordbook sharing columns exist on an empty word_books table but the legacy unique/index/check signature does not match exactly (including any extra unique index on share_code or is_shared); audit before applying this migration';
   end if;
 
   -- 旧005の既知signatureと厳密一致することを確認済み。追加DDL不要のno-op。
