@@ -2,6 +2,15 @@
  * Issue #81: supabase/migrations/20260807063932_add_wordbook_sharing_fields.sql
  * のfail-closed guard設計を検証する。
  *
+ * ## 設計方針(簡素化版)
+ * このmigrationが自動適用するのは、share_code/is_sharedの両方が不存在の
+ * 環境だけに限定する。どちらか一方でも既に存在する場合、そのschemaが
+ * 一見互換に見えても自動修復・自動受理はせず、個別監査が必要である旨を
+ * 明示するRAISE EXCEPTIONで中断する(型・nullable・default・generated
+ * column・既存unique indexの互換性等をこの場で推測・受理しない)。
+ * これにより、pg_catalogのedge case(UNIQUE NULLS NOT DISTINCT等)を
+ * migration側で個別に判定する必要が無くなる。
+ *
  * ## なぜソースファイル確認方式なのか
  * このリポジトリには専用のローカル使い捨てPostgres環境が無く
  * (supabase migration list --local は接続エラーになる)、本番/共有Supabase
@@ -73,117 +82,55 @@ function main() {
     bad("005_wordbook_share.sqlの内容が想定と異なる。編集されている可能性がある");
   }
 
-  // --- 3. share_codeが存在する場合、text型・nullable・DEFAULT無し(NULL)・
-  //         非generated列以外ならRAISE EXCEPTION(NOT NULLだと通常のwordbook
-  //         作成・共有インポートがshare_code無しでinsertするため即座に制約
-  //         違反となり、新規共有の.is("share_code", null)によるcompare-and-set
-  //         も一切機能しなくなる。NULL以外のDEFAULTがあると、share_code無指定
-  //         のinsertが全て同じ値を持つことになり「未共有行はshare_code IS
-  //         NULL」という前提が崩れ、unique制約にも抵触しうる。generated column
-  //         (GENERATED ALWAYS AS ... STORED)だと、型・nullable・DEFAULTだけ見ると
-  //         互換に見えてしまうが、生成列へは値をUPDATEできずPostgresがエラーを
-  //         返すため、共有機能自体が全面的に使用不能になる。型・nullable・
-  //         DEFAULTに加えてis_generatedも契約として検査すること) ---
-  const shareCodeGuard = /if share_code_type <> 'text'\s*\n\s*or share_code_nullable <> 'YES'\s*\n\s*or share_code_default is not null\s*\n\s*or share_code_is_generated <> 'NEVER' then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
-  if (shareCodeGuard) {
-    ok("share_codeが既に存在する場合、text型・nullable・DEFAULT無し・非generated列以外ならRAISE EXCEPTIONで中断する");
+  // --- 3. migration冒頭に、share_code・is_sharedのどちらか1列でも既に
+  //         存在すればRAISE EXCEPTIONする既存列guardがあること。片方だけの
+  //         存在・両方の存在いずれも同じ1つのIF文でabortする(部分互換判定を
+  //         行わない、fail-closedな最小契約)。 ---
+  const guardChecksEitherColumn = /if exists \(\s*\n\s*select 1\s*\n\s*from information_schema\.columns\s*\n\s*where table_schema = 'public'\s*\n\s*and table_name = 'word_books'\s*\n\s*and column_name in \('share_code', 'is_shared'\)\s*\n\s*\) then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
+  if (guardChecksEitherColumn) {
+    ok("share_code・is_sharedのどちらか1列でも既に存在すればRAISE EXCEPTIONで中断する既存列guardがある");
   } else {
-    bad("share_codeの型・nullable・DEFAULT・is_generatedチェックによるRAISE EXCEPTIONが見つからない");
+    bad("既存列guard(share_code・is_sharedのいずれかの存在チェック)が想定した形で見つからない");
   }
 
-  // --- 3b. 最終検証: is_shared=trueなのにshare_codeがNULLの行が存在しないことを
-  //          確認すること(share_code新規追加時、既存のis_shared=true行が
-  //          「共有中と表示されるがURLが無い」壊れた状態になることを防ぐ) ---
-  const validatesNoOrphanedSharedRows = /if exists \(\s*\n\s*select 1 from public\.word_books where is_shared = true and share_code is null\s*\n\s*\) then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
-  if (validatesNoOrphanedSharedRows) {
-    ok("migration適用後、is_shared=trueかつshare_code IS NULLの行が存在しないことを最終検証する(share_code新規追加時の壊れた状態を検出)");
+  // --- 4. ALTER TABLEがguard(RAISE EXCEPTION)より後に実行されること
+  //         (guardを通過した場合のみ列追加が実行される順序であること) ---
+  const guardIdx = guardBlock.search(/raise exception using/);
+  const alterIdx = guardBlock.search(/alter table public\.word_books/);
+  if (guardIdx >= 0 && alterIdx > guardIdx) {
+    ok("ALTER TABLEは既存列guard(RAISE EXCEPTION)より後に実行される(guard通過時のみ列追加)");
   } else {
-    bad("is_shared=true and share_code is nullの最終検証が見つからない");
+    bad(`ALTER TABLEの実行順序が想定と異なる(guard位置=${guardIdx}, alter位置=${alterIdx})`);
   }
 
-  // --- 4. is_sharedが存在する場合、boolean・NOT NULL・DEFAULT false以外ならRAISE EXCEPTION
-  //         (column_defaultがNULLの場合に`<>`ではNULL(=falseとして扱われ、guardを
-  //         すり抜けてしまう)ため、IS DISTINCT FROMで比較しNULLも確実に不一致として
-  //         検出すること) ---
-  const isSharedGuard = /if is_shared_type <> 'boolean'\s*\n\s*or is_shared_nullable <> 'NO'\s*\n\s*or is_shared_default is distinct from 'false' then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
-  if (isSharedGuard) {
-    ok("is_sharedが既に存在する場合、boolean・NOT NULL・DEFAULT false以外ならRAISE EXCEPTIONで中断する(IS DISTINCT FROMでNULL defaultも検出)");
+  // --- 5. share_code列がtext・nullable(制約無し)で追加されること ---
+  const addsShareCodeText = /alter table public\.word_books\s*\n\s*add column share_code text,/.test(guardBlock);
+  if (addsShareCodeText) {
+    ok("share_code列をtext型・nullable(NOT NULL制約無し)で追加する");
   } else {
-    bad("is_sharedの契約チェックによるRAISE EXCEPTIONが見つからない");
+    bad("share_code列の追加がtext・nullableの想定した形で見つからない");
+  }
+  const shareCodeHasNoDefault = !/add column share_code text[^,]*default/i.test(guardBlock);
+  if (shareCodeHasNoDefault) {
+    ok("share_code列にDEFAULTを指定していない(未共有行はshare_code IS NULLになる)");
+  } else {
+    bad("share_code列にDEFAULTが指定されている疑いがある");
   }
 
-  // --- 4b. is_shared_defaultの比較に素の`<>`(NULLに対しNULLを返し、guardを
-  //          すり抜けさせてしまう)を使っていないこと ---
-  const usesUnsafeNullComparison = /is_shared_default\s*<>\s*'false'/.test(guardBlock);
-  if (!usesUnsafeNullComparison) {
-    ok("is_shared_defaultの比較で素の<>を使っていない(NULL defaultをすり抜けさせない)");
+  // --- 6. is_shared列がboolean・NOT NULL・DEFAULT falseで追加されること ---
+  const addsIsSharedContract = /add column is_shared boolean not null default false;/.test(guardBlock);
+  if (addsIsSharedContract) {
+    ok("is_shared列をboolean・NOT NULL・DEFAULT falseで追加する");
   } else {
-    bad("is_shared_defaultの比較に素の<>が残っている(NULL default時にguardをすり抜ける禁止パターン)");
+    bad("is_shared列の追加がboolean・NOT NULL・DEFAULT falseの想定した形で見つからない");
   }
 
-  // --- 4c. share_codeのunique index判定が実際のkey列数(indnkeyatts)を1に
-  //          限定していること。array_length(indkey,1)はINCLUDE句のcovering列も
-  //          数えてしまい、`UNIQUE (share_code) INCLUDE (user_id)`のような
-  //          実質的に単一列unique indexを誤って「複数列」と判定してしまうため、
-  //          indnkeyatts(実際にunique制約へ参加するkey列数のみ)を使うこと ---
-  const restrictsToSingleColumnIndex = /and i\.indisunique\s*\n\s*and i\.indisvalid\s*\n\s*and i\.indnkeyatts = 1/.test(guardBlock);
-  if (restrictsToSingleColumnIndex) {
-    ok("share_codeのunique index判定が実際のkey列数(indnkeyatts)を1に限定する(INCLUDE句のcovering列を誤って複数列と数えない)");
-  } else {
-    bad("share_codeのunique index判定に単一key列限定の条件(indnkeyatts = 1)が見つからない");
-  }
-  const joinsOnFirstKeyAttribute = /join pg_attribute a on a\.attrelid = c\.oid and a\.attnum = i\.indkey\[0\]/.test(guardBlock);
-  if (joinsOnFirstKeyAttribute) {
-    ok("share_codeのunique index判定がindkey[0](key列の先頭)でjoinする(INCLUDE列を含むany(indkey)による誤マッチを避ける)");
-  } else {
-    bad("share_codeのunique index判定のjoin条件がindkey[0]になっていない");
-  }
-
-  // --- 4e. share_codeのunique index判定がindisvalidも検証していること
-  //          (CREATE UNIQUE INDEX CONCURRENTLYが途中で失敗した場合など、
-  //          indisunique=trueのままindisvalid=falseのindexが残ることがあり、
-  //          そのようなindexは全行を検証しきれていない可能性があるため
-  //          「既存の有効なunique」とみなさない) ---
-  const validatesIndexValidity = /and i\.indisvalid/.test(guardBlock);
-  if (validatesIndexValidity) {
-    ok("share_codeのunique index判定がindisvalidも検証する(CONCURRENTLY失敗等で残った無効indexを既存とみなさない)");
-  } else {
-    bad("share_codeのunique index判定にindisvalid検証が見つからない");
-  }
-
-  // --- 4d. share_codeのunique index判定がpredicateも検証していること
-  //          (`WHERE source_type = 'material'`のような弱いpredicateを持つ
-  //          既存indexを、対象外の行同士の重複を防げないにもかかわらず
-  //          「既存の有効なunique」と誤認しないため) ---
-  const validatesIndexPredicate = /i\.indpred is null\s*\n\s*or lower\(regexp_replace\(pg_get_expr\(i\.indpred, i\.indrelid\), '\[\\s\(\)\]', '', 'g'\)\) = 'share_codeisnotnull'/.test(guardBlock);
-  if (validatesIndexPredicate) {
-    ok("share_codeのunique index判定がpredicateも検証する(predicate無し、またはshare_code IS NOT NULLと同値の場合のみ既存とみなす)");
-  } else {
-    bad("share_codeのunique index判定にpredicate検証(indpred is null または share_code IS NOT NULL相当)が見つからない");
-  }
-
-  // --- 5. 例外を握りつぶすハンドラが無いこと ---
+  // --- 7. 例外を握りつぶすハンドラが無いこと ---
   const hasSwallowingExceptionHandler = /exception\s+when\s+/i.test(guardBlock);
   if (!hasSwallowingExceptionHandler) {
     ok("guard内に例外を握りつぶすEXCEPTION WHENハンドラが無く、RAISEがそのままmigrationを中断させる");
   } else {
     bad("guard内にEXCEPTION WHENハンドラが存在し、RAISEが握りつぶされる可能性がある");
-  }
-
-  // --- 6. 列不存在の場合だけADD COLUMNすること(新規share_code) ---
-  const addsShareCodeOnlyWhenMissing = /else\s*\n\s*execute 'alter table public\.word_books add column share_code text';\s*\n\s*end if;/.test(guardBlock);
-  if (addsShareCodeOnlyWhenMissing) {
-    ok("share_code不存在の場合のみADD COLUMN(text)を実行する");
-  } else {
-    bad("share_code不存在時のADD COLUMN分岐が想定した形で見つからない");
-  }
-
-  // --- 7. 列不存在の場合だけADD COLUMNすること(新規is_shared、default false) ---
-  const addsIsSharedOnlyWhenMissing = /else\s*\n\s*execute 'alter table public\.word_books add column is_shared boolean not null default false';\s*\n\s*end if;/.test(guardBlock);
-  if (addsIsSharedOnlyWhenMissing) {
-    ok("is_shared不存在の場合のみADD COLUMN(boolean not null default false)を実行する");
-  } else {
-    bad("is_shared不存在時のADD COLUMN分岐が想定した形で見つからない");
   }
 
   // --- 8. DEFAULT trueが存在しないこと ---
@@ -203,12 +150,12 @@ function main() {
     bad("ADD COLUMN IF NOT EXISTSが検出された(guardと矛盾し、schema driftを隠す禁止パターン)");
   }
 
-  // --- 10. 既存行を公開するUPDATEが存在しないこと(無条件UPDATE禁止) ---
-  const hasUpdateStatement = /update\s+public\.word_books/i.test(source);
+  // --- 10. profiles/word_booksへの既存行UPDATEが存在しないこと(無条件UPDATE禁止) ---
+  const hasUpdateStatement = /update\s+public\.(word_books|profiles)/i.test(source);
   if (!hasUpdateStatement) {
-    ok("UPDATE public.word_booksが存在しない(既存行を公開状態へ変更しない)");
+    ok("profiles/word_booksへのUPDATEが存在しない(既存データを勝手に変更しない)");
   } else {
-    bad("UPDATE public.word_booksが検出された(既存データを勝手に変更する禁止パターン)");
+    bad("profiles/word_booksへのUPDATEが検出された(既存データを勝手に変更する禁止パターン)");
   }
 
   // --- 11. share_codeの一括生成(gen_random_uuid/encode/random等によるUPDATE)が
@@ -220,50 +167,32 @@ function main() {
     bad("share_codeの一括生成らしきコードが検出された");
   }
 
-  // --- 12. unique enforcementが存在すること(既存unique有無を判定したうえで
-  //          1本だけ作成する設計) ---
-  const checksExistingUnique = /select exists \(\s*\n\s*select 1\s*\n\s*from pg_index/.test(guardBlock);
-  const createsUniqueIndexOnlyWhenMissing = /if not has_unique_on_share_code then[\s\S]*?execute\s*\n\s*'create unique index word_books_share_code_key '\s*\n\s*'on public\.word_books \(share_code\) '\s*\n\s*'where share_code is not null';\s*\n\s*end if;/.test(guardBlock);
-  if (checksExistingUnique && createsUniqueIndexOnlyWhenMissing) {
-    ok("既存unique index/constraintの有無をpg_indexで確認し、無い場合だけpartial unique indexを1本作成する");
+  // --- 12. partial UNIQUE index(predicate: share_code IS NOT NULL)を
+  //           無条件に1本作成すること(既存互換判定を行わない簡素化版のため、
+  //           guardを通過した=両列とも新規追加された場合のみ実行される) ---
+  const createsPartialUniqueIndex = /create unique index word_books_share_code_key\s*\n\s*on public\.word_books \(share_code\)\s*\n\s*where share_code is not null;/.test(guardBlock);
+  if (createsPartialUniqueIndex) {
+    ok("share_codeにpartial unique index(word_books_share_code_key、predicate: share_code IS NOT NULL)を作成する");
   } else {
-    bad("share_codeのunique enforcement(既存確認+条件付き作成)が想定した形で見つからない");
+    bad("partial unique indexの作成が想定した形で見つからない");
   }
 
-  // --- 12b. CREATE UNIQUE INDEXが作成しようとする名前(word_books_share_code_key)
-  //           を、既存の(無効・条件不一致等の)relationが既に占有していないか
-  //           事前確認し、占有されている場合は黙って削除・上書きせずRAISE
-  //           EXCEPTIONで監査を促すこと(CREATE UNIQUE INDEXの不明瞭なnative
-  //           errorに任せない) ---
-  const checksNameCollisionBeforeCreate = /select exists \(\s*\n\s*select 1\s*\n\s*from pg_class c\s*\n\s*join pg_namespace n on n\.oid = c\.relnamespace\s*\n\s*where n\.nspname = 'public'\s*\n\s*and c\.relname = 'word_books_share_code_key'\s*\n\s*\) into share_code_key_relation_exists;/.test(guardBlock);
-  if (checksNameCollisionBeforeCreate) {
-    ok("CREATE UNIQUE INDEX実行前に、同名(word_books_share_code_key)の既存relationの有無を確認する");
-  } else {
-    bad("CREATE UNIQUE INDEX実行前の同名relation存在確認が見つからない");
-  }
-  const raisesOnNameCollision = /if share_code_key_relation_exists then\s*\n\s*raise exception using\s*\n\s*errcode = '55000'/.test(guardBlock);
-  if (raisesOnNameCollision) {
-    ok("同名relationが既に存在する場合、黙って削除・上書きせずRAISE EXCEPTIONで監査を促す");
-  } else {
-    bad("同名relation衝突時のRAISE EXCEPTIONが見つからない");
-  }
-
-  // --- 13. 重複既存share_codeを黙って修正するコード(DISTINCT ON・重複行の
-  //          DELETE/UPDATE等)が存在しないこと。重複がある場合はCREATE UNIQUE
-  //          INDEX自体が自然に失敗し、migrationが中断される設計。 ---
-  const hasDuplicateAutoFix = /delete\s+from\s+public\.word_books|distinct\s+on\s*\(share_code\)/i.test(source);
-  if (!hasDuplicateAutoFix) {
-    ok("重複既存share_codeを黙って修正するコードが存在しない(unique index作成の自然な失敗に委ねる設計)");
-  } else {
-    bad("重複share_codeを自動修正するコードらしきものが検出された");
-  }
-
-  // --- 14. RLS変更が存在しないこと ---
+  // --- 13. RLS変更が存在しないこと ---
   const hasRlsChange = /row level security|create policy|alter policy|drop policy/i.test(source);
   if (!hasRlsChange) {
     ok("RLS(Row Level Security)の変更が存在しない");
   } else {
     bad("RLSに関する変更らしきものが検出された");
+  }
+
+  // --- 14. pg_index/pg_class等のcatalogを使った既存schemaの互換性推測ロジックが
+  //           存在しないこと(簡素化の核心: 部分互換判定を一切行わず、両列不存在
+  //           以外は個別監査へfail-closedで委ねる設計であることを保証する) ---
+  const hasCatalogCompatGuessing = /pg_index|pg_class|pg_attribute|pg_namespace|indnkeyatts|indpred|indisvalid|indnullsnotdistinct|is_generated|information_schema\.columns[\s\S]{0,40}column_name = 'share_code'|information_schema\.columns[\s\S]{0,40}column_name = 'is_shared'/i.test(source);
+  if (!hasCatalogCompatGuessing) {
+    ok("pg_catalog(pg_index/pg_class/pg_attribute等)を使った既存schemaの部分互換性推測ロジックが存在しない(indnullsnotdistinct等のedge caseをmigration側で判定する必要が無い)");
+  } else {
+    bad("pg_catalogベースの既存schema互換性推測ロジックが検出された(簡素化方針に反する)");
   }
 
   console.log(`\n=== test:wordbook-sharing-migration RESULT: ${pass} passed, ${fail} failed ===`);
