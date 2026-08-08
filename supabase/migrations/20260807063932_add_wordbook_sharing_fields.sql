@@ -235,6 +235,16 @@ begin
   -- =NULL)を複数作成できなくなり、no-op bypass後の通常利用が壊れるため、
   -- pg_indexで直接、word_books_share_code_key以外のunique indexが共有列を
   -- 一切参照していないことを確認する。
+  --
+  -- 依存列の判定は indkey(直接のkey列)だけでは不十分: 例えば
+  -- `CREATE UNIQUE INDEX ... ((coalesce(share_code, '')))`のような式
+  -- indexの場合、Postgresはindkeyに0(式であることを示す)を記録し、実際の
+  -- 列依存はpg_dependへ記録する。indkeyだけを見るとこの式indexがshare_code
+  -- を参照していることを見逃し、後続の通常insert(share_code=NULLの複数行)
+  -- がunique違反で壊れる。よって、直接のkey列(indkey)に加えて、
+  -- pg_dependに記録された式・predicateの列依存も合わせて確認する
+  -- (refobjsubid > 0の行は「このindexは対象tableのこの列に依存している」
+  -- ことを表す)。
   select not exists (
     select 1
     from pg_index i
@@ -245,13 +255,28 @@ begin
       and c.relname = 'word_books'
       and i.indisunique
       and ic.relname <> 'word_books_share_code_key'
-      and exists (
-        select 1
-        from unnest(i.indkey) as constrained_attnum
-        join pg_attribute a
-          on a.attrelid = c.oid
-         and a.attnum = constrained_attnum
-        where a.attname in ('share_code', 'is_shared')
+      and (
+        exists (
+          select 1
+          from unnest(i.indkey) as constrained_attnum
+          join pg_attribute a
+            on a.attrelid = c.oid
+           and a.attnum = constrained_attnum
+          where a.attname in ('share_code', 'is_shared')
+        )
+        or exists (
+          select 1
+          from pg_depend d
+          join pg_attribute a
+            on a.attrelid = d.refobjid
+           and a.attnum = d.refobjsubid
+          where d.classid = 'pg_class'::regclass
+            and d.objid = i.indexrelid
+            and d.refclassid = 'pg_class'::regclass
+            and d.refobjid = c.oid
+            and d.refobjsubid > 0
+            and a.attname in ('share_code', 'is_shared')
+        )
       )
   ) into legacy_no_extra_unique_ok;
 

@@ -214,12 +214,18 @@ function main() {
   //           pg_indexで直接厳密に検証すること。legacy_unique_okは既知の
   //           constraint名の存在・性質しか見ないため、別名の追加unique
   //           index(例: 別名のUNIQUE NULLS NOT DISTINCT)を独立に検出する
-  //           必要がある。 ---
-  const checksNoExtraUniqueIndexes = /from pg_index i\s*\n\s*join pg_class c on c\.oid = i\.indrelid\s*\n\s*join pg_namespace n on n\.oid = c\.relnamespace\s*\n\s*join pg_class ic on ic\.oid = i\.indexrelid\s*\n\s*where n\.nspname = 'public'\s*\n\s*and c\.relname = 'word_books'\s*\n\s*and i\.indisunique\s*\n\s*and ic\.relname <> 'word_books_share_code_key'\s*\n\s*and exists \(\s*\n\s*select 1\s*\n\s*from unnest\(i\.indkey\) as constrained_attnum\s*\n\s*join pg_attribute a\s*\n\s*on a\.attrelid = c\.oid\s*\n\s*and a\.attnum = constrained_attnum\s*\n\s*where a\.attname in \('share_code', 'is_shared'\)\s*\n\s*\)\s*\n\s*\) into legacy_no_extra_unique_ok;/.test(guardBlock);
-  if (checksNoExtraUniqueIndexes) {
-    ok("word_books_share_code_key以外にshare_code/is_sharedを参照する追加のunique index(named制約由来・素のCREATE UNIQUE INDEXいずれも)が存在しないことをpg_indexで厳密に検証する");
+  //           必要がある。indkey(直接key列)だけでなく、式index・partial
+  //           indexのpredicateがpg_dependへ記録する列依存も検出すること
+  //           (indkeyだけでは`((coalesce(share_code, '')))`のような式
+  //           indexの依存を見逃す)。 ---
+  const checksNoExtraUniqueIndexesDirect = /exists \(\s*\n\s*select 1\s*\n\s*from unnest\(i\.indkey\) as constrained_attnum\s*\n\s*join pg_attribute a\s*\n\s*on a\.attrelid = c\.oid\s*\n\s*and a\.attnum = constrained_attnum\s*\n\s*where a\.attname in \('share_code', 'is_shared'\)\s*\n\s*\)/.test(guardBlock);
+  const checksNoExtraUniqueIndexesViaPgDepend = /from pg_depend d\s*\n\s*join pg_attribute a\s*\n\s*on a\.attrelid = d\.refobjid\s*\n\s*and a\.attnum = d\.refobjsubid\s*\n\s*where d\.classid = 'pg_class'::regclass\s*\n\s*and d\.objid = i\.indexrelid\s*\n\s*and d\.refclassid = 'pg_class'::regclass\s*\n\s*and d\.refobjid = c\.oid\s*\n\s*and d\.refobjsubid > 0\s*\n\s*and a\.attname in \('share_code', 'is_shared'\)/.test(guardBlock);
+  const checksNoExtraUniqueIndexesGate = /from pg_index i\s*\n\s*join pg_class c on c\.oid = i\.indrelid\s*\n\s*join pg_namespace n on n\.oid = c\.relnamespace\s*\n\s*join pg_class ic on ic\.oid = i\.indexrelid\s*\n\s*where n\.nspname = 'public'\s*\n\s*and c\.relname = 'word_books'\s*\n\s*and i\.indisunique\s*\n\s*and ic\.relname <> 'word_books_share_code_key'\s*\n\s*and \(/.test(guardBlock)
+    && / into legacy_no_extra_unique_ok;/.test(guardBlock);
+  if (checksNoExtraUniqueIndexesDirect && checksNoExtraUniqueIndexesViaPgDepend && checksNoExtraUniqueIndexesGate) {
+    ok("word_books_share_code_key以外にshare_code/is_sharedを参照する追加のunique index(named制約由来・素のCREATE UNIQUE INDEXいずれも)が存在しないことを、直接key列(indkey)と式/predicateの列依存(pg_depend)の両方でpg_indexベースに厳密に検証する");
   } else {
-    bad("追加unique indexの不在検証(legacy_no_extra_unique_ok判定)が想定した形で見つからない");
+    bad("追加unique indexの不在検証(legacy_no_extra_unique_ok判定、indkey/pg_dependの両方の依存経路)が想定した形で見つからない");
   }
 
   // --- 12. legacy_unique_ok・legacy_partial_index_ok・
