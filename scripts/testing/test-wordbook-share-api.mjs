@@ -5,11 +5,18 @@
  * ## 並行実行の競合契約(updated_at optimistic concurrency)
  * word_books.updated_atをoptimistic concurrencyのversion tokenとして使う
  * (word_booksにはtrg_touch_word_booksトリガーがあり、あらゆるUPDATEで
- * updated_atが自動的にnow()へ更新される)。POSTは初回read以降にrow version
- * が変わっていたら再有効化・新規割当のいずれも行わない。DELETEはversionを
- * 進める(CASを行わない、「共有を停止する」という最新のユーザー操作を
- * 無条件に反映させる)。よって「後から実行された共有停止」を古いPOSTが
- * 意図せず復活させることはない。
+ * updated_atが自動的にnow()へ更新される)。POST・DELETEともに初回read以降に
+ * row versionが変わっていたら無条件UPDATEしない。DELETEも当初は「共有を
+ * 停止するという最新操作を無条件に反映させる」設計だったが、これには逆方向の
+ * race(このDELETEのinitial select後、別のPOSTが先に共有を再有効化し、その後
+ * このDELETEの無条件UPDATEがより新しいPOSTの結果を上書きしてしまう)がある
+ * ことがCodexレビューで指摘されたため、DELETEもupdated_at CASを行うよう修正
+ * した。CAS miss時は所有権条件付きで再取得し、既にis_shared=falseなら目的の
+ * 状態に達しているとして成功扱い(idempotent)、is_shared=trueのままなら別の
+ * (より新しい)POSTが勝っていたということなのでfail-closedでconflictを返す
+ * (無条件で上書きしない、無限retryもしない)。CAS成功時はtrg_touch_word_books
+ * トリガーによりupdated_atが引き続き自動的に進むため、このDELETEより前に
+ * bookを読んでいた古いPOSTのCASを以後失敗させるという既存の保護は変わらない。
  *
  * ## なぜソースコード確認方式なのか
  * このリポジトリのAPI route handlerはNext.jsのリクエストコンテキスト
@@ -265,7 +272,7 @@ function main() {
     bad("reactivateExistingShare: user_id所有権条件が見つからない");
   }
 
-  // --- 17. DELETE(Case F): 存在確認を先に行い、無ければ404を返すこと(成功扱いしない) ---
+  // --- 17. DELETE: 存在確認を先に行い、無ければ404を返すこと(成功扱いしない) ---
   const deleteChecksExistenceFirst = /const \{ data: book, error: fetchError \} = await supabase[\s\S]{0,150}if \(fetchError\) \{\s*\n\s*return NextResponse\.json\(\{ error: "fetch_failed" \}, \{ status: 500 \}\);\s*\n\s*\}\s*\n\s*if \(!book\) \{\s*\n\s*return NextResponse\.json\(\{ error: "not_found" \}, \{ status: 404 \}\);/.test(del);
   if (deleteChecksExistenceFirst) {
     ok("DELETE: 存在・所有権を先に確認し、fetch error=500・データなし=404を区別して返す(存在しない/他人の単語帳を成功扱いしない)");
@@ -273,26 +280,36 @@ function main() {
     bad("DELETE: 存在確認+404分岐が想定した形で見つからない");
   }
 
-  // --- 18. DELETE(Case F): version CASを行わず(updated_at条件を付けず)常に
-  //           is_shared=falseへ更新すること。trg_touch_word_booksトリガーに
-  //           よりversionは自動的に進む旨のコメントが記載されていること。 ---
-  const deleteDoesNotUseVersionCas = !/\.update\(\{ is_shared: false \}\)[\s\S]{0,100}\.eq\("updated_at"/.test(del);
-  if (deleteDoesNotUseVersionCas) {
-    ok("DELETE(Case F): version CAS(updated_at条件)を行わず、常にis_shared=falseへ更新する(共有停止という最新操作を無条件に反映する)");
+  // --- 18. DELETE: initial selectがupdated_atを取得すること(version CASの
+  //           元になる) ---
+  const deleteSelectIncludesUpdatedAt = /const \{ data: book, error: fetchError \} = await supabase\s*\n\s*\.from\("word_books"\)\s*\n\s*\.select\("id, updated_at"\)/.test(del);
+  if (deleteSelectIncludesUpdatedAt) {
+    ok("DELETE: initial selectがupdated_atを取得する(version CASの元になる)");
   } else {
-    bad("DELETE: 想定外のupdated_at CAS条件が付いている(DELETEはversionを進める側であるべき)");
+    bad("DELETE: initial selectのupdated_at取得が想定した形で見つからない");
   }
-  const deleteDocumentsVersionAdvancement = /trg_touch_word_books.*トリガー.*により.*updated_at.*自動的.*進む|トリガーにより.*このUPDATEでもupdated_atが自動的にnow/s.test(del);
+
+  // --- 19. DELETE: is_shared=falseへのUPDATEがinitial select時点のupdated_at
+  //           へCASすること(Codexレビュー指摘: DELETEが無条件だと、initial
+  //           select後に別のPOSTが先に再有効化した場合、その新しい結果をこの
+  //           古いDELETEが意図せず上書きしてしまう逆方向のraceがあったため) ---
+  const deleteUsesVersionCas = /\.update\(\{ is_shared: false \}\)\s*\n\s*\.eq\("id", id\)\s*\n\s*\.eq\("user_id", user\.id\)\s*\n\s*\.eq\("updated_at", book\.updated_at\)\s*\n\s*\.select\("id"\)\s*\n\s*\.maybeSingle\(\);/.test(del);
+  if (deleteUsesVersionCas) {
+    ok("DELETE: is_shared=falseへのUPDATEがinitial select時点のupdated_atへCASする(別のPOSTによる再有効化を意図せず上書きしない)");
+  } else {
+    bad("DELETE: updated_at CAS条件を含むUPDATEが想定した形で見つからない");
+  }
+  const deleteDocumentsReversedRace = /このDELETEのinitial select後、別のPOSTが先に[\s\S]{0,80}共有を再有効化/.test(del);
+  if (deleteDocumentsReversedRace) {
+    ok("DELETE: DELETEが無条件だった場合の逆方向race(古いDELETEが新しいPOSTの再有効化を上書きする)がコメントで明文化されている");
+  } else {
+    bad("DELETEの逆方向raceに関する説明コメントが見つからない");
+  }
+  const deleteDocumentsVersionAdvancement = /トリガーによりupdated_at\s*\n\s*\/\/\s*は引き続き自動的にnow/.test(del);
   if (deleteDocumentsVersionAdvancement) {
-    ok("DELETE: trg_touch_word_booksトリガーによりupdated_atが自動的に進み、古いPOSTのCASを失敗させる旨がコメントで明文化されている");
+    ok("DELETE: CAS成功時もtrg_touch_word_booksトリガーによりupdated_atが自動的に進み、古いPOSTのCASを引き続き失敗させる旨がコメントで明文化されている");
   } else {
-    bad("DELETEのversion advancementに関する説明コメントが見つからない");
-  }
-  const deleteUpdateSelectsUpdatedRow = /\.update\(\{ is_shared: false \}\)\s*\n\s*\.eq\("id", id\)\s*\n\s*\.eq\("user_id", user\.id\)\s*\n\s*\.select\("id"\)\s*\n\s*\.maybeSingle\(\);/.test(del);
-  if (deleteUpdateSelectsUpdatedRow) {
-    ok("DELETE: is_shared=falseへのUPDATE結果を.select(\"id\").maybeSingle()で確認する(0行更新を検出可能にする)");
-  } else {
-    bad("DELETE: UPDATE結果を確認する.select().maybeSingle()が見つからない");
+    bad("DELETEのCAS成功時のversion advancementに関する説明コメントが見つからない");
   }
   const deleteChecksUpdateError = /if \(updateError\) \{\s*\n\s*return NextResponse\.json\(\{ error: "update_failed" \}, \{ status: 500 \}\);/.test(del);
   if (deleteChecksUpdateError) {
@@ -300,28 +317,64 @@ function main() {
   } else {
     bad("DELETE: update errorチェックが想定した形で見つからない");
   }
-  const deleteZeroRowUpdateIs404 = /if \(updateError\) \{[\s\S]{0,80}\}\s*\n\s*if \(!updated\) \{\s*\n\s*return NextResponse\.json\(\{ error: "not_found" \}, \{ status: 404 \}\);/.test(del);
-  if (deleteZeroRowUpdateIs404) {
-    ok("DELETE: UPDATEが0行だった場合(select〜UPDATE間の行消失)は404 not_foundを返す(成功扱いしない)");
+  const deleteCasSuccessReturnsOkImmediately = /if \(updated\) \{\s*\n\s*return NextResponse\.json\(\{ ok: true \}\);\s*\n\s*\}/.test(del);
+  if (deleteCasSuccessReturnsOkImmediately) {
+    ok("DELETE: CAS成功(updated truthy)時は{ok:true}を直接返す");
   } else {
-    bad("DELETE: 0行更新時の404分岐が見つからない");
-  }
-  const deleteReturnsOkOnlyAfterCheck = /if \(!updated\) \{\s*\n\s*return NextResponse\.json\(\{ error: "not_found" \}, \{ status: 404 \}\);\s*\n\s*\}\s*\n\s*return NextResponse\.json\(\{ ok: true \}\);/.test(del);
-  if (deleteReturnsOkOnlyAfterCheck) {
-    ok("DELETE: {ok:true}はerror・0行更新の両チェックの後、実際に更新された場合にのみ返される");
-  } else {
-    bad("DELETE: {ok:true}がerror/0行チェックより前や無条件に返されている疑いがある");
+    bad("DELETE: CAS成功時の{ok:true}即時返却が想定した形で見つからない");
   }
 
-  // --- 19. DELETE: 所有権条件(user_id)がselect・updateの両方に含まれること ---
+  // --- 20. DELETE: CAS miss時は所有権条件付きで再取得し、is_shared=falseなら
+  //           既に目的の状態に達しているとしてidempotentに成功、is_shared=true
+  //           のままなら別の(より新しい)POSTが勝っていたとしてfail-closedで
+  //           conflict(409)を返すこと(無条件で上書きしない、無限retryしない) ---
+  const deleteRefetchesOnCasMiss = /const \{ data: current, error: refetchError \} = await supabase\s*\n\s*\.from\("word_books"\)\s*\n\s*\.select\("id, is_shared"\)\s*\n\s*\.eq\("id", id\)\s*\n\s*\.eq\("user_id", user\.id\)\s*\n\s*\.maybeSingle\(\);/.test(del);
+  if (deleteRefetchesOnCasMiss) {
+    ok("DELETE: CAS miss時に所有権条件付き(id+user_id)でcurrent状態を再取得する");
+  } else {
+    bad("DELETE: CAS miss時の所有権条件付き再取得が想定した形で見つからない");
+  }
+  const deleteRefetchErrorIs500 = /if \(refetchError\) \{\s*\n\s*return NextResponse\.json\(\{ error: "verification_failed" \}, \{ status: 500 \}\);/.test(del);
+  if (deleteRefetchErrorIs500) {
+    ok("DELETE: 再取得のerrorを確認し、安全なverification_failed(500)を返す");
+  } else {
+    bad("DELETE: 再取得error時のverification_failed分岐が見つからない");
+  }
+  const deleteRefetchNotFoundIs404 = /if \(!current\) \{\s*\n\s*return NextResponse\.json\(\{ error: "not_found" \}, \{ status: 404 \}\);\s*\n\s*\}/.test(del);
+  if (deleteRefetchNotFoundIs404) {
+    ok("DELETE: 再取得で行が消えていた場合は404 not_foundを返す");
+  } else {
+    bad("DELETE: 再取得0件時の404分岐が見つからない");
+  }
+  const deleteAlreadyUnsharedIsIdempotentOk = /if \(!current\.is_shared\) \{[\s\S]{0,150}return NextResponse\.json\(\{ ok: true \}\);\s*\n\s*\}/.test(del);
+  if (deleteAlreadyUnsharedIsIdempotentOk) {
+    ok("DELETE: 再取得結果が既にis_shared=falseの場合、目的の状態に達しているとしてidempotentに{ok:true}を返す(書き込みをやり直さない)");
+  } else {
+    bad("DELETE: is_shared=false時のidempotent成功分岐が見つからない");
+  }
+  const deleteStillSharedIsConflict = /return NextResponse\.json\(\{ error: "conflict" \}, \{ status: 409 \}\);\s*\n\}/.test(del);
+  if (deleteStillSharedIsConflict) {
+    ok("DELETE: 再取得結果が依然is_shared=trueの場合(別のPOSTが先に再有効化していた)、fail-closedでconflict(409)を返す(無条件で上書きしない)");
+  } else {
+    bad("DELETE: is_shared=true時のconflict(409)分岐が見つからない");
+  }
+  const deleteDoesNotLoopRetryOnCasMiss = (del.match(/\.eq\("updated_at"/g) || []).length === 1;
+  if (deleteDoesNotLoopRetryOnCasMiss) {
+    ok("DELETE: updated_at CAS条件は1箇所のみ(CAS miss後にversionを更新して再試行するループが無い、無限retryしない設計と一致)");
+  } else {
+    bad("DELETE: updated_at CAS条件が複数箇所にある(意図しないretryループの可能性)");
+  }
+
+  // --- 21. DELETE: 所有権条件(user_id)がselect・update・再取得の3箇所すべてに
+  //           含まれること ---
   const deleteOwnershipCount = (del.match(/\.eq\("user_id", user\.id\)/g) || []).length;
-  if (deleteOwnershipCount >= 2) {
-    ok(`DELETE: user_id所有権条件が計${deleteOwnershipCount}箇所(select+update)に含まれる`);
+  if (deleteOwnershipCount >= 3) {
+    ok(`DELETE: user_id所有権条件が計${deleteOwnershipCount}箇所(select+update+CAS miss再取得)に含まれる`);
   } else {
-    bad(`DELETE: user_id所有権条件の使用回数が想定より少ない(${deleteOwnershipCount}件)`);
+    bad(`DELETE: user_id所有権条件の使用回数が想定より少ない(${deleteOwnershipCount}件、期待3件以上)`);
   }
 
-  // --- 20. DELETE: share_code自体を削除していないこと(再共有時に同じURLを再利用する方針) ---
+  // --- 22. DELETE: share_code自体を削除していないこと(再共有時に同じURLを再利用する方針) ---
   const deleteDoesNotClearShareCode = !/share_code:\s*null/.test(del);
   if (deleteDoesNotClearShareCode) {
     ok("DELETE: share_codeをnullへクリアしていない(再共有時に同じURLを再利用する)");

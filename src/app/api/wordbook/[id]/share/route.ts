@@ -222,7 +222,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   const { data: book, error: fetchError } = await supabase
     .from("word_books")
-    .select("id")
+    .select("id, updated_at")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -233,27 +233,54 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  // DELETEはversion CASを行わない(「共有を停止する」というユーザーの
-  // 最新操作を無条件に反映させたいため)。word_booksのtrg_touch_word_books
-  // トリガーにより、このUPDATEでもupdated_atが自動的にnow()へ進む。これに
-  // より、このDELETEより前にbookを読んでいた古いPOST(再有効化・新規割当の
-  // いずれも)のupdated_at CASは以後失敗するようになり、「後から実行された
-  // 共有停止」を古いPOSTが復活させることはない。
-  //
-  // 事前のselectだけを根拠に成功とみなさない。UPDATE結果(実際に更新された
-  // 行の有無)を確認し、select〜UPDATE間に行が消えた場合は404として扱う。
+  // DELETEもword_books.updated_atをoptimistic concurrencyのversion tokenとして
+  // 使う。以前の設計は「DELETEは常に最新操作」という前提で無条件UPDATEしていたが、
+  // これには逆方向のraceがある: このDELETEのinitial select後、別のPOSTが先に
+  // 共有を再有効化し、その後でこのDELETEの無条件UPDATEが実行されると、より新しい
+  // POSTの結果(is_shared=true)をこの古いDELETEが意図せず上書きしてしまう
+  // (POSTはis_shared=trueで成功応答したのに、実DBはis_shared=falseに戻る)。
+  // よってDELETEのUPDATEもinitial select時点のupdated_atへCASする。CASに
+  // 成功した場合も、word_booksのtrg_touch_word_booksトリガーによりupdated_at
+  // は引き続き自動的にnow()へ進むため、このDELETEより前にbookを読んでいた
+  // 古いPOSTのCASは以後失敗するという既存の保護は変わらず有効。
   const { data: updated, error: updateError } = await supabase
     .from("word_books")
     .update({ is_shared: false })
     .eq("id", id)
     .eq("user_id", user.id)
+    .eq("updated_at", book.updated_at)
     .select("id")
     .maybeSingle();
   if (updateError) {
     return NextResponse.json({ error: "update_failed" }, { status: 500 });
   }
-  if (!updated) {
+  if (updated) {
+    return NextResponse.json({ ok: true });
+  }
+
+  // CAS miss: initial select〜UPDATEの間に別のmutationが発生した。所有権条件
+  // 付きで現在の状態を再取得してから判断する(無条件で上書きしない、無限
+  // retryもしない)。
+  const { data: current, error: refetchError } = await supabase
+    .from("word_books")
+    .select("id, is_shared")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (refetchError) {
+    return NextResponse.json({ error: "verification_failed" }, { status: 500 });
+  }
+  if (!current) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
-  return NextResponse.json({ ok: true });
+  if (!current.is_shared) {
+    // 既に(別のDELETE等によって)共有停止済み。目的の状態(is_shared=false)に
+    // 既に達しているため、書き込みをやり直さず成功として扱う(idempotent)。
+    return NextResponse.json({ ok: true });
+  }
+  // is_shared=trueのまま = このDELETEのinitial read後に別のPOST(再有効化)が
+  // 先に勝っていた。曖昧な状態でこの古いDELETEがそれを上書きしないよう、
+  // fail-closedでconflictを返す(ユーザーが改めて「共有を停止」を押せば、
+  // 新しいversionを読んだ新規リクエストとして正常に処理される)。
+  return NextResponse.json({ error: "conflict" }, { status: 409 });
 }
