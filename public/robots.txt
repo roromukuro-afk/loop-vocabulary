@@ -16,7 +16,6 @@ Disallow: /review
 Disallow: /road
 Allow: /roadmap
 Disallow: /settings
-Disallow: /share/
 Disallow: /setup
 Disallow: /stats
 Disallow: /teacher
@@ -55,7 +54,6 @@ Disallow: /review
 Disallow: /road
 Allow: /roadmap
 Disallow: /settings
-Disallow: /share/
 Disallow: /setup
 Disallow: /stats
 Disallow: /teacher
@@ -111,7 +109,6 @@ Disallow: /review
 Disallow: /road
 Allow: /roadmap
 Disallow: /settings
-Disallow: /share/
 Disallow: /setup
 Disallow: /stats
 Disallow: /teacher

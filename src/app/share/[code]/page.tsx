@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { SharedWordbookImport } from "./SharedWordbookImport";
 
 export const metadata = {
-  robots: { index: false, follow: true },
+  robots: { index: false, follow: false },
 };
 
 export const dynamic = "force-dynamic";
