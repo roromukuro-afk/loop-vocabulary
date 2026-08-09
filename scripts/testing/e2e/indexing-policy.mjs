@@ -107,9 +107,14 @@ const INDEX_PAGES = [
 // robots.txtでDisallowするとGooglebotがnoindexタグ自体を読めず「インデックス登録済み
 // (robots.txtにより除外されましたが)」というSearch Console警告の原因になっていた。
 // 除外後の「Disallowされていないこと」の検証は test:noindex-crawlability が担う。
+// 【2026-08-09更新(PR #86)】/share/も同じ理由でここから除外した。/share/[code]は
+// noindex,nofollowメタタグを持つ「クロール可能かつ非インデックス化」対象ページであり
+// (SHARED_WORDBOOKS_DESIGN.md 5章)、Disallowのままだとnoindexタグ自体が読まれない。
+// 除外後の「Disallowされていないこと」・noindexメタタグの存在の検証は
+// test:shared-wordbook-indexing が担う。
 const ROBOTS_DISALLOW_REQUIRED = [
   "/dashboard", "/settings", "/account/", "/review", "/pdf", "/wordbooks",
-  "/weak", "/stats", "/teach", "/admin", "/share/", "/join/", "/road",
+  "/weak", "/stats", "/teach", "/admin", "/join/", "/road",
   "/referral/", "/auth/",
 ];
 

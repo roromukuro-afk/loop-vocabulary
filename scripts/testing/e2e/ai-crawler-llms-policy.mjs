@@ -32,9 +32,11 @@ const LLMS_TXT_PATH = resolve(REPO_ROOT, "public/llms.txt");
 const PORT = Number(process.env.TEST_PORT || 3798);
 
 // indexing-policy.mjs のROBOTS_DISALLOW_REQUIREDと同一リスト(退行防止のため二重管理)。
+// 【2026-08-09更新(PR #86)】/share/はnoindex,nofollowメタタグ方式へ移行したため
+// ここから除外(indexing-policy.mjs側の同日コメントを参照)。
 const ROBOTS_DISALLOW_REQUIRED = [
   "/dashboard", "/settings", "/account/", "/review", "/pdf", "/wordbooks",
-  "/weak", "/stats", "/teach", "/admin", "/share/", "/join/", "/road",
+  "/weak", "/stats", "/teach", "/admin", "/join/", "/road",
   "/referral/", "/auth/",
 ];
 
