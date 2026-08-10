@@ -101,6 +101,17 @@ function main() {
   assertBlocked(rules, "/roadmap/", false, "末尾スラッシュ");
   assertBlocked(rules, "/roadmap/foo", false, "配下パス(将来追加された場合の保険)");
 
+  console.log("\n=== 1b. /review はブロック、/review-date-calculator は許可(同種のprefix衝突、PR #33) ===");
+  assertBlocked(rules, "/review", true, "会員限定ページ");
+  assertBlocked(rules, "/review?x=1", true, "クエリ付き");
+  assertBlocked(rules, "/review/", true, "末尾スラッシュ");
+  assertBlocked(rules, "/review/lesson", true, "配下パス");
+
+  assertBlocked(rules, "/review-date-calculator", false, "公開ツールページ");
+  assertBlocked(rules, "/review-date-calculator?utm_source=x", false, "クエリ付き");
+  assertBlocked(rules, "/review-date-calculator/", false, "末尾スラッシュ");
+  assertBlocked(rules, "/review-date-calculator/foo", false, "配下パス(将来追加された場合の保険)");
+
   console.log("\n=== 2. Googleの \"$\" 仕様の回帰確認(実際のrobots.txtとは独立) ===");
   console.log("(以前の修正案 `Disallow: /road$` は、クエリ付きURLをブロックできない誤りだった)");
   const dollarOnlyRules = parseRobotsTxt("User-agent: *\nDisallow: /road$\n");
