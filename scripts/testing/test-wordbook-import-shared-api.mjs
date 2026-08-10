@@ -21,6 +21,7 @@ import { dirname, resolve } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROUTE_PATH = resolve(__dirname, "../../src/app/api/wordbook/[id]/import-shared/route.ts");
+const HELPER_PATH = resolve(__dirname, "../../src/lib/wordbooks/buildImportedWordRows.ts");
 
 let pass = 0;
 let fail = 0;
@@ -28,7 +29,10 @@ function ok(msg) { console.log(`✅ ${msg}`); pass++; }
 function bad(msg) { console.error(`❌ FAIL: ${msg}`); fail++; }
 
 function main() {
-  const source = readFileSync(ROUTE_PATH, "utf8");
+  // CRLF/LF環境差(Windows checkout時のcore.autocrlf変換等)に依存しないよう、
+  // 改行コードを正規化してから検証する。
+  const source = readFileSync(ROUTE_PATH, "utf8").replace(/\r\n/g, "\n");
+  const helperSource = readFileSync(HELPER_PATH, "utf8").replace(/\r\n/g, "\n");
 
   // --- 1. 共有元book取得はis_shared=trueかつsource_type="custom"を条件にすること
   //         (公開ページと同じ多層防御。市販教材が誤ってsharedになっていても
@@ -129,6 +133,50 @@ function main() {
     ok("trackServerEvent(\"wordbook_created\", ...)の呼び出しが存在する(発火順序自体はtest-wordbook-import-rollback-invariant.mjsで検証済み)");
   } else {
     bad("trackServerEvent呼び出しが見つからない");
+  }
+
+  // --- 11. Issue #81 production acceptance失敗の再発防止: routeがwords insert
+  //           payloadの構築を専用helper(buildImportedWordRows)へ委譲していること
+  //           (route内で直接`.map()`しない) ---
+  const routeDelegatesToHelper = /import \{ buildImportedWordRows \} from "@\/lib\/wordbooks\/buildImportedWordRows";/.test(source)
+    && /buildImportedWordRows\(words, user\.id, newBook\.id\)/.test(source);
+  if (routeDelegatesToHelper) {
+    ok("words insert payloadの構築を専用helper buildImportedWordRowsへ委譲している(route内で直接.map()しない)");
+  } else {
+    bad("routeがbuildImportedWordRowsへ委譲していない(想定した形で見つからない)");
+  }
+
+  // --- 12. route・helperのいずれにも`id: undefined`/`id: null`が存在しないこと
+  //           (本番で実際にwords.id NOT NULL違反を起こした原因そのもの。
+  //           bulk array insertではSupabase JS clientが`undefined`を明示的な
+  //           `null`としてシリアライズするため、単一object insertでは問題化
+  //           しない差異が見逃されやすい) ---
+  const routeHasIdUndefinedOrNull = /id:\s*undefined/.test(source) || /id:\s*null/.test(source);
+  const helperHasIdUndefinedOrNull = /id:\s*undefined/.test(helperSource) || /id:\s*null/.test(helperSource);
+  if (!routeHasIdUndefinedOrNull && !helperHasIdUndefinedOrNull) {
+    ok("route・helperのいずれにも`id: undefined`/`id: null`が存在しない(本番500の原因を再導入していない)");
+  } else {
+    bad("route/helperに`id: undefined`または`id: null`が検出された(本番で実際に発生したbug再発の疑い)");
+  }
+
+  // --- 13. helperの出力objectがid propertyを一切含まない設計であることを
+  //           ソース上でも確認する(スプレッドで`w`のみを展開し、`id`という
+  //           キーを明示的に追加していないこと) ---
+  const helperOmitsIdEntirely = /return words\.map\(\(w\) => \(\{\s*\n\s*word: w\.word,\s*\n\s*meaning: w\.meaning,\s*\n\s*pos: w\.pos,\s*\n\s*phonetic: w\.phonetic,\s*\n\s*importance: w\.importance,\s*\n\s*user_id: userId,\s*\n\s*word_book_id: wordBookId,\s*\n\s*\}\)\);/.test(helperSource);
+  if (helperOmitsIdEntirely) {
+    ok("buildImportedWordRowsの出力objectは明示的なfieldのみで構成され、idキーを一切含まない");
+  } else {
+    bad("buildImportedWordRowsの出力object構成が想定した形で見つからない");
+  }
+
+  // --- 14. 共有元words selectが従来どおりidを含まない契約と整合していること
+  //           (helper移行後もこの前提が崩れていないことの再確認) ---
+  const sourceSelectStillExcludesId = /\.select\("word, meaning, pos, phonetic, importance"\)/.test(source)
+    && !/\.select\("id, word, meaning, pos, phonetic, importance"\)/.test(source);
+  if (sourceSelectStillExcludesId) {
+    ok("共有元words selectは引き続きidを含まない(word, meaning, pos, phonetic, importanceのみ)");
+  } else {
+    bad("共有元words selectの列構成が想定と異なる(idを含んでしまっている可能性)");
   }
 
   console.log(`\n=== test:wordbook-import-shared-api RESULT: ${pass} passed, ${fail} failed ===`);
