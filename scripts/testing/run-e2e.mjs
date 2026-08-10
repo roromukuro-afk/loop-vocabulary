@@ -247,6 +247,9 @@ async function main() {
 
     console.log("\n=== 68. 通知設定schema分離とサイレント失敗修正(Issue #80) E2E ===");
     results.notificationSettingsFeedback = runNode("scripts/testing/e2e/a11y-notification-settings-feedback.mjs");
+
+    console.log("\n=== 69. 単語帳共有ボタンの失敗通知・二重送信防止(Issue #81) E2E ===");
+    results.wordbookSharingFeedback = runNode("scripts/testing/e2e/a11y-wordbook-sharing-feedback.mjs");
   } finally {
     stopDevServer(dev);
   }
