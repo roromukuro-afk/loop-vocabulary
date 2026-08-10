@@ -250,6 +250,9 @@ async function main() {
 
     console.log("\n=== 69. 単語帳共有ボタンの失敗通知・二重送信防止(Issue #81) E2E ===");
     results.wordbookSharingFeedback = runNode("scripts/testing/e2e/a11y-wordbook-sharing-feedback.mjs");
+
+    console.log("\n=== 70. 語彙力チェックのオーガニック発見性強化 E2E ===");
+    results.vocabCheckAcquisitionDiscoverability = runNode("scripts/testing/e2e/vocab-check-acquisition-discoverability.mjs");
   } finally {
     stopDevServer(dev);
   }

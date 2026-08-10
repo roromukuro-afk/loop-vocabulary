@@ -2310,6 +2310,20 @@ const GUIDE_MATERIALS: Record<string, GuideMatEntry> = {
   },
 };
 
+type VocabCheckLink = { href: string; label: string };
+// 語彙力チェックページへの誘導リンク。CTAボックス内に3つ目のボタンとして表示する対象のみ設定する。
+const VOCAB_CHECK_LINKS: Record<string, VocabCheckLink> = {
+  "eiken-2kyu-tango-nanko": { href: "/vocab-check/eiken", label: "英検語彙チェック" },
+  "eitango-oboerarenai": { href: "/vocab-check", label: "語彙力チェック（無料）" },
+  "eitango-ichinichi-nanko": { href: "/vocab-check", label: "語彙力チェック（無料）" },
+  "tangocho-erabikata": { href: "/vocab-check", label: "語彙力チェック（無料）" },
+  "system-eitango": { href: "/vocab-check", label: "語彙力チェック（無料）" },
+  "target-1900": { href: "/vocab-check", label: "語彙力チェック（無料）" },
+  "systan-vs-target-1900": { href: "/vocab-check", label: "語彙力チェック（無料）" },
+  "leap-eitango": { href: "/vocab-check", label: "語彙力チェック（無料）" },
+  "eitango-cho-hikaku": { href: "/vocab-check", label: "語彙力チェック（無料）" },
+};
+
 export default async function GuidePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const article = ARTICLES[slug];
@@ -2402,7 +2416,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
         <div className="mt-6 bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-6 text-white text-center">
           <div className="font-black text-lg mb-1">Loop Vocabulary で学習を始める</div>
           <p className="text-sm text-navy-300 mb-4">忘却曲線・SRS・AI解説を組み合わせた英単語学習アプリ</p>
-          <div className="flex gap-3 justify-center">
+          <div className="flex gap-3 justify-center flex-wrap">
             <Link
               href="/signup"
               className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
@@ -2415,6 +2429,14 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
             >
               ログイン
             </Link>
+            {VOCAB_CHECK_LINKS[slug] && (
+              <Link
+                href={VOCAB_CHECK_LINKS[slug].href}
+                className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors"
+              >
+                {VOCAB_CHECK_LINKS[slug].label}
+              </Link>
+            )}
           </div>
         </div>
 

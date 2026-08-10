@@ -275,9 +275,9 @@ export default function EikenJun2Page() {
             <div className="text-lg mb-1">🧠</div>
             <div className="font-bold text-navy-800 text-sm">効率的な単語の覚え方</div>
           </Link>
-          <Link href="/vocab-check" className="bg-white rounded-2xl border border-navy-100 p-4 hover:shadow-sm transition-shadow">
+          <Link href="/vocab-check/eiken" className="bg-white rounded-2xl border border-navy-100 p-4 hover:shadow-sm transition-shadow">
             <div className="text-lg mb-1">📋</div>
-            <div className="font-bold text-navy-800 text-sm">語彙力チェック（無料）</div>
+            <div className="font-bold text-navy-800 text-sm">英検語彙チェック（無料）</div>
           </Link>
         </div>
 
