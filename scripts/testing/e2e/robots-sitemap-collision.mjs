@@ -25,7 +25,8 @@
  *   4. sitemap.ts に列挙されている静的な公開URL(materials/dictionary/grammarの
  *      DB・外部データ駆動分を除く)が、どのDisallowルールにも意図せず一致しない
  *      (「/road → /roadmap」と同種の衝突が他に潜んでいないかの広域チェック)。
- *   5. sitemap.ts のURL一覧(GUIDE_SLUGS等)が本PRで変更されていないことの確認。
+ *   5. sitemap.ts のURL一覧(GUIDE_SLUGS等)が抽出ロジックの想定どおりの構造を保っており、
+ *      既知の代表slugが失われていない(削除退行)ことの確認。
  *
  * 使い方: node scripts/testing/e2e/robots-sitemap-collision.mjs
  */
@@ -82,8 +83,10 @@ function extractStaticSitemapPaths(sitemapSrc) {
   return [...paths].sort();
 }
 
-// 本PRで変更していないことを確認するための、既知のGUIDE_SLUGS件数と代表slug。
-const EXPECTED_GUIDE_SLUG_COUNT = 40;
+// GUIDE_SLUGSは記事追加のたびに正当に増え続けるため、厳密一致ではなく
+// 「この時点で判明している最小件数を下回っていないか」だけを見る(ガイド記事の
+// 追加が誤って回帰扱いされないように)。件数減少や代表slugの消失は依然として検知する。
+const MIN_GUIDE_SLUG_COUNT = 44;
 const EXPECTED_SAMPLE_SLUGS = ["eigo-listening-renshu", "toeic-tango", "eiken-1kyu-tango"];
 
 function main() {
@@ -130,13 +133,13 @@ function main() {
     assertBlocked(rules, path, false, "sitemap公開URL");
   }
 
-  console.log("\n=== 5. sitemap.ts のURL一覧が本PRで変更されていないことの確認 ===");
+  console.log("\n=== 5. sitemap.ts のGUIDE_SLUGSが退行していないことの確認 ===");
   const guideSlugsMatch = sitemapSrc.match(/const GUIDE_SLUGS = \[([\s\S]*?)\] as const;/);
   const guideSlugCount = guideSlugsMatch ? [...guideSlugsMatch[1].matchAll(/"([a-z0-9-]+)"/g)].length : 0;
-  if (guideSlugCount === EXPECTED_GUIDE_SLUG_COUNT) {
-    ok(`GUIDE_SLUGSの件数が変更されていない (${guideSlugCount}件)`);
+  if (guideSlugCount >= MIN_GUIDE_SLUG_COUNT) {
+    ok(`GUIDE_SLUGSの件数が最小件数を下回っていない (${guideSlugCount}件 >= ${MIN_GUIDE_SLUG_COUNT}件)`);
   } else {
-    fail(`GUIDE_SLUGSの件数が想定外 (期待=${EXPECTED_GUIDE_SLUG_COUNT}, 実際=${guideSlugCount}) — sitemap.ts が本PRの範囲外で変更された可能性`);
+    fail(`GUIDE_SLUGSの件数が想定より少ない (最小=${MIN_GUIDE_SLUG_COUNT}, 実際=${guideSlugCount}) — sitemap.ts からガイド記事が意図せず削除された可能性`);
   }
   for (const slug of EXPECTED_SAMPLE_SLUGS) {
     if (staticPaths.includes(`/guide/${slug}`)) {
