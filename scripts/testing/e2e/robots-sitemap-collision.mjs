@@ -15,16 +15,25 @@
  * `/road?x=1` や `/road/lesson` はブロックできない。このテストの「2. $ の仕様」
  * セクションで、その誤りが再発しないことを明示的に検証する。)
  *
+ * 同種の衝突その2(2026-08-11発見): `Disallow: /review`(ログイン必須のSRS復習画面
+ * /review をブロックする意図)が、同じくprefix一致により、sitemap.xmlに掲載されている
+ * 公開ツールページ /review-date-calculator も意図せずブロックしていた。`Disallow: /road`
+ * + `Allow: /roadmap` と同じ手法で `Disallow: /review` + `Allow: /review-date-calculator`
+ * を `User-agent: *` / `OAI-SearchBot` / `PerplexityBot` の3ブロックすべてに適用して修正。
+ *
  * 検証内容:
  *   1. /road, /road?x=1, /road/, /road/lesson は引き続きブロックされる。
  *      /roadmap, /roadmap?query, /roadmap/配下 は許可される。
+ *      /review, /review/history は引き続きブロックされる。
+ *      /review-date-calculator, /review-date-calculator?query, /review-date-calculator/配下 は許可される。
  *   2. Googleの "$" の仕様(クエリを含むURL全体の終端)を、実際のrobots.txtとは
  *      独立に検証する(`Disallow: /road$` 単独では /road のみblocked、
  *      /road?x=1 はallowedになることを明示)。
  *   3. /test, /api/ など既存の非公開ルールは維持されている(退行していない)。
  *   4. sitemap.ts に列挙されている静的な公開URL(materials/dictionary/grammarの
  *      DB・外部データ駆動分を除く)が、どのDisallowルールにも意図せず一致しない
- *      (「/road → /roadmap」と同種の衝突が他に潜んでいないかの広域チェック)。
+ *      (「/road → /roadmap」「/review → /review-date-calculator」と同種の衝突が
+ *      他に潜んでいないかの広域チェック)。
  *   5. sitemap.ts のURL一覧(GUIDE_SLUGS等)が本PRで変更されていないことの確認。
  *
  * 使い方: node scripts/testing/e2e/robots-sitemap-collision.mjs
@@ -100,6 +109,17 @@ function main() {
   assertBlocked(rules, "/roadmap?utm_source=x", false, "クエリ付き");
   assertBlocked(rules, "/roadmap/", false, "末尾スラッシュ");
   assertBlocked(rules, "/roadmap/foo", false, "配下パス(将来追加された場合の保険)");
+
+  console.log("\n=== 1b. /review はブロック、/review-date-calculator は許可(本PRの修正) ===");
+  assertBlocked(rules, "/review", true, "ログイン必須のSRS復習画面");
+  assertBlocked(rules, "/review?x=1", true, "クエリ付き");
+  assertBlocked(rules, "/review/", true, "末尾スラッシュ");
+  assertBlocked(rules, "/review/history", true, "配下パス");
+
+  assertBlocked(rules, "/review-date-calculator", false, "公開ツールページ");
+  assertBlocked(rules, "/review-date-calculator?utm_source=x", false, "クエリ付き");
+  assertBlocked(rules, "/review-date-calculator/", false, "末尾スラッシュ");
+  assertBlocked(rules, "/review-date-calculator/foo", false, "配下パス(将来追加された場合の保険)");
 
   console.log("\n=== 2. Googleの \"$\" 仕様の回帰確認(実際のrobots.txtとは独立) ===");
   console.log("(以前の修正案 `Disallow: /road$` は、クエリ付きURLをブロックできない誤りだった)");
