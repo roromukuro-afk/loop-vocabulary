@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { trackServerEvent } from "@/lib/analytics/trackServerEvent";
+import { buildImportedWordRows } from "@/lib/wordbooks/buildImportedWordRows";
 
 export const runtime = "nodejs";
 
@@ -58,7 +59,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   if (words && words.length > 0) {
     const { error: wordsErr } = await supabase.from("words").insert(
-      words.map((w) => ({ ...w, id: undefined, user_id: user.id, word_book_id: newBook.id }))
+      buildImportedWordRows(words, user.id, newBook.id)
     );
     if (wordsErr) {
       // 単語の永続化に失敗した場合は空の単語帳を残さない(material import routeと同じcleanup方針)。
