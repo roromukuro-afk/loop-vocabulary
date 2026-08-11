@@ -10,6 +10,11 @@
  *   同一tabで/tools/vocab-test-makerへ戻り、pending payloadから自動保存される
  *   (差別化の中心である「テスト作成→SRS引き継ぎ」の要)
  *
+ * シナリオC: sanitizeRows()の重複除去キー衝突regression(Codexレビュー指摘P2対応)。
+ *   word/meaningの境界を跨いで衝突しうるペア("a b"/"c" と "a"/"b c")を貼り付け、
+ *   保存API経由でも2件とも別々に保存される(誤って1件にduplicate判定されない)ことを
+ *   実DBへの書き込みで確認する。
+ *
  * いずれも使い捨てのTEST_プレフィックス不要(保存APIが返すwordbook_idで厳密に
  * 対象を特定して後始末する)。
  *
@@ -53,6 +58,7 @@ async function main() {
   const browser = await chromium.launch();
   let createdWordbookIdA = null;
   let createdWordbookIdB = null;
+  let createdWordbookIdC = null;
 
   try {
     // ================= シナリオA: 直接保存 =================
@@ -201,11 +207,65 @@ async function main() {
       else fail(`シナリオB: 操作中にエラー検出: ${errors.join(" | ")}`);
       await context.close();
     }
+
+    // ================= シナリオC: sanitizeRows()キー衝突regression =================
+    {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const errors = collectErrors(page);
+
+      await login(page, baseUrl, email, password);
+      await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
+
+      // word/meaningの境界を跨いで衝突しうるペア: ("a b","c") と ("a","b c")。
+      // 空白結合の重複判定キーだと両方とも同じキーになり、後者が誤って
+      // duplicateとして落ちてしまう(sanitizeRows()側のfail-closed regression対象)。
+      const paste = "a b,c\na,b c";
+      await page.locator('[data-testid="vocab-test-paste-input"]').fill(paste);
+
+      const [popup] = await Promise.all([
+        context.waitForEvent("page", { timeout: 15000 }),
+        page.locator('[data-testid="vocab-test-generate-button"]').click(),
+      ]);
+      await popup.waitForLoadState("domcontentloaded").catch(() => {});
+      await popup.close().catch(() => {});
+
+      await page.locator('[data-testid="vocab-test-srs-cta"]').click();
+      await page.waitForSelector('[role="status"]', { timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(1000);
+
+      const statusText = await page.locator('[role="status"]').first().textContent().catch(() => "");
+      if (statusText && statusText.includes("保存しました")) ok(`シナリオC: 衝突しうるペアでも保存成功メッセージが表示される ("${statusText.trim()}")`);
+      else fail(`シナリオC: 保存成功メッセージが見つからない: "${statusText}"`);
+
+      const wordbookLinkHref = await page.locator('a[href^="/wordbooks/"]').first().getAttribute("href").catch(() => null);
+      createdWordbookIdC = wordbookLinkHref ? wordbookLinkHref.replace("/wordbooks/", "") : null;
+
+      if (createdWordbookIdC) {
+        const { data: words } = await admin.from("words").select("word, meaning").eq("word_book_id", createdWordbookIdC);
+        // 注意: word+meaningを結合した文字列は両方の行で同一になり得るため、
+        // 結合文字列での比較は使わずword/meaningを個別フィールドとして厳密に照合する。
+        const hasRowWordAB = (words ?? []).some((r) => r.word === "a b" && r.meaning === "c");
+        const hasRowWordA = (words ?? []).some((r) => r.word === "a" && r.meaning === "b c");
+        if (words?.length === 2 && hasRowWordAB && hasRowWordA) {
+          ok("シナリオC: 保存APIが境界衝突ペアを誤ってduplicate判定せず、2件とも別々に保存する(word_count=2)");
+        } else {
+          fail(`シナリオC: 保存されたwordsの件数・内容が想定外(誤ってduplicate判定された可能性): ${JSON.stringify(words)}`);
+        }
+      } else {
+        fail("シナリオC: 保存後の単語帳リンクが見つからない");
+      }
+
+      if (errors.length === 0) ok("シナリオC: 操作中に console error / 5xx なし");
+      else fail(`シナリオC: 操作中にエラー検出: ${errors.join(" | ")}`);
+      await context.close();
+    }
   } catch (e) {
     fail(`予期しない例外: ${e.message}`);
   } finally {
     await cleanupWordbook(admin, createdWordbookIdA);
     await cleanupWordbook(admin, createdWordbookIdB);
+    await cleanupWordbook(admin, createdWordbookIdC);
     if (createdWordbookIdA) {
       const { data } = await admin.from("word_books").select("id").eq("id", createdWordbookIdA).maybeSingle();
       if (!data) ok("シナリオA: テスト用単語帳のcleanupを確認(残留なし)");
@@ -215,6 +275,11 @@ async function main() {
       const { data } = await admin.from("word_books").select("id").eq("id", createdWordbookIdB).maybeSingle();
       if (!data) ok("シナリオB: テスト用単語帳のcleanupを確認(残留なし)");
       else fail("シナリオB: テスト用単語帳のcleanupに失敗した(残留あり)");
+    }
+    if (createdWordbookIdC) {
+      const { data } = await admin.from("word_books").select("id").eq("id", createdWordbookIdC).maybeSingle();
+      if (!data) ok("シナリオC: テスト用単語帳のcleanupを確認(残留なし)");
+      else fail("シナリオC: テスト用単語帳のcleanupに失敗した(残留あり)");
     }
     await browser.close();
     stopDevServer(dev);

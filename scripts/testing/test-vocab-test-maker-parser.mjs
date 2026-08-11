@@ -110,6 +110,57 @@ function main() {
     else bad("sanitizeRows()が配列以外の入力を誤って処理した");
   }
 
+  // ---- 重複除去キー衝突regression(Codexレビュー指摘P2対応) ----
+  // word/meaningの境界を跨いで衝突しうるペア: ("a b","c") と ("a","b c")。
+  // 空白結合キーだと両方とも同一とみなされ、後者が誤ってduplicate除去される。
+  {
+    const rows = sanitizeRows([{ word: "a b", meaning: "c" }, { word: "a", meaning: "b c" }]);
+    const hasAB = rows.some((r) => r.word === "a b" && r.meaning === "c");
+    const hasA = rows.some((r) => r.word === "a" && r.meaning === "b c");
+    if (rows.length === 2 && hasAB && hasA) {
+      ok('sanitizeRows(): word/meaning境界を跨いで衝突しうるペア("a b"/"c" と "a"/"b c")は両方とも保持される');
+    } else {
+      bad(`sanitizeRows(): 境界衝突ペアが誤って除去された: ${JSON.stringify(rows)}`);
+    }
+  }
+  {
+    const { rows } = parsePastedWords("a b,c\na,b c");
+    const hasAB = rows.some((r) => r.word === "a b" && r.meaning === "c");
+    const hasA = rows.some((r) => r.word === "a" && r.meaning === "b c");
+    if (rows.length === 2 && hasAB && hasA) {
+      ok('parsePastedWords(): word/meaning境界を跨いで衝突しうるペアは両方とも保持される');
+    } else {
+      bad(`parsePastedWords(): 境界衝突ペアが誤って除去された: ${JSON.stringify(rows)}`);
+    }
+  }
+  // 完全一致の重複は引き続き1件に除去される(sanitizeRows側)
+  {
+    const rows = sanitizeRows([{ word: "apple", meaning: "りんご" }, { word: "apple", meaning: "りんご" }]);
+    if (rows.length === 1) ok("sanitizeRows(): word+meaningが完全一致する重複は引き続き1件に除去される");
+    else bad(`sanitizeRows(): 完全重複の除去が想定外: ${JSON.stringify(rows)}`);
+  }
+  // trim後に一致する重複も除去される(前後空白の差異は無視される)
+  {
+    const rows = sanitizeRows([{ word: "apple", meaning: "りんご" }, { word: "  apple  ", meaning: "  りんご  " }]);
+    if (rows.length === 1) ok("sanitizeRows(): 前後空白のみが異なる重複(trim後に一致)も1件に除去される");
+    else bad(`sanitizeRows(): trim後重複の除去が想定外: ${JSON.stringify(rows)}`);
+  }
+  // parser側とsanitizeRows側で同一入力に対する重複判定結果が一致する(client/server不整合防止)
+  {
+    const pairs = [
+      ["a b", "c"], ["a", "b c"], ["apple", "りんご"], ["apple", "りんご"], ["  x  ", "  y  "], ["x", "y"],
+    ];
+    const pasted = pairs.map(([w, m]) => `${w},${m}`).join("\n");
+    const parserResult = parsePastedWords(pasted).rows.map((r) => `${r.word}${r.meaning}`).sort();
+    const sanitizeResult = sanitizeRows(pairs.map(([w, m]) => ({ word: w, meaning: m })))
+      .map((r) => `${r.word}${r.meaning}`).sort();
+    if (JSON.stringify(parserResult) === JSON.stringify(sanitizeResult)) {
+      ok("parsePastedWords()とsanitizeRows()は同一入力に対して同じ重複除去結果を返す(client/server整合)");
+    } else {
+      bad(`parser/sanitizeRowsの重複除去結果が不一致: parser=${JSON.stringify(parserResult)}, sanitize=${JSON.stringify(sanitizeResult)}`);
+    }
+  }
+
   // ---- escape(): XSSペイロードが実行可能HTMLにならない ----
   const xssPayloads = [
     "<script>alert(1)</script>",
