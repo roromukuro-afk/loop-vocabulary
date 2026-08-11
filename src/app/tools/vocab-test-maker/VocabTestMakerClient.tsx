@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { shuffle } from "@/lib/utils/shuffle";
 import { trackEvent } from "@/lib/analytics/track";
 import { parsePastedWords, MAX_WORDS, MAX_FIELD_LENGTH } from "@/lib/vocabTest/parsePastedWords";
-import { renderTestHtml } from "@/lib/vocabTest/renderTestHtml";
+import { renderTestHtml, MIN_CHOICE_ROWS } from "@/lib/vocabTest/renderTestHtml";
 import type { AnswerMode, Direction, Format, Order, Row } from "@/lib/vocabTest/types";
 
 // このpublic toolに固有のQR遷移先。既存 /pdf の teacher_pdf UTM とは分離する
@@ -145,6 +145,15 @@ export function VocabTestMakerClient() {
         : null
     );
 
+    // 4択は正解1つ+ダミー3つの計4選択肢が要るため、重複除去後の単語数が4語未満なら
+    // 生成させない(renderTestHtml側もfail-closedだが、ここで先に分かりやすいエラーを
+    // 表示する。有効な行数=parsePastedWords()が既に重複除去済みのrows.length)。
+    if (format === "choice" && rows.length < MIN_CHOICE_ROWS) {
+      setGenMsg(`4択形式には、重複を除いて最低${MIN_CHOICE_ROWS}語必要です(現在${rows.length}語)。「出題形式」を「記述」に変更するか、単語を追加してください。`);
+      setGeneratedRows(null);
+      return;
+    }
+
     const orderedRows = order === "random" ? shuffle(rows) : rows;
     setGeneratedRows(orderedRows);
 
@@ -166,16 +175,25 @@ export function VocabTestMakerClient() {
       color: { dark: "#1a2a4a", light: "#ffffff" },
     }).catch(() => null);
 
-    const html = renderTestHtml({
-      rows,
-      direction,
-      format,
-      columns: 1,
-      answerMode,
-      title: "英単語",
-      attribution: null,
-      qrDataUrl,
-    });
+    let html: string;
+    try {
+      html = renderTestHtml({
+        rows,
+        direction,
+        format,
+        columns: 1,
+        answerMode,
+        title: "英単語",
+        attribution: null,
+        qrDataUrl,
+      });
+    } catch {
+      // 呼び出し前validation(上のhandleGenerate内チェック)をすり抜けた場合の保険
+      // (render関数自身のfail-closedガード。通常はここに到達しない)。
+      setGenMsg(`4択形式には、重複を除いて最低${MIN_CHOICE_ROWS}語必要です。「出題形式」を「記述」に変更するか、単語を追加してください。`);
+      setGeneratedRows(null);
+      return;
+    }
     const w = window.open("", "_blank");
     if (!w) {
       setGenMsg("ポップアップがブロックされました。ブラウザの設定でこのサイトのポップアップを許可してください。");

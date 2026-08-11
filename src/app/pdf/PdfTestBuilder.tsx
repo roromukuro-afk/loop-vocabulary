@@ -11,7 +11,7 @@ import { trackFeatureUsed, trackPdfGenerateStart, trackPdfGenerateComplete } fro
 import { trackEvent } from "@/lib/analytics/track";
 import { todayStartJstISO } from "@/lib/utils/date";
 import type { AnswerMode, Columns, Direction, Format, Row } from "@/lib/vocabTest/types";
-import { renderTestHtml } from "@/lib/vocabTest/renderTestHtml";
+import { renderTestHtml, MIN_CHOICE_ROWS } from "@/lib/vocabTest/renderTestHtml";
 
 // PDF小テストの配布先（生徒・保護者）がオフラインから流入できるようにするための
 // QRコード遷移先。個人情報・生徒名・学校名・単語帳の内容は一切含めない、
@@ -111,6 +111,12 @@ export function PdfTestBuilder({
       const all = await fetchRows();
       const rows = sample(all, Math.min(count, all.length));
       if (rows.length === 0) { setMsg("対象の単語が見つかりませんでした"); return; }
+      // 4択は正解1つ+ダミー3つの計4選択肢が要るため、対象語数が4語未満なら生成させない
+      // (renderTestHtml側もfail-closedだが、ここで先に分かりやすいエラーを表示する)。
+      if (format === "choice" && rows.length < MIN_CHOICE_ROWS) {
+        setMsg(`4択形式には最低${MIN_CHOICE_ROWS}語必要です(対象${rows.length}語)。出題形式を「記述」に変更するか、対象を増やしてください。`);
+        return;
+      }
 
       // オフライン配布からの流入導線用に、固定の公開URLへ遷移するQRコードを
       // 印刷ウィンドウを開く前に生成しておく（外部通信なし、ローカル生成）。
@@ -136,14 +142,23 @@ export function PdfTestBuilder({
         ? [sourceMaterial.publisher, sourceMaterial.author].filter(Boolean).join(" / ")
         : null;
 
-      const html = renderTestHtml({
-        rows, direction, format, columns, answerMode,
-        title: src === "book"
-          ? books.find((b) => b.id === sourceId)?.title ?? "小テスト"
-          : materials.find((m) => m.id === sourceId)?.title ?? "小テスト",
-        attribution,
-        qrDataUrl,
-      });
+      let html: string;
+      try {
+        html = renderTestHtml({
+          rows, direction, format, columns, answerMode,
+          title: src === "book"
+            ? books.find((b) => b.id === sourceId)?.title ?? "小テスト"
+            : materials.find((m) => m.id === sourceId)?.title ?? "小テスト",
+          attribution,
+          qrDataUrl,
+        });
+      } catch {
+        // 呼び出し前validation(上のrows.length < MIN_CHOICE_ROWSチェック)をすり抜けた
+        // 場合の保険(例: DB上の単語がword+meaning完全一致で重複しており、実際の
+        // ユニーク語数が対象語数より少ないケース)。render関数自身のfail-closedガード。
+        setMsg(`4択形式には最低${MIN_CHOICE_ROWS}語(重複を除く)必要です。出題形式を「記述」に変更するか、対象を増やしてください。`);
+        return;
+      }
       const w = window.open("", "_blank");
       if (!w) { setMsg("ポップアップがブロックされました"); return; }
       w.document.write(html);

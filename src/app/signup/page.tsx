@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { trackSignupComplete } from "@/lib/analytics/events";
 import { trackEvent } from "@/lib/analytics/track";
+import { getSafeNextPath } from "@/lib/utils/safeNextPath";
 
 export default function SignupPage() {
   return (
@@ -21,7 +22,9 @@ function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   // next: /loginと同じ規約。未指定時は従来どおり/dashboard(後方互換)。
-  const next = searchParams.get("next") || "/dashboard";
+  // getSafeNextPath()で内部の相対パスのみに限定する(open redirect / javascript:
+  // スキーム注入対策。詳細はsrc/lib/utils/safeNextPath.tsのコメント参照)。
+  const next = getSafeNextPath(searchParams.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

@@ -199,10 +199,23 @@ function inferCategoryTests(diffFiles) {
     )
   ) {
     // ネットワーク・DB・ログイン不要の純粋関数単体テストのみ(parser・sanitizeRows・
-    // renderTestHtmlのescape処理)。/api/tools/vocab-test-maker/saveの実DB書き込み・
-    // 実ログインを伴うE2E(test:vocab-test-maker-anonymous/-authenticated)は
-    // test:premium-gatingと同じ理由でこの独立CIでは選ばない。
+    // renderTestHtmlのescape処理・4択最低語数のfail-closedガード)。
+    // /api/tools/vocab-test-maker/saveの実DB書き込み・実ログインを伴うE2E
+    // (test:vocab-test-maker-anonymous/-authenticated)はtest:premium-gatingと
+    // 同じ理由でこの独立CIでは選ばない。
     tests.add("test:vocab-test-maker-parser");
+  }
+  if (
+    diffFiles.some(
+      (f) =>
+        f === "src/lib/utils/safeNextPath.ts" ||
+        f === "src/app/signup/page.tsx" ||
+        f === "src/app/login/page.tsx"
+    )
+  ) {
+    // ネットワーク・DB・ログイン不要の純粋関数単体テストのみ(open redirect /
+    // javascript:スキーム注入対策、Codexレビュー指摘P1対応)。
+    tests.add("test:safe-next-path");
   }
   if (
     diffFiles.some(

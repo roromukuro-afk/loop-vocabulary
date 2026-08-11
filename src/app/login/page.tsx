@@ -7,6 +7,7 @@ import { isSupabaseNotConfigured } from "@/lib/supabase/env";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { trackLoginComplete } from "@/lib/analytics/events";
+import { getSafeNextPath } from "@/lib/utils/safeNextPath";
 
 type Mode = "password" | "magic";
 
@@ -21,7 +22,9 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/dashboard";
+  // getSafeNextPath()で内部の相対パスのみに限定する(open redirect / javascript:
+  // スキーム注入対策。詳細はsrc/lib/utils/safeNextPath.tsのコメント参照)。
+  const next = getSafeNextPath(searchParams.get("next"));
   const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

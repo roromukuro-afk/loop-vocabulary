@@ -12,7 +12,7 @@
  * 使い方: node scripts/testing/test-vocab-test-maker-parser.mjs
  */
 import { parsePastedWords, sanitizeRows, MAX_WORDS, MAX_FIELD_LENGTH } from "../../src/lib/vocabTest/parsePastedWords.ts";
-import { renderTestHtml, escape } from "../../src/lib/vocabTest/renderTestHtml.ts";
+import { renderTestHtml, escape, MIN_CHOICE_ROWS } from "../../src/lib/vocabTest/renderTestHtml.ts";
 
 let pass = 0, fail = 0;
 function ok(msg) { console.log(`✅ ${msg}`); pass++; }
@@ -173,6 +173,68 @@ function main() {
     } else {
       bad("4択形式(choice)の出力でXSSペイロードがエスケープされていない");
     }
+  }
+
+  // ---- 4択(choice)は最低MIN_CHOICE_ROWS語(重複除く)必要(fail-closed) ----
+  const makeRows = (n) => Array.from({ length: n }, (_, i) => ({ word: `w${i}`, meaning: `m${i}` }));
+  const baseArgs = { direction: "en2ja", columns: 1, answerMode: "none", title: "テスト", attribution: null, qrDataUrl: null };
+
+  for (const n of [1, 2, 3]) {
+    let threw = false;
+    try {
+      renderTestHtml({ rows: makeRows(n), format: "choice", ...baseArgs });
+    } catch {
+      threw = true;
+    }
+    if (threw) ok(`4択形式: ${n}語(<${MIN_CHOICE_ROWS})では生成が拒否される(fail-closed)`);
+    else bad(`4択形式: ${n}語でも生成できてしまっている(壊れた選択肢が生成されるリスク)`);
+  }
+
+  // 記述式(write)は1語以上で引き続き利用可能
+  {
+    let threw = false;
+    try {
+      renderTestHtml({ rows: makeRows(1), format: "write", ...baseArgs });
+    } catch {
+      threw = true;
+    }
+    if (!threw) ok("記述式(write)は1語でも引き続き生成できる(4択のみの制限であることの確認)");
+    else bad("記述式(write)が1語で拒否されてしまっている(制限範囲が広すぎる)");
+  }
+
+  // ちょうどMIN_CHOICE_ROWS語: 生成でき、各問exactly 4選択肢
+  {
+    const html4 = renderTestHtml({ rows: makeRows(MIN_CHOICE_ROWS), format: "choice", ...baseArgs });
+    const choiceBlocks = [...html4.matchAll(/<div class="choices">(.*?)<\/div>/g)];
+    const allExactly4 = choiceBlocks.length === MIN_CHOICE_ROWS &&
+      choiceBlocks.every((m) => (m[1].match(/<span>/g) || []).length === 4);
+    if (allExactly4) ok(`4択形式: ちょうど${MIN_CHOICE_ROWS}語で生成でき、${MIN_CHOICE_ROWS}問とも選択肢exactly4件`);
+    else bad(`4択形式: ${MIN_CHOICE_ROWS}語での選択肢数が想定外: ${choiceBlocks.map((m) => (m[1].match(/<span>/g) || []).length)}`);
+  }
+
+  // 5語以上: 各問exactly 4選択肢
+  {
+    const html7 = renderTestHtml({ rows: makeRows(7), format: "choice", ...baseArgs });
+    const choiceBlocks = [...html7.matchAll(/<div class="choices">(.*?)<\/div>/g)];
+    const allExactly4 = choiceBlocks.length === 7 && choiceBlocks.every((m) => (m[1].match(/<span>/g) || []).length === 4);
+    if (allExactly4) ok("4択形式: 7語(5語以上)でも各問とも選択肢exactly4件");
+    else bad(`4択形式: 7語での選択肢数が想定外: ${choiceBlocks.map((m) => (m[1].match(/<span>/g) || []).length)}`);
+  }
+
+  // 重複除去後にMIN_CHOICE_ROWS未満になるケースも拒否される
+  {
+    const dupRows = [
+      { word: "a", meaning: "1" }, { word: "a", meaning: "1" }, // 重複
+      { word: "b", meaning: "2" }, { word: "c", meaning: "3" },
+    ]; // unique = 3語 < MIN_CHOICE_ROWS
+    let threw = false;
+    try {
+      renderTestHtml({ rows: dupRows, format: "choice", ...baseArgs });
+    } catch {
+      threw = true;
+    }
+    if (threw) ok("4択形式: 重複除去後に3語になるケースも拒否される(呼び出し側の重複除去に頼らない)");
+    else bad("4択形式: 重複除去後3語のケースが生成できてしまっている");
   }
 
   console.log(`\n=== test:vocab-test-maker-parser RESULT: ${pass} passed, ${fail} failed ===`);
