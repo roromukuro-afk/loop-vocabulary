@@ -52,6 +52,7 @@
     "test:eiken-conversation-content": "node scripts/testing/e2e/eiken-conversation-content.mjs",
     "test:toeic-tango-content": "node scripts/testing/e2e/toeic-tango-content.mjs",
     "test:vocab-check-share-card": "node scripts/testing/e2e/vocab-check-share-card.mjs",
+    "test:vocab-check-acquisition-discoverability": "node scripts/testing/e2e/vocab-check-acquisition-discoverability.mjs",
     "test:short-video-content-queue": "node scripts/testing/test-short-video-content-queue.mjs",
     "test:reports-page": "node scripts/testing/e2e/reports-page.mjs",
     "test:review-date-calculator": "node scripts/testing/e2e/review-date-calculator.mjs",

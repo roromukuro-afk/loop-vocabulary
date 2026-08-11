@@ -146,8 +146,9 @@ export default function JukuVocabularyTestPage() {
         <div className="bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-6 text-white text-center">
           <div className="font-black text-lg mb-1">個別対応の小テストを作る</div>
           <p className="text-sm text-navy-300 mb-4">生徒ごとに単語帳を分けて、1日3回まで無料で小テストを作成できます。</p>
-          <div className="flex gap-3 justify-center">
+          <div className="flex gap-3 justify-center flex-wrap">
             <Link href="/signup" className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">無料で始める →</Link>
+            <Link href="/vocab-check" className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">語彙力チェック（無料）</Link>
           </div>
         </div>
 

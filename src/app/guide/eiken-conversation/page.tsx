@@ -337,10 +337,10 @@ export default function EikenConversationPage() {
               無料で始める →
             </Link>
             <Link
-              href="/vocab-check"
+              href="/vocab-check/eiken"
               className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors"
             >
-              語彙力を診断する
+              英検語彙チェック
             </Link>
           </div>
         </div>

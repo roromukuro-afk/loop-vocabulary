@@ -138,7 +138,7 @@ export function trackVocabCheckShareClick(variant: VocabCheckVariant) {
   gtag("vocab_check_share_click", { variant, event_category: "viral" });
 }
 
-export function trackVocabCheckCtaClick(variant: VocabCheckVariant, target: "signup" | "login" | "materials" | "guide" | "vocab_check_variant") {
+export function trackVocabCheckCtaClick(variant: VocabCheckVariant, target: "signup" | "login" | "materials" | "guide" | "vocab_check_variant" | "dictionary") {
   gtag("vocab_check_cta_click", { variant, target, event_category: "conversion" });
 }
 
