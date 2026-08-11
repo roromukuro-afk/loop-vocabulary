@@ -253,6 +253,12 @@ async function main() {
 
     console.log("\n=== 70. 語彙力チェックのオーガニック発見性強化 E2E ===");
     results.vocabCheckAcquisitionDiscoverability = runNode("scripts/testing/e2e/vocab-check-acquisition-discoverability.mjs");
+
+    console.log("\n=== 71. 英単語テスト作成ツール(未ログイン) E2E ===");
+    results.vocabTestMakerAnonymous = runNode("scripts/testing/e2e/vocab-test-maker-anonymous.mjs");
+
+    console.log("\n=== 72. 英単語テスト作成ツール(ログイン済み) E2E ===");
+    results.vocabTestMakerAuthenticated = runNode("scripts/testing/e2e/vocab-test-maker-authenticated.mjs");
   } finally {
     stopDevServer(dev);
   }

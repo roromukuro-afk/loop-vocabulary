@@ -89,6 +89,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/dictionary`,         changeFrequency: "weekly",  priority: 0.8 },
     { url: `${base}/premium`,            changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/tools`,              changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/tools/vocab-test-maker`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/review-date-calculator`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/exam-countdown-planner`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/materials`,          changeFrequency: "weekly",  priority: 0.9 },

@@ -37,6 +37,22 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
     properties: { source: "string", medium: "string" },
   },
 
+  // ── 英単語小テスト作成ツール(no-login公開ツール) ─────────
+  // word/meaning等の自由記述入力は絶対に送らない(集計向けの非個人値のみ)。
+  vocab_test_maker_page_viewed: { category: "acquisition", properties: {} },
+  vocab_test_maker_generated: {
+    category: "acquisition",
+    properties: {
+      row_count: "number",
+      direction: "string",
+      format: "string",
+      randomized: "boolean",
+      answer_mode: "string",
+    },
+  },
+  vocab_test_maker_parse_failed: { category: "acquisition", properties: { reason: "string" } },
+  vocab_test_maker_srs_cta_clicked: { category: "acquisition", properties: { authenticated: "boolean" } },
+
   // ── 語彙力チェック ─────────────────────────────────────
   // vocab_check_page_viewed: GA4側のvocab_check_view(トップ表示)に対応。診断を開始せず
   // 離脱したユーザーもGrowth OS側で捕捉できるようにする(以前はstartedのみで欠落していた)。
@@ -116,6 +132,9 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   // のみを許可する。単語帳タイトルはプライバシー方針(ANALYTICS_PRIVACY_POLICY.md)で
   // 送信禁止のため、titleプロパティは絶対に追加しないこと。
   wordbook_created: { category: "onboarding", properties: { source_type: "string" } },
+  // vocab_test_maker_saved_to_wordbook: /tools/vocab-test-makerから単語帳を作成した時に
+  // wordbook_created(source_type:"custom")と併せて発火する、ツール固有の集計用イベント。
+  vocab_test_maker_saved_to_wordbook: { category: "onboarding", properties: { row_count: "number" } },
   first_test_started: { category: "onboarding", properties: {} },
   first_test_completed: { category: "onboarding", properties: {} },
   first_review_completed: { category: "onboarding", properties: {} },
