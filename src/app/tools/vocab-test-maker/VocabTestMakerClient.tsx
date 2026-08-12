@@ -9,7 +9,8 @@ import { createClient } from "@/lib/supabase/client";
 import { shuffle } from "@/lib/utils/shuffle";
 import { trackEvent } from "@/lib/analytics/track";
 import { parsePastedWords, MAX_WORDS, MAX_FIELD_LENGTH } from "@/lib/vocabTest/parsePastedWords";
-import { renderTestHtml, MIN_CHOICE_ROWS } from "@/lib/vocabTest/renderTestHtml";
+import type { ParseWarning } from "@/lib/vocabTest/parsePastedWords";
+import { renderTestHtml, MIN_CHOICE_ROWS, countUniqueAnswers } from "@/lib/vocabTest/renderTestHtml";
 import type { AnswerMode, Direction, Format, Order, Row } from "@/lib/vocabTest/types";
 
 // このpublic toolに固有のQR遷移先。既存 /pdf の teacher_pdf UTM とは分離する
@@ -67,6 +68,20 @@ function writePendingPayload(rows: Row[]): boolean {
 
 function clearPendingPayload() {
   try { sessionStorage.removeItem(PENDING_KEY); } catch { /* noop */ }
+}
+
+// スキップされた行の理由を種類ごとに数えて具体的に示す(「意味の欠落・200文字超過・
+// 重複・上限超過のいずれか」という一律の羅列だと、利用者は自分の入力の何が悪かったのか
+// 分からず次に何を直せばよいか判断できない。次に何をすればよいか分かる日本語にする)。
+function summarizeWarnings(warnings: ParseWarning[]): string {
+  const counts = { missing_field: 0, overlength: 0, duplicate: 0, over_limit: 0 };
+  for (const w of warnings) counts[w.type]++;
+  const parts: string[] = [];
+  if (counts.missing_field > 0) parts.push(`意味または英単語の欠落: ${counts.missing_field}行`);
+  if (counts.overlength > 0) parts.push(`1フィールド${MAX_FIELD_LENGTH}文字超過: ${counts.overlength}行`);
+  if (counts.duplicate > 0) parts.push(`重複: ${counts.duplicate}行`);
+  if (counts.over_limit > 0) parts.push(`${MAX_WORDS}語上限超過: ${counts.over_limit}行`);
+  return `${warnings.length}行はスキップされました(${parts.join("、")})`;
 }
 
 export function VocabTestMakerClient() {
@@ -139,17 +154,16 @@ export function VocabTestMakerClient() {
       setGeneratedRows(null);
       return;
     }
-    setParseMsg(
-      warnings.length > 0
-        ? `${warnings.length}行はスキップされました(意味の欠落・200文字超過・重複・${MAX_WORDS}語上限超過のいずれか)`
-        : null
-    );
+    setParseMsg(warnings.length > 0 ? summarizeWarnings(warnings) : null);
 
-    // 4択は正解1つ+ダミー3つの計4選択肢が要るため、重複除去後の単語数が4語未満なら
-    // 生成させない(renderTestHtml側もfail-closedだが、ここで先に分かりやすいエラーを
-    // 表示する。有効な行数=parsePastedWords()が既に重複除去済みのrows.length)。
-    if (format === "choice" && rows.length < MIN_CHOICE_ROWS) {
-      setGenMsg(`4択形式には、重複を除いて最低${MIN_CHOICE_ROWS}語必要です(現在${rows.length}語)。「出題形式」を「記述」に変更するか、単語を追加してください。`);
+    // 4択は正解1つ+ダミー3つの計4選択肢が要るため、「答え側の値」がdistinctで
+    // 4種類未満なら生成させない(renderTestHtml側もfail-closedだが、ここで先に
+    // 分かりやすいエラーを表示する。row数ではなく答え側の値の種類数で判定する —
+    // 例えば異なる単語が複数同じ意味を持つ場合、row数は足りていても選択肢として
+    // 使える答えの種類が足りないことがあるため)。
+    const uniqueAnswers = countUniqueAnswers(rows, direction);
+    if (format === "choice" && uniqueAnswers < MIN_CHOICE_ROWS) {
+      setGenMsg(`4択形式には、答えの種類が異なる組み合わせが最低${MIN_CHOICE_ROWS}種類必要です(現在${uniqueAnswers}種類)。「出題形式」を「記述」に変更するか、単語を追加してください。`);
       setGeneratedRows(null);
       return;
     }
@@ -169,6 +183,16 @@ export function VocabTestMakerClient() {
   };
 
   const openPrintWindow = async (rows: Row[]) => {
+    // window.open()はclickのuser activationがasync境界(await)を跨ぐと失効し、
+    // 後から呼ぶとブラウザにブロックされることがある。そのため、QR生成等の
+    // await より前に同期的にwindow.openを呼び、後から内容を書き込む
+    // (Codexレビュー指摘対応)。
+    const w = window.open("", "_blank");
+    if (!w) {
+      setGenMsg("ポップアップがブロックされました。ブラウザの設定でこのサイトのポップアップを許可してください。");
+      return;
+    }
+
     const qrDataUrl = await QRCode.toDataURL(QR_TARGET_URL, {
       width: 88,
       margin: 0,
@@ -190,13 +214,11 @@ export function VocabTestMakerClient() {
     } catch {
       // 呼び出し前validation(上のhandleGenerate内チェック)をすり抜けた場合の保険
       // (render関数自身のfail-closedガード。通常はここに到達しない)。
-      setGenMsg(`4択形式には、重複を除いて最低${MIN_CHOICE_ROWS}語必要です。「出題形式」を「記述」に変更するか、単語を追加してください。`);
+      // 既に開いてしまった空タブは、内容を書き込まずそのまま残すと利用者が
+      // 混乱するため閉じる。
+      w.close();
+      setGenMsg(`4択形式には、答えの種類が異なる組み合わせが最低${MIN_CHOICE_ROWS}種類必要です。「出題形式」を「記述」に変更するか、単語を追加してください。`);
       setGeneratedRows(null);
-      return;
-    }
-    const w = window.open("", "_blank");
-    if (!w) {
-      setGenMsg("ポップアップがブロックされました。ブラウザの設定でこのサイトのポップアップを許可してください。");
       return;
     }
     w.document.write(html);
@@ -355,7 +377,7 @@ export function VocabTestMakerClient() {
               </button>
             </div>
             {saveMsg && (
-              <div role="status" className={`mt-3 text-sm ${saveMsg.kind === "ok" ? "text-emerald-300" : "text-red-300"}`}>
+              <div role={saveMsg.kind === "ok" ? "status" : "alert"} className={`mt-3 text-sm ${saveMsg.kind === "ok" ? "text-emerald-300" : "text-red-300"}`}>
                 {saveMsg.text}
                 {saveMsg.kind === "ok" && saveMsg.wordbookId && (
                   <>

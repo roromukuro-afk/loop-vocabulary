@@ -70,6 +70,24 @@ async function main() {
       await login(page, baseUrl, email, password);
       await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
 
+      // word-count milestone(five_words_added/ten_words_added)がこの保存経路でも
+      // 発火するかを、実際のDB件数から動的に期待値を算出して検証する(Codexレビュー
+      // 指摘対応)。共有テストアカウントの既存語数に依存させないため、固定シナリオでは
+      // なく「保存前件数→保存後件数」の実測値から期待発火有無を計算する。
+      const milestoneCheckStartedAt = new Date().toISOString();
+      const { count: wordsCountBeforeA } = await admin
+        .from("words")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", testUserId);
+
+      // lv_aid(匿名セッションID、page_viewed等のクライアントイベントに付与済み)を
+      // 保存完了イベント側でも記録できているか後で照合するため、ここで値を控えておく
+      // (監査で発見した「匿名funnel↔認証後の保存完了が同じキーで繋がらない」P2対応)。
+      const lvAidBeforeSaveA = await page.evaluate(() => {
+        const m = document.cookie.match(/(?:^|; )lv_aid=([^;]*)/);
+        return m ? decodeURIComponent(m[1]) : null;
+      });
+
       const paste = "apple,りんご\nbeautiful,美しい\nenvironment,環境";
       await page.locator('[data-testid="vocab-test-paste-input"]').fill(paste);
 
@@ -116,6 +134,44 @@ async function main() {
             ok("シナリオA: 保存されたwordsの語数・内容が貼り付けた単語と一致する");
           } else {
             fail(`シナリオA: wordsの内容が想定外: ${JSON.stringify(words)}`);
+          }
+
+          // word-count milestone: 保存前後の実件数から期待される発火有無を計算し、
+          // analytics_eventsに実際に記録されているか(=記録されるべきでないなら
+          // 記録されていないか)を確認する。
+          const wordsCountAfterA = (wordsCountBeforeA ?? 0) + (words?.length ?? 0);
+          const expectFive = (wordsCountBeforeA ?? 0) < 5 && wordsCountAfterA >= 5;
+          const expectTen = (wordsCountBeforeA ?? 0) < 10 && wordsCountAfterA >= 10;
+          const { data: milestoneEvents } = await admin
+            .from("analytics_events")
+            .select("event_name")
+            .eq("user_id", testUserId)
+            .in("event_name", ["five_words_added", "ten_words_added"])
+            .gte("occurred_at", milestoneCheckStartedAt);
+          const gotFive = (milestoneEvents ?? []).some((e) => e.event_name === "five_words_added");
+          const gotTen = (milestoneEvents ?? []).some((e) => e.event_name === "ten_words_added");
+          if (gotFive === expectFive && gotTen === expectTen) {
+            ok(`シナリオA: word-count milestone(five/ten_words_added)がこの保存経路でも他の保存経路と同様に判定・記録される(before=${wordsCountBeforeA}, after=${wordsCountAfterA}, five=${gotFive}, ten=${gotTen})`);
+          } else {
+            fail(`シナリオA: word-count milestoneの発火有無が想定外(before=${wordsCountBeforeA}, after=${wordsCountAfterA}, expectFive=${expectFive}/gotFive=${gotFive}, expectTen=${expectTen}/gotTen=${gotTen})`);
+          }
+
+          // 匿名funnel(page_viewed/generated/srs_cta_clicked)と、認証後に発火する
+          // 保存完了イベント(vocab_test_maker_saved_to_wordbook)が、同じlv_aidで
+          // 繋がるようになっているかを確認する(監査で発見したP2対応)。
+          const { data: savedEvents } = await admin
+            .from("analytics_events")
+            .select("anonymous_session_id")
+            .eq("user_id", testUserId)
+            .eq("event_name", "vocab_test_maker_saved_to_wordbook")
+            .gte("occurred_at", milestoneCheckStartedAt)
+            .order("occurred_at", { ascending: false })
+            .limit(1);
+          const recordedSessionId = savedEvents?.[0]?.anonymous_session_id ?? null;
+          if (lvAidBeforeSaveA && recordedSessionId === lvAidBeforeSaveA) {
+            ok(`シナリオA: vocab_test_maker_saved_to_wordbookに、閲覧時と同じanonymous_session_id(lv_aid)が記録される(匿名funnelとの結合キーが繋がる)`);
+          } else {
+            fail(`シナリオA: anonymous_session_idが繋がっていない(cookie=${lvAidBeforeSaveA}, DB記録=${recordedSessionId})`);
           }
 
           // 二重送信で2件目のword_booksが作られていないことを確認

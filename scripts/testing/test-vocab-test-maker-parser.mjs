@@ -12,7 +12,7 @@
  * 使い方: node scripts/testing/test-vocab-test-maker-parser.mjs
  */
 import { parsePastedWords, sanitizeRows, MAX_WORDS, MAX_FIELD_LENGTH } from "../../src/lib/vocabTest/parsePastedWords.ts";
-import { renderTestHtml, escape, MIN_CHOICE_ROWS } from "../../src/lib/vocabTest/renderTestHtml.ts";
+import { renderTestHtml, escape, MIN_CHOICE_ROWS, countUniqueAnswers } from "../../src/lib/vocabTest/renderTestHtml.ts";
 
 let pass = 0, fail = 0;
 function ok(msg) { console.log(`✅ ${msg}`); pass++; }
@@ -286,6 +286,57 @@ function main() {
     }
     if (threw) ok("4択形式: 重複除去後に3語になるケースも拒否される(呼び出し側の重複除去に頼らない)");
     else bad("4択形式: 重複除去後3語のケースが生成できてしまっている");
+  }
+
+  // ---- 4択の選択肢はrow数ではなく「答え側のdistinctな値」で判定・抽出する(Codexレビュー指摘対応) ----
+  // 異なる4つの英単語がすべて同じ意味を持つ場合、word+meaningのペアとしては4件distinctでも、
+  // 答え側(meaning)の値としては1種類しかなく、正しい4択問題を作れない。
+  {
+    const sameAnswerRows = [
+      { word: "apple", meaning: "果物" },
+      { word: "orange", meaning: "果物" },
+      { word: "banana", meaning: "果物" },
+      { word: "grape", meaning: "果物" },
+    ];
+    if (countUniqueAnswers(sameAnswerRows, "en2ja") === 1) {
+      ok("countUniqueAnswers(): 答えの値が全行同じ場合、distinct数は1と正しく判定される");
+    } else {
+      bad(`countUniqueAnswers(): 判定が想定外: ${countUniqueAnswers(sameAnswerRows, "en2ja")}`);
+    }
+    let threw = false;
+    try {
+      renderTestHtml({ rows: sameAnswerRows, format: "choice", ...baseArgs });
+    } catch {
+      threw = true;
+    }
+    if (threw) ok("4択形式: row数は4件でも答えの値が1種類しかない場合は生成が拒否される(fail-closed)");
+    else bad("4択形式: 答えの値が1種類しかないのに生成できてしまっている(壊れた/重複した選択肢のリスク)");
+  }
+  // 答えの値が4種類ちょうどある場合(一部の行は答えを共有)は生成でき、各問の選択肢がdistinctになる
+  {
+    const mixedRows = [
+      { word: "apple", meaning: "果物" },
+      { word: "orange", meaning: "果物" }, // appleと答えを共有
+      { word: "dog", meaning: "犬" },
+      { word: "cat", meaning: "猫" },
+      { word: "car", meaning: "車" },
+    ]; // 答え側のdistinct値: 果物・犬・猫・車 の4種類
+    if (countUniqueAnswers(mixedRows, "en2ja") === 4) {
+      ok("countUniqueAnswers(): 一部行が答えを共有していてもdistinct数を正しく数える(4種類)");
+    } else {
+      bad(`countUniqueAnswers(): 判定が想定外: ${countUniqueAnswers(mixedRows, "en2ja")}`);
+    }
+    const html = renderTestHtml({ rows: mixedRows, format: "choice", ...baseArgs });
+    const choiceBlocks = [...html.matchAll(/<div class="choices">(.*?)<\/div>/g)];
+    const allDistinctAndExactly4 = choiceBlocks.length === mixedRows.length && choiceBlocks.every((m) => {
+      const labels = [...m[1].matchAll(/<span>[^.]+\.\s([^<]*)<\/span>/g)].map((mm) => mm[1]);
+      return labels.length === 4 && new Set(labels).size === 4;
+    });
+    if (allDistinctAndExactly4) {
+      ok("4択形式: 答えを共有する行があっても、各問の選択肢は4件ともdistinctな値になる(重複表示なし)");
+    } else {
+      bad("4択形式: 一部の問いで選択肢が重複している、または4件になっていない");
+    }
   }
 
   console.log(`\n=== test:vocab-test-maker-parser RESULT: ${pass} passed, ${fail} failed ===`);

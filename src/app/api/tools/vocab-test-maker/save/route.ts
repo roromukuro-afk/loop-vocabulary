@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { trackServerEvent } from "@/lib/analytics/trackServerEvent";
+import { trackServerEvent, trackWordCountMilestones } from "@/lib/analytics/trackServerEvent";
 import { sanitizeRows } from "@/lib/vocabTest/parsePastedWords";
 
 export const runtime = "nodejs";
@@ -61,6 +61,12 @@ export async function POST(req: NextRequest) {
     meaning: r.meaning,
   }));
 
+  // milestone判定用に挿入前件数を取得しておく(bulk-add等の既存保存経路と同じ方式)。
+  const { count: countBefore } = await supabase
+    .from("words")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
   const { error: wordsErr } = await supabase.from("words").insert(wordRows);
   if (wordsErr) {
     // 単語の永続化に失敗した場合、空のwordbookをorphanとして残さない。
@@ -75,8 +81,18 @@ export async function POST(req: NextRequest) {
 
   // analyticsはここまで(wordbook作成・単語挿入とも成功確定)まで発火しない。
   // 失敗してもこのAPI自体の成功レスポンスを妨げない(trackServerEventは例外を握りつぶす)。
-  await trackServerEvent("wordbook_created", { userId: user.id, properties: { source_type: "custom" } });
-  await trackServerEvent("vocab_test_maker_saved_to_wordbook", { userId: user.id, properties: { row_count: rows.length } });
+  //
+  // anonymous_session_id: page_viewed/generated/srs_cta_clickedはクライアント側で
+  // lv_aid cookie(1年、未認証時から発行済み)付きで送信されるが、この保存イベントは
+  // サーバー側発火のためこれまでnull固定になっており、匿名時点の行動(閲覧→生成→CTA)と
+  // 認証後のこの保存完了イベントを同じセッションとして繋げられなかった。同一originの
+  // fetch()はcookieを自動送信するため、ここでもlv_aidを読み取り同じ列に入れることで、
+  // 他のイベントと同じ相関キーで繋げられるようにする(/api/analytics/eventsの
+  // 既存クライアント経路と同じ「未信用の相関キーとして100文字に切り詰め」方針)。
+  const anonymousSessionId = req.cookies.get("lv_aid")?.value ?? null;
+  await trackServerEvent("wordbook_created", { userId: user.id, anonymousSessionId, properties: { source_type: "custom" } });
+  await trackServerEvent("vocab_test_maker_saved_to_wordbook", { userId: user.id, anonymousSessionId, properties: { row_count: rows.length } });
+  await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + wordRows.length);
 
   return NextResponse.json({ ok: true, wordbook_id: newBook.id, word_count: rows.length });
 }

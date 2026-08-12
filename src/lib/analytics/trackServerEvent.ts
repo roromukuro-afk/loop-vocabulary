@@ -13,15 +13,20 @@ import { isAllowedEventName, sanitizeProperties } from "./eventSchema";
 
 export async function trackServerEvent(
   eventName: string,
-  opts: { userId?: string | null; properties?: Record<string, unknown> } = {},
+  opts: { userId?: string | null; anonymousSessionId?: string | null; properties?: Record<string, unknown> } = {},
 ): Promise<void> {
   try {
     if (!isAllowedEventName(eventName)) return;
     const admin = createAdminClient();
+    // anonymous_session_idは/api/analytics/events(クライアント側送信経路)と同じ
+    // 「未信用のまま100文字に切り詰めて保存」方針(rate limit以外の用途には使わない
+    // ただの相関キーであり、認証やアクセス制御には使わない)。
+    const anonymousSessionId =
+      typeof opts.anonymousSessionId === "string" ? opts.anonymousSessionId.slice(0, 100) : null;
     const { error } = await admin.from("analytics_events").insert({
       event_name: eventName,
       occurred_at: new Date().toISOString(),
-      anonymous_session_id: null,
+      anonymous_session_id: anonymousSessionId,
       user_id: opts.userId ?? null,
       page_type: null,
       path: null,

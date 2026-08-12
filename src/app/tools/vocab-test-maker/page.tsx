@@ -14,6 +14,19 @@ export const metadata: Metadata = {
     description: "自分の単語リストから、登録不要ですぐ英単語の小テストを作成できます。",
     url: PAGE_URL,
     type: "website",
+    siteName: "Loop Vocabulary",
+    locale: "ja_JP",
+    // ページ側でopenGraphを指定するとlayout.tsxのopenGraph(images含む)は
+    // フィールドごとにdeep mergeされず丸ごと置き換わるため、共通のOG画像を
+    // ここでも明示しないとSNSシェア時に画像なしになる(既存vocab-check等と
+    // 同じ欠落パターンだったため、このページ分のみ明示的に補う)。
+    images: [{ url: `${SITE_URL}/api/og`, width: 1200, height: 630, alt: "Loop Vocabulary" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "英単語テスト作成【無料・登録不要】",
+    description: "自分の単語リストから、登録不要ですぐ英単語の小テストを作成できます。",
+    images: [`${SITE_URL}/api/og`],
   },
 };
 

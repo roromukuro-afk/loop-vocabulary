@@ -58,6 +58,16 @@ async function main() {
     if (robotsMeta && /noindex/i.test(robotsMeta)) fail("noindexが設定されている");
     else ok("noindexになっていない");
 
+    // ---- OG/Twitter Card: SNSシェア時に画像なしにならないことの確認(監査で発見したP2対応) ----
+    const ogImage = await page.locator('meta[property="og:image"]').getAttribute("content").catch(() => null);
+    const twitterCard = await page.locator('meta[name="twitter:card"]').getAttribute("content").catch(() => null);
+    const twitterImage = await page.locator('meta[name="twitter:image"]').getAttribute("content").catch(() => null);
+    if (ogImage && twitterCard === "summary_large_image" && twitterImage) {
+      ok(`OG画像・Twitter Cardが設定されている (og:image=${ogImage})`);
+    } else {
+      fail(`OG画像/Twitter Cardが不足: og:image=${ogImage}, twitter:card=${twitterCard}, twitter:image=${twitterImage}`);
+    }
+
     const ldJson = await page.evaluate(() => {
       const scripts = [...document.querySelectorAll('script[type="application/ld+json"]')];
       return scripts.map((s) => { try { return JSON.parse(s.textContent || "null"); } catch { return null; } });
@@ -95,12 +105,58 @@ async function main() {
     if (toolsLinkCount > 0) ok("/toolsからの内部リンクが存在する");
     else fail("/toolsからの内部リンクが見つからない");
 
-    // ---- guideからの内部リンクサンプル ----
-    const guideSample = "/guide/vocabulary-quiz-pdf-for-teachers";
-    await gotoReady(page, `${baseUrl}${guideSample}`);
-    const guideLinkCount = await page.locator(`a[href="${PAGE_PATH}"]`).count();
-    if (guideLinkCount > 0) ok(`${guideSample}からの内部リンクが存在する`);
-    else fail(`${guideSample}からの内部リンクが見つからない`);
+    // ---- guideからの内部リンク: 監査でHIGH関連度と判定した9ガイド全件 ----
+    // (既存5件 + 監査で新規追加した4件。うちeitango-no-oboekataは他と違うCTAカード形式)。
+    const highRelevanceGuides = [
+      "/guide/vocabulary-quiz-pdf-for-teachers",
+      "/guide/english-vocabulary-quiz-maker",
+      "/guide/printable-english-vocabulary-test",
+      "/guide/juku-vocabulary-test",
+      "/guide/high-school-english-vocabulary-test",
+      "/guide/flashcards-vs-multiple-choice",
+      "/guide/school-test-vocabulary",
+      "/guide/eitango-oboeru-houhou",
+      "/guide/eitango-no-oboekata",
+    ];
+    const anchorTexts = new Set();
+    for (const guideSample of highRelevanceGuides) {
+      await gotoReady(page, `${baseUrl}${guideSample}`);
+      const link = page.locator(`a[href="${PAGE_PATH}"]`).first();
+      const guideLinkCount = await page.locator(`a[href="${PAGE_PATH}"]`).count();
+      if (guideLinkCount > 0) {
+        ok(`${guideSample}からの内部リンクが存在する`);
+        anchorTexts.add((await link.textContent().catch(() => "")).trim());
+      } else {
+        fail(`${guideSample}からの内部リンクが見つからない`);
+      }
+    }
+    // anchor textが全ページで完全に同一(exact-match)だと不自然な内部リンクパターンに
+    // 見えるため、複数バリエーションが使われていることを確認する(監査で発見したP2対応:
+    // 以前は5件全てが「登録不要でテストを作成する」で完全一致していた)。
+    if (anchorTexts.size >= 5) {
+      ok(`anchor textが複数バリエーションで使われている(${anchorTexts.size}種類、exact-match重複を避けている)`);
+    } else {
+      fail(`anchor textのバリエーションが少なすぎる(${anchorTexts.size}種類): ${[...anchorTexts].join(" / ")}`);
+    }
+
+    // ---- スキップ行の理由を具体的に示すメッセージ(監査で発見したP2対応) ----
+    // 「意味の欠落・200文字超過・重複・上限超過のいずれか」という一律の羅列ではなく、
+    // 実際にスキップされた理由の内訳(件数)を利用者に示す。
+    await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
+    await page.locator('[data-testid="vocab-test-paste-input"]').fill(
+      "apple,りんご\napple,りんご\ninvalidlinehere\nbanana,バナナ"
+    );
+    await page.locator('[data-testid="vocab-test-generate-button"]').click();
+    await page.waitForTimeout(300);
+    const skipMsg = await page.locator('[role="status"]').first().textContent().catch(() => "");
+    if (skipMsg && skipMsg.includes("重複: 1行") && skipMsg.includes("欠落") && !skipMsg.includes("のいずれか")) {
+      ok(`スキップ理由が種類ごとの具体的な内訳で表示される ("${skipMsg.trim()}")`);
+    } else {
+      fail(`スキップ理由メッセージが具体的でない、または想定外: "${skipMsg}"`);
+    }
+    // 上のgenerateがポップアップを開いているはずなので閉じておく(以降のカウント検証に影響しないよう)。
+    const pages = page.context().pages();
+    for (const p of pages) { if (p !== page) await p.close().catch(() => {}); }
 
     // ---- 2〜3. paste → generate → SRS CTA → 匿名DB書き込み0件 ----
     const countsBefore = await getGlobalCounts(admin);
