@@ -59,6 +59,7 @@ async function main() {
   let createdWordbookIdA = null;
   let createdWordbookIdB = null;
   let createdWordbookIdC = null;
+  let createdWordbookIdD = null;
 
   try {
     // ================= シナリオA: 直接保存 =================
@@ -316,12 +317,100 @@ async function main() {
       else fail(`シナリオC: 操作中にエラー検出: ${errors.join(" | ")}`);
       await context.close();
     }
+
+    // ================= シナリオD: 認証確認未解決時のSRS CTA race conditionregression =================
+    // (Codexレビュー指摘対応)。ログイン済みでもgetUser()のPromiseがまだ解決していない
+    // 短い間にSRS CTAを押すと、isAuthedがnull(≠true)のため誤って未認証分岐に入り、
+    // 既にログイン済みのユーザーを/signupへ誘導してしまう不具合。Supabaseのauth
+    // エンドポイントを意図的に遅延させ、その間にCTAがdisabledのままであることを確認する。
+    {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const errors = collectErrors(page);
+
+      await login(page, baseUrl, email, password);
+
+      // getUser()が叩くauth/v1/userのレスポンスを8秒遅延させ、
+      // 「ログイン済みだがisAuthedがまだnull」の状態を意図的に作り出す
+      // (paste→generateの操作自体にも数百ms〜数秒かかるため、それらの操作時間より
+      // 十分長い遅延を確保することで、直後のdisabled状態チェックが確実にこの
+      // 未解決ウィンドウ内に収まるようにする)。
+      await page.route("**/auth/v1/user*", async (route) => {
+        await new Promise((r) => setTimeout(r, 8000));
+        await route.continue();
+      });
+
+      // 注意: gotoReady()は内部でwaitForLoadState("networkidle")を使っており、
+      // それ自体が上で遅延させたauth/v1/userの解決を待ってしまうため、この
+      // シナリオでは使えない(使うと「まだ未解決」の状態を再現できなくなる)。
+      // 代わりにhydration待ちだけの軽量navigationを使う。
+      await page.setExtraHTTPHeaders({ "x-lv-e2e-test": "1" });
+      await page.goto(`${baseUrl}${PAGE_PATH}`, { waitUntil: "load" });
+      await page.waitForTimeout(600);
+      const paste = "d1,テスト1\nd2,テスト2";
+      await page.locator('[data-testid="vocab-test-paste-input"]').fill(paste);
+
+      // generateボタンのクリック自体はポップアップのイベント待ちをせず即座に行い、
+      // その直後(まだauth/v1/userの8秒遅延が解決していないはず)にCTAの状態を確認する。
+      const popupPromise = context.waitForEvent("page", { timeout: 15000 });
+      await page.locator('[data-testid="vocab-test-generate-button"]').click();
+
+      // auth/v1/userがまだ解決していないはずのこのタイミングで、CTAがdisabledになっている
+      // (確認中...と表示され、クリックしても/signupへ誘導されない)ことを確認する。
+      const cta = page.locator('[data-testid="vocab-test-srs-cta"]');
+      await cta.waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
+      const disabledDuringAuthCheck = await cta.isDisabled().catch(() => false);
+      const labelDuringAuthCheck = await cta.textContent().catch(() => "");
+      if (disabledDuringAuthCheck && labelDuringAuthCheck?.includes("確認中")) {
+        ok(`シナリオD: 認証確認が未解決の間、SRS CTAはdisabledのまま待機する ("${labelDuringAuthCheck.trim()}")`);
+      } else {
+        fail(`シナリオD: 認証確認が未解決の間もCTAが操作可能になっている(race conditionのリスク): disabled=${disabledDuringAuthCheck}, label="${labelDuringAuthCheck}"`);
+      }
+
+      const popup = await popupPromise;
+      await popup.waitForLoadState("domcontentloaded").catch(() => {});
+      await popup.close().catch(() => {});
+
+      // 遅延解除後、CTAが有効化され、既にログイン済みなので/signupへは誘導されず
+      // 直接保存されることを確認する(誤った未認証分岐に入っていないことの確認)。
+      await page.waitForFunction(
+        () => {
+          const btn = document.querySelector('[data-testid="vocab-test-srs-cta"]');
+          return btn && !btn.disabled;
+        },
+        { timeout: 15000 }
+      ).catch(() => {});
+      await cta.click();
+      await page.waitForTimeout(500);
+      const urlAfterClick = page.url();
+      if (!urlAfterClick.includes("/signup")) {
+        ok("シナリオD: 認証確認解決後にCTAを押すと、誤って/signupへ誘導されない(既にログイン済みとして直接保存される)");
+      } else {
+        fail(`シナリオD: 認証確認解決後もログイン済みユーザーが/signupへ誘導されてしまった: ${urlAfterClick}`);
+      }
+      await page.waitForSelector('[role="status"]', { timeout: 10000 }).catch(() => {});
+      const statusTextD = await page.locator('[role="status"]').first().textContent().catch(() => "");
+      if (statusTextD && statusTextD.includes("保存しました")) {
+        ok(`シナリオD: race condition回避後、正常に保存が完了する ("${statusTextD.trim()}")`);
+      } else {
+        fail(`シナリオD: race condition回避後の保存成功メッセージが見つからない: "${statusTextD}"`);
+      }
+
+      const wordbookLinkHrefD = await page.locator('a[href^="/wordbooks/"]').first().getAttribute("href").catch(() => null);
+      createdWordbookIdD = wordbookLinkHrefD ? wordbookLinkHrefD.replace("/wordbooks/", "") : null;
+      if (!createdWordbookIdD) fail("シナリオD: 保存後の単語帳リンクが見つからない");
+
+      if (errors.length === 0) ok("シナリオD: 操作中に console error / 5xx なし");
+      else fail(`シナリオD: 操作中にエラー検出: ${errors.join(" | ")}`);
+      await context.close();
+    }
   } catch (e) {
     fail(`予期しない例外: ${e.message}`);
   } finally {
     await cleanupWordbook(admin, createdWordbookIdA);
     await cleanupWordbook(admin, createdWordbookIdB);
     await cleanupWordbook(admin, createdWordbookIdC);
+    await cleanupWordbook(admin, createdWordbookIdD);
     if (createdWordbookIdA) {
       const { data } = await admin.from("word_books").select("id").eq("id", createdWordbookIdA).maybeSingle();
       if (!data) ok("シナリオA: テスト用単語帳のcleanupを確認(残留なし)");
@@ -336,6 +425,11 @@ async function main() {
       const { data } = await admin.from("word_books").select("id").eq("id", createdWordbookIdC).maybeSingle();
       if (!data) ok("シナリオC: テスト用単語帳のcleanupを確認(残留なし)");
       else fail("シナリオC: テスト用単語帳のcleanupに失敗した(残留あり)");
+    }
+    if (createdWordbookIdD) {
+      const { data } = await admin.from("word_books").select("id").eq("id", createdWordbookIdD).maybeSingle();
+      if (!data) ok("シナリオD: テスト用単語帳のcleanupを確認(残留なし)");
+      else fail("シナリオD: テスト用単語帳のcleanupに失敗した(残留あり)");
     }
     await browser.close();
     stopDevServer(dev);

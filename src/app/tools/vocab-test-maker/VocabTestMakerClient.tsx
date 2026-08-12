@@ -244,6 +244,11 @@ export function VocabTestMakerClient() {
   const handleSrsCta = async () => {
     if (!generatedRows || generatedRows.length === 0) return;
     if (savingRef.current) return;
+    // 認証状態の判定(getUser())がまだ解決していない間はボタン自体をdisabledにしているが、
+    // 呼び出し側のUI状態だけに頼らず、ここでも独立してfail-closedにする(すでに
+    // ログイン済みのユーザーが、isAuthedがnullのままのタイミングでこの関数を呼んでしまい、
+    // 未認証分岐(/signupへ誘導)に誤って入ることを防ぐ)。
+    if (isAuthed === null) return;
     savingRef.current = true;
     setSaveMsg(null);
 
@@ -369,11 +374,11 @@ export function VocabTestMakerClient() {
             <div className="mt-4">
               <button
                 onClick={handleSrsCta}
-                disabled={saveBusy}
+                disabled={saveBusy || isAuthed === null}
                 data-testid="vocab-test-srs-cta"
                 className="px-6 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors disabled:opacity-60"
               >
-                {saveBusy ? "保存中..." : "Loopで覚える →"}
+                {saveBusy ? "保存中..." : isAuthed === null ? "確認中..." : "Loopで覚える →"}
               </button>
             </div>
             {saveMsg && (
