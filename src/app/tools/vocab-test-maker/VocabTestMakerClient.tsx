@@ -123,7 +123,13 @@ export function VocabTestMakerClient() {
           // 自動保存の結果を表示するにはgeneratedRowsも設定する必要がある
           // (このタイミングでは通常のgenerate操作は経ていないが、表示上は同じ枠を使う)。
           setGeneratedRows(rows);
+          // 自動保存中もCTAが操作可能なままだと、この保存の完了前に手動でCTAを押されて
+          // 二重保存(単語帳・単語の重複作成)が起きる。手動保存(handleSrsCta)と同じ
+          // ロックを使い、CTAのdisabled判定にも使われるrestoringと合わせて防ぐ
+          // (Codexレビュー指摘対応)。
+          savingRef.current = true;
           const res = await saveToWordbook(rows);
+          savingRef.current = false;
           clearPendingPayload();
           setRestoring(false);
           if (res.ok) {
@@ -374,11 +380,11 @@ export function VocabTestMakerClient() {
             <div className="mt-4">
               <button
                 onClick={handleSrsCta}
-                disabled={saveBusy || isAuthed === null}
+                disabled={saveBusy || isAuthed === null || restoring}
                 data-testid="vocab-test-srs-cta"
                 className="px-6 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors disabled:opacity-60"
               >
-                {saveBusy ? "保存中..." : isAuthed === null ? "確認中..." : "Loopで覚える →"}
+                {saveBusy || restoring ? "保存中..." : isAuthed === null ? "確認中..." : "Loopで覚える →"}
               </button>
             </div>
             {saveMsg && (

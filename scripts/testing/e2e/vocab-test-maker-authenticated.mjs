@@ -216,6 +216,11 @@ async function main() {
       const page = await context.newPage();
       const errors = collectErrors(page);
 
+      // シナリオB/C/Dはいずれも2語を貼り付けるため、自動生成タイトル(「貼り付けた単語(2語)」)
+      // が複数シナリオ間で衝突しうる。titleだけでの重複チェックは他シナリオの
+      // wordbookも誤って拾ってしまうため、このシナリオ開始時刻でも絞り込む。
+      const scenarioBStartedAt = new Date().toISOString();
+
       await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
       const paste = "orange,オレンジ\ncourage,勇気";
       await page.locator('[data-testid="vocab-test-paste-input"]').fill(paste);
@@ -243,11 +248,34 @@ async function main() {
       await gotoReady(page, `${baseUrl}${loginLinkHref}`);
       await page.locator('[data-testid="login-email"]').fill(email);
       await page.locator('[data-testid="login-password"]').fill(password);
-      await Promise.all([
-        page.waitForURL((u) => u.pathname === PAGE_PATH, { timeout: 15000 }),
-        page.locator('[data-testid="login-submit"]').click(),
-      ]);
+
+      // 自動保存API自体を8秒遅延させ、「自動保存が完了する前」の状態を確実に観測できる
+      // 窓を作る(Codexレビュー指摘: 自動保存中もCTAがロックされておらず、二重保存が
+      // 起きうる不具合のregression)。disabled属性を持つbuttonは実ブラウザ上では
+      // クリックしても実際にはclickイベントが発火しない(ブラウザ側の仕様)ため、
+      // 「disabledになっている」ことの確認自体が保護の証明として十分であり、
+      // 強制クリック後の重複作成有無を別途検証する必要はない。
+      await page.route("**/api/tools/vocab-test-maker/save", async (route) => {
+        await new Promise((r) => setTimeout(r, 8000));
+        await route.continue();
+      });
+
+      // login-submitのクリック自体はURL遷移待ちをせず即座に行い、その直後
+      // (自動保存がまだ開始・完了していないはず)にCTAの状態を確認する。
+      await page.locator('[data-testid="login-submit"]').click();
+      await page.waitForURL((u) => u.pathname === PAGE_PATH, { timeout: 15000 });
       ok(`シナリオB: ログイン後、同一tabで${PAGE_PATH}へ戻る(next=経由)`);
+
+      // setGeneratedRows()はgetUser()解決後・保存呼び出し前に同期的に実行されるため、
+      // CTA自体はまもなくDOMに現れる。保存が完了していない間はdisabledのままであることを確認する。
+      const ctaB = page.locator('[data-testid="vocab-test-srs-cta"]');
+      await ctaB.waitFor({ state: "attached", timeout: 10000 }).catch(() => {});
+      const disabledDuringAutoSave = await ctaB.isDisabled().catch(() => false);
+      if (disabledDuringAutoSave) {
+        ok("シナリオB: 自動保存が完了する前、SRS CTAはdisabled(保存中扱い)になっている(disabled属性がある限りクリックしても実際には反応しない)");
+      } else {
+        fail("シナリオB: 自動保存が完了する前もCTAが操作可能になっている(二重保存のリスク)");
+      }
 
       await page.waitForSelector('[role="status"]', { timeout: 15000 }).catch(() => {});
       await page.waitForTimeout(1500);
@@ -268,6 +296,20 @@ async function main() {
         } else {
           fail(`シナリオB: 自動保存されたwordsの内容が想定外: ${JSON.stringify(words)}`);
         }
+
+        // このシナリオ開始後に作られたword_booksが1件のみであることを確認
+        // (Codexレビュー指摘: 自動保存中のCTAロック不足によるduplicate作成のregression)。
+        // シナリオC/Dも同じ自動生成タイトル(2語)を使うため、titleだけでなく
+        // scenarioBStartedAt以降という時間の絞り込みも必須(でないと他シナリオの
+        // wordbookを誤検出する)。
+        const { count: dupCountB } = await admin
+          .from("word_books")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", testUserId)
+          .eq("title", `貼り付けた単語(${words?.length ?? 2}語)`)
+          .gte("created_at", scenarioBStartedAt);
+        if (dupCountB === 1) ok("シナリオB: このシナリオ実行中に作られたword_booksは1件のみ(二重保存なし)");
+        else fail(`シナリオB: このシナリオ実行中に作られたword_booksが${dupCountB}件存在する(自動保存中の二重保存の可能性)`);
       } else {
         fail("シナリオB: 自動保存後の単語帳リンクが見つからない");
       }
