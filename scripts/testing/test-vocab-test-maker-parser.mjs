@@ -12,7 +12,7 @@
  * 使い方: node scripts/testing/test-vocab-test-maker-parser.mjs
  */
 import { parsePastedWords, sanitizeRows, MAX_WORDS, MAX_FIELD_LENGTH } from "../../src/lib/vocabTest/parsePastedWords.ts";
-import { renderTestHtml, escape, MIN_CHOICE_ROWS, countUniqueAnswers } from "../../src/lib/vocabTest/renderTestHtml.ts";
+import { renderTestHtml, escape, MIN_CHOICE_ROWS, countUniqueAnswers, findConflictingPrompt } from "../../src/lib/vocabTest/renderTestHtml.ts";
 
 let pass = 0, fail = 0;
 function ok(msg) { console.log(`✅ ${msg}`); pass++; }
@@ -336,6 +336,66 @@ function main() {
       ok("4択形式: 答えを共有する行があっても、各問の選択肢は4件ともdistinctな値になる(重複表示なし)");
     } else {
       bad("4択形式: 一部の問いで選択肢が重複している、または4件になっていない");
+    }
+  }
+
+  // ---- 同じprompt(単語)が複数行で異なる答えを持つ場合、4択では正解が一意に決まらない(Codexレビュー指摘対応) ----
+  {
+    const conflictingRows = [
+      { word: "bank", meaning: "銀行" },
+      { word: "bank", meaning: "土手" }, // "bank"の意味がもう一方と矛盾
+      { word: "dog", meaning: "犬" },
+      { word: "cat", meaning: "猫" },
+      { word: "car", meaning: "車" },
+    ];
+    const conflict = findConflictingPrompt(conflictingRows, "en2ja");
+    if (conflict === "bank") {
+      ok(`findConflictingPrompt(): 同じ単語"bank"が異なる答えを持つ行を正しく検出する`);
+    } else {
+      bad(`findConflictingPrompt(): 検出結果が想定外: ${conflict}`);
+    }
+    let threw = false;
+    try {
+      renderTestHtml({ rows: conflictingRows, format: "choice", ...baseArgs });
+    } catch {
+      threw = true;
+    }
+    if (threw) {
+      ok("4択形式: 同じ単語が異なる意味を持つ組み合わせがあると生成が拒否される(fail-closed、採点不能な問題を防ぐ)");
+    } else {
+      bad("4択形式: 同じ単語が異なる意味を持つ組み合わせでも生成できてしまっている(採点不能な問題が生成されるリスク)");
+    }
+  }
+  // 答えが完全一致する重複(矛盾ではない)は引き続き許容される
+  {
+    const sameAnswerTwiceRows = [
+      { word: "bank", meaning: "銀行" },
+      { word: "bank", meaning: "銀行" }, // 完全に同じ意味の重複行(矛盾ではない)
+      { word: "dog", meaning: "犬" },
+      { word: "cat", meaning: "猫" },
+      { word: "car", meaning: "車" },
+    ];
+    const conflict = findConflictingPrompt(sameAnswerTwiceRows, "en2ja");
+    if (conflict === null) {
+      ok("findConflictingPrompt(): 同じ単語・同じ意味の完全重複は矛盾として検出しない");
+    } else {
+      bad(`findConflictingPrompt(): 完全重複を誤って矛盾と判定した: ${conflict}`);
+    }
+  }
+  // 日→英(ja2en)方向でも同様に検出される(promptがmeaning側になるため)
+  {
+    const conflictingRowsJa2en = [
+      { word: "銀行", meaning: "bank" }, // wordとmeaningを逆転させた入力を想定(ja2en方向のprompt側)
+      { word: "土手", meaning: "bank" },
+      { word: "犬", meaning: "dog" },
+      { word: "猫", meaning: "cat" },
+      { word: "車", meaning: "car" },
+    ];
+    const conflict = findConflictingPrompt(conflictingRowsJa2en, "ja2en");
+    if (conflict === "bank") {
+      ok("findConflictingPrompt(): 日→英(ja2en)方向でもprompt側の矛盾を正しく検出する");
+    } else {
+      bad(`findConflictingPrompt(): ja2en方向での検出結果が想定外: ${conflict}`);
     }
   }
 

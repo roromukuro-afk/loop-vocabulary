@@ -43,6 +43,25 @@ export function countUniqueAnswers(rows: Row[], direction: Direction): number {
   return new Set(values).size;
 }
 
+// 4択では、同じ「画面に表示されるprompt」が複数rowにまたがって異なる答えを持つと
+// (例: word="bank"に対しmeaning="銀行"の行とmeaning="土手"の行が両方ある場合)、
+// 同じ見出しの問題が2問生成され、しかも片方の正解がもう片方の問題ではダミー
+// 選択肢として紛れ込み得る。答えが一意に定まらず採点不能になるため、
+// choice形式ではこの状態を検出してfail-closedにする(Codexレビュー指摘対応)。
+export function findConflictingPrompt(rows: Row[], direction: Direction): string | null {
+  const seen = new Map<string, string>();
+  for (const r of rows) {
+    const prompt = direction === "en2ja" ? r.word : r.meaning;
+    const answer = direction === "en2ja" ? r.meaning : r.word;
+    const existingAnswer = seen.get(prompt);
+    if (existingAnswer !== undefined && existingAnswer !== answer) {
+      return prompt;
+    }
+    seen.set(prompt, answer);
+  }
+  return null;
+}
+
 export function renderTestHtml(o: {
   rows: Row[];
   direction: Direction;
@@ -54,8 +73,13 @@ export function renderTestHtml(o: {
   qrDataUrl: string | null;
 }) {
   const { rows, direction, format, columns, answerMode, title, attribution, qrDataUrl } = o;
-  if (format === "choice" && countUniqueAnswers(rows, direction) < MIN_CHOICE_ROWS) {
-    throw new Error(`4択形式には、答えの種類が異なる組み合わせが最低${MIN_CHOICE_ROWS}種類必要です`);
+  if (format === "choice") {
+    if (countUniqueAnswers(rows, direction) < MIN_CHOICE_ROWS) {
+      throw new Error(`4択形式には、答えの種類が異なる組み合わせが最低${MIN_CHOICE_ROWS}種類必要です`);
+    }
+    if (findConflictingPrompt(rows, direction) !== null) {
+      throw new Error("4択形式には使えない組み合わせがあります(同じ単語に複数の異なる意味が登録されているため、正解を一意に決められません)");
+    }
   }
   // 選択肢のダミーは「答え側のdistinctな値」から抽出する(row単位でサンプリングすると、
   // 複数rowが同じ答えを持つ場合に選択肢が重複表示され、正解が2つ以上見えることがある)。

@@ -271,6 +271,39 @@ async function main() {
 
       await blockedContext.close();
     }
+
+    // ---- 同じ単語が異なる意味を持つ組み合わせは4択で生成拒否される ----
+    // (Codexレビュー指摘対応)。正解が一意に決まらず採点不能になるのを防ぐ。
+    {
+      const conflictPage = await browser.newPage();
+      await gotoReady(conflictPage, `${baseUrl}${PAGE_PATH}`);
+      await conflictPage.locator('[data-testid="vocab-test-paste-input"]').fill(
+        "bank,銀行\nbank,土手\ndog,犬\ncat,猫\ncar,車"
+      );
+      // 「詳細設定」を開いて出題形式を4択に切り替える。
+      await conflictPage.locator('summary:has-text("詳細設定")').click();
+      const formatSelect = conflictPage.locator('select').filter({ has: conflictPage.locator('option[value="choice"]') }).first();
+      await formatSelect.selectOption("choice");
+
+      await conflictPage.locator('[data-testid="vocab-test-generate-button"]').click();
+      await conflictPage.waitForTimeout(500);
+
+      const conflictMsg = await conflictPage.locator('[role="alert"]').first().textContent().catch(() => "");
+      if (conflictMsg && conflictMsg.includes("bank") && conflictMsg.includes("一意")) {
+        ok(`同じ単語が異なる意味を持つ組み合わせは4択で生成拒否され、具体的なエラーが表示される ("${conflictMsg.trim()}")`);
+      } else {
+        fail(`矛盾する組み合わせでの4択生成拒否メッセージが見つからない、または具体的でない: "${conflictMsg}"`);
+      }
+
+      const ctaVisibleAfterConflict = await conflictPage.locator('[data-testid="vocab-test-srs-cta"]').isVisible().catch(() => false);
+      if (!ctaVisibleAfterConflict) {
+        ok("矛盾する組み合わせでの生成拒否後、SRS CTAは表示されない(生成失敗が正しく伝わる)");
+      } else {
+        fail("矛盾する組み合わせでの生成拒否後もSRS CTAが表示されている");
+      }
+
+      await conflictPage.close();
+    }
   } catch (e) {
     fail(`予期しない例外: ${e.message}`);
   } finally {

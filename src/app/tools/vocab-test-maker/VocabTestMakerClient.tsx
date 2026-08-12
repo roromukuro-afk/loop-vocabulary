@@ -10,7 +10,7 @@ import { shuffle } from "@/lib/utils/shuffle";
 import { trackEvent } from "@/lib/analytics/track";
 import { parsePastedWords, MAX_WORDS, MAX_FIELD_LENGTH } from "@/lib/vocabTest/parsePastedWords";
 import type { ParseWarning } from "@/lib/vocabTest/parsePastedWords";
-import { renderTestHtml, MIN_CHOICE_ROWS, countUniqueAnswers } from "@/lib/vocabTest/renderTestHtml";
+import { renderTestHtml, MIN_CHOICE_ROWS, countUniqueAnswers, findConflictingPrompt } from "@/lib/vocabTest/renderTestHtml";
 import type { AnswerMode, Direction, Format, Order, Row } from "@/lib/vocabTest/types";
 
 // このpublic toolに固有のQR遷移先。既存 /pdf の teacher_pdf UTM とは分離する
@@ -173,6 +173,15 @@ export function VocabTestMakerClient() {
       setGeneratedRows(null);
       return;
     }
+    // 同じ単語(prompt)が複数行にまたがって異なる意味を持つ場合、4択では正解が
+    // 一意に決まらず、片方の意味がもう片方の問題のダミー選択肢に紛れ込んで
+    // 採点不能になる(Codexレビュー指摘対応)。
+    const conflictingPrompt = format === "choice" ? findConflictingPrompt(rows, direction) : null;
+    if (conflictingPrompt !== null) {
+      setGenMsg(`4択形式には使えない組み合わせがあります。「${conflictingPrompt}」に複数の異なる意味が登録されているため、正解を一意に決められません。重複する行を1つにまとめるか、「出題形式」を「記述」に変更してください。`);
+      setGeneratedRows(null);
+      return;
+    }
 
     const orderedRows = order === "random" ? shuffle(rows) : rows;
     setGeneratedRows(orderedRows);
@@ -222,13 +231,18 @@ export function VocabTestMakerClient() {
         attribution: null,
         qrDataUrl,
       });
-    } catch {
+    } catch (e) {
       // 呼び出し前validation(上のhandleGenerate内チェック)をすり抜けた場合の保険
-      // (render関数自身のfail-closedガード。通常はここに到達しない)。
-      // 既に開いてしまった空タブは、内容を書き込まずそのまま残すと利用者が
-      // 混乱するため閉じる。
+      // (render関数自身のfail-closedガード。通常はここに到達しない)。render関数側の
+      // エラーメッセージ(理由別に具体的)をそのまま使い、想定外の例外の場合のみ
+      // 汎用メッセージにfall backする。既に開いてしまった空タブは、内容を書き込まず
+      // そのまま残すと利用者が混乱するため閉じる。
       w.close();
-      setGenMsg(`4択形式には、答えの種類が異なる組み合わせが最低${MIN_CHOICE_ROWS}種類必要です。「出題形式」を「記述」に変更するか、単語を追加してください。`);
+      setGenMsg(
+        e instanceof Error && e.message
+          ? e.message
+          : `4択形式には、答えの種類が異なる組み合わせが最低${MIN_CHOICE_ROWS}種類必要です。「出題形式」を「記述」に変更するか、単語を追加してください。`
+      );
       setGeneratedRows(null);
       return false;
     }
