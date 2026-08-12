@@ -51,6 +51,22 @@ async function main() {
   const testUserId = profileRow?.id ?? null;
   if (!testUserId) { fail(`テストアカウント${email}のprofilesが見つからない`); process.exit(1); }
 
+  // このスクリプトが保存経路(/api/tools/vocab-test-maker/save)を叩くと、
+  // trackServerEvent()経由でwordbook_created/vocab_test_maker_saved_to_wordbook等が
+  // is_test_event=falseのまま(サーバー側発火はx-lv-e2e-testヘッダーを見ていないため)
+  // 記録されてしまう(Codexレビュー指摘対応)。この既存の共有ヘルパー
+  // trackServerEvent()は他4つの本番経路(bulk-add/csv-import/ai-suggest/
+  // material-import)でも使われているため、このPRのscope外であるそちら側の
+  // 実装を変更するのではなく、このテスト自身が生成したanalytics_eventsを
+  // 実行後に確実に削除する(生成したrowを漏らさない)。
+  const testRunStartedAt = new Date().toISOString();
+  const GENERATED_EVENT_NAMES = [
+    "wordbook_created",
+    "vocab_test_maker_saved_to_wordbook",
+    "five_words_added",
+    "ten_words_added",
+  ];
+
   const dev = await ensureDevServer(PORT);
   const baseUrl = dev.url;
   console.log(`Dev server: ${baseUrl} (startedByUs=${dev.startedByUs})`);
@@ -431,6 +447,31 @@ async function main() {
       if (!data) ok("シナリオD: テスト用単語帳のcleanupを確認(残留なし)");
       else fail("シナリオD: テスト用単語帳のcleanupに失敗した(残留あり)");
     }
+
+    // このテスト実行中にtrackServerEvent()経由で生成されたanalytics_eventsを削除する
+    // (is_test_event=falseのまま実データに混入させない。Codexレビュー指摘対応)。
+    const { error: analyticsCleanupError } = await admin
+      .from("analytics_events")
+      .delete()
+      .eq("user_id", testUserId)
+      .in("event_name", GENERATED_EVENT_NAMES)
+      .gte("occurred_at", testRunStartedAt);
+    if (analyticsCleanupError) {
+      fail(`analytics_eventsのcleanupに失敗した: ${analyticsCleanupError.message}`);
+    } else {
+      const { count: remaining } = await admin
+        .from("analytics_events")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", testUserId)
+        .in("event_name", GENERATED_EVENT_NAMES)
+        .gte("occurred_at", testRunStartedAt);
+      if ((remaining ?? 0) === 0) {
+        ok("このテスト実行中に生成されたanalytics_events(wordbook_created等)のcleanupを確認(残留なし)");
+      } else {
+        fail(`analytics_eventsのcleanup後も${remaining}件残留している`);
+      }
+    }
+
     await browser.close();
     stopDevServer(dev);
   }
