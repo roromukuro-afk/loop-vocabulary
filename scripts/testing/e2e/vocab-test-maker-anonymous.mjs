@@ -229,6 +229,48 @@ async function main() {
     const realErrors = errors.filter((e) => !/CORS|fundingchoicesmessages/i.test(e));
     if (popupErrorsBefore === 0 && realErrors.length === 0) ok("操作中に console error / 5xx なし");
     else fail(`操作中にエラー検出: ${realErrors.join(" | ")}`);
+
+    // ---- ポップアップがブロックされた場合、vocab_test_maker_generatedを計測しない ----
+    // (Codexレビュー指摘対応)。印刷ウィンドウを実際に開けなかった場合まで
+    // "generated"扱いで計測すると、この獲得施策の転換率指標が実態より良く見えてしまう。
+    {
+      const blockedContext = await browser.newContext();
+      const blockedPage = await blockedContext.newPage();
+      // window.openを常にnullを返すよう上書きし、ポップアップブロックを確実に再現する。
+      await blockedPage.addInitScript(() => { window.open = () => null; });
+
+      const sentEventNames = [];
+      blockedPage.on("request", (req) => {
+        if (req.url().includes("/api/analytics/events")) {
+          try {
+            const parsed = JSON.parse(req.postData() || "[]");
+            const evs = Array.isArray(parsed) ? parsed : [parsed];
+            for (const e of evs) if (e?.event_name) sentEventNames.push(e.event_name);
+          } catch { /* noop */ }
+        }
+      });
+
+      await gotoReady(blockedPage, `${baseUrl}${PAGE_PATH}`);
+      await blockedPage.locator('[data-testid="vocab-test-paste-input"]').fill("apple,りんご\nbeautiful,美しい");
+      await blockedPage.locator('[data-testid="vocab-test-generate-button"]').click();
+      await blockedPage.waitForTimeout(1000);
+
+      const blockedMsg = await blockedPage.locator('[role="alert"]').first().textContent().catch(() => "");
+      if (blockedMsg && blockedMsg.includes("ポップアップがブロックされました")) {
+        ok(`ポップアップブロック時、利用者向けの分かりやすいエラーが表示される ("${blockedMsg.trim()}")`);
+      } else {
+        fail(`ポップアップブロック時のエラー表示が見つからない: "${blockedMsg}"`);
+      }
+
+      const generatedEventSent = sentEventNames.includes("vocab_test_maker_generated");
+      if (!generatedEventSent) {
+        ok("ポップアップがブロックされた場合、vocab_test_maker_generatedイベントは送信されない(転換率の過大計測を防ぐ)");
+      } else {
+        fail("ポップアップブロック時にもvocab_test_maker_generatedイベントが送信されてしまっている");
+      }
+
+      await blockedContext.close();
+    }
   } catch (e) {
     fail(`予期しない例外: ${e.message}`);
   } finally {

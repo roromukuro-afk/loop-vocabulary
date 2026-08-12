@@ -199,6 +199,31 @@ async function main() {
             .eq("title", book?.title ?? "__none__");
           if (dupCount === 1) ok("シナリオA: 連打しても単語帳が2件以上作られていない(同一titleの重複なし)");
           else fail(`シナリオA: 同一titleのword_booksが${dupCount}件存在する(二重送信の可能性)`);
+
+          // 保存完了後もCTAが押せる状態のままだと、再クリックで同じ単語の2件目の
+          // wordbookが作られてしまう(Codexレビュー指摘対応)。保存成功後はCTAが
+          // disabled(「保存済み」表示)になっており、再クリックしても新たな
+          // word_booksが作られないことを確認する。
+          const ctaAfterSuccess = page.locator('[data-testid="vocab-test-srs-cta"]');
+          const disabledAfterSuccess = await ctaAfterSuccess.isDisabled().catch(() => false);
+          const labelAfterSuccess = await ctaAfterSuccess.textContent().catch(() => "");
+          if (disabledAfterSuccess && labelAfterSuccess?.includes("保存済み")) {
+            ok(`シナリオA: 保存成功後、SRS CTAはdisabled(「保存済み」表示)になり再送信できない ("${labelAfterSuccess.trim()}")`);
+          } else {
+            fail(`シナリオA: 保存成功後もCTAが操作可能になっている(再クリックでの重複保存リスク): disabled=${disabledAfterSuccess}, label="${labelAfterSuccess}"`);
+          }
+          await ctaAfterSuccess.click({ force: true }).catch(() => {});
+          await page.waitForTimeout(500);
+          const { count: dupCountAfterExtraClick } = await admin
+            .from("word_books")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", testUserId)
+            .eq("title", book?.title ?? "__none__");
+          if (dupCountAfterExtraClick === 1) {
+            ok("シナリオA: 保存成功後に再クリックを試みても単語帳は増えない");
+          } else {
+            fail(`シナリオA: 保存成功後の再クリックでword_booksが${dupCountAfterExtraClick}件に増えた`);
+          }
         } else {
           fail("シナリオA: 保存後の単語帳リンクが見つからない");
         }

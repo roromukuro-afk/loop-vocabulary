@@ -144,7 +144,7 @@ export function VocabTestMakerClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setGenMsg(null);
     setSaveMsg(null);
     const { rows, warnings, totalNonBlankLines } = parsePastedWords(text);
@@ -177,18 +177,23 @@ export function VocabTestMakerClient() {
     const orderedRows = order === "random" ? shuffle(rows) : rows;
     setGeneratedRows(orderedRows);
 
-    openPrintWindow(orderedRows);
-
-    trackEvent("vocab_test_maker_generated", {
-      row_count: orderedRows.length,
-      direction,
-      format,
-      randomized: order === "random",
-      answer_mode: answerMode,
-    });
+    // 印刷ウィンドウを実際に開けた(=利用者がテストを受け取れた)場合のみ
+    // "generated"を計測する。popup blocked等で失敗した場合まで成功扱いで
+    // 計測すると、この獲得施策の転換率指標が実態より良く見えてしまう
+    // (Codexレビュー指摘対応)。
+    const opened = await openPrintWindow(orderedRows);
+    if (opened) {
+      trackEvent("vocab_test_maker_generated", {
+        row_count: orderedRows.length,
+        direction,
+        format,
+        randomized: order === "random",
+        answer_mode: answerMode,
+      });
+    }
   };
 
-  const openPrintWindow = async (rows: Row[]) => {
+  const openPrintWindow = async (rows: Row[]): Promise<boolean> => {
     // window.open()はclickのuser activationがasync境界(await)を跨ぐと失効し、
     // 後から呼ぶとブラウザにブロックされることがある。そのため、QR生成等の
     // await より前に同期的にwindow.openを呼び、後から内容を書き込む
@@ -196,7 +201,7 @@ export function VocabTestMakerClient() {
     const w = window.open("", "_blank");
     if (!w) {
       setGenMsg("ポップアップがブロックされました。ブラウザの設定でこのサイトのポップアップを許可してください。");
-      return;
+      return false;
     }
 
     const qrDataUrl = await QRCode.toDataURL(QR_TARGET_URL, {
@@ -225,11 +230,12 @@ export function VocabTestMakerClient() {
       w.close();
       setGenMsg(`4択形式には、答えの種類が異なる組み合わせが最低${MIN_CHOICE_ROWS}種類必要です。「出題形式」を「記述」に変更するか、単語を追加してください。`);
       setGeneratedRows(null);
-      return;
+      return false;
     }
     w.document.write(html);
     w.document.close();
     setTimeout(() => { w.focus(); w.print(); }, 500);
+    return true;
   };
 
   const saveToWordbook = async (rows: Row[]): Promise<{ ok: boolean; wordbookId?: string }> => {
@@ -255,6 +261,9 @@ export function VocabTestMakerClient() {
     // ログイン済みのユーザーが、isAuthedがnullのままのタイミングでこの関数を呼んでしまい、
     // 未認証分岐(/signupへ誘導)に誤って入ることを防ぐ)。
     if (isAuthed === null) return;
+    // 保存成功後にもう一度呼ばれると同じ単語で2件目のwordbookが作られてしまうため、
+    // ボタンのdisabled状態だけに頼らずここでも独立して防ぐ(Codexレビュー指摘対応)。
+    if (saveMsg?.kind === "ok") return;
     savingRef.current = true;
     setSaveMsg(null);
 
@@ -380,11 +389,17 @@ export function VocabTestMakerClient() {
             <div className="mt-4">
               <button
                 onClick={handleSrsCta}
-                disabled={saveBusy || isAuthed === null || restoring}
+                disabled={saveBusy || isAuthed === null || restoring || saveMsg?.kind === "ok"}
                 data-testid="vocab-test-srs-cta"
                 className="px-6 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors disabled:opacity-60"
               >
-                {saveBusy || restoring ? "保存中..." : isAuthed === null ? "確認中..." : "Loopで覚える →"}
+                {saveBusy || restoring
+                  ? "保存中..."
+                  : isAuthed === null
+                  ? "確認中..."
+                  : saveMsg?.kind === "ok"
+                  ? "保存済み"
+                  : "Loopで覚える →"}
               </button>
             </div>
             {saveMsg && (
