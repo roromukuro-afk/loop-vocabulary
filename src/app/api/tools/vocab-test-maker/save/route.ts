@@ -62,10 +62,17 @@ export async function POST(req: NextRequest) {
   }));
 
   // milestone判定用に挿入前件数を取得しておく(bulk-add等の既存保存経路と同じ方式)。
-  const { count: countBefore } = await supabase
+  // このクエリが失敗した場合、countBeforeはnullになる。`?? 0`で0扱いにしてしまうと、
+  // 既にfive/ten_words_added閾値を超えている既存ユーザーでも「初めて超えた」と
+  // 誤判定し、実際には超えていないmilestoneイベントを誤発火してしまうため、
+  // 失敗時はmilestone計算自体を省略する(Codexレビュー指摘対応)。
+  const { count: countBefore, error: countBeforeErr } = await supabase
     .from("words")
     .select("*", { count: "exact", head: true })
     .eq("user_id", user.id);
+  if (countBeforeErr) {
+    console.error("[vocab-test-maker/save] countBefore query failed:", countBeforeErr.code);
+  }
 
   const { error: wordsErr } = await supabase.from("words").insert(wordRows);
   if (wordsErr) {
@@ -92,7 +99,9 @@ export async function POST(req: NextRequest) {
   const anonymousSessionId = req.cookies.get("lv_aid")?.value ?? null;
   await trackServerEvent("wordbook_created", { userId: user.id, anonymousSessionId, properties: { source_type: "custom" } });
   await trackServerEvent("vocab_test_maker_saved_to_wordbook", { userId: user.id, anonymousSessionId, properties: { row_count: rows.length } });
-  await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + wordRows.length);
+  if (!countBeforeErr) {
+    await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + wordRows.length);
+  }
 
   return NextResponse.json({ ok: true, wordbook_id: newBook.id, word_count: rows.length });
 }

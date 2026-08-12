@@ -271,6 +271,17 @@ async function main() {
       }
 
       await gotoReady(page, `${baseUrl}${loginLinkHref}`);
+
+      // ログインページ自身の「新規登録」への逆リンクにもnext=が引き継がれていることを
+      // 確認する(Codexレビュー指摘対応: これが欠けていると、/signup⇄/loginを
+      // 行き来した末に登録した場合、pending payloadの自動復元先を見失う)。
+      const signupBackLinkHref = await page.locator('a[href^="/signup"]').first().getAttribute("href").catch(() => null);
+      if (signupBackLinkHref && signupBackLinkHref.includes(`next=${encodeURIComponent(PAGE_PATH)}`)) {
+        ok("シナリオB: /loginの「新規登録」リンクにもnext=が引き継がれている");
+      } else {
+        fail(`シナリオB: 新規登録リンクにnext=が引き継がれていない: ${signupBackLinkHref}`);
+      }
+
       await page.locator('[data-testid="login-email"]').fill(email);
       await page.locator('[data-testid="login-password"]').fill(password);
 

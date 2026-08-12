@@ -245,7 +245,8 @@ function LoginForm() {
         )}
 
         <div className="mt-5 text-sm text-navy-500">
-          アカウントをお持ちでない方は <Link href="/signup" className="text-navy-800 font-semibold">新規登録</Link>
+          アカウントをお持ちでない方は{" "}
+          <Link href={next !== "/dashboard" ? `/signup?next=${encodeURIComponent(next)}` : "/signup"} className="text-navy-800 font-semibold">新規登録</Link>
         </div>
       </div>
     </div>
