@@ -152,11 +152,16 @@ export function PdfTestBuilder({
           attribution,
           qrDataUrl,
         });
-      } catch {
+      } catch (e) {
         // 呼び出し前validation(上のrows.length < MIN_CHOICE_ROWSチェック)をすり抜けた
         // 場合の保険(例: DB上の単語がword+meaning完全一致で重複しており、実際の
-        // ユニーク語数が対象語数より少ないケース)。render関数自身のfail-closedガード。
-        setMsg(`4択形式には最低${MIN_CHOICE_ROWS}語(重複を除く)必要です。出題形式を「記述」に変更するか、対象を増やしてください。`);
+        // ユニーク語数が対象語数より少ないケース、または同じ単語に複数の異なる意味が
+        // 登録されていて4択の正解を一意に決められないケース)。render関数自身の
+        // fail-closedガードが投げる具体的なエラー内容(Error.message)をそのまま
+        // ユーザーに見せる。件数不足のケースだけを想定した固定文言に潰してしまうと、
+        // 実際には競合するプロンプトが原因のケースで「語数を増やしても直らない」誤った
+        // 対処法を案内してしまう(Codexレビュー指摘対応)。
+        setMsg(e instanceof Error ? e.message : `4択形式には最低${MIN_CHOICE_ROWS}語(重複を除く)必要です。出題形式を「記述」に変更するか、対象を増やしてください。`);
         return;
       }
       const w = window.open("", "_blank");
