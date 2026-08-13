@@ -41,6 +41,36 @@ export async function POST(req: NextRequest) {
   // 別画面(単語帳一覧等)に平文表示される範囲を狭める意図。
   const title = `貼り付けた単語(${rows.length}語)`;
 
+  // このAPIにスキーマ変更(idempotency key列の追加等)を加えずに、レスポンス消失や
+  // タイムアウトによる再送でも重複したwordbookを作らないようにする(Codexレビュー
+  // 指摘対応)。直前(30秒以内)に同じユーザー・同じ自動生成タイトルで作られた
+  // custom単語帳があり、かつ実際のword内容が今回のリクエストと完全一致する場合は、
+  // 新規作成せずその単語帳を返す(たまたま同じ語数・内容を短時間に2回貼り付けた
+  // 正当なケースと区別するため、タイトルだけでなく内容の完全一致まで確認する)。
+  const { data: recentBooks } = await supabase
+    .from("word_books")
+    .select("id, created_at")
+    .eq("user_id", user.id)
+    .eq("title", title)
+    .eq("source_type", "custom")
+    .gte("created_at", new Date(Date.now() - 30_000).toISOString())
+    .order("created_at", { ascending: false })
+    .limit(3);
+  if (recentBooks && recentBooks.length > 0) {
+    const requestedSet = new Set(rows.map((r) => `${r.word}\u0000${r.meaning}`));
+    for (const candidate of recentBooks) {
+      const { data: existingWords } = await supabase
+        .from("words")
+        .select("word, meaning")
+        .eq("word_book_id", candidate.id);
+      const existingSet = new Set((existingWords ?? []).map((w) => `${w.word}\u0000${w.meaning}`));
+      const sameContent = existingSet.size === requestedSet.size && [...requestedSet].every((k) => existingSet.has(k));
+      if (sameContent) {
+        return NextResponse.json({ ok: true, wordbook_id: candidate.id, word_count: rows.length });
+      }
+    }
+  }
+
   const { data: newBook, error: bookErr } = await supabase
     .from("word_books")
     .insert({ user_id: user.id, title, source_type: "custom" })

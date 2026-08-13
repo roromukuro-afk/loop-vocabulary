@@ -76,6 +76,7 @@ async function main() {
   let createdWordbookIdB = null;
   let createdWordbookIdC = null;
   let createdWordbookIdD = null;
+  let createdWordbookIdF = null;
 
   try {
     // ================= シナリオA: 直接保存 =================
@@ -498,6 +499,133 @@ async function main() {
       else fail(`シナリオD: 操作中にエラー検出: ${errors.join(" | ")}`);
       await context.close();
     }
+    // ================= シナリオE: 自動保存失敗時のpending payload保持regression =================
+    // (Codexレビュー指摘対応)。自動保存に失敗した場合でもsessionStorageのpending
+    // payloadを無条件で削除していると、ここまでの唯一の永続コピーが失われ、ユーザーが
+    // このタイミングでページを離脱・再読み込みすると単語を二度と復元できなくなる。
+    // 保存APIを強制的に失敗させ、失敗時はpending payloadが削除されずに残ることを確認する。
+    {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const errors = collectErrors(page);
+      const scenarioEStartedAt = new Date().toISOString();
+
+      await login(page, baseUrl, email, password);
+
+      // ページ自身のJS(auto-restore effect)が動く前にsessionStorageへpending
+      // payloadを書き込んでおく必要があるため、addInitScriptでnavigationの
+      // 都度・最初のスクリプトとして注入する。
+      const pendingPayload = JSON.stringify({
+        v: 1,
+        savedAt: new Date().toISOString(),
+        rows: [{ word: "retry1", meaning: "再試行1" }, { word: "retry2", meaning: "再試行2" }],
+      });
+      await page.addInitScript((payload) => {
+        sessionStorage.setItem("lv_pending_vocab_test", payload);
+      }, pendingPayload);
+
+      // 保存APIを強制的に失敗させる(自動保存が必ず失敗するようにする)。
+      await page.route("**/api/tools/vocab-test-maker/save", (route) =>
+        route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "forced_failure_for_test" }) })
+      );
+
+      await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
+      await page.waitForSelector('[role="alert"]', { timeout: 10000 }).catch(() => {});
+      const errorText = await page.locator('[role="alert"]').first().textContent().catch(() => "");
+      if (errorText && errorText.includes("自動保存に失敗しました")) {
+        ok(`シナリオE: 自動保存失敗時にエラーメッセージが表示される ("${errorText.trim()}")`);
+      } else {
+        fail(`シナリオE: 自動保存失敗時のエラーメッセージが見つからない: "${errorText}"`);
+      }
+
+      const pendingStillThere = await page.evaluate(() => sessionStorage.getItem("lv_pending_vocab_test"));
+      if (pendingStillThere) {
+        ok("シナリオE: 自動保存失敗後もsessionStorageのpending payloadが保持されている(削除されていない)");
+      } else {
+        fail("シナリオE: 自動保存失敗後にpending payloadが削除されてしまった(単語の永久ロストリスク)");
+      }
+
+      const { count: noBookCreatedE } = await admin
+        .from("word_books")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", testUserId)
+        .eq("title", "貼り付けた単語(2語)")
+        .gte("created_at", scenarioEStartedAt);
+      if (noBookCreatedE === 0) {
+        ok("シナリオE: 自動保存失敗時にword_booksが作成されていない(orphan残留なし)");
+      } else {
+        fail(`シナリオE: 自動保存失敗のはずがword_booksが${noBookCreatedE}件作成されている`);
+      }
+
+      const nonSaveErrors = errors.filter((e) => !e.includes("500") && !e.includes("forced_failure_for_test"));
+      if (nonSaveErrors.length === 0) ok("シナリオE: 想定した保存失敗以外にconsole error / 5xxなし");
+      else fail(`シナリオE: 想定外のエラー検出: ${nonSaveErrors.join(" | ")}`);
+      await context.close();
+    }
+
+    // ================= シナリオF: 保存APIの再送(リトライ)冪等性regression =================
+    // (Codexレビュー指摘対応)。クライアント側のレスポンス消失やタイムアウトによる
+    // 再送(同一内容の2回POST)でも、word_booksが重複作成されず、2回目は既存の
+    // wordbook_idを返すことを、DBスキーマ変更なしの内容ベース照合で確認する。
+    {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const errors = collectErrors(page);
+      const scenarioFStartedAt = new Date().toISOString();
+
+      await login(page, baseUrl, email, password);
+      await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
+
+      const idempotentWords = [{ word: "idem1", meaning: "冪等1" }, { word: "idem2", meaning: "冪等2" }];
+      const callSave = () =>
+        page.evaluate(async (words) => {
+          const res = await fetch("/api/tools/vocab-test-maker/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ words }),
+          });
+          return { status: res.status, json: await res.json().catch(() => null) };
+        }, idempotentWords);
+
+      const firstCall = await callSave();
+      const secondCall = await callSave();
+
+      if (
+        firstCall.json?.ok && secondCall.json?.ok &&
+        firstCall.json.wordbook_id && firstCall.json.wordbook_id === secondCall.json.wordbook_id
+      ) {
+        ok(`シナリオF: 同一内容での再送は既存のwordbook_idを返す(新規作成しない) (id=${firstCall.json.wordbook_id})`);
+      } else {
+        fail(`シナリオF: 再送時にwordbook_idが一致しない(重複作成された可能性): 1回目=${JSON.stringify(firstCall.json)}, 2回目=${JSON.stringify(secondCall.json)}`);
+      }
+
+      createdWordbookIdF = firstCall.json?.wordbook_id ?? null;
+
+      if (createdWordbookIdF) {
+        const { count: dupCountF } = await admin
+          .from("word_books")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", testUserId)
+          .eq("title", "貼り付けた単語(2語)")
+          .gte("created_at", scenarioFStartedAt);
+        if (dupCountF === 1) ok("シナリオF: このシナリオ実行中に作られたword_booksは1件のみ(冪等性が機能している)");
+        else fail(`シナリオF: このシナリオ実行中に作られたword_booksが${dupCountF}件存在する(冪等性が機能していない)`);
+
+        const { data: wordsF } = await admin.from("words").select("word, meaning").eq("word_book_id", createdWordbookIdF);
+        const wordSetF = new Set((wordsF ?? []).map((w) => `${w.word}:${w.meaning}`));
+        if (wordsF?.length === 2 && wordSetF.has("idem1:冪等1") && wordSetF.has("idem2:冪等2")) {
+          ok("シナリオF: 再送後もwordsが4件に重複増加せず、2件のまま(内容も一致)");
+        } else {
+          fail(`シナリオF: 再送後のwordsの件数・内容が想定外: ${JSON.stringify(wordsF)}`);
+        }
+      } else {
+        fail("シナリオF: 保存APIがwordbook_idを返さなかった");
+      }
+
+      if (errors.length === 0) ok("シナリオF: 操作中に console error / 5xx なし");
+      else fail(`シナリオF: 操作中にエラー検出: ${errors.join(" | ")}`);
+      await context.close();
+    }
   } catch (e) {
     fail(`予期しない例外: ${e.message}`);
   } finally {
@@ -505,6 +633,7 @@ async function main() {
     await cleanupWordbook(admin, createdWordbookIdB);
     await cleanupWordbook(admin, createdWordbookIdC);
     await cleanupWordbook(admin, createdWordbookIdD);
+    await cleanupWordbook(admin, createdWordbookIdF);
     if (createdWordbookIdA) {
       const { data } = await admin.from("word_books").select("id").eq("id", createdWordbookIdA).maybeSingle();
       if (!data) ok("シナリオA: テスト用単語帳のcleanupを確認(残留なし)");
@@ -524,6 +653,11 @@ async function main() {
       const { data } = await admin.from("word_books").select("id").eq("id", createdWordbookIdD).maybeSingle();
       if (!data) ok("シナリオD: テスト用単語帳のcleanupを確認(残留なし)");
       else fail("シナリオD: テスト用単語帳のcleanupに失敗した(残留あり)");
+    }
+    if (createdWordbookIdF) {
+      const { data } = await admin.from("word_books").select("id").eq("id", createdWordbookIdF).maybeSingle();
+      if (!data) ok("シナリオF: テスト用単語帳のcleanupを確認(残留なし)");
+      else fail("シナリオF: テスト用単語帳のcleanupに失敗した(残留あり)");
     }
 
     // このテスト実行中にtrackServerEvent()経由で生成されたanalytics_eventsを削除する

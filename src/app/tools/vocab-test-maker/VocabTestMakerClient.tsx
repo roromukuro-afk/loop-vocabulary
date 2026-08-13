@@ -130,9 +130,13 @@ export function VocabTestMakerClient() {
           savingRef.current = true;
           const res = await saveToWordbook(rows);
           savingRef.current = false;
-          clearPendingPayload();
           setRestoring(false);
           if (res.ok) {
+            // 保存に成功した場合のみ削除する。失敗時に無条件で消してしまうと、
+            // ここまでの唯一の永続コピー(sessionStorage)が失われ、ユーザーが
+            // このタイミングでページを離脱・再読み込みした場合に単語を
+            // 二度と復元できなくなる(Codexレビュー指摘対応)。
+            clearPendingPayload();
             setSaveMsg({ kind: "ok", text: `さきほど貼り付けた${rows.length}語をLoopの単語帳に保存しました。`, wordbookId: res.wordbookId });
           } else {
             setSaveMsg({ kind: "error", text: "自動保存に失敗しました。お手数ですが、もう一度「Loopで覚える」をお試しください。" });
