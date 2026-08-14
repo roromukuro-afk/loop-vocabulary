@@ -239,7 +239,7 @@ export default function EikenJun1Page() {
           <div className="text-sm font-bold text-navy-700 mb-3">関連ガイド</div>
           <div className="space-y-2">
             {[
-              { href: "/guide/eiken-2kyu-tango", tag: "英検", title: "英検2級 単語対策【頻出1,500語カテゴリ別解説】" },
+              { href: "/guide/eiken-2kyu-tango", tag: "英検", title: "英検2級 単語対策【頻出テーマ別】" },
               { href: "/guide/eiken-jun2-tango", tag: "英検", title: "英検準2級 単語対策【合格への最短ルート】" },
               { href: "/guide/toeic-tango", tag: "TOEIC", title: "TOEIC頻出単語・語彙対策【スコア別必須リスト】" },
             ].map((r) => (

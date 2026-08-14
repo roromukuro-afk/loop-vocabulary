@@ -31,6 +31,8 @@ export function GuideTracker({ slug }: { slug: string }) {
         trackGuideCtaClick(slug, "premium");
       } else if (href.startsWith("/materials")) {
         trackGuideCtaClick(slug, "materials");
+      } else if (href.startsWith("/tools")) {
+        trackGuideCtaClick(slug, "tools");
       } else if (href.startsWith(`/guide/`) && href !== `/guide/${slug}`) {
         trackGuideCtaClick(slug, "other_guide");
       }
