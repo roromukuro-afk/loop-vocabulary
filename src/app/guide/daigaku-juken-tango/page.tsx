@@ -282,7 +282,7 @@ export default function DaigakuJukenPage() {
           <div className="text-sm font-bold text-navy-700 mb-3">関連ガイド</div>
           <div className="space-y-2">
             {[
-              { href: "/guide/eiken-2kyu-tango", tag: "英検", title: "英検2級 単語対策【頻出1,500語カテゴリ別解説】" },
+              { href: "/guide/eiken-2kyu-tango", tag: "英検", title: "英検2級 単語対策ガイド" },
               { href: "/guide/toeic-tango", tag: "TOEIC", title: "TOEIC頻出単語・語彙対策【スコア別必須リスト】" },
               { href: "/guide/eitango-oboeru-houhou", tag: "学習法", title: "英単語の覚え方・効率的な記憶術【自己想起×忘却曲線】" },
             ].map((r) => (
