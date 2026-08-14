@@ -155,6 +155,7 @@ export default function PrintableEnglishVocabularyTestPage() {
           <div className="flex gap-3 justify-center flex-wrap">
             <Link href="/signup" className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">無料で始める →</Link>
             <Link href="/vocab-check" className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">語彙力チェック（無料）</Link>
+            <Link href="/tools/vocab-test-maker" className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">印刷用の英単語テストを作る</Link>
           </div>
         </div>
 
