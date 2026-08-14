@@ -179,7 +179,7 @@ export default function Eiken2KyuPage() {
             単語対策が必要になる場面は一つではありません。大問1の語彙問題そのもので失点する場合もあれば、大問2・3の長文が語彙不足でそもそも読みにくい、ライティングで使える語彙が少なく減点される、というケースもあります。テーマ別に語彙を増やすことは、このどの場面にも効果があります。
           </p>
           <div className="mt-4">
-            <ExamInfoDisclaimer kind="eiken" showCseNote lastVerified="2026-08-15" />
+            <ExamInfoDisclaimer kind="eiken" lastVerified="2026-08-15" />
           </div>
         </div>
 
