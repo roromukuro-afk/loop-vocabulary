@@ -73,16 +73,21 @@ async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive) 
   const funnelCounts = {};
   for (const name of FUNNEL_EVENTS) funnelCounts[name] = rows.filter((r) => r.event_name === name).length;
 
-  const { count: signupCount } = await admin
+  const { count: signupCount, error: signupError } = await admin
     .from("profiles")
     .select("*", { count: "exact", head: true })
     .eq("is_test_account", false)
     .gte("created_at", startISO)
     .lt("created_at", endISO);
+  if (signupError) throw new Error(`signup count query failed: ${signupError.message}`);
+
+  // 同一セッションがGoogle経由とBing経由の両方でlanding_viewを記録するケースを
+  // 二重集計しないよう、setサイズの合計ではなく和集合のサイズを使う。
+  const searchIdentities = new Set([...googleIdentities, ...bingIdentities]);
 
   console.log(`\n=== ${label} (${startDateStr} 〜 ${endDateStrInclusive}, JST) ===`);
   console.log(`landing identities: ${landingIdentities.size}`);
-  console.log(`  google: ${googleIdentities.size}, bing: ${bingIdentities.size}, google+bing: ${googleIdentities.size + bingIdentities.size}, direct: ${directIdentities.size}`);
+  console.log(`  google: ${googleIdentities.size}, bing: ${bingIdentities.size}, google+bing(union): ${searchIdentities.size}, direct: ${directIdentities.size}`);
   console.log("landing path別 (上位10):");
   for (const [p, c] of [...pathCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)) {
     console.log(`  ${p}: ${c}件`);
@@ -93,7 +98,7 @@ async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive) 
 
   return {
     landingIdentities: landingIdentities.size,
-    searchIdentities: googleIdentities.size + bingIdentities.size,
+    searchIdentities: searchIdentities.size,
     directIdentities: directIdentities.size,
     signupCount: signupCount ?? 0,
     funnelCounts,

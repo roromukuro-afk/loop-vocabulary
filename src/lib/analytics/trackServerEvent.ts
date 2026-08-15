@@ -97,6 +97,23 @@ export type InsertOncePerUserMilestoneEventResult =
  * growth-rollup-return-events.mjs 等のE2Eが検証している冪等性コントラクトを保ったまま、
  * Preview/ローカルdev実行が本番のD1/D7集計を汚染しない。本番の呼び出し経路・
  * atomicityは一切変更していない。
+ *
+ * 【重要: 本番以外の実行で「実ユーザー」を処理するケース】
+ * computeReturnEvents()@rollup.tsは、Preview/ローカルdevで実行された場合でも
+ * is_test_account=falseの実ユーザーに対してこの関数を呼び得る(rollup自体は
+ * テストアカウントかどうかで対象ユーザーを絞っていない)。もしここで実ユーザーに対して
+ * is_test_event=trueの行を直接INSERTしてしまうと、一意制約(event_name, user_idのみで
+ * is_test_eventを区別しない)のせいで、後から実行される本番cronのRPC呼び出しが
+ * このtest行と衝突し"already_exists"を返してしまう。本番集計はis_test_event=falseのみを
+ * 見るため、その実ユーザーのD1/D7マイルストーンは本番指標から永久に欠落する
+ * (今回はスキーマ変更禁止のためこの一意制約自体は直せない)。
+ * これを防ぐため、本番以外での直接INSERT分岐に入る前に対象userIdが
+ * profiles.is_test_account=trueかどうかを確認する。test accountであれば
+ * (=このINSERT自体が意図した検証用途であり、本番の一意制約キーを実データ用に
+ * 予約する心配がない)従来どおりis_test_event=trueで直接INSERTする。test accountで
+ * なければ(=実ユーザー)、本番の一意制約キーを一切消費せず、何もINSERTせずに
+ * "already_exists"を返す(=本番cronが後から安全にこのユーザーの行を作成できる状態を
+ * 維持する。掲題どおり「本番以外の実行は本番の一意性キーを予約してはならない」)。
  */
 export async function insertOncePerUserMilestoneEvent(
   eventName: OncePerUserMilestoneEventName,
@@ -108,6 +125,20 @@ export async function insertOncePerUserMilestoneEvent(
     const sanitized = sanitizeProperties(eventName, properties);
 
     if (!isProductionEnvironment()) {
+      const { data: profile, error: profileError } = await admin
+        .from("profiles")
+        .select("is_test_account")
+        .eq("id", userId)
+        .maybeSingle();
+      if (profileError) {
+        console.error("[insertOncePerUserMilestoneEvent] profile lookup failed:", eventName, userId, profileError.message);
+        return { status: "failed", error: profileError.message };
+      }
+      if (!profile?.is_test_account) {
+        // 実ユーザー: 本番の一意制約キーを予約しないよう、何もINSERTしない。
+        return { status: "already_exists" };
+      }
+
       const { error } = await admin.from("analytics_events").insert({
         event_name: eventName,
         occurred_at: new Date().toISOString(),
@@ -152,13 +183,14 @@ export async function trackWordCountMilestones(
   userId: string,
   countBefore: number,
   countAfter: number,
+  e2eHeaderValue?: string | null,
 ): Promise<void> {
   try {
     if (countBefore < 5 && countAfter >= 5) {
-      await trackServerEvent("five_words_added", { userId });
+      await trackServerEvent("five_words_added", { userId, e2eHeaderValue });
     }
     if (countBefore < 10 && countAfter >= 10) {
-      await trackServerEvent("ten_words_added", { userId });
+      await trackServerEvent("ten_words_added", { userId, e2eHeaderValue });
     }
   } catch (e) {
     console.error("[trackWordCountMilestones] unexpected error:", e);

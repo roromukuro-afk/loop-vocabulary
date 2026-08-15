@@ -24,10 +24,13 @@
  *     {status:"failed", error:...}が返る(insert失敗を成功扱いしない)
  *  4. 存在しないuser_id(FK制約違反)を渡した場合も同様に{status:"failed"}が返り、
  *     analytics_eventsに行が残らない(DB insert失敗を成功扱いする不具合の回帰ガード)
- *  5. Issue #95対応: 非production環境ではRPCを呼ばず、is_test_event=trueの直接INSERTへ
- *     切り替わる分岐(src/lib/analytics/trackServerEvent.tsのinsertOncePerUserMilestoneEvent)
- *     の検証。初回は{status:"inserted"}かつis_test_event=trueで保存され、2回目は
+ *  5. Issue #95対応: 非production環境ではRPCを呼ばず、対象userIdがprofiles.is_test_account=true
+ *     の場合に限りis_test_event=trueの直接INSERTへ切り替わる分岐
+ *     (src/lib/analytics/trackServerEvent.tsのinsertOncePerUserMilestoneEvent)の検証。
+ *     初回は{status:"inserted"}かつis_test_event=trueで保存され、2回目は
  *     一意制約違反(23505)を検知して{status:"already_exists"}を返すことを確認する。
+ *     このステップ専用にreturn_day_7を事前削除してから実行するため、割り込み・過去の
+ *     異常終了実行が残した行があっても正しくクリーンな状態から検証できる。
  *
  * 使い方: node scripts/testing/test-insert-once-per-user-milestone-event.mjs
  */
@@ -55,11 +58,21 @@ async function insertOncePerUserMilestoneEvent(admin, eventName, userId, propert
   }
 }
 
-// 同じく src/lib/analytics/trackServerEvent.ts の非production分岐(RPCを使わず
-// is_test_event=trueで直接INSERTし、一意制約違反(23505)をalready_existsとして扱う)を
+// 同じく src/lib/analytics/trackServerEvent.ts の非production分岐(RPCを使わず、
+// 対象userIdがprofiles.is_test_account=trueの場合のみis_test_event=trueで直接INSERTし、
+// 一意制約違反(23505)をalready_existsとして扱う。実ユーザー(is_test_account=false)の
+// 場合は本番の一意性キーを予約しないよう何もINSERTせずalready_existsを返す)を
 // 意図的に複製したもの(ファイル冒頭コメントと同じ理由でimportできないため)。
 async function insertOncePerUserMilestoneEventNonProduction(admin, eventName, userId, properties = {}) {
   try {
+    const { data: profile, error: profileError } = await admin
+      .from("profiles")
+      .select("is_test_account")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profileError) return { status: "failed", error: profileError.message };
+    if (!profile?.is_test_account) return { status: "already_exists" };
+
     const { error } = await admin.from("analytics_events").insert({
       event_name: eventName,
       occurred_at: new Date().toISOString(),
@@ -155,8 +168,11 @@ async function main() {
     else bad(`想定外に行が残っている: ${(fkRows ?? []).length}件`);
 
     console.log("\n--- 5. 非production分岐: is_test_event=trueで直接INSERTし、重複は23505でalready_existsを返す ---");
-    // return_day_7はこのテストではまだこの実userIdに対して使っていない(4番はfakeUserId側)ため、
-    // 事前クリーンアップなしでそのまま使える。
+    // testProfileはis_test_account=trueの共有フィクスチャ(limit 1で借用)であり、過去に
+    // このテストが異常終了した場合や並行実行時に、return_day_7の行が既に残っている
+    // 可能性がある。それを「2回目のinsertでは重複」と誤検知しないよう、Section 1同様に
+    // このセクション専用の事前クリーンアップを行ってからクリーンな状態で検証する。
+    await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", "return_day_7");
     const npFirst = await insertOncePerUserMilestoneEventNonProduction(admin, "return_day_7", userId, { test: true });
     if (npFirst.status === "inserted") ok("非production分岐: 初回insertは{status:'inserted'}を返す");
     else bad(`非production分岐: 初回insertの結果が想定外: ${JSON.stringify(npFirst)}`);

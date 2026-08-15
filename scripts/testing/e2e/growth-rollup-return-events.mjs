@@ -9,15 +9,26 @@
  * 一度条件を満たしたユーザーは翌日以降も条件を満たし続け、素朴に毎回発火すると
  * 重複してしまう。これを防ぐ冪等性の検証が本テストの主眼)。
  *
+ * 【Issue #95対応後の重要な前提】computeReturnEvents()が処理対象にするのは
+ * is_test_account=falseの実ユーザーのみ(テストアカウントは元々このpipelineの対象外)。
+ * insertOncePerUserMilestoneEvent()は今回の修正で、非production環境では対象userIdが
+ * is_test_account=trueでない限り一切INSERTしない(本番の一意性キーを予約しないため)。
+ * つまりこのテストをローカル/CI(非production)で実行する限り、growth-rollup cronは
+ * 実ユーザーのreturn_next_day/return_day_7行を「新規に1件も作らない」のが正しい挙動になる
+ * (以前は非production実行でも実ユーザー分をis_test_event=trueとして直接INSERTしており、
+ * それ自体が本番の一意制約キーを先取りしてしまう欠陥だった)。
+ *
  * 検証内容:
  *  1. profiles + daily_stats から独立に「条件を満たすはずのユーザー」を計算する
  *     (computeRetentionCohortsの検証である retention-source-of-truth.mjs と同じ
- *     独立計算スタイル)。
- *  2. /api/cron/growth-rollup を1回実行し、独立計算で条件を満たした全ユーザーに
- *     analytics_events 行が存在することを確認する。
+ *     独立計算スタイル。参考情報としてログ出力するのみで、行の存在は要求しない)。
+ *  2. /api/cron/growth-rollup を1回実行しても、非production環境では新規発火が常に0件
+ *     (return_next_day_fired=0, return_day_7_fired=0)であり、analytics_eventsの
+ *     return_next_day/return_day_7行が実行前後で1件も増えないことを確認する
+ *     (=本番の一意性キーを消費していないことの直接証拠)。
  *  3. 同じユーザー×イベントの組み合わせが重複行を持たない(ちょうど1行)ことを確認する。
- *  4. 2回目のcron実行では新規発火が0件(return_next_day_fired=0, return_day_7_fired=0)
- *     になり、analytics_eventsの行数・内訳も一切変化しない(=冪等)ことを確認する。
+ *  4. 2回目のcron実行でも新規発火が0件のままで、analytics_eventsの行数・内訳も
+ *     一切変化しない(=冪等)ことを確認する。
  *
  * 使い方: node scripts/testing/e2e/growth-rollup-return-events.mjs
  */
@@ -114,10 +125,16 @@ async function main() {
   console.log(`server: ${baseUrl} (startedByUs=${dev.startedByUs})`);
 
   try {
-    console.log("\n--- 独立にprofiles+daily_statsから「返ってきたはず」のユーザーを計算する ---");
+    console.log("\n--- 独立にprofiles+daily_statsから「返ってきたはず」のユーザーを計算する(参考情報) ---");
     const expected = await computeExpectedQualifyingUsers(admin);
     console.log(`expected return_next_day qualifying users: ${expected.return_next_day.size}`);
     console.log(`expected return_day_7 qualifying users: ${expected.return_day_7.size}`);
+    console.log("ℹ️  これらは実ユーザー(is_test_account=false)のみ。computeReturnEvents()自体が" +
+      "元々テストアカウントを対象外にしており、かつ今回のIssue #95修正により非production環境では" +
+      "実ユーザー分のINSERTも一切行わなくなったため、以下では『行が存在するはず』ではなく" +
+      "『新規に行が増えないはず』を検証する。");
+
+    const rowsBeforeRun1 = await fetchReturnEventRows(admin);
 
     console.log("\n--- growth-rollup cronを1回目実行 ---");
     const res1 = await fetch(`${baseUrl}/api/cron/growth-rollup`, {
@@ -131,25 +148,20 @@ async function main() {
     else bad(`computed.return_events が欠けている: ${JSON.stringify(body1)}`);
     console.log("return_events detail:", JSON.stringify(body1?.computed?.return_events));
 
-    console.log("\n--- analytics_eventsにqualifyingユーザー全員分のイベント行が存在するか確認 ---");
-    const rowsAfterRun1 = await fetchReturnEventRows(admin);
-    const firedSets = { return_next_day: new Set(), return_day_7: new Set() };
-    for (const row of rowsAfterRun1) {
-      if (row.event_name in firedSets) firedSets[row.event_name].add(row.user_id);
+    const detail1 = body1?.computed?.return_events;
+    if (detail1 && detail1.return_next_day_fired === 0 && detail1.return_day_7_fired === 0) {
+      ok("非production環境での1回目実行: 新規発火が0件(return_next_day_fired=0, return_day_7_fired=0)" +
+        "(=実ユーザー分は本番の一意性キーを予約せずスキップされている)");
+    } else {
+      bad(`非production環境なのに新規発火が発生した(本番の一意性キーを予約してしまっている可能性): ${JSON.stringify(detail1)}`);
     }
 
-    for (const { eventName } of RETURN_EVENT_DEFS) {
-      const expectedSet = expected[eventName];
-      if (expectedSet.size === 0) {
-        console.log(`ℹ️  ${eventName}: 現時点で条件を満たすユーザーがいない(比較対象データなし)`);
-        continue;
-      }
-      const missing = [...expectedSet].filter((uid) => !firedSets[eventName].has(uid));
-      if (missing.length === 0) {
-        ok(`${eventName}: 独立計算で条件を満たした${expectedSet.size}人全員に analytics_events 行がある`);
-      } else {
-        bad(`${eventName}: ${missing.length}人分の analytics_events 行が欠けている(例: ${missing.slice(0, 5).join(",")})`);
-      }
+    console.log("\n--- analytics_eventsのreturn_next_day/return_day_7行が実行前後で増えていないか確認 ---");
+    const rowsAfterRun1 = await fetchReturnEventRows(admin);
+    if (rowsAfterRun1.length === rowsBeforeRun1.length) {
+      ok(`1回目実行の前後でreturn_next_day/return_day_7の総行数が変化していない(${rowsAfterRun1.length}件のまま)`);
+    } else {
+      bad(`1回目実行でreturn_next_day/return_day_7の行数が変化した (${rowsBeforeRun1.length} -> ${rowsAfterRun1.length})`);
     }
 
     const countsAfterRun1 = countByUserEvent(rowsAfterRun1);
@@ -159,21 +171,16 @@ async function main() {
     }
     if (!dupFound) ok("1回目実行時点で(event_name,user_id)ペアの重複行は無い");
 
-    // このテストは非production環境(next start単体実行、VERCEL_ENV未設定)からcronを
-    // 叩くため、insertOncePerUserMilestoneEvent()のRPCではなくis_test_event=trueで
-    // 直接insertする分岐を通るはず(Issue #95対応: 以前はこのテストの実行自体が
-    // 実ユーザーのD1/D7行をis_test_event=falseのまま本番同然に挿入し、本番集計を
-    // 汚染しうる経路になっていた。その修正確認)。過去(本番実運用やこのテストの
-    // 過去回実行)で既に発火済みの行は対象外にするため、このテスト開始時刻以降に
-    // 新規発火した行だけをtestRunStartedAtで絞り込んで確認する。
+    // 上記の「新規発火0件・行数不変」により、このテスト実行が本番の一意性キーを
+    // 一切消費していないことは既に確認済み。念のため、このテスト開始時刻以降に
+    // 新規挿入された行が本当に1件もないことも直接確認する(is_test_event=trueの
+    // 行であっても、computeReturnEvents()の対象は実ユーザーのみのため今回は
+    // 0件が正しい)。
     const newlyFiredRows = await fetchReturnEventRowsSince(admin, testRunStartedAt);
-    const nonTestRows = newlyFiredRows.filter((r) => r.is_test_event !== true);
-    if (newlyFiredRows.length > 0 && nonTestRows.length === 0) {
-      ok(`このテスト実行で新規に発火した${newlyFiredRows.length}件のreturn_next_day/return_day_7が全てis_test_event=trueで保存されている(本番集計から除外される)`);
-    } else if (newlyFiredRows.length === 0) {
-      console.log("ℹ️  今回のcron実行で新規に発火した行が無かった(対象ユーザーは既に過去に発火済み)ため、is_test_eventの確認はスキップ");
+    if (newlyFiredRows.length === 0) {
+      ok("このテスト実行開始以降、return_next_day/return_day_7の新規行が1件も作られていない");
     } else {
-      bad(`このテスト実行で新規に発火したのにis_test_event=falseの行が${nonTestRows.length}件ある(本番集計を汚染しうる): ${JSON.stringify(nonTestRows.slice(0, 5))}`);
+      bad(`このテスト実行中に想定外の新規行が${newlyFiredRows.length}件作られた(本番集計を汚染しうる): ${JSON.stringify(newlyFiredRows.slice(0, 5))}`);
     }
 
     console.log("\n--- growth-rollup cronを2回目実行(冪等性チェック) ---");
