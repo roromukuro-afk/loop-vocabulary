@@ -118,8 +118,18 @@ async function preserveAndClear(admin, userId, eventName) {
 // (console.errorだけではテスト自体は成功扱いのまま終了してしまう)ため、bad()で
 // 明示的にテスト失敗として記録する。手動復旧できるよう、失われた行の内容は
 // エラーメッセージへ含めて出力する(Codexレビュー指摘対応)。
+// deleteのerrorも無視しない: 一時的な失敗でこのテスト自身が作った行(または退避できな
+// かった既存行)が共有テーブルに残ると、後続の監査やテスト実行に影響するため、
+// 明示的にテスト失敗として記録する(Codexレビュー指摘対応)。
 async function clearAndRestore(admin, userId, eventName, preExistingRows) {
-  await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", eventName);
+  const { error: deleteError } = await admin
+    .from("analytics_events")
+    .delete()
+    .eq("user_id", userId)
+    .eq("event_name", eventName);
+  if (deleteError) {
+    bad(`${eventName}行のcleanup deleteに失敗しました。手動確認が必要です: ${deleteError.message}`);
+  }
   if (preExistingRows.length > 0) {
     const { error: restoreError } = await admin.from("analytics_events").insert(preExistingRows);
     if (restoreError) {
@@ -153,6 +163,13 @@ async function main() {
   // クリーンな状態からスタート(既存行があれば退避し、finallyで元通り復元する)。
   const preExistingReturnNextDayRows = await preserveAndClear(admin, userId, "return_next_day");
   let preExistingReturnDay7Rows = [];
+  // Section 5内のpreserveAndClear("return_day_7")が失敗(throw)した場合、try節を抜けて
+  // finallyへ入るが、その時点でpreExistingReturnDay7Rowsは初期値[]のまま(退避が実際に
+  // 完了していない)。それにも関わらずfinallyが無条件にreturn_day_7のcleanup(delete)を
+  // 実行すると、退避に失敗しただけで実際にはまだ存在している既存行を、裏付け無く
+  // 消し去ってしまう(Codexレビュー指摘対応)。このフラグで「退避が実際に完了したか」を
+  // 追跡し、完了していない場合はfinallyでreturn_day_7に一切触れないようにする。
+  let day7PreservationCompleted = false;
 
   try {
     console.log("\n--- 1. 初回insertは inserted を返す ---");
@@ -214,6 +231,7 @@ async function main() {
     // このセクション専用の事前クリーンアップを行ってからクリーンな状態で検証する
     // (既存行があれば退避し、finallyで元通り復元する。Codexレビュー指摘対応)。
     preExistingReturnDay7Rows = await preserveAndClear(admin, userId, "return_day_7");
+    day7PreservationCompleted = true;
     const npFirst = await insertOncePerUserMilestoneEventNonProduction(admin, "return_day_7", userId, { test: true });
     if (npFirst.status === "inserted") ok("非production分岐: 初回insertは{status:'inserted'}を返す");
     else bad(`非production分岐: 初回insertの結果が想定外: ${JSON.stringify(npFirst)}`);
@@ -245,8 +263,16 @@ async function main() {
   } finally {
     // 後片付け(テストデータを残さない)。開始前に退避した既存行があれば元通り復元する
     // (Codexレビュー指摘対応: return_next_day・return_day_7いずれも同様に扱う)。
+    // return_next_day側のpreserveAndClear()はtry/finallyの外(mainの先頭)で呼んでおり、
+    // それが失敗した場合はここへ到達すること自体が無い(main全体がthrowする)ため
+    // 無条件で問題ない。return_day_7側はtry節の内部でpreserveAndClear()を呼んでいるため、
+    // それが失敗した場合でもfinallyには到達してしまう。その場合はday7PreservationCompleted
+    // がfalseのままなので、退避できていない行を裏付け無く消さないようcleanup自体をskipする
+    // (Codexレビュー指摘対応)。
     await clearAndRestore(admin, userId, "return_next_day", preExistingReturnNextDayRows);
-    await clearAndRestore(admin, userId, "return_day_7", preExistingReturnDay7Rows);
+    if (day7PreservationCompleted) {
+      await clearAndRestore(admin, userId, "return_day_7", preExistingReturnDay7Rows);
+    }
   }
 
   console.log(fail
