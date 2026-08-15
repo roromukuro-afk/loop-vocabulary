@@ -50,11 +50,12 @@ function killTree(proc) {
   }
 }
 
-function spawnCmd(cmdline) {
+function spawnCmd(cmdline, envOverrides) {
   const isWin = process.platform === "win32";
+  const env = envOverrides ? { ...process.env, ...envOverrides } : undefined;
   return isWin
-    ? spawn(cmdline, { cwd: REPO_ROOT, stdio: "ignore", windowsHide: true, shell: true })
-    : spawn("sh", ["-c", cmdline], { cwd: REPO_ROOT, stdio: "ignore", detached: true });
+    ? spawn(cmdline, { cwd: REPO_ROOT, stdio: "ignore", windowsHide: true, shell: true, env })
+    : spawn("sh", ["-c", cmdline], { cwd: REPO_ROOT, stdio: "ignore", detached: true, env });
 }
 
 /**
@@ -66,21 +67,32 @@ function spawnCmd(cmdline) {
  * 再訪問（同一URLへの2回目以降のアクセス）で古い値を返す既知の癖があり、
  * 「設定変更 → 同じページを再訪問して反映を見る」という検証と相性が悪いため、
  * 実際の本番と同じ実行方式（next build && next start）で検証する。
+ *
+ * @param {number} port
+ * @param {{ env?: Record<string,string>, skipBuild?: boolean }} [opts]
+ *   env: 起動する子プロセスにだけ追加/上書きする環境変数(例: VERCEL_ENV="production"を
+ *     注入してPreview/本番の環境判定を実HTTPで検証する用途)。既存呼び出し箇所は省略時
+ *     従来どおりprocess.envをそのまま継承する(挙動変更なし)。
+ *   skipBuild: 既に別ポートでbuild済みであることが分かっている場合にnpm run buildを
+ *     省略する(同じ.nextを複数ポートのnext startで使い回す用途。VERCEL_ENVはビルド時
+ *     ではなくリクエスト時にprocess.envから読むため、ビルド成果物の使い回しで問題ない)。
  */
-export async function ensureServer(port) {
+export async function ensureServer(port, opts = {}) {
   const url = `http://localhost:${port}`;
   if (await isUp(url)) {
     return { url, proc: null, startedByUs: false };
   }
 
-  console.log("Building production bundle for testing (npm run build)...");
-  execFileSync(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build"], {
-    cwd: REPO_ROOT,
-    stdio: "inherit",
-    shell: process.platform === "win32",
-  });
+  if (!opts.skipBuild) {
+    console.log("Building production bundle for testing (npm run build)...");
+    execFileSync(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build"], {
+      cwd: REPO_ROOT,
+      stdio: "inherit",
+      shell: process.platform === "win32",
+    });
+  }
 
-  const proc = spawnCmd(`npm run start -- -p ${port}`);
+  const proc = spawnCmd(`npm run start -- -p ${port}`, opts.env);
 
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {

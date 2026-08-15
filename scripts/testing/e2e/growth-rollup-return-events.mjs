@@ -73,8 +73,23 @@ async function computeExpectedQualifyingUsers(admin) {
 async function fetchReturnEventRows(admin) {
   const { data, error } = await admin
     .from("analytics_events")
-    .select("event_name, user_id")
+    .select("event_name, user_id, is_test_event")
     .in("event_name", ["return_next_day", "return_day_7"]);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+// このテスト自身の実行(=このプロセスが叩いたcron呼び出し)で新規に発火した行だけを
+// 対象にする。return_next_day/return_day_7は生涯1回だけの仕様上、過去(本番の実運用や
+// このテストの過去回実行)で既に発火済みのユーザーの行はこのテスト実行中には一切
+// 増減しないため、それらを含めてis_test_eventを検証すると過去の(このテストが
+// 修正される前の)行や本当のProduction cronが作った行まで誤ってFAILと判定してしまう。
+async function fetchReturnEventRowsSince(admin, sinceISO) {
+  const { data, error } = await admin
+    .from("analytics_events")
+    .select("event_name, user_id, is_test_event")
+    .in("event_name", ["return_next_day", "return_day_7"])
+    .gte("occurred_at", sinceISO);
   if (error) throw new Error(error.message);
   return data ?? [];
 }
@@ -92,6 +107,7 @@ async function main() {
   loadEnv();
   requireEnv(["CRON_SECRET", "NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
   const admin = getAdminClient();
+  const testRunStartedAt = new Date().toISOString();
 
   const dev = await ensureServer(PORT);
   const baseUrl = dev.url;
@@ -142,6 +158,23 @@ async function main() {
       if (count > 1) { dupFound = true; bad(`${key}: 1回目実行時点で既に${count}件の重複行がある`); }
     }
     if (!dupFound) ok("1回目実行時点で(event_name,user_id)ペアの重複行は無い");
+
+    // このテストは非production環境(next start単体実行、VERCEL_ENV未設定)からcronを
+    // 叩くため、insertOncePerUserMilestoneEvent()のRPCではなくis_test_event=trueで
+    // 直接insertする分岐を通るはず(Issue #95対応: 以前はこのテストの実行自体が
+    // 実ユーザーのD1/D7行をis_test_event=falseのまま本番同然に挿入し、本番集計を
+    // 汚染しうる経路になっていた。その修正確認)。過去(本番実運用やこのテストの
+    // 過去回実行)で既に発火済みの行は対象外にするため、このテスト開始時刻以降に
+    // 新規発火した行だけをtestRunStartedAtで絞り込んで確認する。
+    const newlyFiredRows = await fetchReturnEventRowsSince(admin, testRunStartedAt);
+    const nonTestRows = newlyFiredRows.filter((r) => r.is_test_event !== true);
+    if (newlyFiredRows.length > 0 && nonTestRows.length === 0) {
+      ok(`このテスト実行で新規に発火した${newlyFiredRows.length}件のreturn_next_day/return_day_7が全てis_test_event=trueで保存されている(本番集計から除外される)`);
+    } else if (newlyFiredRows.length === 0) {
+      console.log("ℹ️  今回のcron実行で新規に発火した行が無かった(対象ユーザーは既に過去に発火済み)ため、is_test_eventの確認はスキップ");
+    } else {
+      bad(`このテスト実行で新規に発火したのにis_test_event=falseの行が${nonTestRows.length}件ある(本番集計を汚染しうる): ${JSON.stringify(nonTestRows.slice(0, 5))}`);
+    }
 
     console.log("\n--- growth-rollup cronを2回目実行(冪等性チェック) ---");
     const res2 = await fetch(`${baseUrl}/api/cron/growth-rollup`, {

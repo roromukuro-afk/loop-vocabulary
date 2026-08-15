@@ -10,10 +10,22 @@
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAllowedEventName, sanitizeProperties } from "./eventSchema";
+import { computeIsTestEvent, isProductionEnvironment } from "./testEventClassification";
 
 export async function trackServerEvent(
   eventName: string,
-  opts: { userId?: string | null; anonymousSessionId?: string | null; properties?: Record<string, unknown> } = {},
+  opts: {
+    userId?: string | null;
+    anonymousSessionId?: string | null;
+    properties?: Record<string, unknown>;
+    /**
+     * リクエストの `x-lv-e2e-test` ヘッダー値。Production Canary等、本番環境から
+     * 意図的にtest eventとして送りたい場合にのみ呼び出し元が渡す。渡さない場合は
+     * 環境(VERCEL_ENV)のみで判定する(Preview/ローカルdev/CIからの呼び出しは、この
+     * 引数を渡さなくても自動的にis_test_event=trueになる)。
+     */
+    e2eHeaderValue?: string | null;
+  } = {},
 ): Promise<void> {
   try {
     if (!isAllowedEventName(eventName)) return;
@@ -35,6 +47,10 @@ export async function trackServerEvent(
       device_category: "unknown",
       properties: sanitizeProperties(eventName, opts.properties ?? {}),
       schema_version: 1,
+      // クライアント側ingestion(/api/analytics/events)と同じ判定helperを使い、
+      // Preview/ローカルdev/CIからのサーバー発火イベントを本番集計から除外する
+      // (以前はこの列を設定しておらずDEFAULT falseのまま=本番イベントと区別不能だった)。
+      is_test_event: computeIsTestEvent(opts.e2eHeaderValue),
     });
     if (error) {
       console.error("[trackServerEvent] insert failed:", eventName, error.message);
@@ -68,6 +84,19 @@ export type InsertOncePerUserMilestoneEventResult =
  * 同時実行されたcron同士の競合もこのDB側atomic insertで安全に処理される
  * (アプリケーション側のメモリ上Setによる事前チェックだけでは、2つのcronが同時に
  * 「まだ発火していない」と判定してしまう競合状態を防げないため)。
+ *
+ * 【本番以外(Preview/ローカルdev/CI)での挙動】
+ * Postgres関数 insert_once_per_user_milestone_event() は is_test_event を受け取れず、
+ * 今回のスキーマ変更(migration追加)は禁止されているため関数自体は変更しない。
+ * 本番以外ではこのRPCを呼ばず、代わりに明示的に is_test_event=true で直接INSERTする。
+ * 一意制約(analytics_events_once_per_user_milestone_uniq: event_name, user_idのみで
+ * is_test_eventは区別しない)はこの直接INSERTにもそのまま適用されるため、重複時は
+ * 23505(一意制約違反)がPostgres側から返り、RPCのON CONFLICT DO NOTHINGと同じ
+ * "already_exists"として扱う(Postgresの一意制約違反はそれ自体がatomicなDB操作であり、
+ * ON CONFLICT句を使わなくても同じ冪等性・競合安全性が保たれる)。これにより
+ * growth-rollup-return-events.mjs 等のE2Eが検証している冪等性コントラクトを保ったまま、
+ * Preview/ローカルdev実行が本番のD1/D7集計を汚染しない。本番の呼び出し経路・
+ * atomicityは一切変更していない。
  */
 export async function insertOncePerUserMilestoneEvent(
   eventName: OncePerUserMilestoneEventName,
@@ -76,10 +105,30 @@ export async function insertOncePerUserMilestoneEvent(
 ): Promise<InsertOncePerUserMilestoneEventResult> {
   try {
     const admin = createAdminClient();
+    const sanitized = sanitizeProperties(eventName, properties);
+
+    if (!isProductionEnvironment()) {
+      const { error } = await admin.from("analytics_events").insert({
+        event_name: eventName,
+        occurred_at: new Date().toISOString(),
+        user_id: userId,
+        properties: sanitized,
+        schema_version: 1,
+        device_category: "unknown",
+        is_test_event: true,
+      });
+      if (error) {
+        if (error.code === "23505") return { status: "already_exists" };
+        console.error("[insertOncePerUserMilestoneEvent] non-production insert failed:", eventName, userId, error.message);
+        return { status: "failed", error: error.message };
+      }
+      return { status: "inserted" };
+    }
+
     const { data, error } = await admin.rpc("insert_once_per_user_milestone_event", {
       p_event_name: eventName,
       p_user_id: userId,
-      p_properties: sanitizeProperties(eventName, properties),
+      p_properties: sanitized,
     });
     if (error) {
       console.error("[insertOncePerUserMilestoneEvent] rpc failed:", eventName, userId, error.message);
