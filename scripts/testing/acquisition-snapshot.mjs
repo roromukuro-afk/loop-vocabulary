@@ -59,10 +59,20 @@ async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive) 
   const rows = await fetchEventsInWindow(admin, { startISO, endISO });
 
   const landingRows = rows.filter((r) => r.event_name === "landing_view");
+  // anonymous_session_idはingestion側で必須ではなくnullで保存され得るため、
+  // landingIdentitiesと同じくfilter(Boolean)でnull/空文字を除く。これをしないと
+  // 複数のsource別setがそれぞれ「null」を1identityとして数えてしまい、集計に
+  // 含まれないはずのnull行がsearch/direct側の内訳合計を歪める(Codexレビュー指摘対応)。
   const landingIdentities = new Set(landingRows.map((r) => r.anonymous_session_id).filter(Boolean));
-  const googleIdentities = new Set(landingRows.filter((r) => r.source === "google").map((r) => r.anonymous_session_id));
-  const bingIdentities = new Set(landingRows.filter((r) => r.source === "bing").map((r) => r.anonymous_session_id));
-  const directIdentities = new Set(landingRows.filter((r) => r.source === "direct").map((r) => r.anonymous_session_id));
+  const googleIdentities = new Set(
+    landingRows.filter((r) => r.source === "google").map((r) => r.anonymous_session_id).filter(Boolean),
+  );
+  const bingIdentities = new Set(
+    landingRows.filter((r) => r.source === "bing").map((r) => r.anonymous_session_id).filter(Boolean),
+  );
+  const directIdentities = new Set(
+    landingRows.filter((r) => r.source === "direct").map((r) => r.anonymous_session_id).filter(Boolean),
+  );
 
   const pathCounts = new Map();
   for (const r of landingRows) {

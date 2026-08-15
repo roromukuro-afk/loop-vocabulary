@@ -111,17 +111,25 @@ async function main() {
   const admin = getAdminClient();
   const testStartedAt = new Date().toISOString();
 
-  console.log(`--- production環境サーバーを起動(port=${PROD_PORT}, VERCEL_ENV=production) ---`);
-  const prodServer = await ensureServer(PROD_PORT, { env: { VERCEL_ENV: "production" } });
-  console.log(`prod server: ${prodServer.url} (startedByUs=${prodServer.startedByUs})`);
-
-  console.log(`--- preview環境サーバーを起動(port=${PREVIEW_PORT}, VERCEL_ENV=preview, 同じビルドを再利用) ---`);
-  const previewServer = await ensureServer(PREVIEW_PORT, { env: { VERCEL_ENV: "preview" }, skipBuild: true });
-  console.log(`preview server: ${previewServer.url} (startedByUs=${previewServer.startedByUs})`);
-
-  const browser = await chromium.launch();
+  // prodServer起動後にpreviewServer起動やchromium.launch()が失敗すると、まだtry/finally
+  // に入っていないため、既に起動済みのprodServerがstopされずプロセスが残留し、次回実行時に
+  // ポート占有で失敗する(Codexレビュー指摘対応)。サーバー起動・ブラウザ起動もtry内に含め、
+  // finallyで「実際に作られたものだけ」nullガード付きで確実に後始末する。
+  let prodServer = null;
+  let previewServer = null;
+  let browser = null;
 
   try {
+    console.log(`--- production環境サーバーを起動(port=${PROD_PORT}, VERCEL_ENV=production) ---`);
+    prodServer = await ensureServer(PROD_PORT, { env: { VERCEL_ENV: "production" } });
+    console.log(`prod server: ${prodServer.url} (startedByUs=${prodServer.startedByUs})`);
+
+    console.log(`--- preview環境サーバーを起動(port=${PREVIEW_PORT}, VERCEL_ENV=preview, 同じビルドを再利用) ---`);
+    previewServer = await ensureServer(PREVIEW_PORT, { env: { VERCEL_ENV: "preview" }, skipBuild: true });
+    console.log(`preview server: ${previewServer.url} (startedByUs=${previewServer.startedByUs})`);
+
+    browser = await chromium.launch();
+
     const context = await browser.newContext({ userAgent: REAL_BROWSER_UA });
     const page = await context.newPage();
     const errors = collectErrors(page);
@@ -233,11 +241,14 @@ async function main() {
     // 保存させている。これを放置するとこのテスト自身がis_test_event=falseの汚染を
     // 作ってしまう(このIssue全体の目的に反する)ため、anonymous_session_idの
     // "env-isolation-"プレフィックスで確実にこのテストが作った行だけを削除する。
+    // cleanup自体が(一時的な障害等で)失敗した場合、production汚染行が残ったまま
+    // このテストが成功扱いになってしまうため、console.errorだけで済ませず明示的に
+    // テスト失敗として記録する(Codexレビュー指摘対応)。
     const { error: cleanupError } = await admin
       .from("analytics_events")
       .delete()
       .like("anonymous_session_id", "env-isolation-%");
-    if (cleanupError) console.error("[cleanup] analytics_events削除に失敗:", cleanupError.message);
+    if (cleanupError) bad(`[cleanup] analytics_events削除に失敗: ${cleanupError.message}`);
 
     // login()経由で/dashboardへ着地すると、OnboardingModal等がこのテストの管理する
     // sessionIdとは無関係の独自lv_aidセッションで自動的にonboarding_started/
@@ -252,7 +263,7 @@ async function main() {
       .eq("email", TEST_ACCOUNTS.srs.email)
       .maybeSingle();
     if (srsProfileError) {
-      console.error("[cleanup] srsテストアカウントprofile取得に失敗:", srsProfileError.message);
+      bad(`[cleanup] srsテストアカウントprofile取得に失敗: ${srsProfileError.message}`);
     } else if (srsProfile) {
       const { error: authCleanupError } = await admin
         .from("analytics_events")
@@ -261,12 +272,12 @@ async function main() {
         .eq("is_test_event", false)
         .gte("occurred_at", testStartedAt);
       if (authCleanupError) {
-        console.error("[cleanup] 認証済みフロー由来のanalytics_events削除に失敗:", authCleanupError.message);
+        bad(`[cleanup] 認証済みフロー由来のanalytics_events削除に失敗: ${authCleanupError.message}`);
       }
     }
-    await browser.close();
-    stopDevServer(prodServer);
-    stopDevServer(previewServer);
+    if (browser) await browser.close();
+    if (prodServer) stopDevServer(prodServer);
+    if (previewServer) stopDevServer(previewServer);
   }
 
   console.log(fail
