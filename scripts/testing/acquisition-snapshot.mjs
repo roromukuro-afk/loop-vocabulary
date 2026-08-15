@@ -43,17 +43,19 @@ async function fetchTestAccountIds(admin) {
   return new Set((data ?? []).map((p) => p.id));
 }
 
-async function fetchEventsInWindow(admin, { startISO, endISO }) {
+async function fetchEventsInWindow(admin, { startISO, endISO, asOf }) {
   const rows = [];
   const pageSize = 1000;
-  // offsetベースの.range()ページングは、ページを跨ぐ間に条件に合致する行が
-  // 挿入/削除されると後続ページのoffsetの意味がずれ、行の取りこぼしや二重カウントが
-  // 起き得る(occurred_at,idでの.order()を追加しても解消しない。Codexレビュー指摘対応、
-  // 前回のorder追加だけでは不十分との再指摘)。そのため、一意なid(UUID)を昇順の
-  // keysetカーソルとして使うページングに切り替える。「id > 前ページ最後の行のid」で
-  // 次ページを取得する方式は、他の行がどのタイミングで挿入/削除されても、各行の
-  // 取得対象への含有・順序が(そのidが挿入された時点でこの走査より前か後かに関わらず)
-  // 一意に決まるため、offsetのずれによる取りこぼし・二重カウントが構造的に起きない。
+  // id(analytics_events.id)はgen_random_uuid()で、挿入順とは無相関のランダム値のため、
+  // 「id > 前ページ最後の行のid」でのkeysetページング中に、cursorより小さいidを持つ
+  // 行が新規挿入されると、その行はどのページにも現れず永久に取りこぼされる
+  // (Codexレビュー指摘対応: idユニーク性だけに頼ったkeysetは十分ではないとの再指摘。
+  // occurred_atは信用できないクライアント指定値のため代わりに使えない)。
+  // これを防ぐため、DBがINSERT時に自動設定するcreated_at(created_at timestamptz not
+  // null default now())を使い、このページング開始時点のasOf以前に作られた行だけに
+  // 対象を絞り込む(=読み取り対象集合をこの時点でスナップショット的に凍結する)。
+  // 凍結後の集合は走査中に増減しないため、その中でのid順ページングは(idが挿入順と
+  // 無相関でも)取りこぼし・二重カウントなく安全に機能する。
   let cursorId = null;
   for (;;) {
     let query = admin
@@ -62,6 +64,7 @@ async function fetchEventsInWindow(admin, { startISO, endISO }) {
       .eq("is_test_event", false)
       .gte("occurred_at", startISO)
       .lt("occurred_at", endISO)
+      .lte("created_at", asOf)
       .order("id", { ascending: true })
       .limit(pageSize);
     if (cursorId) query = query.gt("id", cursorId);
@@ -75,9 +78,9 @@ async function fetchEventsInWindow(admin, { startISO, endISO }) {
   return rows;
 }
 
-async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive, testAccountIds) {
+async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive, testAccountIds, asOf) {
   const { startISO, endISO } = windowRangeISO(startDateStr, endDateStrInclusive);
-  const rawRows = await fetchEventsInWindow(admin, { startISO, endISO });
+  const rawRows = await fetchEventsInWindow(admin, { startISO, endISO, asOf });
   // is_test_account=trueのユーザーがログイン中に作ったis_test_event=false行
   // (audit-analytics-pollution.mjsが検出した既知の混入経路)を除外する。rollup.tsの
   // testAccountIds.hasと同じ既存パターンをここでも使う(Codexレビュー指摘対応:
@@ -161,9 +164,12 @@ async function main() {
   console.log(`基準日(today, JST): ${today}(集計対象は昨日までの完全な日のみ)`);
 
   const testAccountIds = await fetchTestAccountIds(admin);
+  // 両ウィンドウで同じ瞬間を「読み取り対象の凍結境界」として使う(fetchEventsInWindow内の
+  // コメント参照)。
+  const asOf = new Date().toISOString();
 
-  const recent = await summarizeWindow(admin, "直近7日", day7Ago, yesterday, testAccountIds);
-  const prior = await summarizeWindow(admin, "前7日", day14Ago, day8Ago, testAccountIds);
+  const recent = await summarizeWindow(admin, "直近7日", day7Ago, yesterday, testAccountIds, asOf);
+  const prior = await summarizeWindow(admin, "前7日", day14Ago, day8Ago, testAccountIds, asOf);
 
   console.log("\n=== 比較サマリ ===");
   console.log(`landing identities: ${prior.landingIdentities} → ${recent.landingIdentities}`);

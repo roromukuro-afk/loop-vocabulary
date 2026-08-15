@@ -18,15 +18,19 @@ async function unwrap(queryPromise, label) {
 // offsetベースの.range()ページングは、.order()を追加してもページを跨ぐ間の新規挿入/削除で
 // offsetの意味がずれ取りこぼし/二重カウントが起き得る(Codexレビュー指摘対応、前回の
 // order追加だけでは不十分との再指摘)。一意なid(UUID)を昇順のkeysetカーソルとして使う
-// 方式に切り替える。他の行がどのタイミングで挿入/削除されても、各行の取得対象への含有は
-// そのidがcursorより大きいかだけで決まるため、offsetのずれによる取りこぼし・二重カウントが
-// 構造的に起きない。queryFactoryはid昇順の.order()未適用のPostgrestFilterBuilderを返す関数。
-async function fetchAllPages(queryFactory, label) {
+// 方式に切り替えたが、analytics_events.idはgen_random_uuid()(挿入順と無相関のランダム値)
+// のため、cursorより小さいidを持つ行がページング中に新規挿入されると、その行はどのページにも
+// 現れず永久に取りこぼされ得る(Codexレビュー指摘対応、再度の指摘)。DBがINSERT時に自動設定する
+// created_at(occurred_atと違いクライアントが指定できない)を使い、呼び出し時点のasOf以前に
+// 作られた行だけへ読み取り対象を凍結する。凍結後の集合は走査中に増減しないため、
+// その中でのid順ページングは(idが挿入順と無相関でも)安全に機能する。
+// queryFactoryはid昇順の.order()・created_at上限未適用のPostgrestFilterBuilderを返す関数。
+async function fetchAllPages(queryFactory, label, asOf) {
   const pageSize = 1000;
   const rows = [];
   let cursorId = null;
   for (;;) {
-    let query = queryFactory().order("id", { ascending: true }).limit(pageSize);
+    let query = queryFactory().lte("created_at", asOf).order("id", { ascending: true }).limit(pageSize);
     if (cursorId) query = query.gt("id", cursorId);
     const { data } = await unwrap(query, `${label} (cursorId=${cursorId})`);
     if (!data || data.length === 0) break;
@@ -42,17 +46,23 @@ async function main() {
   requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
   const admin = getAdminClient();
 
-  console.log("=== 1. analytics_events 全体件数(is_test_event別) ===");
+  // このスクリプト全体で「asOf時点のスナップショット」として一貫させる(fetchAllPages内の
+  // コメント参照)。Section 1のcountクエリにも同じ上限を適用しないと、Section 6での
+  // 「ページング取得件数 === falseCount」比較が、count取得後に新規挿入された行の分だけ
+  // 食い違って誤検知する。
+  const asOf = new Date().toISOString();
+
+  console.log("=== 1. analytics_events 全体件数(is_test_event別、asOf時点) ===");
   const { count: totalCount } = await unwrap(
-    admin.from("analytics_events").select("*", { count: "exact", head: true }),
+    admin.from("analytics_events").select("*", { count: "exact", head: true }).lte("created_at", asOf),
     "total count query",
   );
   const { count: falseCount } = await unwrap(
-    admin.from("analytics_events").select("*", { count: "exact", head: true }).eq("is_test_event", false),
+    admin.from("analytics_events").select("*", { count: "exact", head: true }).eq("is_test_event", false).lte("created_at", asOf),
     "is_test_event=false count query",
   );
   const { count: trueCount } = await unwrap(
-    admin.from("analytics_events").select("*", { count: "exact", head: true }).eq("is_test_event", true),
+    admin.from("analytics_events").select("*", { count: "exact", head: true }).eq("is_test_event", true).lte("created_at", asOf),
     "is_test_event=true count query",
   );
   console.log(`total=${totalCount}, is_test_event=false: ${falseCount}, is_test_event=true: ${trueCount}`);
@@ -115,6 +125,7 @@ async function main() {
           .in("event_name", ["return_next_day", "return_day_7"])
           .eq("is_test_event", false),
       "milestone rows query",
+      asOf,
     )
   ).sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : a.occurred_at > b.occurred_at ? -1 : 0));
   console.log(`件数: ${milestoneRows.length}`);
@@ -133,6 +144,7 @@ async function main() {
   const vtmRows = await fetchAllPages(
     () => admin.from("analytics_events").select("id, event_name, occurred_at, is_test_event").like("event_name", "vocab_test_maker_%"),
     "vocab_test_maker_* rows query",
+    asOf,
   );
   const byDay = new Map();
   for (const r of vtmRows) {
@@ -152,6 +164,7 @@ async function main() {
   const allFalseRows = await fetchAllPages(
     () => admin.from("analytics_events").select("id, event_name").eq("is_test_event", false),
     "all is_test_event=false rows query",
+    asOf,
   );
   const eventCounts = new Map();
   for (const r of allFalseRows) eventCounts.set(r.event_name, (eventCounts.get(r.event_name) ?? 0) + 1);

@@ -104,8 +104,10 @@ async function preserveAndClear(admin, userId, eventName) {
     .eq("user_id", userId)
     .eq("event_name", eventName);
   if (preExistingErr) {
-    bad(`既存${eventName}行の退避に失敗: ${preExistingErr.message}`);
-    return [];
+    // 退避読み取りが失敗したのに空配列を返して処理を続けると、呼び出し元は「既存行は無い」と
+    // 誤解したままこの直後にdeleteを実行してしまい、実際にあった本物の記録を裏付けなく
+    // 消し去ってしまう(Codexレビュー指摘対応)。deleteへ進む前にここで中断する。
+    throw new Error(`既存${eventName}行の退避に失敗したため中断します(データ消失を避けるためdeleteを実行しません): ${preExistingErr.message}`);
   }
   await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", eventName);
   return preExisting ?? [];
