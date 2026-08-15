@@ -122,34 +122,42 @@ async function main() {
   // PostgREST(Supabase)のデフォルト応答上限(通常1000行)は.limit()に大きい値を
   // 渡しても超えられない。.limit(50000)は実際には最初の約1000行しか返さず、
   // 「全体像」を謳いながら黙って取りこぼす(Codexレビュー指摘対応)。
-  // acquisition-snapshot.mjsのfetchEventsInWindow()と同じ.range()ページングで、
-  // falseCount件すべてを確実に取得する。.order()を指定しないとページ間で行の並び順が
-  // 安定せず、ページを跨ぐ間の新規挿入等でoffsetの意味がずれ取りこぼし/二重カウントが
-  // 起き得るため、idを一意な決定的順序として明示する(Codexレビュー指摘対応、
-  // acquisition-snapshot.mjs側の同型の指摘を受けてこちらも同様に修正)。
+  // offsetベースの.range()ページングは、.order()を追加してもページを跨ぐ間の
+  // 新規挿入/削除でoffsetの意味がずれ取りこぼし/二重カウントが起き得る
+  // (Codexレビュー指摘対応、前回のorder追加だけでは不十分との再指摘)。
+  // acquisition-snapshot.mjsのfetchEventsInWindow()と同じく、一意なid(UUID)を
+  // 昇順のkeysetカーソルとして使う方式に切り替える。他の行がどのタイミングで
+  // 挿入/削除されても、各行の取得対象への含有はそのidがcursorより大きいかだけで
+  // 決まるため、offsetのずれによる取りこぼし・二重カウントが構造的に起きない。
   const allFalseRows = [];
   {
     const pageSize = 1000;
-    for (let from = 0; ; from += pageSize) {
-      const { data: page } = await unwrap(
-        admin
-          .from("analytics_events")
-          .select("id, event_name")
-          .eq("is_test_event", false)
-          .order("id", { ascending: true })
-          .range(from, from + pageSize - 1),
-        `all is_test_event=false rows query (page from=${from})`,
-      );
+    let cursorId = null;
+    for (;;) {
+      let query = admin
+        .from("analytics_events")
+        .select("id, event_name")
+        .eq("is_test_event", false)
+        .order("id", { ascending: true })
+        .limit(pageSize);
+      if (cursorId) query = query.gt("id", cursorId);
+      const { data: page } = await unwrap(query, `all is_test_event=false rows query (cursorId=${cursorId})`);
       if (!page || page.length === 0) break;
       allFalseRows.push(...page);
       if (page.length < pageSize) break;
+      cursorId = page[page.length - 1].id;
     }
   }
   const eventCounts = new Map();
   for (const r of allFalseRows) eventCounts.set(r.event_name, (eventCounts.get(r.event_name) ?? 0) + 1);
   console.log(`(${allFalseRows.length}件を全ページング取得。falseCount=${falseCount})`);
   if (allFalseRows.length !== falseCount) {
-    console.error(`❌ ページング取得件数(${allFalseRows.length})がfalseCount(${falseCount})と一致しない(取りこぼしの可能性)`);
+    // 件数不一致は「監査結果が不完全/矛盾している」ことを意味するため、警告ログだけで
+    // 済ませず監査自体を失敗させる(Codexレビュー指摘対応: 自動化が不正な監査結果を
+    // 正常終了として受理してしまわないように)。
+    throw new Error(
+      `ページング取得件数(${allFalseRows.length})がfalseCount(${falseCount})と一致しない(取りこぼし/監査中の増減の可能性)`,
+    );
   }
   for (const [name, count] of [...eventCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20)) {
     console.log(`  ${name}: ${count}件`);

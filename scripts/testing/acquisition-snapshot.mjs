@@ -46,25 +46,31 @@ async function fetchTestAccountIds(admin) {
 async function fetchEventsInWindow(admin, { startISO, endISO }) {
   const rows = [];
   const pageSize = 1000;
-  for (let from = 0; ; from += pageSize) {
-    // .range()によるページングは、ページ間で行の並び順が安定していることが前提。
-    // .order()を指定しないと、ページを跨ぐ間に新しい行が挿入される等でoffsetの
-    // 意味がずれ、行の取りこぼしや二重カウントが起き得る(Codexレビュー指摘対応)。
-    // occurred_atだけでは同時刻の行が同順位になり得るため、一意なidを第二キーにして
-    // 完全に決定的な順序にする。
-    const { data, error } = await admin
+  // offsetベースの.range()ページングは、ページを跨ぐ間に条件に合致する行が
+  // 挿入/削除されると後続ページのoffsetの意味がずれ、行の取りこぼしや二重カウントが
+  // 起き得る(occurred_at,idでの.order()を追加しても解消しない。Codexレビュー指摘対応、
+  // 前回のorder追加だけでは不十分との再指摘)。そのため、一意なid(UUID)を昇順の
+  // keysetカーソルとして使うページングに切り替える。「id > 前ページ最後の行のid」で
+  // 次ページを取得する方式は、他の行がどのタイミングで挿入/削除されても、各行の
+  // 取得対象への含有・順序が(そのidが挿入された時点でこの走査より前か後かに関わらず)
+  // 一意に決まるため、offsetのずれによる取りこぼし・二重カウントが構造的に起きない。
+  let cursorId = null;
+  for (;;) {
+    let query = admin
       .from("analytics_events")
       .select("id, event_name, anonymous_session_id, source, path, user_id")
       .eq("is_test_event", false)
       .gte("occurred_at", startISO)
       .lt("occurred_at", endISO)
-      .order("occurred_at", { ascending: true })
       .order("id", { ascending: true })
-      .range(from, from + pageSize - 1);
+      .limit(pageSize);
+    if (cursorId) query = query.gt("id", cursorId);
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     if (!data || data.length === 0) break;
     rows.push(...data);
     if (data.length < pageSize) break;
+    cursorId = data[data.length - 1].id;
   }
   return rows;
 }

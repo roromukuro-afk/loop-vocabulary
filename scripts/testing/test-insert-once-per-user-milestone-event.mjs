@@ -114,6 +114,11 @@ async function main() {
   // クリーンな状態からスタート
   await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", "return_next_day");
 
+  // Section 5実行前にこの変数へ退避し、finallyで元通り復元する
+  // (Codexレビュー指摘対応: 共有フィクスチャに本物のreturn_day_7記録が既にあった場合、
+  // 無条件deleteで壊して復元しないまま失ってしまうため)。
+  let preExistingReturnDay7Rows = [];
+
   try {
     console.log("\n--- 1. 初回insertは inserted を返す ---");
     const first = await insertOncePerUserMilestoneEvent(admin, "return_next_day", userId, { test: true });
@@ -172,6 +177,19 @@ async function main() {
     // このテストが異常終了した場合や並行実行時に、return_day_7の行が既に残っている
     // 可能性がある。それを「2回目のinsertでは重複」と誤検知しないよう、Section 1同様に
     // このセクション専用の事前クリーンアップを行ってからクリーンな状態で検証する。
+    // ただし、無条件にdeleteすると、たまたま本物のreturn_day_7記録(異常終了の残骸ではなく
+    // 実際にこのフィクスチャユーザーに対して発火した正当な記録)まで壊してしまい得るため、
+    // 削除前に内容を退避し、finallyで元通り復元する(Codexレビュー指摘対応)。
+    const { data: preExistingRows, error: preExistingErr } = await admin
+      .from("analytics_events")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("event_name", "return_day_7");
+    if (preExistingErr) {
+      bad(`既存return_day_7行の退避に失敗: ${preExistingErr.message}`);
+    } else {
+      preExistingReturnDay7Rows = preExistingRows ?? [];
+    }
     await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", "return_day_7");
     const npFirst = await insertOncePerUserMilestoneEventNonProduction(admin, "return_day_7", userId, { test: true });
     if (npFirst.status === "inserted") ok("非production分岐: 初回insertは{status:'inserted'}を返す");
@@ -205,6 +223,18 @@ async function main() {
     // 後片付け(テストデータを残さない)
     await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", "return_next_day");
     await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", "return_day_7");
+
+    // Section 5実行前に退避した既存return_day_7行を元通り復元する(Codexレビュー指摘対応)。
+    if (preExistingReturnDay7Rows.length > 0) {
+      const { error: restoreError } = await admin.from("analytics_events").insert(preExistingReturnDay7Rows);
+      if (restoreError) {
+        console.error(
+          "既存return_day_7行の復元に失敗しました。手動確認が必要です:",
+          restoreError.message,
+          JSON.stringify(preExistingReturnDay7Rows),
+        );
+      }
+    }
   }
 
   console.log(fail
