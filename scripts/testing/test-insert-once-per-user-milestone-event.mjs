@@ -16,6 +16,18 @@
  * `@/lib/seo/siteUrl`のnormalizeSiteUrlをあえて複製している既存の前例に倣った。
  * ロジック自体はどちらもごく薄いラッパーのため、複製によるドリフトのリスクは小さい。
  *
+ * 【テスト対象ユーザー: 使い捨て専用アカウント】
+ * 以前はis_test_account=trueの既存共有プロフィールを`limit(1)`で借用していたが、
+ * 2つのテスト実行(別プロセス・別マシン含む)が同じプロフィールを同時に選ぶと、
+ * 「退避→削除→挿入→片付け→復元」の非トランザクション的な手順が競合し、
+ * 一方の実行が他方の実行の復元処理を巻き込んで壊してしまう(Codexレビュー指摘対応:
+ * 退避/復元の手順自体をいくら堅牢にしても、共有リソースを複数実行が同時に
+ * 触る限り根本的には解決しない)。そのため、scripts/testing/e2e/ai-usage-retention.mjs
+ * の既存パターン(admin.auth.admin.createUser()で使い捨てauthユーザーを作り、
+ * finallyでadmin.auth.admin.deleteUser()する)にならい、このテスト実行専用の
+ * 使い捨てユーザーを毎回新規作成する。他のテスト実行や既存の共有テストアカウントの
+ * データには一切触れないため、複数プロセスを同時実行しても構造的に競合し得ない。
+ *
  * 検証内容:
  *  1. 初回insertは{status:"inserted"}を返し、実際にanalytics_eventsへ1行保存される
  *  2. 同一(event_name,user_id)への2回目のinsertは{status:"already_exists"}を返し、
@@ -29,9 +41,8 @@
  *     (src/lib/analytics/trackServerEvent.tsのinsertOncePerUserMilestoneEvent)の検証。
  *     初回は{status:"inserted"}かつis_test_event=trueで保存され、2回目は
  *     一意制約違反(23505)を検知して{status:"already_exists"}を返すことを確認する。
- *     Section 1(return_next_day)・Section 5(return_day_7)いずれも、共有フィクスチャに
- *     割り込み・過去の異常終了実行が残した行があっても正しくクリーンな状態から検証できるよう
- *     事前削除するが、たまたま本物の記録があった場合に失わないよう退避してfinallyで復元する。
+ *
+ * 並行実行の回帰確認は scripts/testing/test-milestone-fixture-concurrency.mjs 参照。
  *
  * 使い方: node scripts/testing/test-insert-once-per-user-milestone-event.mjs
  */
@@ -93,83 +104,45 @@ async function insertOncePerUserMilestoneEventNonProduction(admin, eventName, us
   }
 }
 
-// このuserId・event_nameの既存行を退避してから削除する。共有フィクスチャ(is_test_account=true
-// のプロフィールをlimit 1で借用)に本物のマイルストーン記録が既にあった場合、単純な
-// 無条件deleteで壊して復元しないまま失ってしまうことがある(Codexレビュー指摘対応、
-// return_day_7側だけでなくreturn_next_day側にも同型の問題があると2回指摘された)。
-async function preserveAndClear(admin, userId, eventName) {
-  const { data: preExisting, error: preExistingErr } = await admin
-    .from("analytics_events")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("event_name", eventName);
-  if (preExistingErr) {
-    // 退避読み取りが失敗したのに空配列を返して処理を続けると、呼び出し元は「既存行は無い」と
-    // 誤解したままこの直後にdeleteを実行してしまい、実際にあった本物の記録を裏付けなく
-    // 消し去ってしまう(Codexレビュー指摘対応)。deleteへ進む前にここで中断する。
-    throw new Error(`既存${eventName}行の退避に失敗したため中断します(データ消失を避けるためdeleteを実行しません): ${preExistingErr.message}`);
-  }
-  await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", eventName);
-  return preExisting ?? [];
-}
-
-// このテストが作った行を削除したうえで、preserveAndClear()が退避した既存行を復元する。
-// 復元自体が失敗すると、共有フィクスチャの本物の記録を消失させたまま気づかれない
-// (console.errorだけではテスト自体は成功扱いのまま終了してしまう)ため、bad()で
-// 明示的にテスト失敗として記録する。手動復旧できるよう、失われた行の内容は
-// エラーメッセージへ含めて出力する(Codexレビュー指摘対応)。
-// deleteのerrorも無視しない: 一時的な失敗でこのテスト自身が作った行(または退避できな
-// かった既存行)が共有テーブルに残ると、後続の監査やテスト実行に影響するため、
-// 明示的にテスト失敗として記録する(Codexレビュー指摘対応)。
-async function clearAndRestore(admin, userId, eventName, preExistingRows) {
-  const { error: deleteError } = await admin
-    .from("analytics_events")
-    .delete()
-    .eq("user_id", userId)
-    .eq("event_name", eventName);
-  if (deleteError) {
-    bad(`${eventName}行のcleanup deleteに失敗しました。手動確認が必要です: ${deleteError.message}`);
-  }
-  if (preExistingRows.length > 0) {
-    const { error: restoreError } = await admin.from("analytics_events").insert(preExistingRows);
-    if (restoreError) {
-      bad(
-        `既存${eventName}行の復元に失敗しました。手動確認が必要です: ${restoreError.message} / ` +
-          `失われた行: ${JSON.stringify(preExistingRows)}`,
-      );
-    }
-  }
-}
-
 async function main() {
   loadEnv();
   requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
 
   const admin = getAdminClient();
 
-  // テスト対象user_id: 実在するprofilesのidを1件借用する(FK制約を満たすため)。
-  const { data: testProfile, error: profileErr } = await admin
-    .from("profiles")
-    .select("id")
-    .eq("is_test_account", true)
-    .limit(1)
-    .maybeSingle();
-  if (profileErr || !testProfile) {
-    console.error("テスト用profileが見つからない。is_test_account=trueのユーザーが最低1件必要です。");
+  // このテスト実行専用の使い捨てユーザーを作成する(ファイル冒頭コメント参照)。
+  // profilesへの行はauth.usersへのINSERTをトリガーとした既存の仕組みで自動作成される
+  // 前提(ai-usage-retention.mjsの既存パターンと同じ)。
+  const tempEmail = `test+milestone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@loop-vocabulary.app`;
+  const { data: created, error: createErr } = await admin.auth.admin.createUser({
+    email: tempEmail,
+    password: `Milestone-${Date.now()}-${Math.random().toString(36).slice(2, 10)}!`,
+    email_confirm: true,
+    user_metadata: { is_test_account: true, purpose: "insertOncePerUserMilestoneEvent() 使い捨てテスト" },
+  });
+  if (createErr || !created?.user) {
+    console.error("使い捨てテストユーザーの作成に失敗:", createErr?.message);
     process.exit(1);
   }
-  const userId = testProfile.id;
+  const userId = created.user.id;
 
-  // クリーンな状態からスタート(既存行があれば退避し、finallyで元通り復元する)。
-  const preExistingReturnNextDayRows = await preserveAndClear(admin, userId, "return_next_day");
-  let preExistingReturnDay7Rows = [];
-  // Section 5内のpreserveAndClear("return_day_7")が失敗(throw)した場合、try節を抜けて
-  // finallyへ入るが、その時点でpreExistingReturnDay7Rowsは初期値[]のまま(退避が実際に
-  // 完了していない)。それにも関わらずfinallyが無条件にreturn_day_7のcleanup(delete)を
-  // 実行すると、退避に失敗しただけで実際にはまだ存在している既存行を、裏付け無く
-  // 消し去ってしまう(Codexレビュー指摘対応)。このフラグで「退避が実際に完了したか」を
-  // 追跡し、完了していない場合はfinallyでreturn_day_7に一切触れないようにする。
-  let day7PreservationCompleted = false;
+  // .update()は対象行が無くてもerrorにならず(0件更新のまま成功扱いになる)、
+  // profilesへのトリガーがまだ反映されていないケースを見逃してしまうため、
+  // .select()で実際に更新できた行を確認する。
+  const { data: updatedProfile, error: markTestErr } = await admin
+    .from("profiles")
+    .update({ is_test_account: true })
+    .eq("id", userId)
+    .select("id")
+    .maybeSingle();
+  if (markTestErr || !updatedProfile) {
+    console.error(
+      "使い捨てテストユーザーのis_test_account設定に失敗:",
+      markTestErr?.message ?? "profiles行が見つからない(auth.users→profilesのtriggerが未反映の可能性)",
+    );
+    await admin.auth.admin.deleteUser(userId).catch(() => {});
+    process.exit(1);
+  }
 
   try {
     console.log("\n--- 1. 初回insertは inserted を返す ---");
@@ -225,13 +198,8 @@ async function main() {
     else bad(`想定外に行が残っている: ${(fkRows ?? []).length}件`);
 
     console.log("\n--- 5. 非production分岐: is_test_event=trueで直接INSERTし、重複は23505でalready_existsを返す ---");
-    // testProfileはis_test_account=trueの共有フィクスチャ(limit 1で借用)であり、過去に
-    // このテストが異常終了した場合や並行実行時に、return_day_7の行が既に残っている
-    // 可能性がある。それを「2回目のinsertでは重複」と誤検知しないよう、Section 1同様に
-    // このセクション専用の事前クリーンアップを行ってからクリーンな状態で検証する
-    // (既存行があれば退避し、finallyで元通り復元する。Codexレビュー指摘対応)。
-    preExistingReturnDay7Rows = await preserveAndClear(admin, userId, "return_day_7");
-    day7PreservationCompleted = true;
+    // userIdはこのテスト専用の使い捨てユーザーであり、他のどの実行とも共有されないため、
+    // return_day_7を事前クリーンアップする必要が無い(常に未使用の状態から始まる)。
     const npFirst = await insertOncePerUserMilestoneEventNonProduction(admin, "return_day_7", userId, { test: true });
     if (npFirst.status === "inserted") ok("非production分岐: 初回insertは{status:'inserted'}を返す");
     else bad(`非production分岐: 初回insertの結果が想定外: ${JSON.stringify(npFirst)}`);
@@ -261,17 +229,19 @@ async function main() {
     if ((npRowsAfterSecond ?? []).length === 1) ok("非production分岐: 2回目実行後も行数は1件のまま(重複していない)");
     else bad(`非production分岐: 2回目実行後の行数が想定外: ${(npRowsAfterSecond ?? []).length}件`);
   } finally {
-    // 後片付け(テストデータを残さない)。開始前に退避した既存行があれば元通り復元する
-    // (Codexレビュー指摘対応: return_next_day・return_day_7いずれも同様に扱う)。
-    // return_next_day側のpreserveAndClear()はtry/finallyの外(mainの先頭)で呼んでおり、
-    // それが失敗した場合はここへ到達すること自体が無い(main全体がthrowする)ため
-    // 無条件で問題ない。return_day_7側はtry節の内部でpreserveAndClear()を呼んでいるため、
-    // それが失敗した場合でもfinallyには到達してしまう。その場合はday7PreservationCompleted
-    // がfalseのままなので、退避できていない行を裏付け無く消さないようcleanup自体をskipする
-    // (Codexレビュー指摘対応)。
-    await clearAndRestore(admin, userId, "return_next_day", preExistingReturnNextDayRows);
-    if (day7PreservationCompleted) {
-      await clearAndRestore(admin, userId, "return_day_7", preExistingReturnDay7Rows);
+    // 後片付け: このテスト専用の使い捨てユーザーが作ったanalytics_events行を削除してから、
+    // authユーザー自体を削除する。analytics_events.user_idはON DELETE SET NULL
+    // (017_growth_os_foundation.sql)のため、authユーザー削除だけではanalytics_events行は
+    // 残存しuser_id=NULLになるだけで消えない。そのため明示的に先に行を削除する必要がある。
+    // cleanup自体が失敗した場合、使い捨てユーザーや残留行が残ってしまうため、
+    // console.errorだけで済ませずテスト失敗として記録する。
+    const { error: deleteEventsErr } = await admin.from("analytics_events").delete().eq("user_id", userId);
+    if (deleteEventsErr) {
+      bad(`使い捨てユーザーのanalytics_events削除に失敗しました。手動確認が必要です(user_id=${userId}): ${deleteEventsErr.message}`);
+    }
+    const { error: deleteUserErr } = await admin.auth.admin.deleteUser(userId);
+    if (deleteUserErr) {
+      bad(`使い捨てユーザーの削除に失敗しました。手動確認が必要です(user_id=${userId}, email=${tempEmail}): ${deleteUserErr.message}`);
     }
   }
 

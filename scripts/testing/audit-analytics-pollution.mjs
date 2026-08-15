@@ -87,22 +87,26 @@ async function main() {
   const testAccountIds = (testAccounts ?? []).map((p) => p.id);
   console.log(`is_test_account=true のユーザー数: ${testAccountIds.length}`);
   if (testAccountIds.length > 0) {
-    const { data: leakedRows } = await unwrap(
-      admin
-        .from("analytics_events")
-        .select("event_name, user_id, occurred_at")
-        .in("user_id", testAccountIds)
-        .eq("is_test_event", false)
-        .order("occurred_at", { ascending: false })
-        .limit(1000),
+    // .limit(1000)はPostgRESTの応答上限そのものであり、is_test_accountユーザーの混入が
+    // 1000件を超えると黙って新しいページ分を取りこぼし、event_name別内訳・該当ユーザー数・
+    // ランキングが「全体像」ではなく最新1000件だけの偏った集計になる(Codexレビュー指摘対応)。
+    // fetchAllPages()のkeysetページング(idキー・asOfスナップショット凍結)で全件確実に取得する。
+    const leakedRows = await fetchAllPages(
+      () =>
+        admin
+          .from("analytics_events")
+          .select("id, event_name, user_id, occurred_at")
+          .in("user_id", testAccountIds)
+          .eq("is_test_event", false),
       "test-account leaked rows query",
+      asOf,
     );
     const byEvent = new Map();
-    for (const r of leakedRows ?? []) byEvent.set(r.event_name, (byEvent.get(r.event_name) ?? 0) + 1);
-    console.log(`is_test_account=trueユーザーが作った is_test_event=false 行(1000件上限取得): ${(leakedRows ?? []).length}件`);
+    for (const r of leakedRows) byEvent.set(r.event_name, (byEvent.get(r.event_name) ?? 0) + 1);
+    console.log(`is_test_account=trueユーザーが作った is_test_event=false 行(全ページング取得): ${leakedRows.length}件`);
     console.log("event_name別内訳:", Object.fromEntries(byEvent));
     const byUser = new Map();
-    for (const r of leakedRows ?? []) byUser.set(r.user_id, (byUser.get(r.user_id) ?? 0) + 1);
+    for (const r of leakedRows) byUser.set(r.user_id, (byUser.get(r.user_id) ?? 0) + 1);
     console.log("該当ユーザー数:", byUser.size);
     // メールアドレスと突き合わせ(test+の既知アカウントかどうか)
     const emailById = new Map((testAccounts ?? []).map((p) => [p.id, p.email]));
