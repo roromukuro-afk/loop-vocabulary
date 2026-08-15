@@ -110,6 +110,12 @@ async function main() {
   requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", TEST_ACCOUNTS.srs.passwordEnvKey]);
   const admin = getAdminClient();
   const testStartedAt = new Date().toISOString();
+  // 別ランナー/別プロセスでこのテストが同時実行されると、"env-isolation-"という
+  // 静的prefixだけでは互いのanonymous_session_id行を区別できず、一方のfinally cleanupが
+  // 他方がまだassertion前の行を消してしまいflakyになる(Codexレビュー指摘対応)。
+  // この実行だけが持つrunIdを全sessionIdに埋め込み、cleanupのprefixもrunId込みにすることで、
+  // このスクリプトが完全に制御できるsession(#1〜#3,#6)については実行間の干渉を無くす。
+  const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   // prodServer起動後にpreviewServer起動やchromium.launch()が失敗すると、まだtry/finally
   // に入っていないため、既に起動済みのprodServerがstopされずプロセスが残留し、次回実行時に
@@ -136,7 +142,7 @@ async function main() {
 
     // ---------- 1. production環境・匿名・ヘッダーなし → is_test_event=false ----------
     {
-      const sessionId = `env-isolation-prod-anon-${Date.now()}`;
+      const sessionId = `env-isolation-${runId}-prod-anon-${Date.now()}`;
       await gotoAsRealRequest(page, prodServer.url);
       const res = await postEvent(page, prodServer.url, { eventName: "landing_view", sessionId });
       const rows = res.body?.accepted === 1 ? await fetchIsTestEventBySession(admin, sessionId) : [];
@@ -149,7 +155,7 @@ async function main() {
 
     // ---------- 2. preview環境・匿名・ヘッダーなし → is_test_event=true ----------
     {
-      const sessionId = `env-isolation-preview-anon-${Date.now()}`;
+      const sessionId = `env-isolation-${runId}-preview-anon-${Date.now()}`;
       await gotoAsRealRequest(page, previewServer.url);
       const res = await postEvent(page, previewServer.url, { eventName: "landing_view", sessionId });
       const rows = res.body?.accepted === 1 ? await fetchIsTestEventBySession(admin, sessionId) : [];
@@ -162,7 +168,7 @@ async function main() {
 
     // ---------- 3. production環境 + E2Eヘッダー → is_test_event=true(Production Canary) ----------
     {
-      const sessionId = `env-isolation-prod-e2e-${Date.now()}`;
+      const sessionId = `env-isolation-${runId}-prod-e2e-${Date.now()}`;
       await gotoAsRealRequest(page, prodServer.url);
       const res = await postEvent(page, prodServer.url, {
         eventName: "landing_view",
@@ -192,7 +198,7 @@ async function main() {
       // クリアする(このテストで意図的にヘッダーの有無を制御したいケースのみの対応で、
       // gotoReady自体の既定の挙動は変更しない)。
       await authPage.setExtraHTTPHeaders({});
-      const sessionId = `env-isolation-prod-auth-${Date.now()}`;
+      const sessionId = `env-isolation-${runId}-prod-auth-${Date.now()}`;
       const res = await postEvent(authPage, prodServer.url, { eventName: "landing_view", sessionId });
       const rows = res.body?.accepted === 1 ? await fetchIsTestEventBySession(admin, sessionId) : [];
       if (rows.length === 1 && rows[0].is_test_event === false && rows[0].user_id) {
@@ -208,7 +214,7 @@ async function main() {
       const authContext = await browser.newContext({ userAgent: REAL_BROWSER_UA });
       const authPage = await authContext.newPage();
       await login(authPage, previewServer.url, TEST_ACCOUNTS.srs.email, process.env[TEST_ACCOUNTS.srs.passwordEnvKey]);
-      const sessionId = `env-isolation-preview-auth-${Date.now()}`;
+      const sessionId = `env-isolation-${runId}-preview-auth-${Date.now()}`;
       const res = await postEvent(authPage, previewServer.url, { eventName: "landing_view", sessionId });
       const rows = res.body?.accepted === 1 ? await fetchIsTestEventBySession(admin, sessionId) : [];
       if (rows.length === 1 && rows[0].is_test_event === true && rows[0].user_id) {
@@ -221,7 +227,7 @@ async function main() {
 
     // ---------- 6. batch送信(1リクエストに複数イベント) x preview → 全イベントis_test_event=true ----------
     {
-      const sessionId = `env-isolation-preview-batch-${Date.now()}`;
+      const sessionId = `env-isolation-${runId}-preview-batch-${Date.now()}`;
       await gotoAsRealRequest(page, previewServer.url);
       const res = await postBatch(page, previewServer.url, { sessionId });
       const rows = res.body?.accepted === 2 ? await fetchIsTestEventBySession(admin, sessionId) : [];
@@ -252,10 +258,14 @@ async function main() {
     // cleanup自体が(一時的な障害等で)失敗した場合、production汚染行が残ったまま
     // このテストが成功扱いになってしまうため、console.errorだけで済ませず明示的に
     // テスト失敗として記録する(Codexレビュー指摘対応)。
+    // "env-isolation-"の静的prefixだけで削除すると、別ランナー/別プロセスで同時実行された
+    // 他の実行がまだassertion前に読んでいる行まで消してしまいflakyになる(Codexレビュー
+    // 指摘対応)。このスクリプトが発行するsessionIdは全てrunIdを埋め込んでいるため、
+    // prefixにもrunIdを含めてこの実行が作った行だけに削除範囲を限定する。
     const { error: cleanupError } = await admin
       .from("analytics_events")
       .delete()
-      .like("anonymous_session_id", "env-isolation-%");
+      .like("anonymous_session_id", `env-isolation-${runId}-%`);
     if (cleanupError) bad(`[cleanup] analytics_events削除に失敗: ${cleanupError.message}`);
 
     // login()経由で/dashboardへ着地すると、OnboardingModal等がこのテストの管理する
@@ -265,6 +275,14 @@ async function main() {
     // (実ユーザーが使うことは無い)に対して、このテスト実行中に作られたis_test_event=false
     // 行」を丸ごと削除する。cookie捕捉のタイミングに依存する実装は、OnboardingModalの
     // 発火が計測より遅れるケースで実際に取りこぼすことを確認済みのため採用しない。
+    // このsrsテストアカウントのsession IDはOnboardingModal側が独自に発行するため
+    // runIdを埋め込めず、完全な実行単位での区別はできない。ただしtestStartedAt以降・
+    // 無期限という開いた区間のままだと、この実行のcleanupがまだ走っていない間に開始した
+    // 別の同時実行の行まで削除してしまう(Codexレビュー指摘対応)。cleanup実行直前の
+    // 時刻をtestEndedAtとして上限に加え、少なくとも「このプロセスがbrowserを閉じてから
+    // cleanupを打つまでの間」より後に発生した行は対象外にすることで、完全な実行単位隔離の
+    // 次善として同時実行との干渉範囲を最小化する。
+    const testEndedAt = new Date().toISOString();
     const { data: srsProfile, error: srsProfileError } = await admin
       .from("profiles")
       .select("id")
@@ -278,7 +296,8 @@ async function main() {
         .delete()
         .eq("user_id", srsProfile.id)
         .eq("is_test_event", false)
-        .gte("occurred_at", testStartedAt);
+        .gte("occurred_at", testStartedAt)
+        .lte("occurred_at", testEndedAt);
       if (authCleanupError) {
         bad(`[cleanup] 認証済みフロー由来のanalytics_events削除に失敗: ${authCleanupError.message}`);
       }
