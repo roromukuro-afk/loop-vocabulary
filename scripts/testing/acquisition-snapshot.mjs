@@ -37,10 +37,33 @@ function windowRangeISO(startDateStr, endDateStrInclusive) {
   return { startISO, endISO };
 }
 
-async function fetchTestAccountIds(admin) {
-  const { data, error } = await admin.from("profiles").select("id").eq("is_test_account", true);
-  if (error) throw new Error(`test account ids query failed: ${error.message}`);
-  return new Set((data ?? []).map((p) => p.id));
+async function fetchTestAccountIds(admin, asOf) {
+  // 無ページングの単発selectだとPostgRESTの既定1000件上限に達した時点で残りのIDが
+  // 静かに欠落し、その分のuser_idを持つis_test_event=false行がsummarizeWindowの
+  // フィルタを素通りして本番の獲得/ファネル集計に混入してしまう(Codexレビュー指摘対応)。
+  // fetchEventsInWindowと同じid keyset + created_at<=asOfの凍結パターンでページングする
+  // (profiles.idもauth.usersのgen_random_uuid()由来で挿入順と無相関のため、素朴な
+  // cursor > 前回最後のidだけでは新規挿入行を取りこぼす恐れがある)。
+  const rows = [];
+  const pageSize = 1000;
+  let cursorId = null;
+  for (;;) {
+    let query = admin
+      .from("profiles")
+      .select("id")
+      .eq("is_test_account", true)
+      .lte("created_at", asOf)
+      .order("id", { ascending: true })
+      .limit(pageSize);
+    if (cursorId) query = query.gt("id", cursorId);
+    const { data, error } = await query;
+    if (error) throw new Error(`test account ids query failed: ${error.message}`);
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < pageSize) break;
+    cursorId = data[data.length - 1].id;
+  }
+  return new Set(rows.map((p) => p.id));
 }
 
 async function fetchEventsInWindow(admin, { startISO, endISO, asOf }) {
@@ -163,10 +186,10 @@ async function main() {
   console.log("Issue #95: Acquisition snapshot (read-only, is_test_event=false のみ)");
   console.log(`基準日(today, JST): ${today}(集計対象は昨日までの完全な日のみ)`);
 
-  const testAccountIds = await fetchTestAccountIds(admin);
-  // 両ウィンドウで同じ瞬間を「読み取り対象の凍結境界」として使う(fetchEventsInWindow内の
-  // コメント参照)。
+  // 両ウィンドウ、およびtestAccountIds自体のページングでも同じ瞬間を「読み取り対象の
+  // 凍結境界」として使う(fetchEventsInWindow/fetchTestAccountIds内のコメント参照)。
   const asOf = new Date().toISOString();
+  const testAccountIds = await fetchTestAccountIds(admin, asOf);
 
   const recent = await summarizeWindow(admin, "直近7日", day7Ago, yesterday, testAccountIds, asOf);
   const prior = await summarizeWindow(admin, "前7日", day14Ago, day8Ago, testAccountIds, asOf);
