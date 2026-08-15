@@ -788,7 +788,11 @@ export async function computeReturnEvents(
       if (targetDate > today) continue; // まだこのoffsetに到達していない
       if (!activeUserDaySet.has(`${uid}|${targetDate}`)) continue; // 未到達(条件を満たしていない)
 
-      const result = await insertOncePerUserMilestoneEvent(eventName, uid);
+      // nonTestProfilesは既に!p.is_test_account && !testAccountIds.has(uid)で
+      // 絞り込み済みのため、insertOncePerUserMilestoneEvent()側でprofilesを
+      // 再問い合わせしないよう判定済みの値を明示的に渡す(Codexレビュー指摘対応:
+      // 候補ユーザー数分の冗長なDB往復を避ける)。
+      const result = await insertOncePerUserMilestoneEvent(eventName, uid, {}, { isTestAccount: false });
       if (result.status === "inserted") {
         firedCounts[eventName] += 1;
       } else if (result.status === "failed") {

@@ -236,6 +236,14 @@ async function main() {
     else bad(`操作中にエラー検出: ${errors.join(" | ")}`);
     await context.close();
   } finally {
+    // 途中(login()や後続assertion)で例外が起きた場合、production向けauthPage/pageが
+    // まだ開いたままここに入り得る。その状態でDB cleanupを先に行うと、開いたままの
+    // ページからの遅延/keepalive fetchがcleanup完了後に本番サーバーへ到達し、cleanupが
+    // 正常終了した後に新たなis_test_event=falseの行が作られてしまう(Codexレビュー
+    // 指摘対応)。そのため必ずbrowserを閉じてページ由来のリクエストを止めてから、
+    // DB側のcleanupを行う。
+    if (browser) await browser.close();
+
     // production環境ケース(#1匿名・#4認証済み)は「本物の本番リクエストと同じ経路で
     // is_test_event=falseになる」ことを検証するために意図的にis_test_event=falseで
     // 保存させている。これを放置するとこのテスト自身がis_test_event=falseの汚染を
@@ -275,7 +283,6 @@ async function main() {
         bad(`[cleanup] 認証済みフロー由来のanalytics_events削除に失敗: ${authCleanupError.message}`);
       }
     }
-    if (browser) await browser.close();
     if (prodServer) stopDevServer(prodServer);
     if (previewServer) stopDevServer(previewServer);
   }

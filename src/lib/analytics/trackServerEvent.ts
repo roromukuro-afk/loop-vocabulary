@@ -114,27 +114,39 @@ export type InsertOncePerUserMilestoneEventResult =
  * なければ(=実ユーザー)、本番の一意制約キーを一切消費せず、何もINSERTせずに
  * "already_exists"を返す(=本番cronが後から安全にこのユーザーの行を作成できる状態を
  * 維持する。掲題どおり「本番以外の実行は本番の一意性キーを予約してはならない」)。
+ *
+ * opts.isTestAccountを渡さない場合、上記判定のためprofilesを毎回問い合わせる。
+ * computeReturnEvents()@rollup.tsのように呼び出し側が既にnonTestProfilesとして
+ * is_test_account=falseを確認済みの候補ユーザーをループ処理する場合、対象ユーザー数分だけ
+ * この関数がprofilesへ問い合わせを繰り返すと(実ユーザーが増えるほど)非本番環境の
+ * rollup実行やこのE2Eが遅くなる(Codexレビュー指摘対応)。呼び出し側が既に判定済みの
+ * 場合はopts.isTestAccountで明示的に渡すことで、この冗長な問い合わせを省略できる。
  */
 export async function insertOncePerUserMilestoneEvent(
   eventName: OncePerUserMilestoneEventName,
   userId: string,
   properties: Record<string, unknown> = {},
+  opts: { isTestAccount?: boolean } = {},
 ): Promise<InsertOncePerUserMilestoneEventResult> {
   try {
     const admin = createAdminClient();
     const sanitized = sanitizeProperties(eventName, properties);
 
     if (!isProductionEnvironment()) {
-      const { data: profile, error: profileError } = await admin
-        .from("profiles")
-        .select("is_test_account")
-        .eq("id", userId)
-        .maybeSingle();
-      if (profileError) {
-        console.error("[insertOncePerUserMilestoneEvent] profile lookup failed:", eventName, userId, profileError.message);
-        return { status: "failed", error: profileError.message };
+      let isTestAccount = opts.isTestAccount;
+      if (isTestAccount === undefined) {
+        const { data: profile, error: profileError } = await admin
+          .from("profiles")
+          .select("is_test_account")
+          .eq("id", userId)
+          .maybeSingle();
+        if (profileError) {
+          console.error("[insertOncePerUserMilestoneEvent] profile lookup failed:", eventName, userId, profileError.message);
+          return { status: "failed", error: profileError.message };
+        }
+        isTestAccount = profile?.is_test_account ?? false;
       }
-      if (!profile?.is_test_account) {
+      if (!isTestAccount) {
         // 実ユーザー: 本番の一意制約キーを予約しないよう、何もINSERTしない。
         return { status: "already_exists" };
       }
