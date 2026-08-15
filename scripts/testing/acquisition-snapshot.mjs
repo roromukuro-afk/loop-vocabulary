@@ -3,7 +3,9 @@
  * 同じ定義で繰り返し比較できる read-only 集計スニペット。DELETE/UPDATEは一切行わない。
  *
  * すべて is_test_event=false のみを対象にする(このIssueの修正により、今後この列は
- * Preview/ローカルdev/CI/E2E由来の行を正しく除外できる)。
+ * Preview/ローカルdev/CI/E2E由来の行を正しく除外できる)。加えて、is_test_account=true
+ * のユーザーがログイン中に作ったis_test_event=false行(audit-analytics-pollution.mjsが
+ * 検出した既知の混入経路)もuser_id突き合わせで除外する。
  *
  * 集計内容(直近7日 vs 前7日、JST基準):
  *  - landing識別数(distinct anonymous_session_id、landing_view基準)
@@ -35,13 +37,19 @@ function windowRangeISO(startDateStr, endDateStrInclusive) {
   return { startISO, endISO };
 }
 
+async function fetchTestAccountIds(admin) {
+  const { data, error } = await admin.from("profiles").select("id").eq("is_test_account", true);
+  if (error) throw new Error(`test account ids query failed: ${error.message}`);
+  return new Set((data ?? []).map((p) => p.id));
+}
+
 async function fetchEventsInWindow(admin, { startISO, endISO }) {
   const rows = [];
   const pageSize = 1000;
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await admin
       .from("analytics_events")
-      .select("event_name, anonymous_session_id, source, path")
+      .select("event_name, anonymous_session_id, source, path, user_id")
       .eq("is_test_event", false)
       .gte("occurred_at", startISO)
       .lt("occurred_at", endISO)
@@ -54,9 +62,14 @@ async function fetchEventsInWindow(admin, { startISO, endISO }) {
   return rows;
 }
 
-async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive) {
+async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive, testAccountIds) {
   const { startISO, endISO } = windowRangeISO(startDateStr, endDateStrInclusive);
-  const rows = await fetchEventsInWindow(admin, { startISO, endISO });
+  const rawRows = await fetchEventsInWindow(admin, { startISO, endISO });
+  // is_test_account=trueのユーザーがログイン中に作ったis_test_event=false行
+  // (audit-analytics-pollution.mjsが検出した既知の混入経路)を除外する。rollup.tsの
+  // testAccountIds.hasと同じ既存パターンをここでも使う(Codexレビュー指摘対応:
+  // このスナップショット自体が抜けていた)。user_idがnull(匿名行)は対象外にしない。
+  const rows = rawRows.filter((r) => !r.user_id || !testAccountIds.has(r.user_id));
 
   const landingRows = rows.filter((r) => r.event_name === "landing_view");
   // anonymous_session_idはingestion側で必須ではなくnullで保存され得るため、
@@ -129,8 +142,10 @@ async function main() {
   console.log("Issue #95: Acquisition snapshot (read-only, is_test_event=false のみ)");
   console.log(`基準日(today, JST): ${today}`);
 
-  const recent = await summarizeWindow(admin, "直近7日", day6Ago, day0);
-  const prior = await summarizeWindow(admin, "前7日", day13Ago, day7Ago);
+  const testAccountIds = await fetchTestAccountIds(admin);
+
+  const recent = await summarizeWindow(admin, "直近7日", day6Ago, day0, testAccountIds);
+  const prior = await summarizeWindow(admin, "前7日", day13Ago, day7Ago, testAccountIds);
 
   console.log("\n=== 比較サマリ ===");
   console.log(`landing identities: ${prior.landingIdentities} → ${recent.landingIdentities}`);
