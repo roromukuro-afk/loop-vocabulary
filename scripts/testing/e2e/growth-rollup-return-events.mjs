@@ -120,7 +120,16 @@ async function main() {
   const admin = getAdminClient();
   const testRunStartedAt = new Date().toISOString();
 
-  const dev = await ensureServer(PORT);
+  // このテストの前提(実ユーザー分のINSERTが常に0件になること)は、サーバーが
+  // 非production環境として起動していることに依存する。opts.envを渡さずにensureServer()を
+  // 呼ぶと、既にこのポートで動いている(親プロセスのVERCEL_ENVを継承した)production
+  // 相当のサーバーをそのまま再利用してしまい得る。その場合、下の新規発火0件assertionが
+  // 落ちる前に、実ユーザーの本番D1/D7一意性キーへ本当にINSERTしてしまう(発生後は
+  // このIssueの制約上DELETEで取り消せない)。VERCEL_ENV=previewを明示的に注入することで
+  // 必ず非production環境で起動させ、既にこのポートが(検証できない環境の)別プロセスで
+  // 占有されている場合はensureServer()側の保護(Issue #95対応)でエラーにする
+  // (Codexレビュー指摘対応)。
+  const dev = await ensureServer(PORT, { env: { VERCEL_ENV: "preview" } });
   const baseUrl = dev.url;
   console.log(`server: ${baseUrl} (startedByUs=${dev.startedByUs})`);
 
