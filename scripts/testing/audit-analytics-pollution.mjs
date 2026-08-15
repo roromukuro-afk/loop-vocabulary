@@ -15,6 +15,28 @@ async function unwrap(queryPromise, label) {
   return result;
 }
 
+// offsetベースの.range()ページングは、.order()を追加してもページを跨ぐ間の新規挿入/削除で
+// offsetの意味がずれ取りこぼし/二重カウントが起き得る(Codexレビュー指摘対応、前回の
+// order追加だけでは不十分との再指摘)。一意なid(UUID)を昇順のkeysetカーソルとして使う
+// 方式に切り替える。他の行がどのタイミングで挿入/削除されても、各行の取得対象への含有は
+// そのidがcursorより大きいかだけで決まるため、offsetのずれによる取りこぼし・二重カウントが
+// 構造的に起きない。queryFactoryはid昇順の.order()未適用のPostgrestFilterBuilderを返す関数。
+async function fetchAllPages(queryFactory, label) {
+  const pageSize = 1000;
+  const rows = [];
+  let cursorId = null;
+  for (;;) {
+    let query = queryFactory().order("id", { ascending: true }).limit(pageSize);
+    if (cursorId) query = query.gt("id", cursorId);
+    const { data } = await unwrap(query, `${label} (cursorId=${cursorId})`);
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < pageSize) break;
+    cursorId = data[data.length - 1].id;
+  }
+  return rows;
+}
+
 async function main() {
   loadEnv();
   requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
@@ -99,55 +121,32 @@ async function main() {
   }
 
   console.log("\n=== 5. vocab_test_maker_* イベント(PR #92公開前からのProduction混入有無)の日別件数 ===");
-  const { data: vtmRows } = await unwrap(
-    admin
-      .from("analytics_events")
-      .select("event_name, occurred_at, is_test_event")
-      .like("event_name", "vocab_test_maker_%")
-      .order("occurred_at", { ascending: true })
-      .limit(2000),
+  // .limit(2000)はPostgRESTのデフォルト応答上限(通常1000行)を超えられず、実際には
+  // 最初の約1000行しか返さない(Codexレビュー指摘対応: Section 6と同型の取りこぼし)。
+  // fetchAllPages()のkeysetページングで全件確実に取得する。
+  const vtmRows = await fetchAllPages(
+    () => admin.from("analytics_events").select("id, event_name, occurred_at, is_test_event").like("event_name", "vocab_test_maker_%"),
     "vocab_test_maker_* rows query",
   );
   const byDay = new Map();
-  for (const r of vtmRows ?? []) {
+  for (const r of vtmRows) {
     const day = r.occurred_at?.slice(0, 10);
     const key = `${day}|${r.is_test_event}`;
     byDay.set(key, (byDay.get(key) ?? 0) + 1);
   }
-  console.log(`vocab_test_maker_* 総件数(2000件上限取得): ${(vtmRows ?? []).length}`);
+  console.log(`vocab_test_maker_* 総件数(全ページング取得): ${vtmRows.length}`);
   console.log("日別 x is_test_event別件数:");
   for (const [key, count] of [...byDay.entries()].sort()) console.log(`  ${key}: ${count}件`);
 
   console.log("\n=== 6. event_name別 is_test_event=false 件数トップ20(全体像) ===");
   // PostgREST(Supabase)のデフォルト応答上限(通常1000行)は.limit()に大きい値を
   // 渡しても超えられない。.limit(50000)は実際には最初の約1000行しか返さず、
-  // 「全体像」を謳いながら黙って取りこぼす(Codexレビュー指摘対応)。
-  // offsetベースの.range()ページングは、.order()を追加してもページを跨ぐ間の
-  // 新規挿入/削除でoffsetの意味がずれ取りこぼし/二重カウントが起き得る
-  // (Codexレビュー指摘対応、前回のorder追加だけでは不十分との再指摘)。
-  // acquisition-snapshot.mjsのfetchEventsInWindow()と同じく、一意なid(UUID)を
-  // 昇順のkeysetカーソルとして使う方式に切り替える。他の行がどのタイミングで
-  // 挿入/削除されても、各行の取得対象への含有はそのidがcursorより大きいかだけで
-  // 決まるため、offsetのずれによる取りこぼし・二重カウントが構造的に起きない。
-  const allFalseRows = [];
-  {
-    const pageSize = 1000;
-    let cursorId = null;
-    for (;;) {
-      let query = admin
-        .from("analytics_events")
-        .select("id, event_name")
-        .eq("is_test_event", false)
-        .order("id", { ascending: true })
-        .limit(pageSize);
-      if (cursorId) query = query.gt("id", cursorId);
-      const { data: page } = await unwrap(query, `all is_test_event=false rows query (cursorId=${cursorId})`);
-      if (!page || page.length === 0) break;
-      allFalseRows.push(...page);
-      if (page.length < pageSize) break;
-      cursorId = page[page.length - 1].id;
-    }
-  }
+  // 「全体像」を謳いながら黙って取りこぼす(Codexレビュー指摘対応)。fetchAllPages()の
+  // keysetページングで全件確実に取得する。
+  const allFalseRows = await fetchAllPages(
+    () => admin.from("analytics_events").select("id, event_name").eq("is_test_event", false),
+    "all is_test_event=false rows query",
+  );
   const eventCounts = new Map();
   for (const r of allFalseRows) eventCounts.set(r.event_name, (eventCounts.get(r.event_name) ?? 0) + 1);
   console.log(`(${allFalseRows.length}件を全ページング取得。falseCount=${falseCount})`);

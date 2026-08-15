@@ -29,8 +29,9 @@
  *     (src/lib/analytics/trackServerEvent.tsのinsertOncePerUserMilestoneEvent)の検証。
  *     初回は{status:"inserted"}かつis_test_event=trueで保存され、2回目は
  *     一意制約違反(23505)を検知して{status:"already_exists"}を返すことを確認する。
- *     このステップ専用にreturn_day_7を事前削除してから実行するため、割り込み・過去の
- *     異常終了実行が残した行があっても正しくクリーンな状態から検証できる。
+ *     Section 1(return_next_day)・Section 5(return_day_7)いずれも、共有フィクスチャに
+ *     割り込み・過去の異常終了実行が残した行があっても正しくクリーンな状態から検証できるよう
+ *     事前削除するが、たまたま本物の記録があった場合に失わないよう退避してfinallyで復元する。
  *
  * 使い方: node scripts/testing/test-insert-once-per-user-milestone-event.mjs
  */
@@ -92,6 +93,39 @@ async function insertOncePerUserMilestoneEventNonProduction(admin, eventName, us
   }
 }
 
+// このuserId・event_nameの既存行を退避してから削除する。共有フィクスチャ(is_test_account=true
+// のプロフィールをlimit 1で借用)に本物のマイルストーン記録が既にあった場合、単純な
+// 無条件deleteで壊して復元しないまま失ってしまうことがある(Codexレビュー指摘対応、
+// return_day_7側だけでなくreturn_next_day側にも同型の問題があると2回指摘された)。
+async function preserveAndClear(admin, userId, eventName) {
+  const { data: preExisting, error: preExistingErr } = await admin
+    .from("analytics_events")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("event_name", eventName);
+  if (preExistingErr) {
+    bad(`既存${eventName}行の退避に失敗: ${preExistingErr.message}`);
+    return [];
+  }
+  await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", eventName);
+  return preExisting ?? [];
+}
+
+// このテストが作った行を削除したうえで、preserveAndClear()が退避した既存行を復元する。
+async function clearAndRestore(admin, userId, eventName, preExistingRows) {
+  await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", eventName);
+  if (preExistingRows.length > 0) {
+    const { error: restoreError } = await admin.from("analytics_events").insert(preExistingRows);
+    if (restoreError) {
+      console.error(
+        `既存${eventName}行の復元に失敗しました。手動確認が必要です:`,
+        restoreError.message,
+        JSON.stringify(preExistingRows),
+      );
+    }
+  }
+}
+
 async function main() {
   loadEnv();
   requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
@@ -111,12 +145,8 @@ async function main() {
   }
   const userId = testProfile.id;
 
-  // クリーンな状態からスタート
-  await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", "return_next_day");
-
-  // Section 5実行前にこの変数へ退避し、finallyで元通り復元する
-  // (Codexレビュー指摘対応: 共有フィクスチャに本物のreturn_day_7記録が既にあった場合、
-  // 無条件deleteで壊して復元しないまま失ってしまうため)。
+  // クリーンな状態からスタート(既存行があれば退避し、finallyで元通り復元する)。
+  const preExistingReturnNextDayRows = await preserveAndClear(admin, userId, "return_next_day");
   let preExistingReturnDay7Rows = [];
 
   try {
@@ -176,21 +206,9 @@ async function main() {
     // testProfileはis_test_account=trueの共有フィクスチャ(limit 1で借用)であり、過去に
     // このテストが異常終了した場合や並行実行時に、return_day_7の行が既に残っている
     // 可能性がある。それを「2回目のinsertでは重複」と誤検知しないよう、Section 1同様に
-    // このセクション専用の事前クリーンアップを行ってからクリーンな状態で検証する。
-    // ただし、無条件にdeleteすると、たまたま本物のreturn_day_7記録(異常終了の残骸ではなく
-    // 実際にこのフィクスチャユーザーに対して発火した正当な記録)まで壊してしまい得るため、
-    // 削除前に内容を退避し、finallyで元通り復元する(Codexレビュー指摘対応)。
-    const { data: preExistingRows, error: preExistingErr } = await admin
-      .from("analytics_events")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("event_name", "return_day_7");
-    if (preExistingErr) {
-      bad(`既存return_day_7行の退避に失敗: ${preExistingErr.message}`);
-    } else {
-      preExistingReturnDay7Rows = preExistingRows ?? [];
-    }
-    await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", "return_day_7");
+    // このセクション専用の事前クリーンアップを行ってからクリーンな状態で検証する
+    // (既存行があれば退避し、finallyで元通り復元する。Codexレビュー指摘対応)。
+    preExistingReturnDay7Rows = await preserveAndClear(admin, userId, "return_day_7");
     const npFirst = await insertOncePerUserMilestoneEventNonProduction(admin, "return_day_7", userId, { test: true });
     if (npFirst.status === "inserted") ok("非production分岐: 初回insertは{status:'inserted'}を返す");
     else bad(`非production分岐: 初回insertの結果が想定外: ${JSON.stringify(npFirst)}`);
@@ -220,21 +238,10 @@ async function main() {
     if ((npRowsAfterSecond ?? []).length === 1) ok("非production分岐: 2回目実行後も行数は1件のまま(重複していない)");
     else bad(`非production分岐: 2回目実行後の行数が想定外: ${(npRowsAfterSecond ?? []).length}件`);
   } finally {
-    // 後片付け(テストデータを残さない)
-    await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", "return_next_day");
-    await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", "return_day_7");
-
-    // Section 5実行前に退避した既存return_day_7行を元通り復元する(Codexレビュー指摘対応)。
-    if (preExistingReturnDay7Rows.length > 0) {
-      const { error: restoreError } = await admin.from("analytics_events").insert(preExistingReturnDay7Rows);
-      if (restoreError) {
-        console.error(
-          "既存return_day_7行の復元に失敗しました。手動確認が必要です:",
-          restoreError.message,
-          JSON.stringify(preExistingReturnDay7Rows),
-        );
-      }
-    }
+    // 後片付け(テストデータを残さない)。開始前に退避した既存行があれば元通り復元する
+    // (Codexレビュー指摘対応: return_next_day・return_day_7いずれも同様に扱う)。
+    await clearAndRestore(admin, userId, "return_next_day", preExistingReturnNextDayRows);
+    await clearAndRestore(admin, userId, "return_day_7", preExistingReturnDay7Rows);
   }
 
   console.log(fail
