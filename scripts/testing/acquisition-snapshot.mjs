@@ -7,7 +7,7 @@
  * のユーザーがログイン中に作ったis_test_event=false行(audit-analytics-pollution.mjsが
  * 検出した既知の混入経路)もuser_id突き合わせで除外する。
  *
- * 集計内容(直近7日 vs 前7日、JST基準):
+ * 集計内容(直近7日 vs 前7日、JST基準・いずれも当日を含まず昨日までの完全な7日間同士を比較):
  *  - landing識別数(distinct anonymous_session_id、landing_view基準)
  *  - Google/Bing検索識別数(source列がgoogle/bing)
  *  - direct識別数(source列がdirect)
@@ -134,18 +134,23 @@ async function main() {
   const admin = getAdminClient();
 
   const today = todayJST();
-  const day0 = today; // 今日を含む直近7日: day-6 〜 day0
-  const day6Ago = daysAgoJST(6);
+  // 「直近7日」に今日(today)を含めると、このスクリプトを1日の途中(例: JST 3時)に
+  // 実行した場合、直近側だけ実質数時間分のデータしかない部分日を168時間分の前7日と
+  // 比較してしまい、直近の流入・転換を実際より少なく見せる(Codexレビュー指摘対応)。
+  // 両ウィンドウとも「完全に終わった日」だけを使うよう、直近7日を昨日(day-1)を
+  // 終端とする7日間(day-7〜day-1)に、前7日をその直前の7日間(day-14〜day-8)にずらす。
+  const yesterday = daysAgoJST(1);
   const day7Ago = daysAgoJST(7);
-  const day13Ago = daysAgoJST(13);
+  const day8Ago = daysAgoJST(8);
+  const day14Ago = daysAgoJST(14);
 
   console.log("Issue #95: Acquisition snapshot (read-only, is_test_event=false のみ)");
-  console.log(`基準日(today, JST): ${today}`);
+  console.log(`基準日(today, JST): ${today}(集計対象は昨日までの完全な日のみ)`);
 
   const testAccountIds = await fetchTestAccountIds(admin);
 
-  const recent = await summarizeWindow(admin, "直近7日", day6Ago, day0, testAccountIds);
-  const prior = await summarizeWindow(admin, "前7日", day13Ago, day7Ago, testAccountIds);
+  const recent = await summarizeWindow(admin, "直近7日", day7Ago, yesterday, testAccountIds);
+  const prior = await summarizeWindow(admin, "前7日", day14Ago, day8Ago, testAccountIds);
 
   console.log("\n=== 比較サマリ ===");
   console.log(`landing identities: ${prior.landingIdentities} → ${recent.landingIdentities}`);
