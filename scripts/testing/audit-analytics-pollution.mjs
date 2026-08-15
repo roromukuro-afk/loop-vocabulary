@@ -41,6 +41,12 @@ async function fetchAllPages(queryFactory, label, asOf) {
   return rows;
 }
 
+function chunkArray(arr, size) {
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
+}
+
 async function main() {
   loadEnv();
   requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
@@ -80,27 +86,39 @@ async function main() {
   console.log("oldest is_test_event=false row:", oldestFalse?.[0]);
 
   console.log("\n=== 3. is_test_account=true のユーザーが作った行のうち、is_test_event=false になっているものの件数(event_name別) ===");
-  const { data: testAccounts } = await unwrap(
-    admin.from("profiles").select("id, email").eq("is_test_account", true),
+  // testAccounts自体も無ページングのselectだとPostgRESTの応答上限で残りのIDが静かに
+  // 欠落し、その分のユーザーが以下の.in()フィルタから漏れて汚染範囲を過小報告する
+  // (Codexレビュー指摘対応)。fetchAllPages()で全件確実に取得する。
+  const testAccounts = await fetchAllPages(
+    () => admin.from("profiles").select("id, email").eq("is_test_account", true),
     "test accounts query",
+    asOf,
   );
-  const testAccountIds = (testAccounts ?? []).map((p) => p.id);
+  const testAccountIds = testAccounts.map((p) => p.id);
   console.log(`is_test_account=true のユーザー数: ${testAccountIds.length}`);
   if (testAccountIds.length > 0) {
     // .limit(1000)はPostgRESTの応答上限そのものであり、is_test_accountユーザーの混入が
     // 1000件を超えると黙って新しいページ分を取りこぼし、event_name別内訳・該当ユーザー数・
     // ランキングが「全体像」ではなく最新1000件だけの偏った集計になる(Codexレビュー指摘対応)。
     // fetchAllPages()のkeysetページング(idキー・asOfスナップショット凍結)で全件確実に取得する。
-    const leakedRows = await fetchAllPages(
-      () =>
-        admin
-          .from("analytics_events")
-          .select("id, event_name, user_id, occurred_at")
-          .in("user_id", testAccountIds)
-          .eq("is_test_event", false),
-      "test-account leaked rows query",
-      asOf,
-    );
+    // testAccountIds自体も巨大になり得るため、.in()フィルタが1回のクエリで肥大化しURL/
+    // パーサ上限に達さないよう、一定件数ごとにチャンク分割してから合算する
+    // (Codexレビュー指摘対応)。
+    const IN_CHUNK_SIZE = 200;
+    const leakedRows = [];
+    for (const idChunk of chunkArray(testAccountIds, IN_CHUNK_SIZE)) {
+      const chunkRows = await fetchAllPages(
+        () =>
+          admin
+            .from("analytics_events")
+            .select("id, event_name, user_id, occurred_at")
+            .in("user_id", idChunk)
+            .eq("is_test_event", false),
+        `test-account leaked rows query (chunk size=${idChunk.length})`,
+        asOf,
+      );
+      leakedRows.push(...chunkRows);
+    }
     const byEvent = new Map();
     for (const r of leakedRows) byEvent.set(r.event_name, (byEvent.get(r.event_name) ?? 0) + 1);
     console.log(`is_test_account=trueユーザーが作った is_test_event=false 行(全ページング取得): ${leakedRows.length}件`);
@@ -134,6 +152,15 @@ async function main() {
   ).sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : a.occurred_at > b.occurred_at ? -1 : 0));
   console.log(`件数: ${milestoneRows.length}`);
   for (const r of milestoneRows) {
+    // analytics_events.user_idはON DELETE SET NULLのため、行の所有者profileが削除済みだと
+    // r.user_idがnullになり得る。nullのまま.eq("id", null)を発行すると不正なフィルタになり
+    // unwrap()が例外を投げて監査全体が中断してしまう。この孤立行自体がSection 4で洗い出す
+    // べき汚染ケースそのものなので、profile問い合わせをスキップして「孤立行」として
+    // そのまま報告する(Codexレビュー指摘対応)。
+    if (!r.user_id) {
+      console.log(`  ${r.event_name} | user=(NULL, 孤立行: 所有者profileが削除済み) | occurred_at=${r.occurred_at}`);
+      continue;
+    }
     const { data: prof } = await unwrap(
       admin.from("profiles").select("email, is_test_account, created_at").eq("id", r.user_id).maybeSingle(),
       `profile lookup for user ${r.user_id}`,
