@@ -47,12 +47,19 @@ async function fetchEventsInWindow(admin, { startISO, endISO }) {
   const rows = [];
   const pageSize = 1000;
   for (let from = 0; ; from += pageSize) {
+    // .range()によるページングは、ページ間で行の並び順が安定していることが前提。
+    // .order()を指定しないと、ページを跨ぐ間に新しい行が挿入される等でoffsetの
+    // 意味がずれ、行の取りこぼしや二重カウントが起き得る(Codexレビュー指摘対応)。
+    // occurred_atだけでは同時刻の行が同順位になり得るため、一意なidを第二キーにして
+    // 完全に決定的な順序にする。
     const { data, error } = await admin
       .from("analytics_events")
-      .select("event_name, anonymous_session_id, source, path, user_id")
+      .select("id, event_name, anonymous_session_id, source, path, user_id")
       .eq("is_test_event", false)
       .gte("occurred_at", startISO)
       .lt("occurred_at", endISO)
+      .order("occurred_at", { ascending: true })
+      .order("id", { ascending: true })
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
     if (!data || data.length === 0) break;

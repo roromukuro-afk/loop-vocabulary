@@ -123,7 +123,10 @@ async function main() {
   // 渡しても超えられない。.limit(50000)は実際には最初の約1000行しか返さず、
   // 「全体像」を謳いながら黙って取りこぼす(Codexレビュー指摘対応)。
   // acquisition-snapshot.mjsのfetchEventsInWindow()と同じ.range()ページングで、
-  // falseCount件すべてを確実に取得する。
+  // falseCount件すべてを確実に取得する。.order()を指定しないとページ間で行の並び順が
+  // 安定せず、ページを跨ぐ間の新規挿入等でoffsetの意味がずれ取りこぼし/二重カウントが
+  // 起き得るため、idを一意な決定的順序として明示する(Codexレビュー指摘対応、
+  // acquisition-snapshot.mjs側の同型の指摘を受けてこちらも同様に修正)。
   const allFalseRows = [];
   {
     const pageSize = 1000;
@@ -131,8 +134,9 @@ async function main() {
       const { data: page } = await unwrap(
         admin
           .from("analytics_events")
-          .select("event_name")
+          .select("id, event_name")
           .eq("is_test_event", false)
+          .order("id", { ascending: true })
           .range(from, from + pageSize - 1),
         `all is_test_event=false rows query (page from=${from})`,
       );
