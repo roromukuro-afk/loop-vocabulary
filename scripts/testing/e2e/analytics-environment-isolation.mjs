@@ -282,6 +282,15 @@ async function main() {
     // 時刻をtestEndedAtとして上限に加え、少なくとも「このプロセスがbrowserを閉じてから
     // cleanupを打つまでの間」より後に発生した行は対象外にすることで、完全な実行単位隔離の
     // 次善として同時実行との干渉範囲を最小化する。
+    // さらに、#4(認証済みxproduction)自身が発行するsessionIdは"env-isolation-"+runId
+    // プレフィックス付きであり、既に上の1つ目のcleanupで(この実行分は)削除済みのはず。
+    // このクエリがuser_id+is_test_event=false+時間窓のみでフィルタしていると、まだ
+    // assertion前の「別の同時実行の#4行」まで"env-isolation-"プレフィックスに関わらず
+    // 巻き込んで削除してしまう(Codexレビュー指摘対応、fresh evidence: #4はrunId付き
+    // session idを使うようになったのにこのクエリだけ素通りしていた)。"env-isolation-"
+    // プレフィックスに一致する行はどの実行であれ各実行自身の1つ目のcleanupが責任を持つため、
+    // このクエリでは明示的に除外し、本当にsession idを制御できないOnboardingModal由来の
+    // 行だけを対象にする。
     const testEndedAt = new Date().toISOString();
     const { data: srsProfile, error: srsProfileError } = await admin
       .from("profiles")
@@ -297,7 +306,8 @@ async function main() {
         .eq("user_id", srsProfile.id)
         .eq("is_test_event", false)
         .gte("occurred_at", testStartedAt)
-        .lte("occurred_at", testEndedAt);
+        .lte("occurred_at", testEndedAt)
+        .not("anonymous_session_id", "like", "env-isolation-%");
       if (authCleanupError) {
         bad(`[cleanup] 認証済みフロー由来のanalytics_events削除に失敗: ${authCleanupError.message}`);
       }

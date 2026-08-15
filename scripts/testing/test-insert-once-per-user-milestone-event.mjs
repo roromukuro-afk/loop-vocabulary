@@ -235,13 +235,21 @@ async function main() {
     // 残存しuser_id=NULLになるだけで消えない。そのため明示的に先に行を削除する必要がある。
     // cleanup自体が失敗した場合、使い捨てユーザーや残留行が残ってしまうため、
     // console.errorだけで済ませずテスト失敗として記録する。
+    // analytics_events削除が失敗したままauthユーザーを削除すると、ON DELETE SET NULLにより
+    // その行のuser_idがNULLになり、userIdでは二度と特定できない匿名の孤立行として残ってしまう
+    // (このuser_idはis_test_account=trueのため元々is_test_event=falseで挿入され得る
+    // return_next_day/return_day_7行を含み得るため、手動でのretry/削除がほぼ不可能になる。
+    // Codexレビュー指摘対応)。そのためevent削除が失敗した場合はauthユーザーの削除を
+    // スキップし、userIdをログに残して手動対応に委ねる。
     const { error: deleteEventsErr } = await admin.from("analytics_events").delete().eq("user_id", userId);
     if (deleteEventsErr) {
       bad(`使い捨てユーザーのanalytics_events削除に失敗しました。手動確認が必要です(user_id=${userId}): ${deleteEventsErr.message}`);
-    }
-    const { error: deleteUserErr } = await admin.auth.admin.deleteUser(userId);
-    if (deleteUserErr) {
-      bad(`使い捨てユーザーの削除に失敗しました。手動確認が必要です(user_id=${userId}, email=${tempEmail}): ${deleteUserErr.message}`);
+      bad(`analytics_events削除が失敗したため、孤立行化を避けてauthユーザー(user_id=${userId}, email=${tempEmail})の削除をスキップしました。手動でanalytics_events削除→authユーザー削除の順に対応してください。`);
+    } else {
+      const { error: deleteUserErr } = await admin.auth.admin.deleteUser(userId);
+      if (deleteUserErr) {
+        bad(`使い捨てユーザーの削除に失敗しました。手動確認が必要です(user_id=${userId}, email=${tempEmail}): ${deleteUserErr.message}`);
+      }
     }
   }
 
