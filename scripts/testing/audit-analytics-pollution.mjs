@@ -151,20 +151,30 @@ async function main() {
     )
   ).sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : a.occurred_at > b.occurred_at ? -1 : 0));
   console.log(`件数: ${milestoneRows.length}`);
+  // 行ごとにawaitされるprofile問い合わせだと、汚染範囲が広がりmilestoneRowsが数千件規模に
+  // なった場合に数千回の逐次ネットワーク往復が発生し、監査自体が非現実的に遅くなる/
+  // タイムアウトし得る(Codexレビュー指摘対応)。distinctなuser_idをまとめて一定件数ずつ
+  // バッチ取得し、事前にMapを構築してから各行を描画する。
+  const distinctUserIds = [...new Set(milestoneRows.map((r) => r.user_id).filter(Boolean))];
+  const IN_CHUNK_SIZE = 200;
+  const profileById = new Map();
+  for (const idChunk of chunkArray(distinctUserIds, IN_CHUNK_SIZE)) {
+    const { data: profs } = await unwrap(
+      admin.from("profiles").select("id, email, is_test_account, created_at").in("id", idChunk),
+      `profile batch lookup (chunk size=${idChunk.length})`,
+    );
+    for (const p of profs ?? []) profileById.set(p.id, p);
+  }
   for (const r of milestoneRows) {
     // analytics_events.user_idはON DELETE SET NULLのため、行の所有者profileが削除済みだと
-    // r.user_idがnullになり得る。nullのまま.eq("id", null)を発行すると不正なフィルタになり
-    // unwrap()が例外を投げて監査全体が中断してしまう。この孤立行自体がSection 4で洗い出す
-    // べき汚染ケースそのものなので、profile問い合わせをスキップして「孤立行」として
-    // そのまま報告する(Codexレビュー指摘対応)。
+    // r.user_idがnullになり得る。この孤立行自体がSection 4で洗い出すべき汚染ケースそのもの
+    // なので、profileById参照ではなく明示的に「孤立行」としてそのまま報告する
+    // (Codexレビュー指摘対応)。
     if (!r.user_id) {
       console.log(`  ${r.event_name} | user=(NULL, 孤立行: 所有者profileが削除済み) | occurred_at=${r.occurred_at}`);
       continue;
     }
-    const { data: prof } = await unwrap(
-      admin.from("profiles").select("email, is_test_account, created_at").eq("id", r.user_id).maybeSingle(),
-      `profile lookup for user ${r.user_id}`,
-    );
+    const prof = profileById.get(r.user_id);
     console.log(`  ${r.event_name} | user=${r.user_id} (${prof?.email ?? "不明"}, is_test_account=${prof?.is_test_account}, signup=${prof?.created_at}) | occurred_at=${r.occurred_at}`);
   }
 
