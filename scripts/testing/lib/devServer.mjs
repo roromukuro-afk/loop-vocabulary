@@ -72,7 +72,11 @@ function spawnCmd(cmdline, envOverrides) {
  * @param {{ env?: Record<string,string>, skipBuild?: boolean }} [opts]
  *   env: 起動する子プロセスにだけ追加/上書きする環境変数(例: VERCEL_ENV="production"を
  *     注入してPreview/本番の環境判定を実HTTPで検証する用途)。既存呼び出し箇所は省略時
- *     従来どおりprocess.envをそのまま継承する(挙動変更なし)。
+ *     従来どおりprocess.envをそのまま継承する(挙動変更なし)。opts.envを指定した呼び出しは
+ *     「このポートで動いているプロセスが指定した環境変数で起動していること」を前提に
+ *     検証するため、既にそのポートが(古い残留プロセス等で)使用中の場合は、その中身を
+ *     確認せず黙って再利用せず、エラーで止める(Codexレビュー指摘対応: 意図しない環境の
+ *     プロセスを検証対象にしてしまうと、テストの合否自体が無意味になるため)。
  *   skipBuild: 既に別ポートでbuild済みであることが分かっている場合にnpm run buildを
  *     省略する(同じ.nextを複数ポートのnext startで使い回す用途。VERCEL_ENVはビルド時
  *     ではなくリクエスト時にprocess.envから読むため、ビルド成果物の使い回しで問題ない)。
@@ -80,6 +84,14 @@ function spawnCmd(cmdline, envOverrides) {
 export async function ensureServer(port, opts = {}) {
   const url = `http://localhost:${port}`;
   if (await isUp(url)) {
+    if (opts.env) {
+      throw new Error(
+        `port ${port} is already occupied by another process, but ensureServer() was called with ` +
+          `opts.env (${JSON.stringify(opts.env)}). Reusing an already-running server here would silently ` +
+          `test whatever environment that process actually started with, not the one requested. ` +
+          `Free this port (or pick a different dedicated port) before running this test.`,
+      );
+    }
     return { url, proc: null, startedByUs: false };
   }
 

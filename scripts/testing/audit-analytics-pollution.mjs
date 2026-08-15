@@ -119,17 +119,34 @@ async function main() {
   for (const [key, count] of [...byDay.entries()].sort()) console.log(`  ${key}: ${count}件`);
 
   console.log("\n=== 6. event_name別 is_test_event=false 件数トップ20(全体像) ===");
-  const { data: allFalseRows } = await unwrap(
-    admin
-      .from("analytics_events")
-      .select("event_name")
-      .eq("is_test_event", false)
-      .limit(50000),
-    "all is_test_event=false rows query",
-  );
+  // PostgREST(Supabase)のデフォルト応答上限(通常1000行)は.limit()に大きい値を
+  // 渡しても超えられない。.limit(50000)は実際には最初の約1000行しか返さず、
+  // 「全体像」を謳いながら黙って取りこぼす(Codexレビュー指摘対応)。
+  // acquisition-snapshot.mjsのfetchEventsInWindow()と同じ.range()ページングで、
+  // falseCount件すべてを確実に取得する。
+  const allFalseRows = [];
+  {
+    const pageSize = 1000;
+    for (let from = 0; ; from += pageSize) {
+      const { data: page } = await unwrap(
+        admin
+          .from("analytics_events")
+          .select("event_name")
+          .eq("is_test_event", false)
+          .range(from, from + pageSize - 1),
+        `all is_test_event=false rows query (page from=${from})`,
+      );
+      if (!page || page.length === 0) break;
+      allFalseRows.push(...page);
+      if (page.length < pageSize) break;
+    }
+  }
   const eventCounts = new Map();
-  for (const r of allFalseRows ?? []) eventCounts.set(r.event_name, (eventCounts.get(r.event_name) ?? 0) + 1);
-  console.log(`(50000件上限で取得。実際の総数はfalseCount=${falseCount})`);
+  for (const r of allFalseRows) eventCounts.set(r.event_name, (eventCounts.get(r.event_name) ?? 0) + 1);
+  console.log(`(${allFalseRows.length}件を全ページング取得。falseCount=${falseCount})`);
+  if (allFalseRows.length !== falseCount) {
+    console.error(`❌ ページング取得件数(${allFalseRows.length})がfalseCount(${falseCount})と一致しない(取りこぼしの可能性)`);
+  }
   for (const [name, count] of [...eventCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20)) {
     console.log(`  ${name}: ${count}件`);
   }
