@@ -33,6 +33,24 @@ let fail = 0;
 function ok(msg) { console.log(`✅ ${msg}`); pass++; }
 function bad(msg) { console.error(`❌ FAIL: ${msg}`); fail++; }
 
+// ページ遷移(page.goto)そのものが、ホームページ「/」に乗っているLandingPageTracker等の
+// クライアント側auto-fire analytics(独自のlv_aidセッションIDで発火する)を誘発する。
+// このテストが管理する`env-isolation-`プレフィックス付きsessionIdとは無関係のため、
+// finallyのcleanupでは削除できず、production環境向けの遷移をこのまま行うとis_test_event=false
+// の本物の汚染行が毎回残ってしまう(Codexレビュー指摘対応)。
+//
+// 最初はsetExtraHTTPHeaders()でE2Eヘッダーを注入してから遷移する案を試したが、
+// trackEvent()の送信がfetch(..., {keepalive:true})を使っており、実測でCDPの
+// setExtraHTTPHeadersがkeepalive fetchには適用されないことを確認した(ヘッダーを
+// 付けたはずの遷移でもis_test_event=falseの行が作られ続けた)。そのため、ヘッダー注入に
+// 頼らず、確実に副作用の無い`/api/health`(DB書き込み無しの単純なJSON応答、クライアント
+// コンポーネントを一切持たない)へ遷移することで、そもそもauto-fire analyticsが
+// 発火する余地自体を無くす。postEvent()等は絶対URLでfetchするため、遷移先のパスは
+// origin(=どのサーバーへ検証リクエストを送るか)さえ揃っていればどこでもよい。
+async function gotoAsRealRequest(page, baseUrl) {
+  await page.goto(`${baseUrl}/api/health`, { waitUntil: "load" });
+}
+
 async function postEvent(page, baseUrl, { eventName, sessionId, extraHeaders = {} }) {
   return page.evaluate(
     async ({ baseUrl, eventName, sessionId, extraHeaders }) => {
@@ -91,6 +109,7 @@ async function main() {
   loadEnv();
   requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", TEST_ACCOUNTS.srs.passwordEnvKey]);
   const admin = getAdminClient();
+  const testStartedAt = new Date().toISOString();
 
   console.log(`--- production環境サーバーを起動(port=${PROD_PORT}, VERCEL_ENV=production) ---`);
   const prodServer = await ensureServer(PROD_PORT, { env: { VERCEL_ENV: "production" } });
@@ -110,7 +129,7 @@ async function main() {
     // ---------- 1. production環境・匿名・ヘッダーなし → is_test_event=false ----------
     {
       const sessionId = `env-isolation-prod-anon-${Date.now()}`;
-      await page.goto(prodServer.url, { waitUntil: "load" });
+      await gotoAsRealRequest(page, prodServer.url);
       const res = await postEvent(page, prodServer.url, { eventName: "landing_view", sessionId });
       const rows = res.body?.accepted === 1 ? await fetchIsTestEventBySession(admin, sessionId) : [];
       if (rows.length === 1 && rows[0].is_test_event === false) {
@@ -123,7 +142,7 @@ async function main() {
     // ---------- 2. preview環境・匿名・ヘッダーなし → is_test_event=true ----------
     {
       const sessionId = `env-isolation-preview-anon-${Date.now()}`;
-      await page.goto(previewServer.url, { waitUntil: "load" });
+      await gotoAsRealRequest(page, previewServer.url);
       const res = await postEvent(page, previewServer.url, { eventName: "landing_view", sessionId });
       const rows = res.body?.accepted === 1 ? await fetchIsTestEventBySession(admin, sessionId) : [];
       if (rows.length === 1 && rows[0].is_test_event === true) {
@@ -136,7 +155,7 @@ async function main() {
     // ---------- 3. production環境 + E2Eヘッダー → is_test_event=true(Production Canary) ----------
     {
       const sessionId = `env-isolation-prod-e2e-${Date.now()}`;
-      await page.goto(prodServer.url, { waitUntil: "load" });
+      await gotoAsRealRequest(page, prodServer.url);
       const res = await postEvent(page, prodServer.url, {
         eventName: "landing_view",
         sessionId,
@@ -155,6 +174,10 @@ async function main() {
       const authContext = await browser.newContext({ userAgent: REAL_BROWSER_UA });
       const authPage = await authContext.newPage();
       await login(authPage, prodServer.url, TEST_ACCOUNTS.srs.email, process.env[TEST_ACCOUNTS.srs.passwordEnvKey]);
+      // login()成功後は/dashboardへ遷移し、そこに乗っているOnboardingModalが
+      // onboarding_started等をこのテストのsessionIdとは無関係のlv_aidで自動発火し得る
+      // (Codexレビュー指摘対応)。これはfinallyでtestStartedAt以降・srsテストアカウントの
+      // user_id向けの行として一括cleanupする(下記finally参照)。
       // login()内部のgotoReady()がx-lv-e2e-testヘッダーをページに設定済みで、
       // Playwrightのextra headersはページの以後の全リクエストに残り続ける。
       // 「E2Eヘッダーが無い、正真正銘の本番リクエスト」を再現するため、ここで明示的に
@@ -191,7 +214,7 @@ async function main() {
     // ---------- 6. batch送信(1リクエストに複数イベント) x preview → 全イベントis_test_event=true ----------
     {
       const sessionId = `env-isolation-preview-batch-${Date.now()}`;
-      await page.goto(previewServer.url, { waitUntil: "load" });
+      await gotoAsRealRequest(page, previewServer.url);
       const res = await postBatch(page, previewServer.url, { sessionId });
       const rows = res.body?.accepted === 2 ? await fetchIsTestEventBySession(admin, sessionId) : [];
       if (rows.length === 2 && rows.every((r) => r.is_test_event === true)) {
@@ -215,6 +238,32 @@ async function main() {
       .delete()
       .like("anonymous_session_id", "env-isolation-%");
     if (cleanupError) console.error("[cleanup] analytics_events削除に失敗:", cleanupError.message);
+
+    // login()経由で/dashboardへ着地すると、OnboardingModal等がこのテストの管理する
+    // sessionIdとは無関係の独自lv_aidセッションで自動的にonboarding_started/
+    // traffic_source_detectedを発火し得る(Codexレビュー指摘対応)。どのUIコンポーネントが
+    // いつ発火するかに依存せず確実に捕捉するため、「このテスト専用のsrsテストアカウント
+    // (実ユーザーが使うことは無い)に対して、このテスト実行中に作られたis_test_event=false
+    // 行」を丸ごと削除する。cookie捕捉のタイミングに依存する実装は、OnboardingModalの
+    // 発火が計測より遅れるケースで実際に取りこぼすことを確認済みのため採用しない。
+    const { data: srsProfile, error: srsProfileError } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("email", TEST_ACCOUNTS.srs.email)
+      .maybeSingle();
+    if (srsProfileError) {
+      console.error("[cleanup] srsテストアカウントprofile取得に失敗:", srsProfileError.message);
+    } else if (srsProfile) {
+      const { error: authCleanupError } = await admin
+        .from("analytics_events")
+        .delete()
+        .eq("user_id", srsProfile.id)
+        .eq("is_test_event", false)
+        .gte("occurred_at", testStartedAt);
+      if (authCleanupError) {
+        console.error("[cleanup] 認証済みフロー由来のanalytics_events削除に失敗:", authCleanupError.message);
+      }
+    }
     await browser.close();
     stopDevServer(prodServer);
     stopDevServer(previewServer);
