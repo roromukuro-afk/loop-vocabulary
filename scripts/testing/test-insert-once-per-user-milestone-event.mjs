@@ -140,7 +140,17 @@ async function main() {
       "使い捨てテストユーザーのis_test_account設定に失敗:",
       markTestErr?.message ?? "profiles行が見つからない(auth.users→profilesのtriggerが未反映の可能性)",
     );
-    await admin.auth.admin.deleteUser(userId).catch(() => {});
+    // admin.auth.admin.deleteUser()はAPI障害を例外throwではなく戻り値{error}で報告するため、
+    // .catch()では検知できない(Codexレビュー指摘対応)。この削除自体が失敗すると、
+    // is_test_account=trueに設定できなかった使い捨てユーザーが実アカウントとして残留し、
+    // signup数/rollup集計を汚染し得る。戻り値のerrorを明示的に確認し、失敗時はuserIdを
+    // ログへ残して手動cleanupに委ねる(下のfinallyブロックと同じ方針)。
+    const { error: deleteErr } = await admin.auth.admin.deleteUser(userId);
+    if (deleteErr) {
+      console.error(
+        `is_test_account設定失敗後の使い捨てユーザー削除にも失敗しました。手動確認が必要です(user_id=${userId}, email=${tempEmail}): ${deleteErr.message}`,
+      );
+    }
     process.exit(1);
   }
 
