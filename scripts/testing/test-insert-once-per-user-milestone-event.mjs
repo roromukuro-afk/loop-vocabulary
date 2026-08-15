@@ -112,15 +112,18 @@ async function preserveAndClear(admin, userId, eventName) {
 }
 
 // このテストが作った行を削除したうえで、preserveAndClear()が退避した既存行を復元する。
+// 復元自体が失敗すると、共有フィクスチャの本物の記録を消失させたまま気づかれない
+// (console.errorだけではテスト自体は成功扱いのまま終了してしまう)ため、bad()で
+// 明示的にテスト失敗として記録する。手動復旧できるよう、失われた行の内容は
+// エラーメッセージへ含めて出力する(Codexレビュー指摘対応)。
 async function clearAndRestore(admin, userId, eventName, preExistingRows) {
   await admin.from("analytics_events").delete().eq("user_id", userId).eq("event_name", eventName);
   if (preExistingRows.length > 0) {
     const { error: restoreError } = await admin.from("analytics_events").insert(preExistingRows);
     if (restoreError) {
-      console.error(
-        `既存${eventName}行の復元に失敗しました。手動確認が必要です:`,
-        restoreError.message,
-        JSON.stringify(preExistingRows),
+      bad(
+        `既存${eventName}行の復元に失敗しました。手動確認が必要です: ${restoreError.message} / ` +
+          `失われた行: ${JSON.stringify(preExistingRows)}`,
       );
     }
   }

@@ -102,17 +102,23 @@ async function main() {
   }
 
   console.log("\n=== 4. return_next_day / return_day_7 (once-per-user milestone) の is_test_event=false 行の詳細 ===");
-  const { data: milestoneRows } = await unwrap(
-    admin
-      .from("analytics_events")
-      .select("event_name, user_id, occurred_at")
-      .in("event_name", ["return_next_day", "return_day_7"])
-      .eq("is_test_event", false)
-      .order("occurred_at", { ascending: false }),
-    "milestone rows query",
-  );
-  console.log(`件数: ${(milestoneRows ?? []).length}`);
-  for (const r of milestoneRows ?? []) {
+  // このsectionは監査対象そのもの(本番の一意性キーを汚染しているかもしれない行)を
+  // 1件残らず洗い出すことが目的のため、Sections 5・6と同じくPostgRESTの応答上限で
+  // 黙って取りこぼしてはならない。fetchAllPages()でページングし、表示用にJS側で
+  // occurred_at降順へ並べ替える(Codexレビュー指摘対応)。
+  const milestoneRows = (
+    await fetchAllPages(
+      () =>
+        admin
+          .from("analytics_events")
+          .select("id, event_name, user_id, occurred_at")
+          .in("event_name", ["return_next_day", "return_day_7"])
+          .eq("is_test_event", false),
+      "milestone rows query",
+    )
+  ).sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : a.occurred_at > b.occurred_at ? -1 : 0));
+  console.log(`件数: ${milestoneRows.length}`);
+  for (const r of milestoneRows) {
     const { data: prof } = await unwrap(
       admin.from("profiles").select("email, is_test_account, created_at").eq("id", r.user_id).maybeSingle(),
       `profile lookup for user ${r.user_id}`,
