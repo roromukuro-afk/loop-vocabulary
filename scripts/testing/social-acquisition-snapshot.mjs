@@ -186,7 +186,11 @@ const ATTRIBUTION_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 // (allRowsBySession)にのみ使い、landing/funnel等の実際の集計対象は
 // fetchEventsInWindow()が返すウィンドウ内の行に限定したまま変えない
 // (Codexレビュー指摘対応)。
-async function fetchPrecedingActivityRows(admin, { startISO, asOf, sessionIds, testAccountIds }) {
+// test-account除外はここでは行わない(呼び出し元のsummarizeWindow()が、この関数の
+// 戻り値とウィンドウ内rowsの両方を合わせた「凍結済み活動セット全体」から
+// test-account紐付けセッションを判定し、まとめて除外する。Codexレビュー指摘対応、
+// 10巡目、最重要)。
+async function fetchPrecedingActivityRows(admin, { startISO, asOf, sessionIds }) {
   if (sessionIds.size === 0) return [];
   const lookbackStartISO = new Date(new Date(startISO).getTime() - ATTRIBUTION_LOOKBACK_MS).toISOString();
   const sessionIdsArr = [...sessionIds];
@@ -215,11 +219,7 @@ async function fetchPrecedingActivityRows(admin, { startISO, asOf, sessionIds, t
       cursorId = data[data.length - 1].id;
     }
   }
-  // ウィンドウ内のrowsと同じtest-account除外(Codexレビュー指摘対応)。除外しないと、
-  // startISO直前にtest accountが発生させたsocial markerが、境界後の匿名/実ユーザーの
-  // 同一cookie行のvisit再構築へそのまま混入し、test accountのattributionを実ユーザーの
-  // landingへ誤って継承させてしまう。
-  return rows.filter((r) => !r.user_id || !testAccountIds.has(r.user_id));
+  return rows;
 }
 
 function topEntries(map, n = 10) {
@@ -232,23 +232,45 @@ function topEntries(map, n = 10) {
 export async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive, testAccountIds, asOf, sessionIdPrefix) {
   const { startISO, endISO } = windowRangeISO(startDateStr, endDateStrInclusive);
   const rawRows = await fetchEventsInWindow(admin, { startISO, endISO, asOf, sessionIdPrefix });
-  // is_test_account=trueのユーザーがログイン中に作った行を除外する(既存
-  // acquisition-snapshot.mjsと同じ既知の混入経路への対応)。user_idがnull(匿名行)は
-  // 対象外にしない。
-  const rows = rawRows.filter((r) => !r.user_id || !testAccountIds.has(r.user_id));
 
-  // ウィンドウの日付境界(startISO)をまたぐvisitを取りこぼさないよう、rowsに登場する
-  // セッションIDについてstartISOより前の行(マーカー・通常のattributed行の両方)も
-  // 追加取得する(Codexレビュー指摘対応)。visit境界の再構築(allRowsBySession)にのみ
-  // 使い、landing/funnel等の実際の集計対象(socialLandingEntries/funnelCounts等)は
-  // 下記のrows(ウィンドウ内のみ)に限定したまま変えない。
-  const sessionIdsInRows = new Set(rows.map((r) => r.anonymous_session_id).filter(Boolean));
-  const precedingActivityRows = await fetchPrecedingActivityRows(admin, {
+  // ウィンドウの日付境界(startISO)をまたぐvisitを取りこぼさないよう、ウィンドウ内に
+  // 登場する全セッションIDについてstartISOより前の行(マーカー・通常のattributed行の
+  // 両方)も追加取得する(Codexレビュー指摘対応)。test-account除外を行う前の生の
+  // セッションID集合を渡す(下記のtest-account紐付け判定に必要なため。Codexレビュー
+  // 指摘対応、10巡目)。
+  const sessionIdsInRawRows = new Set(rawRows.map((r) => r.anonymous_session_id).filter(Boolean));
+  const precedingActivityRowsRaw = await fetchPrecedingActivityRows(admin, {
     startISO,
     asOf,
-    sessionIds: sessionIdsInRows,
-    testAccountIds,
+    sessionIds: sessionIdsInRawRows,
   });
+
+  // is_test_account=trueのユーザーがログイン中に作った行を除外する(既存
+  // acquisition-snapshot.mjsと同じ既知の混入経路への対応)。ただし行単位ではなく
+  // セッション単位で除外する(Codexレビュー指摘対応、10巡目、最重要): ログアウト
+  // 状態でsocialリンクを踏んだ後、同じブラウザセッション内で後からtest accountとして
+  // 認証した場合、認証前のuser_id=null行(marker/landing等)は行単位フィルタでは
+  // 残ってしまい、そのセッションがtest accountだと判明した後もsocial集計を汚染し
+  // 続けてしまう。ウィンドウ内(rawRows)とその直前のlookback(precedingActivityRowsRaw)
+  // を合わせた凍結済み活動セット全体を見て、いずれかの行でuser_idがtest accountに
+  // 一致するセッションIDを特定し、そのセッションの行を(user_idの有無に関わらず)
+  // まるごと除外する。
+  const testAccountSessionIds = new Set(
+    [...rawRows, ...precedingActivityRowsRaw]
+      .filter((r) => r.user_id && testAccountIds.has(r.user_id))
+      .map((r) => r.anonymous_session_id)
+      .filter(Boolean),
+  );
+  function excludeTestAccountRows(list) {
+    return list.filter((r) => {
+      if (r.anonymous_session_id) return !testAccountSessionIds.has(r.anonymous_session_id);
+      // anonymous_session_idが無い(サーバー側でcookie未取得等)行は、セッション単位の
+      // 判定ができないため、その行自身のuser_idで直接判定する。
+      return !r.user_id || !testAccountIds.has(r.user_id);
+    });
+  }
+  const rows = excludeTestAccountRows(rawRows);
+  const precedingActivityRows = excludeTestAccountRows(precedingActivityRowsRaw);
 
   // 1) セッション(anonymous_session_id)ごとに、このウィンドウ内の全行(traffic_source_detected
   //    マーカー + landing/funnel等のその他すべての行)を発生時刻順に並べ、1回の

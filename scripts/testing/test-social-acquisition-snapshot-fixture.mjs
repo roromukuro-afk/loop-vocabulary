@@ -71,6 +71,10 @@
  *  - このlookback用のprecedingActivityRowsクエリからもtest account(is_test_account=true)
  *    の行が除外される(=test accountのmarkerが、境界後に同一cookieで発生した実
  *    ユーザーのlandingへ誤って継承されない。Codexレビュー指摘対応、8巡目)
+ *  - test account除外は行単位ではなくセッション単位で行われる(=ログアウト状態で
+ *    social流入した後、同一セッション内で後からtest accountとして認証した場合、
+ *    認証前のuser_id=null行も含めてそのセッションがまるごと除外される。Codex
+ *    レビュー指摘対応、10巡目、最重要)
  *  - visitの「実際のlanding」がウィンドウ開始前(precedingActivityRows側)にある場合、
  *    ウィンドウ内で発生した後続ページ遷移をそのvisitのlandingとして誤って計上しない
  *    (=真のlandingが前のウィンドウで既にlandingとして計上済みのはずのvisitを、この
@@ -328,6 +332,20 @@ async function main() {
       // ままになるべき。
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}r`, source: "x", campaign: "campR", path: null, user_id: testAccountUserId, properties: { source: "x", medium: "social", content: "contentR" }, occurred_at: beforeWindowStart(20 * 60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}r`, source: "x", campaign: "campR", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: afterWindowStart(5 * 60 * 1000), is_test_event: false, schema_version: 1 },
+
+      // S: ログアウト状態(user_id=null)でsocialリンクを踏みlanding_viewまで発生させた後、
+      // 同一ブラウザセッション内で後からtest accountとして認証する(3行目の
+      // vocab_test_maker_page_viewedにuser_id=testAccountUserIdが付与される)ケース
+      // (Codexレビュー指摘対応、10巡目、最重要)。認証前の1・2行目だけを見ればuser_id=null
+      // の匿名行だが、同一セッション内の後続行でこのセッションがtest account由来だと
+      // 判明するため、認証前の行も含めてセッションごとまるごと除外されるべき
+      // (=campS/contentSはbyCampaign/byContent/funnelCountsByContent/socialLandingIdentities
+      // のどこにも一切現れない)。修正前は行単位でuser_idを見ていたため、1・2行目
+      // (user_id=null)は素通りしてしまい、test account判明後もsocial集計を汚染し続けて
+      // いた。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}s`, source: "x", campaign: "campS", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentS" }, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}s`, source: "x", campaign: "campS", path: "/", user_id: null, properties: {}, occurred_at: offset(60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}s`, source: "x", campaign: "campS", path: "/tools/vocab-test-maker", user_id: testAccountUserId, properties: {}, occurred_at: offset(2 * 60 * 1000), is_test_event: false, schema_version: 1 },
     ];
     const { error: insertErr } = await admin.from("analytics_events").insert(rows);
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
@@ -416,6 +434,21 @@ async function main() {
       ok("pre-window activity chainのtest account markerが正しく除外され、実ユーザーのconversionへ誤って継承されない(R: campR/contentRはbyCampaign/byContent/funnelCountsByContentのどこにも現れない)");
     } else {
       bad(`test account markerの除外が想定外: byCampaign.campR=${result.byCampaign["campR"]}, byContent.contentR=${result.byContent["contentR"]}, funnelCountsByContent.contentR=${JSON.stringify(result.funnelCountsByContent?.contentR)}(期待値: いずれも無し)`);
+    }
+
+    // ---- 検証: 匿名で開始し後からtest accountとして認証したセッションは、認証前の
+    // 行も含めてセッションごと除外される(Codexレビュー指摘対応、10巡目、最重要)。
+    // Sはmarker/landing_viewがuser_id=null(匿名)、3行目のvocab_test_maker_page_viewedで
+    // 初めてuser_id=testAccountUserIdが付与される。修正前は行単位でuser_idを見ていた
+    // ため1・2行目は素通りし、campS/contentSがsocial集計を汚染してしまっていた。 ----
+    if (
+      !result.funnelCountsByContent?.contentS &&
+      !("campS" in result.byCampaign) &&
+      !("contentS" in result.byContent)
+    ) {
+      ok("匿名開始→後からtest account認証のセッションが、認証前の行も含めてまるごと除外される(S: campS/contentSはbyCampaign/byContent/funnelCountsByContentのどこにも現れない)");
+    } else {
+      bad(`匿名開始→test account認証セッションの除外が想定外: byCampaign.campS=${result.byCampaign["campS"]}, byContent.contentS=${result.byContent["contentS"]}, funnelCountsByContent.contentS=${JSON.stringify(result.funnelCountsByContent?.contentS)}(期待値: いずれも無し)`);
     }
 
     // ---- 検証: 通常のattributed行(reloadマーカーではない)からもvisitの活動時刻が
