@@ -30,11 +30,16 @@ type Props = {
 };
 
 const COPY_SUCCESS_MESSAGE = "リンクをコピーしました";
-const COPY_FAILURE_MESSAGE = "コピーできませんでした。URLを長押し(またはドラッグ選択)してコピーしてください。";
+const COPY_FAILURE_MESSAGE = "コピーできませんでした。下のURLを選択してコピーしてください。";
 
 export function ShareUrlButton({ url, title, text, label = "🔗 シェアする", className, onShareInvoked }: Props) {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // navigator.clipboard.writeText()自体が使えない/権限拒否された場合、失敗メッセージは
+  // 「URLを選択してコピーしてください」と案内していたにもかかわらず、このコンポーネント
+  // 自身はurlをどこにも表示しておらず、選択できるテキストが実際には存在しなかった
+  // (Codexレビュー指摘対応)。失敗時のみurlを表示するためのフラグ。
+  const [copyFailed, setCopyFailed] = useState(false);
   // copy()は連打を弾かない(コピー自体は繰り返し安全)が、2回連続クリック時に
   // 古い呼び出しの結果が新しい呼び出しの結果を上書きしないよう、呼び出しごとに
   // 単調増加するトークンで最新の呼び出しかどうかを判定する
@@ -47,6 +52,7 @@ export function ShareUrlButton({ url, title, text, label = "🔗 シェアする
       await navigator.clipboard.writeText(url);
       if (copySeqRef.current !== seq) return;
       setCopied(true);
+      setCopyFailed(false);
       setStatusMessage(COPY_SUCCESS_MESSAGE);
       onShareInvoked?.("copy_link");
       setTimeout(() => {
@@ -55,6 +61,7 @@ export function ShareUrlButton({ url, title, text, label = "🔗 シェアする
     } catch {
       if (copySeqRef.current !== seq) return;
       setCopied(false);
+      setCopyFailed(true);
       setStatusMessage(COPY_FAILURE_MESSAGE);
     }
   }
@@ -93,6 +100,17 @@ export function ShareUrlButton({ url, title, text, label = "🔗 シェアする
         <p role="status" aria-live="polite" data-testid="share-url-status" className="mt-2 text-xs text-navy-300">
           {statusMessage}
         </p>
+      )}
+      {copyFailed && (
+        <input
+          type="text"
+          readOnly
+          value={url}
+          onFocus={(e) => e.currentTarget.select()}
+          aria-label="共有URL(手動でコピーしてください)"
+          data-testid="share-url-manual-fallback"
+          className="mt-2 w-full text-xs bg-white/10 border border-white/20 rounded-lg px-3 py-2 font-mono text-navy-100"
+        />
       )}
     </div>
   );

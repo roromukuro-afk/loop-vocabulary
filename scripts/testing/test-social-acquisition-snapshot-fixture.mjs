@@ -10,13 +10,18 @@
  * 検証内容:
  *  - social(x/instagram/other_social等)とnon-social(google)の判定が正しい
  *  - 未知sourceのUTM(utm_medium=social)がother_socialへバケット分けされる
+ *  - utm_medium=social以外(cpc等)の既知source名はsocialとして扱われない
+ *    (Codexレビュー指摘対応)
  *  - is_test_event=true行が集計から完全に除外される
  *  - is_test_account=trueユーザーのセッションが(social判定であっても)まるごと
  *    除外される(PR #96で確立したtest account除外パターンの再現)
- *  - campaign/content/pathがidentity(distinct session)単位で正しく集計される
- *    (同一セッションの複数行を二重計上しない)
- *  - social起点セッションのfunnelイベント件数が正しい
- *  - social起点の新規signup数(user_id突き合わせ、ウィンドウ内新規作成のみ)が正しい
+ *  - campaign/content/pathがidentity(distinct visit)単位で正しく集計される
+ *    (同一visitの複数行を二重計上しない)
+ *  - 同じanonymous_session_id(cookie)が同じウィンドウ内で複数回・異なるsourceで
+ *    訪問した場合、各visitが個別に正しくattributionされる(1つのvisitの判定へ
+ *    全体が一括で誤って帰属しない。Codexレビュー指摘対応、最重要の回帰確認)
+ *  - social visitのfunnelイベント件数が正しい
+ *  - social visit起点の新規signup数(user_id突き合わせ、ウィンドウ内新規作成のみ)が正しい
  *
  * 使い方: node scripts/testing/test-social-acquisition-snapshot-fixture.mjs
  */
@@ -38,6 +43,7 @@ async function main() {
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const prefix = `fixture-social-${runId}-`;
   const now = () => new Date().toISOString();
+  const offset = (ms) => new Date(Date.now() + ms).toISOString();
 
   let testAccountUserId = null;
   let signupUserId = null;
@@ -103,6 +109,20 @@ async function main() {
       // セッションのlandingが0件になってしまっていた)。
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}g`, source: "youtube", campaign: "camp2", path: null, user_id: null, properties: { source: "youtube", medium: "social", content: "post3" }, occurred_at: now(), is_test_event: false, schema_version: 1 },
       { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}g`, source: "youtube", campaign: "camp2", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: now(), is_test_event: false, schema_version: 1 },
+
+      // H: 同一cookie(anonymous_session_id)が同じウィンドウ内で2回、異なるsourceで
+      // 訪問するケース(Codexレビュー指摘対応、最重要の回帰確認)。visit1(先)はx/social、
+      // visit2(後)はgoogle/organic。visit2のlanding_viewはvisit1のsocial判定へ
+      // 誤って一括帰属してはならない(=social集計に含まれてはならない)。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}h`, source: "x", campaign: "camp3", path: null, user_id: null, properties: { source: "x", medium: "social", content: "post4" }, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}h`, source: "x", campaign: "camp3", path: "/", user_id: null, properties: {}, occurred_at: offset(1000), is_test_event: false, schema_version: 1 },
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}h`, source: "google", campaign: "", path: null, user_id: null, properties: { source: "google", medium: "organic" }, occurred_at: offset(5000), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}h`, source: "google", campaign: "", path: "/", user_id: null, properties: {}, occurred_at: offset(6000), is_test_event: false, schema_version: 1 },
+
+      // I: utm_source=facebook だが utm_medium=cpc(広告経由、SNSシェア/オーガニックでは
+      // ない) → socialとして数えられてはならない(Codexレビュー指摘対応)。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}i`, source: "facebook", campaign: "paid1", path: null, user_id: null, properties: { source: "facebook", medium: "cpc" }, occurred_at: now(), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}i`, source: "facebook", campaign: "paid1", path: "/", user_id: null, properties: {}, occurred_at: now(), is_test_event: false, schema_version: 1 },
     ];
     const { error: insertErr } = await admin.from("analytics_events").insert(rows);
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
@@ -119,18 +139,19 @@ async function main() {
     const today = todayJST();
     const result = await summarizeWindow(admin, "fixture", today, today, testAccountIds, asOf);
 
-    // ---- 検証: social landing identities合計 = A, B, D, G の4件
-    // (C=非social, E=test account, F=test event は除外)。Gはlanding_viewを一度も
-    // 発火しない(vocab_test_maker_page_viewedのみ)セッションで、これも正しく
-    // landingとして数えられることを確認する(Codexレビュー指摘対応)。 ----
-    if (result.socialLandingIdentities === 4) {
-      ok("social landing identities合計が4(A/B/D/G。C=非social/E=test account/F=test eventは除外)");
+    // ---- 検証: social landing identities合計 = A, B, D, G, H(visit1のみ) の5件
+    // (C=非social, E=test account, F=test event, H visit2=非social, I=medium違いは
+    // すべて除外)。Gはlanding_viewを一度も発火しない(vocab_test_maker_page_viewed
+    // のみ)セッションで、これも正しくlandingとして数えられることを確認する
+    // (Codexレビュー指摘対応)。 ----
+    if (result.socialLandingIdentities === 5) {
+      ok("social landing identities合計が5(A/B/D/G/H-visit1。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外)");
     } else {
-      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 4)`);
+      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 5)`);
     }
 
-    // ---- 検証: source別バケット ----
-    const expectedBuckets = { x: 1, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 1 };
+    // ---- 検証: source別バケット(H-visit1がxへ加算され、facebookはmedium=cpcのため0のまま) ----
+    const expectedBuckets = { x: 2, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 1 };
     let bucketsOk = true;
     for (const [bucket, expected] of Object.entries(expectedBuckets)) {
       if (result.byBucket[bucket] !== expected) {
@@ -138,33 +159,49 @@ async function main() {
         bad(`byBucket.${bucket}が想定外: ${result.byBucket[bucket]}(期待値: ${expected})`);
       }
     }
-    if (bucketsOk) ok("source別バケット(x=1, instagram=1, youtube=1, other_social=1、他=0)が正しい(未知source=mastodonはother_socialへ、test account/test eventのxは含まれない)");
+    if (bucketsOk) {
+      ok("source別バケット(x=2[A,H-visit1], instagram=1, youtube=1, other_social=1, facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodonはother_socialへ、test account/test eventのxは含まれない)");
+    }
 
-    // ---- 検証: campaign/content/path(identity単位、同一セッションの複数行を二重計上しない) ----
-    if (result.byCampaign["camp1"] === 2 && result.byCampaign["(none)"] === 1 && result.byCampaign["camp2"] === 1) {
-      ok("campaign別集計が正しい(camp1=2[A,B], (none)=1[D], camp2=1[G])");
+    // ---- 検証: 同一cookieの複数visitが個別に正しくattributionされる(最重要の回帰確認) ----
+    // Hのvisit1(x/social)由来のlanding_viewはsocial集計に含まれ、visit2(google/organic)
+    // 由来のlanding_viewは(同じcookieであるにもかかわらず)social集計から正しく除外される。
+    if (result.byCampaign["camp3"] === 1 && result.byContent["post4"] === 1) {
+      ok("同一cookieの複数visitが個別に正しくattributionされる(H visit1=x/social/camp3/post4のみ計上、visit2=google/organicは除外)");
     } else {
-      bad(`campaign別集計が想定外: ${JSON.stringify(result.byCampaign)}(期待値: camp1=2, (none)=1, camp2=1)`);
+      bad(`複数visit attributionが想定外: byCampaign=${JSON.stringify(result.byCampaign)}, byContent=${JSON.stringify(result.byContent)}(期待値: camp3=1, post4=1)`);
+    }
+
+    // ---- 検証: campaign/content/path(identity単位、同一visitの複数行を二重計上しない) ----
+    if (
+      result.byCampaign["camp1"] === 2 &&
+      result.byCampaign["(none)"] === 1 &&
+      result.byCampaign["camp2"] === 1 &&
+      result.byCampaign["camp3"] === 1
+    ) {
+      ok("campaign別集計が正しい(camp1=2[A,B], (none)=1[D], camp2=1[G], camp3=1[H-visit1])");
+    } else {
+      bad(`campaign別集計が想定外: ${JSON.stringify(result.byCampaign)}(期待値: camp1=2, (none)=1, camp2=1, camp3=1)`);
     }
     if (
       result.byContent["post1"] === 1 &&
       result.byContent["post2"] === 1 &&
       result.byContent["(none)"] === 1 &&
-      result.byContent["post3"] === 1
+      result.byContent["post3"] === 1 &&
+      result.byContent["post4"] === 1
     ) {
-      ok("content別集計が正しい(post1=1[A], post2=1[B], (none)=1[D], post3=1[G])");
+      ok("content別集計が正しい(post1=1[A], post2=1[B], (none)=1[D], post3=1[G], post4=1[H-visit1])");
     } else {
-      bad(`content別集計が想定外: ${JSON.stringify(result.byContent)}(期待値: post1=1, post2=1, (none)=1, post3=1)`);
+      bad(`content別集計が想定外: ${JSON.stringify(result.byContent)}(期待値: post1=1, post2=1, (none)=1, post3=1, post4=1)`);
     }
-    // landing_view(A,D)に加え、vocab_test_maker_page_viewed(A,G)・landing_view(B、
-    // path=/tools/vocab-test-maker)・guide_view(B)もlandingの行としてカウントされる
-    // (Codexレビュー指摘対応の中核: セッションAはlanding_viewとvocab_test_maker_
-    // page_viewedの両方を持つため/tools/vocab-test-makerへ2行、セッションGは
-    // vocab_test_maker_page_viewedのみだがそれ自体が1行としてカウントされる)。
-    if (result.byPath["/"] === 2 && result.byPath["/tools/vocab-test-maker"] === 3 && result.byPath["/guide/eiken-2kyu-tango"] === 1) {
-      ok("landing path別集計が正しい(/=2[A,D], /tools/vocab-test-maker=3[Aのlanding_view+vocab_test_maker_page_viewed, Bのlanding_view, Gのvocab_test_maker_page_viewed], /guide/eiken-2kyu-tango=1[Bのguide_view])(件数=行数、identityではなくlanding行単位)");
+    // landing_view(A,D,H-visit1)に加え、vocab_test_maker_page_viewed(A,G)・
+    // landing_view(B、path=/tools/vocab-test-maker)・guide_view(B)もlandingの行として
+    // カウントされる。H visit2のlanding_view(google/organic)とIのlanding_view
+    // (facebook/cpc)は非social扱いのため一切含まれない。
+    if (result.byPath["/"] === 3 && result.byPath["/tools/vocab-test-maker"] === 3 && result.byPath["/guide/eiken-2kyu-tango"] === 1) {
+      ok("landing path別集計が正しい(/=3[A,D,H-visit1], /tools/vocab-test-maker=3[Aのlanding_view+vocab_test_maker_page_viewed, Bのlanding_view, Gのvocab_test_maker_page_viewed], /guide/eiken-2kyu-tango=1[Bのguide_view])(H visit2/Iのlanding_viewは非socialのため含まれない)");
     } else {
-      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=2, /tools/vocab-test-maker=3, /guide/eiken-2kyu-tango=1)`);
+      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=3, /tools/vocab-test-maker=3, /guide/eiken-2kyu-tango=1)`);
     }
 
     // ---- 検証: funnel件数(social起点セッションのみ) ----

@@ -4,31 +4,36 @@
  * 同じ安全な集計パターン(is_test_event=false限定、test account除外、asOf凍結、
  * id keysetページング、クエリエラーでfail-fast)を再利用する。
  *
- * 「social」の定義: 以下のいずれかを満たすセッション(anonymous_session_id)。
- *  - UTM: utm_medium=social (utm_sourceは自由記述だが、既知の8チャネルに一致すれば
- *    そのチャネル名で、一致しなければ"other_social"でバケット分けする)
- *  - referrer fallback: src/lib/analytics/socialReferrer.tsが分類したSNSリファラ
- *    (x/threads/instagram/tiktok/youtube/pinterest/facebook/line)
- * どちらも src/lib/analytics/track.ts の detectTrafficSource() がセッション開始時に
- * 一度だけ判定し、セッション中(sessionStorage)は同じ値を使い回す。この判定結果は
- * traffic_source_detected イベントの、トップレベルsource/campaign列 +
- * properties.medium/content に記録される(Issue #98でcontentプロパティを追加)。
+ * 「social」の定義: utm_medium=social(utm_sourceは自由記述だが、既知の8チャネルに
+ * 一致すればそのチャネル名で、一致しなければ"other_social"でバケット分けする)、
+ * または src/lib/analytics/socialReferrer.ts が分類したSNSリファラ(x/threads/
+ * instagram/tiktok/youtube/pinterest/facebook/line。これらは常にmedium=socialとして
+ * 記録される)のいずれか。medium=socialを必須とすることで、例えばutm_source=x&
+ * utm_medium=cpc(X上の広告)のような、SNSのオーガニック/シェア経由ではない
+ * トラフィックを誤って含めない(Codexレビュー指摘対応)。
+ * src/lib/analytics/track.ts の detectTrafficSource() がページ読み込みのたびに
+ * 一度だけ判定し、判定結果は traffic_source_detected イベントの、トップレベル
+ * source/campaign列 + properties.medium/content に記録される。
+ *
+ * 「visit」の単位: anonymous_session_id(lv_aid cookie)は365日永続するため、同じ
+ * 7日間ウィンドウ内で同じcookieが複数回・異なるsourceで訪問し得る(例: 月曜にXから
+ * 流入→水曜にInstagramから流入→金曜にdirect再訪問)。セッションID単位で1つの
+ * attributionへ丸めてしまうと、そのうち1回の判定へ全ての行が誤って一括帰属して
+ * しまう(Codexレビュー指摘対応、重要な修正)。そのため各行は「その行自身の
+ * occurred_at以前で直近のtraffic_source_detected」に個別に紐付け、そのvisit
+ * (sid + そのtraffic_source_detectedのoccurred_at)を最小単位のidentityとして扱う。
+ * occurred_atはクライアント指定値のため完全な信頼はできないが、visit境界を
+ * 再構築する唯一の手がかりであり、read-only集計としての現実的な近似として採用する。
  *
  * 集計内容(直近7日 vs 前7日、JST基準・いずれも当日を含まず昨日までの完全な7日間同士を比較):
- *  - social landing識別数(distinct anonymous_session_id、LANDING_EVENT_NAMES基準:
+ *  - social landing識別数(distinct visit、LANDING_EVENT_NAMES基準:
  *    landing_view/vocab_test_maker_page_viewed/guide_viewのいずれか)の合計
  *  - source別(x/threads/instagram/tiktok/youtube/pinterest/facebook/line/other_social)
  *  - campaign別 / content別 / landing path別
- *  - social起点セッションについて、以下のfunnel件数(可能な範囲で):
+ *  - social visitについて、以下のfunnel件数(可能な範囲で。行ごとに個別のvisit
+ *    attributionを判定するため、同じcookieの非social visit中のfunnel到達は含まれない):
  *    vocab_test_maker_page_viewed/_generated/_srs_cta_clicked/_saved_to_wordbook,
  *    guide_view, guide_cta_click, signup数
- *
- * 制約(誠実な注記): anonymous_session_idは1年cookieで永続するが、SNS起点の判定
- * (sessionStorage)はブラウザタブを閉じると失われる。そのため「social起点」は
- * 「このウィンドウ内でtraffic_source_detectedがsocialと判定したセッション」を指し、
- * 同一cookieでの別セッション(後日direct再訪問等)は含まれない。funnel/signupの
- * 集計は、そのセッションIDが同じウィンドウ内で残した行(events/user_id)のみを対象に
- * する(セッション横断のidentity resolutionは行わない)。
  *
  * 使い方: node scripts/testing/social-acquisition-snapshot.mjs
  */
@@ -63,9 +68,14 @@ const LANDING_EVENT_NAMES = ["landing_view", "vocab_test_maker_page_viewed", "gu
 // (fixture testから直接importして検証するためexportする。
 // scripts/testing/test-social-acquisition-snapshot-fixture.mjs参照。)
 export function classifySocialBucket(source, medium) {
+  // medium=socialを必須にする(Codexレビュー指摘対応)。修正前はsourceが既知の
+  // 8チャネル名に一致するだけでsocialと判定していたため、utm_source=x&utm_medium=cpc
+  // (X上の広告)やutm_source=facebook&utm_medium=email(メール経由でfacebookという
+  // 語を含むcampaign名を使った場合等)のような、SNSのオーガニック/シェア経由ではない
+  // トラフィックまでsocial実験の集計に混入してしまっていた。
+  if (medium !== "social") return null;
   if (source && KNOWN_SOCIAL_SOURCE_SET.has(source)) return source;
-  if (medium === "social") return "other_social";
-  return null;
+  return "other_social";
 }
 
 function windowRangeISO(startDateStr, endDateStrInclusive) {
@@ -111,7 +121,7 @@ async function fetchEventsInWindow(admin, { startISO, endISO, asOf }) {
   for (;;) {
     let query = admin
       .from("analytics_events")
-      .select("id, event_name, anonymous_session_id, source, campaign, path, user_id, properties")
+      .select("id, event_name, anonymous_session_id, source, campaign, path, user_id, properties, occurred_at")
       .eq("is_test_event", false)
       .gte("occurred_at", startISO)
       .lt("occurred_at", endISO)
@@ -143,87 +153,113 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   // 対象外にしない。
   const rows = rawRows.filter((r) => !r.user_id || !testAccountIds.has(r.user_id));
 
-  // 1) traffic_source_detectedから、このウィンドウで「social起点」と判定された
-  //    セッションのアトリビューションを構築する(session_id -> {source,campaign,content}）。
-  //    セッションごとに最大1行のはず(track.tsのtrafficSourceDetectedFiredガード)だが、
-  //    念のため最初の1件のみを採用しシステムの前提が崩れても壊れないようにする。
-  const socialAttributionBySession = new Map();
+  // 1) セッション(anonymous_session_id)ごとに、このウィンドウ内の全traffic_source_detected
+  //    行を発生時刻順に並べたリストを作る(social/非socialを問わず保持する)。
+  //    Codexレビュー指摘対応(重要): anonymous_session_idはlv_aid cookie由来で365日
+  //    永続するため、同じcookieが同じ7日間ウィンドウ内で複数回・異なるsourceで
+  //    訪問し得る(例: 月曜にXから流入→水曜にInstagramから流入→金曜にdirect再訪問)。
+  //    セッション単位で1つのattributionへキャッシュしてしまうと、そのうちの1回
+  //    (配列の並び順で偶然先頭に来たもの)へ全ての行が誤って一括帰属してしまい、
+  //    チャネル別・転換の集計が実態と乖離する。そのため、各行ごとにその行自身の
+  //    occurred_at以前で直近のtraffic_source_detectedを探し、その回(visit)の
+  //    attributionだけを適用する(=同じcookieでもvisitごとに正しく別々の
+  //    チャネルへ帰属させる)。
+  const attributionEventsBySession = new Map();
   for (const r of rows) {
     if (r.event_name !== "traffic_source_detected") continue;
     const sid = r.anonymous_session_id;
-    if (!sid || socialAttributionBySession.has(sid)) continue;
+    if (!sid) continue;
     const medium = typeof r.properties?.medium === "string" ? r.properties.medium : undefined;
     const bucket = classifySocialBucket(r.source ?? undefined, medium);
-    if (!bucket) continue;
-    socialAttributionBySession.set(sid, {
-      bucket,
+    const entry = {
+      occurred_at: r.occurred_at,
+      bucket, // nullの場合は非social visit(visit境界の再構築には使うが、social集計自体からは除外)
       campaign: r.campaign || "(none)",
       content: typeof r.properties?.content === "string" && r.properties.content ? r.properties.content : "(none)",
-    });
+    };
+    if (!attributionEventsBySession.has(sid)) attributionEventsBySession.set(sid, []);
+    attributionEventsBySession.get(sid).push(entry);
   }
-  const socialSessionIds = new Set(socialAttributionBySession.keys());
+  for (const arr of attributionEventsBySession.values()) {
+    arr.sort((a, b) => (a.occurred_at < b.occurred_at ? -1 : a.occurred_at > b.occurred_at ? 1 : 0));
+  }
 
-  // 2) LANDING_EVENT_NAMESのうち、social起点セッションのものだけを対象にする
-  // (Codexレビュー指摘対応: landing_viewだけだとトップページ以外に直接リンクした
-  // 投稿のlandingを取りこぼす)。
-  const socialLandingRows = rows.filter(
-    (r) =>
-      LANDING_EVENT_NAMES.includes(r.event_name) &&
-      r.anonymous_session_id &&
-      socialSessionIds.has(r.anonymous_session_id),
-  );
-  const socialLandingIdentities = new Set(socialLandingRows.map((r) => r.anonymous_session_id));
+  // 指定occurredAt以前で直近のtraffic_source_detectedを返す(occurred_atはクライアント
+  // 指定値のため完全には信用できないが、同一セッション内でのvisit境界を再構築する
+  // 唯一の手がかりであり、このスクリプトが読み取り専用集計であることを踏まえた
+  // 現実的な近似として採用する)。該当が1件も無い場合(クロックスキュー等でこのイベント
+  // 自体がそのセッション最初のtraffic_source_detectedより前のoccurred_atを持つ稀な
+  // ケース)は、そのセッションの最初のattributionをfallbackとして使う。
+  function findAttribution(sid, occurredAt) {
+    const arr = attributionEventsBySession.get(sid);
+    if (!arr || arr.length === 0) return null;
+    let chosen = null;
+    for (const entry of arr) {
+      if (entry.occurred_at <= occurredAt) chosen = entry;
+      else break;
+    }
+    return chosen ?? arr[0];
+  }
+
+  // 特定visit(=あるsidの、ある1回のtraffic_source_detected発生時刻)を一意に表すキー。
+  // 同じcookieでも訪問ごとに別のidentityとして数える(Codexレビュー指摘対応)。
+  function visitKey(sid, attr) {
+    return `${sid}::${attr.occurred_at}`;
+  }
+
+  // 2) LANDING_EVENT_NAMESのうち、そのイベント自身が属するvisitがsocialと判定された
+  //    ものだけを対象にする(Codexレビュー指摘対応: landing_viewだけだとトップページ
+  //    以外に直接リンクした投稿のlandingを取りこぼす)。
+  const socialLandingEntries = [];
+  for (const r of rows) {
+    if (!LANDING_EVENT_NAMES.includes(r.event_name) || !r.anonymous_session_id) continue;
+    const attr = findAttribution(r.anonymous_session_id, r.occurred_at);
+    if (!attr || !attr.bucket) continue;
+    socialLandingEntries.push({ row: r, attr, key: visitKey(r.anonymous_session_id, attr) });
+  }
+  const socialLandingIdentities = new Set(socialLandingEntries.map((e) => e.key));
 
   const byBucket = new Map();
   const byCampaign = new Map();
   const byContent = new Map();
   const byPath = new Map();
-  // 同じsource/campaign/contentの内訳もidentity(distinct session)単位で数える
-  // (行数の単純加算だと同一セッションの複数landing_viewを二重計上してしまう)。
+  // 同じsource/campaign/contentの内訳もidentity(distinct visit)単位で数える
+  // (行数の単純加算だと同一visitの複数landing行を二重計上してしまう)。
   const identitiesByBucket = new Map();
-  for (const r of socialLandingRows) {
-    const attr = socialAttributionBySession.get(r.anonymous_session_id);
-    const sid = r.anonymous_session_id;
+  for (const { row: r, attr, key } of socialLandingEntries) {
     if (!identitiesByBucket.has(attr.bucket)) identitiesByBucket.set(attr.bucket, new Set());
-    identitiesByBucket.get(attr.bucket).add(sid);
+    identitiesByBucket.get(attr.bucket).add(key);
     const p = r.path ?? "(不明)";
     byPath.set(p, (byPath.get(p) ?? 0) + 1);
   }
   for (const bucket of SOCIAL_BUCKETS) byBucket.set(bucket, identitiesByBucket.get(bucket)?.size ?? 0);
-  // campaign/content別もidentity(distinct session)単位。1セッション1attributionなので
-  // socialAttributionBySessionを直接使う(landing_viewを経ずcookie復帰等でlanding_view
-  // 自体が欠落したセッションは対象外 — socialLandingIdentitiesとの整合を保つため)。
+
   const identitiesByCampaign = new Map();
   const identitiesByContent = new Map();
-  for (const sid of socialLandingIdentities) {
-    const attr = socialAttributionBySession.get(sid);
+  const attrByVisitKey = new Map();
+  for (const { attr, key } of socialLandingEntries) attrByVisitKey.set(key, attr);
+  for (const key of socialLandingIdentities) {
+    const attr = attrByVisitKey.get(key);
     if (!identitiesByCampaign.has(attr.campaign)) identitiesByCampaign.set(attr.campaign, new Set());
-    identitiesByCampaign.get(attr.campaign).add(sid);
+    identitiesByCampaign.get(attr.campaign).add(key);
     if (!identitiesByContent.has(attr.content)) identitiesByContent.set(attr.content, new Set());
-    identitiesByContent.get(attr.content).add(sid);
+    identitiesByContent.get(attr.content).add(key);
   }
   for (const [k, set] of identitiesByCampaign) byCampaign.set(k, set.size);
   for (const [k, set] of identitiesByContent) byContent.set(k, set.size);
 
-  // 3) social起点セッションのfunnel/signup(可能な範囲で)。landing_viewの有無に関係なく
-  //    socialSessionIds全体(=このウィンドウでsocialとtraffic_source_detected判定された
-  //    セッション全て)を対象にする(landing_view欠落セッションのfunnel到達も拾うため)。
+  // 3) funnel/signup(可能な範囲で)。行ごとに個別のvisit attributionを判定し、
+  //    そのvisitがsocialと判定された行だけを対象にする(landing行の有無とは独立)。
   const funnelCounts = {};
-  for (const name of FUNNEL_EVENTS) {
-    funnelCounts[name] = rows.filter(
-      (r) => r.event_name === name && r.anonymous_session_id && socialSessionIds.has(r.anonymous_session_id),
-    ).length;
+  for (const name of FUNNEL_EVENTS) funnelCounts[name] = 0;
+  const socialUserIds = new Set();
+  for (const r of rows) {
+    if (!r.anonymous_session_id) continue;
+    const attr = findAttribution(r.anonymous_session_id, r.occurred_at);
+    if (!attr || !attr.bucket) continue;
+    if (FUNNEL_EVENTS.includes(r.event_name)) funnelCounts[r.event_name]++;
+    if (r.user_id) socialUserIds.add(r.user_id);
   }
-
-  // signup: social起点セッションの行(どのevent_nameでもよい)に付与されたuser_idを集め、
-  // そのuser_idがこのウィンドウ内に新規作成されたis_test_account=false profileであれば
-  // 「social起点の新規signup」として数える。古いcookieで戻ってきた既存ユーザーを
-  // signupとして誤カウントしないよう、created_atがこのウィンドウ内であることを要求する。
-  const socialUserIds = new Set(
-    rows
-      .filter((r) => r.anonymous_session_id && socialSessionIds.has(r.anonymous_session_id) && r.user_id)
-      .map((r) => r.user_id),
-  );
   let socialSignupCount = 0;
   if (socialUserIds.size > 0) {
     const { count, error: signupError } = await admin
