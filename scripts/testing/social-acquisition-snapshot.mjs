@@ -270,6 +270,14 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     // 20分であり、一度も30分以上の無操作間隔が発生していないため、本来は連続した
     // 1visitのままであるべき。visitのidentity(occurred_at)は最初にそのattributionへ
     // 切り替わった時刻のまま据え置きつつ、gap計算だけは常に直前の生マーカーを使う。
+    //
+    // 畳み込まれた各visitには、そのvisit内で最後に観測された生マーカーの時刻を
+    // lastSeenAtとして別途保持する(Codexレビュー指摘対応、5巡目)。findAttribution()の
+    // 期限切れ判定(下記)は、visitのidentity時刻(occurred_at=最初のマーカー時刻)
+    // ではなくこのlastSeenAtを基準にしないと、0分・20分・40分と継続的にreloadして
+    // いる最中のユーザーが41分目に何か操作した場合、実際には一度も30分以上の
+    // 無操作期間が無いにもかかわらず「identity時刻(0分)から41分経過している」と
+    // 誤って未attribution扱いされてしまう。
     const deduped = [];
     let lastRaw = null;
     for (const entry of arr) {
@@ -282,10 +290,11 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
         prev.campaign === entry.campaign &&
         prev.content === entry.content
       ) {
+        prev.lastSeenAt = entry.occurred_at;
         lastRaw = entry;
         continue;
       }
-      deduped.push(entry);
+      deduped.push({ ...entry, lastSeenAt: entry.occurred_at });
       lastRaw = entry;
     }
     attributionEventsBySession.set(sid, deduped);
@@ -307,7 +316,12 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   // 例えば月曜にXから流入したセッションが金曜にdirectで再訪問し、その際の
   // traffic_source_detected送信だけが失敗/欠落した場合、何のガードも無いと金曜の行が
   // 何日も前の月曜のマーカーへ誤って帰属してしまう。visit識別(dedup)と同じ時間幅を
-  // 「このマーカーをどれだけ後の行まで正当と見なすか」の上限としても使う。
+  // 「このマーカーをどれだけ後の行まで正当と見なすか」の上限としても使う。基準時刻は
+  // chosen.occurred_at(=visitの最初のマーカー時刻)ではなくchosen.lastSeenAt(=その
+  // visit内で最後に観測された生マーカー時刻)を使う(Codexレビュー指摘対応、5巡目)。
+  // 0分・20分・40分と継続的にreloadしているユーザーが41分目に何か操作した場合、
+  // occurred_at(0分)基準だと41分>30分で誤って未attribution扱いになってしまうが、
+  // 実際には一度も30分以上の無操作期間が発生していない継続visitである。
   function findAttribution(sid, occurredAt) {
     const arr = attributionEventsBySession.get(sid);
     if (!arr || arr.length === 0) return null;
@@ -317,7 +331,7 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
       else break;
     }
     if (!chosen) return null;
-    const gapMs = Date.parse(occurredAt) - Date.parse(chosen.occurred_at);
+    const gapMs = Date.parse(occurredAt) - Date.parse(chosen.lastSeenAt);
     if (gapMs > RELOAD_DEDUPE_WINDOW_MS) return null;
     return chosen;
   }

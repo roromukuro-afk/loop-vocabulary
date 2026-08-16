@@ -57,7 +57,11 @@ export async function GET(req: NextRequest) {
     const isNewSignup = Math.abs(new Date(user.last_sign_in_at).getTime() - new Date(user.created_at).getTime()) < NEW_SIGNUP_THRESHOLD_MS;
     if (isNewSignup) {
       const anonymousSessionId = req.cookies.get("lv_aid")?.value ?? null;
-      void trackServerEvent("signup_oauth_completed", {
+      // サーバーレス環境ではレスポンスを返した後、awaitしていない処理の継続実行が
+      // 保証されない(Codexレビュー指摘対応)。trackServerEvent()自体は例外を握りつぶし
+      // 呼び出し元の処理を止めないため、ここでawaitしてもリダイレクト自体が失敗する
+      // ことはない。
+      await trackServerEvent("signup_oauth_completed", {
         userId: user.id,
         anonymousSessionId,
         properties: { method: "google" },

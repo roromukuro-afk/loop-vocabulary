@@ -53,6 +53,11 @@
  *    RELOAD_DEDUPE_WINDOW_MSより古い場合は未attributionとして扱う(=365日persistする
  *    cookieが何日も前の別visitのattributionを、間のtraffic_source_detected送信が
  *    欠落した後続visitへ誤って逆流帰属させない。Codexレビュー指摘対応、4巡目、最重要)
+ *  - 上記の期限切れ判定は、reload畳み込みされたvisitの識別時刻(=最初のマーカー)
+ *    ではなく、そのvisit内で最後に観測された生マーカー時刻(lastSeenAt)を基準に
+ *    行う(=0分・20分・40分と継続的にreloadしているユーザーが41分目に操作しても、
+ *    一度も30分以上の無操作期間が無い継続visitとして正しくattributionされる。
+ *    Codexレビュー指摘対応、5巡目、最重要)
  *  - social visitのfunnelイベント件数が正しい
  *  - social visit起点の新規signup数(user_id突き合わせ、ウィンドウ内新規作成のみ)が正しい
  *
@@ -308,11 +313,18 @@ async function main() {
       // であるべき。しかしgap判定を「直前に保持(push)したマーカー」基準で行うと、
       // 20分マーカーは畳み込まれてdedupedに入らず、40分マーカーは「保持済みの0分
       // マーカー」との間隔(40分>30分)で誤って別visitとして切り出されてしまう。
-      // gapは常に直前の"生"マーカーとの間隔で判定しなければならない。
+      // gapは常に直前の"生"マーカーとの間隔で判定しなければならない。さらに41分目に
+      // vocab_test_maker_page_viewedを追加する(Codexレビュー指摘対応、5巡目、最重要)。
+      // このユーザーは40分マーカーの1分後にまだ活動しており、一度も30分以上の
+      // 無操作期間が発生していない継続visitである。findAttribution()の期限切れ判定を
+      // visitのidentity時刻(0分)基準で行うと41分>30分で誤って未attribution扱いに
+      // なってしまうが、最後に観測された生マーカー(40分)基準なら41-40=1分で
+      // 正しくattributionされる。
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}n`, source: "x", campaign: "campN", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentN" }, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
       { event_name: "landing_view", anonymous_session_id: `${prefix}n`, source: "x", campaign: "campN", path: "/", user_id: null, properties: {}, occurred_at: offset(100), is_test_event: false, schema_version: 1 },
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}n`, source: "x", campaign: "campN", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentN" }, occurred_at: offset(20 * 60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}n`, source: "x", campaign: "campN", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentN" }, occurred_at: offset(40 * 60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}n`, source: "x", campaign: "campN", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: offset(41 * 60 * 1000), is_test_event: false, schema_version: 1 },
 
       // O: ウィンドウの日付境界(今日のJST 00:00 = todayStartISO)をまたぐvisit
       // (Codexレビュー指摘対応、4巡目、重要)。traffic_source_detected自体は境界の
@@ -449,8 +461,8 @@ async function main() {
 
     // ---- 検証: funnel/signupがcontent単位でも個別に取得できる(Codexレビュー指摘対応:
     // MARKETING_SOCIAL_LAUNCH_PACK_2026-08.mdの投稿別評価に必要)。post1(A)/post2(B)/
-    // post3(G)/contentJ(J)のみが現れ、funnel行の無いD/H/L/M、未attributionのKは
-    // 現れない。 ----
+    // post3(G)/contentJ(J)/contentN(N、41分目のlastSeenAt基準attribution)のみが現れ、
+    // funnel行の無いD/H/L/M、未attributionのKは現れない。 ----
     const fc = result.funnelCountsByContent;
     if (
       fc?.post1?.vocab_test_maker_page_viewed === 1 &&
@@ -458,9 +470,10 @@ async function main() {
       fc?.post2?.guide_view === 1 &&
       fc?.post3?.vocab_test_maker_page_viewed === 1 &&
       fc?.contentJ?.vocab_test_maker_page_viewed === 1 &&
-      Object.keys(fc ?? {}).length === 4
+      fc?.contentN?.vocab_test_maker_page_viewed === 1 &&
+      Object.keys(fc ?? {}).length === 5
     ) {
-      ok("funnel件数のcontent別内訳が正しい(post1={page_viewed:1,generated:1}, post2={guide_view:1}, post3={page_viewed:1}, contentJ={page_viewed:1}の4件のみ)");
+      ok("funnel件数のcontent別内訳が正しい(post1={page_viewed:1,generated:1}, post2={guide_view:1}, post3={page_viewed:1}, contentJ={page_viewed:1}, contentN={page_viewed:1}の5件のみ)");
     } else {
       bad(`funnelCountsByContentが想定外: ${JSON.stringify(fc)}`);
     }
@@ -518,11 +531,13 @@ async function main() {
 
     // ---- 検証: funnel件数(social起点セッションのみ) ----
     // funnelCountsはidentity(visit)単位ではなく行単位の集計のため、Jのreloadで
-    // 発生したvocab_test_maker_page_viewed行(1件)もそのまま加算される
-    // (vocab_test_maker_page_viewed=A+G+J=3)。Kのvocab_test_maker_generated行は
+    // 発生したvocab_test_maker_page_viewed行(1件)もそのまま加算される。Nの41分目の
+    // vocab_test_maker_page_viewedも、40分マーカーからのlastSeenAt基準gapが1分
+    // (<30分)のため正しくattributionされ加算される(Codexレビュー指摘対応、5巡目)
+    // (vocab_test_maker_page_viewed=A+G+J+N=4)。Kのvocab_test_maker_generated行は
     // 未attributionのため加算されない(=1のまま、上のarr[0]-fallback回帰確認と同じ)。
     const expectedFunnel = {
-      vocab_test_maker_page_viewed: 3,
+      vocab_test_maker_page_viewed: 4,
       vocab_test_maker_generated: 1,
       vocab_test_maker_srs_cta_clicked: 0,
       vocab_test_maker_saved_to_wordbook: 0,
@@ -536,7 +551,7 @@ async function main() {
         bad(`funnelCounts.${name}が想定外: ${result.funnelCounts[name]}(期待値: ${expected})`);
       }
     }
-    if (funnelOk) ok("social起点セッションのfunnel件数(vocab_test_maker_page_viewed=3[A,G,J], _generated=1[Aのみ、Kは未attributionのため除外], guide_view=1[B]、他=0)が正しい");
+    if (funnelOk) ok("social起点セッションのfunnel件数(vocab_test_maker_page_viewed=4[A,G,J,N-41分目]、_generated=1[Aのみ、Kは未attributionのため除外]、guide_view=1[B]、他=0)が正しい(N-41分目はlastSeenAt基準のgap判定により継続visitとして正しくattributionされる)");
     // social起点signup数のvisit先行チェック(socialSignupCount=1, signupCountByContent)は
     // 上の専用assertionで検証済み。
   } finally {
