@@ -28,13 +28,30 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   // ── 集客 ──────────────────────────────────────────────
   landing_view: { category: "acquisition", properties: {} },
   guide_view: { category: "acquisition", properties: { guide_slug: "string" } },
+  // guide_share_invoked: 記事末尾の共有CTA(Issue #98)の操作起点を記録する。
+  // vocab_test_maker_share_invokedと同じ理由でmethod以外は増やさない
+  // (「投稿完了」を意味する名前・propertiesにしない)。
+  guide_share_invoked: { category: "acquisition", properties: { guide_slug: "string", method: "string" } },
   material_view: { category: "acquisition", properties: { material_id: "string" } },
   dictionary_view: { category: "acquisition", properties: {} },
   word_page_view: { category: "acquisition", properties: { word_slug: "string" } },
   tool_view: { category: "acquisition", properties: { tool_key: "string" } },
+  // contentプロパティ(Issue #98): utm_contentはanalytics_eventsのトップレベル列
+  // ではなくpropertiesを経由してのみ保存できるが、landing_view等のacquisition系
+  // イベントはproperties whitelistが空のため、utm_contentを付与してもsanitizeで
+  // 黙って落ちる(source/campaignはbuildPayload()がトップレベル列として全イベントに
+  // 常時付与するため生き残るが、contentにはトップレベル列が存在しない)。
+  // このセッションで発生するイベントの中でtraffic_source_detectedだけがセッション
+  // 開始時に1回だけ発火し、既にsource/mediumをproperties経由でも保存している
+  // (トップレベルsource列と重複する形で既に定着済みの設計)ため、その1イベントにのみ
+  // contentを追加する。他の全acquisition/funnelイベントのschemaにutm_*を複製すると、
+  // 同じセッション属性が数十イベントへ無意味に重複保存されてしまうため避ける。
+  // source/campaign/content単位の投稿別パフォーマンスは、このtraffic_source_detected
+  // 行(トップレベルsource/campaign + properties.content)とanonymous_session_idで
+  // 後続イベントを突き合わせることで再現できる。
   traffic_source_detected: {
     category: "acquisition",
-    properties: { source: "string", medium: "string" },
+    properties: { source: "string", medium: "string", content: "string" },
   },
 
   // ── 英単語小テスト作成ツール(no-login公開ツール) ─────────
@@ -52,6 +69,11 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   },
   vocab_test_maker_parse_failed: { category: "acquisition", properties: { reason: "string" } },
   vocab_test_maker_srs_cta_clicked: { category: "acquisition", properties: { authenticated: "boolean" } },
+  // vocab_test_maker_share_invoked: 生成後のvalue momentに置いた共有CTAの操作起点を
+  // 記録する(Issue #98)。navigator.share()のPromiseがresolveすることは実際の投稿
+  // 完了を意味しないため、「投稿された/共有された」ではなく「共有操作を開始した」
+  // という事実のみを表す名前・propertiesにする(methodはweb_share/copy_linkのみ)。
+  vocab_test_maker_share_invoked: { category: "acquisition", properties: { method: "string" } },
 
   // ── 語彙力チェック ─────────────────────────────────────
   // vocab_check_page_viewed: GA4側のvocab_check_view(トップ表示)に対応。診断を開始せず

@@ -148,6 +148,64 @@ const PII_AND_UNKNOWN_PROBE = {
   assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "vocab_check_completed: sanitize後にemail/user_id/password/未許可キーが残らない");
 }
 
+// ── traffic_source_detected: source/medium/contentが残る(Issue #98でcontent追加) ──
+{
+  const raw = {
+    source: "x",
+    medium: "social",
+    content: "x_a_01",
+    utm_source: "x",
+    utm_medium: "social",
+    utm_campaign: "first_50",
+    utm_content: "x_a_01",
+    ...PII_AND_UNKNOWN_PROBE,
+  };
+  const sanitized = sanitizeProperties("traffic_source_detected", raw);
+  assertEqual(
+    sanitized,
+    { source: "x", medium: "social", content: "x_a_01" },
+    "traffic_source_detected: sanitize後にsource/medium/contentのみが残り、prefix付きutm_*(schema未許可のキー名)は含まれない"
+  );
+  assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "traffic_source_detected: sanitize後にemail/user_id/password/未許可キーが残らない");
+}
+
+// ── vocab_test_maker_share_invoked: methodのみが残る(Issue #98) ──
+{
+  const raw = {
+    method: "web_share",
+    utm_source: "x",
+    utm_medium: "social",
+    utm_campaign: "first_50",
+    utm_content: "x_a_01",
+    ...PII_AND_UNKNOWN_PROBE,
+  };
+  const sanitized = sanitizeProperties("vocab_test_maker_share_invoked", raw);
+  assertEqual(
+    sanitized,
+    { method: "web_share" },
+    "vocab_test_maker_share_invoked: sanitize後にmethodのみが残り、utm_*・PIIは含まれない(投稿完了ではなく操作起点のみを記録する設計)"
+  );
+  assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "vocab_test_maker_share_invoked: sanitize後にemail/user_id/password/未許可キーが残らない");
+}
+
+// ── guide_share_invoked: guide_slug/methodのみが残る(Issue #98) ──
+{
+  const raw = {
+    guide_slug: "eiken-2kyu-tango",
+    method: "copy_link",
+    utm_source: "x",
+    utm_medium: "social",
+    ...PII_AND_UNKNOWN_PROBE,
+  };
+  const sanitized = sanitizeProperties("guide_share_invoked", raw);
+  assertEqual(
+    sanitized,
+    { guide_slug: "eiken-2kyu-tango", method: "copy_link" },
+    "guide_share_invoked: sanitize後にguide_slug/methodのみが残り、utm_*・PIIは含まれない"
+  );
+  assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "guide_share_invoked: sanitize後にemail/user_id/password/未許可キーが残らない");
+}
+
 // ── 未許可イベント名はAPI層で丸ごと拒否される(isAllowedEventName) ──
 {
   const allowed = isAllowedEventName("signup_cta_click");

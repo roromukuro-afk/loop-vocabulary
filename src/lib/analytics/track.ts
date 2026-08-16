@@ -10,6 +10,7 @@
  *   Supabase側の一次分析基盤(Growth OS)専用。
  */
 import { EVENT_SCHEMAS } from "./eventSchema";
+import { classifySocialHost } from "./socialReferrer";
 
 const SESSION_COOKIE_NAME = "lv_aid";
 const SESSION_COOKIE_DAYS = 365;
@@ -105,9 +106,15 @@ function detectTrafficSource(): TrafficSource {
       else if (refHost.includes("chatgpt.com") || refHost.includes("openai.com"))
         result = { source: "chatgpt", medium: "ai_search", campaign: "", content: "" };
       else if (refHost.includes("perplexity.ai")) result = { source: "perplexity", medium: "ai_search", campaign: "", content: "" };
-      else if (refHost.includes("x.com") || refHost.includes("twitter.com"))
-        result = { source: "x", medium: "social", campaign: "", content: "" };
-      else result = { source: refHost.slice(0, 100), medium: "referral", campaign: "", content: "" };
+      else {
+        // UTM無しでのSNS流入(投稿本文中の生リンククリック等)をsocial扱いで捕捉する
+        // フォールバック。UTM付きリンクの場合は上のutmSource分岐が常に優先される
+        // ため、ここに到達するのはUTMを付け忘れた/剥がれた場合のみ(Issue #98)。
+        const socialSource = classifySocialHost(refHost);
+        result = socialSource
+          ? { source: socialSource, medium: "social", campaign: "", content: "" }
+          : { source: refHost.slice(0, 100), medium: "referral", campaign: "", content: "" };
+      }
     } catch {
       result = { source: "unknown", medium: "referral", campaign: "", content: "" };
     }
@@ -146,8 +153,11 @@ export function trackEvent(
     if (!trafficSourceDetectedFired) {
       trafficSourceDetectedFired = true;
       if (eventName !== "traffic_source_detected") {
+        // contentはトップレベル列が無くpropertiesでしか保存できないため、セッション
+        // 属性を一度だけ記録するこのイベントに明示的に含める(Issue #98。詳細は
+        // eventSchema.tsのtraffic_source_detectedコメント参照)。
         void sendPayload([
-          buildPayload("traffic_source_detected", { source, medium }, anonymousSessionId, source, campaign),
+          buildPayload("traffic_source_detected", { source, medium, content }, anonymousSessionId, source, campaign),
         ]);
       }
     }
