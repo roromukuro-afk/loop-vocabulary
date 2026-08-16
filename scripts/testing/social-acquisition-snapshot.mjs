@@ -180,16 +180,37 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     if (!attributionEventsBySession.has(sid)) attributionEventsBySession.set(sid, []);
     attributionEventsBySession.get(sid).push(entry);
   }
-  for (const arr of attributionEventsBySession.values()) {
+  for (const [sid, arr] of attributionEventsBySession) {
     arr.sort((a, b) => (a.occurred_at < b.occurred_at ? -1 : a.occurred_at > b.occurred_at ? 1 : 0));
+    // 同一visit内でのページ再読み込み(reload)は、track.tsのtrafficSourceDetectedFired
+    // フラグ(モジュールレベル変数)がハード再読み込みのたびにリセットされるため、
+    // 同じsessionStorageキャッシュ値(=同一のbucket/campaign/content)を持つ
+    // traffic_source_detectedを何度も再送してしまう。これをそれぞれ別visitとして
+    // 数えると、1回の実際の訪問での数回の再読み込みだけでlanding/source/campaign/
+    // content集計が水増しされる(Codexレビュー指摘対応)。直前のattributionと
+    // bucket/campaign/contentが完全一致する場合は同一visitの継続とみなし、その
+    // エントリを取り込まず先頭(最初にそのattributionへ切り替わった時刻)のまま保つ。
+    const deduped = [];
+    for (const entry of arr) {
+      const prev = deduped[deduped.length - 1];
+      if (prev && prev.bucket === entry.bucket && prev.campaign === entry.campaign && prev.content === entry.content) {
+        continue;
+      }
+      deduped.push(entry);
+    }
+    attributionEventsBySession.set(sid, deduped);
   }
 
   // 指定occurredAt以前で直近のtraffic_source_detectedを返す(occurred_atはクライアント
   // 指定値のため完全には信用できないが、同一セッション内でのvisit境界を再構築する
   // 唯一の手がかりであり、このスクリプトが読み取り専用集計であることを踏まえた
-  // 現実的な近似として採用する)。該当が1件も無い場合(クロックスキュー等でこのイベント
-  // 自体がそのセッション最初のtraffic_source_detectedより前のoccurred_atを持つ稀な
-  // ケース)は、そのセッションの最初のattributionをfallbackとして使う。
+  // 現実的な近似として採用する)。該当が1件も無い場合(そのセッションの最初の
+  // traffic_source_detectedより前のoccurred_atを持つ行 = 例えば最初のvisitの
+  // traffic_source_detected送信自体が失敗/欠落し、後から始まった別visitの
+  // attributionしかそのセッションに存在しないケース)は、未attributionとして扱い
+  // nullを返す。ここでarr[0](=時間的に未来のattribution)へfallbackすると、
+  // 実際には無関係な後続visitの判定を過去の行へ逆流させてしまう
+  // (Codexレビュー指摘対応)。
   function findAttribution(sid, occurredAt) {
     const arr = attributionEventsBySession.get(sid);
     if (!arr || arr.length === 0) return null;
@@ -198,7 +219,7 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
       if (entry.occurred_at <= occurredAt) chosen = entry;
       else break;
     }
-    return chosen ?? arr[0];
+    return chosen;
   }
 
   // 特定visit(=あるsidの、ある1回のtraffic_source_detected発生時刻)を一意に表すキー。
@@ -226,13 +247,28 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   // 同じsource/campaign/contentの内訳もidentity(distinct visit)単位で数える
   // (行数の単純加算だと同一visitの複数landing行を二重計上してしまう)。
   const identitiesByBucket = new Map();
-  for (const { row: r, attr, key } of socialLandingEntries) {
+  for (const { attr, key } of socialLandingEntries) {
     if (!identitiesByBucket.has(attr.bucket)) identitiesByBucket.set(attr.bucket, new Set());
     identitiesByBucket.get(attr.bucket).add(key);
+  }
+  for (const bucket of SOCIAL_BUCKETS) byBucket.set(bucket, identitiesByBucket.get(bucket)?.size ?? 0);
+
+  // landing pathはvisit(identity)ごとに、実際に最初に到達したentry pointの1行だけを
+  // 数える。同一visit内で例えばlanding_view(/)の後にvocab_test_maker_page_viewed
+  // (/tools/vocab-test-maker)へ遷移した場合、後者は「そのvisitの着地先」ではなく
+  // 単なるvisit中の後続ページ遷移であり、これをそのまま加算するとlanding path集計に
+  // 後続ページが混入し、同一visitで複数のLANDING_EVENT_NAMES行が発生するたびに
+  // 二重計上もされてしまう(Codexレビュー指摘対応)。visitKeyごとに最も早い
+  // occurred_atの行だけを採用する。
+  const entryRowByVisitKey = new Map();
+  for (const { row: r, key } of socialLandingEntries) {
+    const existing = entryRowByVisitKey.get(key);
+    if (!existing || r.occurred_at < existing.occurred_at) entryRowByVisitKey.set(key, r);
+  }
+  for (const r of entryRowByVisitKey.values()) {
     const p = r.path ?? "(不明)";
     byPath.set(p, (byPath.get(p) ?? 0) + 1);
   }
-  for (const bucket of SOCIAL_BUCKETS) byBucket.set(bucket, identitiesByBucket.get(bucket)?.size ?? 0);
 
   const identitiesByCampaign = new Map();
   const identitiesByContent = new Map();

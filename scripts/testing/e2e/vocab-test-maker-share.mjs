@@ -10,6 +10,11 @@
  *  5. 共有ボタンクリックで送信されるanalyticsイベント(vocab_test_maker_share_invoked)の
  *     propertiesに単語・意味・生成結果が一切含まれない(methodのみ)
  *  6. mobile viewportでも共有CTAが表示・操作できる
+ *  7. navigator.share が使えるがユーザーキャンセル(AbortError)で拒否された場合は
+ *     何もしない(クリップボードへは自動フォールバックしない。Codexレビュー指摘対応)
+ *  8. navigator.share が使えるがそれ以外の理由(非対応payload・権限ポリシー等)で
+ *     拒否された場合は、クリップボードコピーへfallbackする(Codexレビュー指摘対応:
+ *     修正前はこのケースで何も起きずボタンが反応しないように見えていた)
  *
  * 使い方: node scripts/testing/e2e/vocab-test-maker-share.mjs
  */
@@ -186,6 +191,78 @@ async function main() {
 
       if (errors.length === 0) ok("クリップボードfallback操作中にconsole error/5xxなし");
       else fail(`クリップボードfallback操作中にエラー検出: ${errors.join(" | ")}`);
+      await context.close();
+    }
+
+    // ---------- 7. navigator.share がAbortError(ユーザーキャンセル)で拒否された場合、
+    // クリップボードへは自動フォールバックしない ----------
+    {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const errors = collectErrors(page);
+
+      await page.addInitScript(() => {
+        window.__clipboardCalls = [];
+        // @ts-ignore
+        navigator.share = () => Promise.reject(new DOMException("share canceled", "AbortError"));
+        // @ts-ignore
+        Object.defineProperty(navigator, "clipboard", {
+          value: { writeText: (text) => { window.__clipboardCalls.push(text); return Promise.resolve(); } },
+          configurable: true,
+        });
+      });
+
+      await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
+      await generateTest(page);
+
+      await page.locator('[data-testid="share-url-button"]').click();
+      await page.waitForTimeout(300);
+
+      const clipboardCallsAfterAbort = await page.evaluate(() => window.__clipboardCalls);
+      if (clipboardCallsAfterAbort.length === 0) {
+        ok("navigator.share がAbortError(ユーザーキャンセル)で拒否された場合、クリップボードへは自動フォールバックしない");
+      } else {
+        fail(`AbortError後にクリップボードへフォールバックしてしまっている: ${JSON.stringify(clipboardCallsAfterAbort)}`);
+      }
+
+      if (errors.length === 0) ok("AbortErrorケースの操作中にconsole error/5xxなし");
+      else fail(`AbortErrorケースの操作中にエラー検出: ${errors.join(" | ")}`);
+      await context.close();
+    }
+
+    // ---------- 8. navigator.share がAbortError以外の理由で拒否された場合、
+    // クリップボードコピーへfallbackする(Codexレビュー指摘対応) ----------
+    {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const errors = collectErrors(page);
+
+      await page.addInitScript(() => {
+        window.__clipboardCalls = [];
+        // @ts-ignore
+        navigator.share = () => Promise.reject(new DOMException("not allowed", "NotAllowedError"));
+        // @ts-ignore
+        Object.defineProperty(navigator, "clipboard", {
+          value: { writeText: (text) => { window.__clipboardCalls.push(text); return Promise.resolve(); } },
+          configurable: true,
+        });
+      });
+
+      await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
+      await generateTest(page);
+
+      await page.locator('[data-testid="share-url-button"]').click();
+      await page.waitForTimeout(300);
+
+      const clipboardCallsAfterOperationalFailure = await page.evaluate(() => window.__clipboardCalls);
+      if (clipboardCallsAfterOperationalFailure.length === 1 && clipboardCallsAfterOperationalFailure[0] === EXPECTED_SHARE_URL) {
+        ok(`navigator.shareがAbortError以外(NotAllowedError等)で拒否された場合、クリップボードへ正規URLがコピーされる (${clipboardCallsAfterOperationalFailure[0]})`);
+      } else {
+        fail(`operational failure後のクリップボードフォールバックが想定外: ${JSON.stringify(clipboardCallsAfterOperationalFailure)}`);
+      }
+
+      if (errors.length === 0) ok("operational failureケースの操作中にconsole error/5xxなし");
+      else fail(`operational failureケースの操作中にエラー検出: ${errors.join(" | ")}`);
       await context.close();
     }
 

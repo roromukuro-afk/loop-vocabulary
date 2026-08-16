@@ -69,9 +69,16 @@ export function ShareUrlButton({ url, title, text, label = "🔗 シェアする
   async function handleClick() {
     if (typeof navigator !== "undefined" && navigator.share) {
       onShareInvoked?.("web_share");
-      // ユーザーが共有シートをキャンセルした場合もPromiseがrejectされ得るが、
-      // それ自体はエラーではないため握りつぶす。
-      await navigator.share({ title, text, url }).catch(() => {});
+      try {
+        await navigator.share({ title, text, url });
+      } catch (err) {
+        // ユーザーが共有シートをキャンセルした場合(AbortError)はエラーではないため
+        // 何もしない。それ以外(非対応payload・権限ポリシー・プラットフォーム側の
+        // 失敗等)でrejectされた場合は、ボタンを押したのに何も起きないまま終わって
+        // しまうため、既存のコピー/手動フォールバックへ委ねる(Codexレビュー指摘対応)。
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        await copyLink();
+      }
       return;
     }
     await copyLink();
