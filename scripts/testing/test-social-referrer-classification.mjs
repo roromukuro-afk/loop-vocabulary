@@ -54,8 +54,8 @@ function main() {
     else bad(`classifySocialHost("X.COM") 想定外: ${JSON.stringify(result)}`);
   }
 
-  // ---- Pinterest: 複数TLD ----
-  const pinterestHosts = ["pinterest.com", "pinterest.jp", "www.pinterest.com", "pinterest.co.uk", "pinterest.de"];
+  // ---- Pinterest: 明示的に許可した既知ドメインのみ ----
+  const pinterestHosts = ["pinterest.com", "pinterest.jp", "www.pinterest.com", "pinterest.co.uk", "pinterest.de", "pin.it"];
   for (const host of pinterestHosts) {
     const result = classifySocialHost(host);
     if (result === "pinterest") ok(`classifySocialHost("${host}") === "pinterest"`);
@@ -73,6 +73,14 @@ function main() {
     "notpinterest.com",
     "pinterestfake.com",
     "myline.me.evil.com",
+    // Pinterestが実際には所有していない任意のTLDを取得した偽装ドメイン
+    // (Codexレビュー指摘対応、11巡目、最重要)。修正前は正規表現が「pinterestという
+    // 1ラベルの直後に構文上妥当なTLDが続く」ことだけを見ていたため、これらの攻撃者
+    // 取得可能なドメインまでpinterest referralとして誤分類していた。
+    "pinterest.site",
+    "pinterest.evil",
+    "foo.pinterest.site",
+    "pinterest.xyz",
   ];
   for (const host of falsePositives) {
     const result = classifySocialHost(host);

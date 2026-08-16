@@ -29,6 +29,34 @@ const SOCIAL_DOMAINS: SocialDomainEntry[] = [
   // suffix一致で自動的にカバーされるため、個別に列挙する必要はない。
   { domain: "facebook.com", source: "facebook" },
   { domain: "line.me", source: "line" },
+  // Pinterestが実際に運用する既知ドメインのみを明示列挙する(Codexレビュー指摘対応、
+  // 11巡目)。以前は正規表現/(^|\.)pinterest\.[a-z]{2,}(\.[a-z]{2,})?$/で
+  // 「pinterestという1ラベルの直後に構文上妥当なTLDが続く」ことだけを見ていたため、
+  // pinterest.com等の正規ドメインだけでなく、攻撃者が取得し得るpinterest.xyz/
+  // pinterest.site/foo.pinterest.evil等の非公式ドメインまでPinterest referralとして
+  // 誤分類してしまい、その行がmedium=socialとして集計に混入し得た。pin.itは
+  // Pinterestの公式URL短縮ドメイン。
+  { domain: "pinterest.com", source: "pinterest" },
+  { domain: "pinterest.co.uk", source: "pinterest" },
+  { domain: "pinterest.ca", source: "pinterest" },
+  { domain: "pinterest.de", source: "pinterest" },
+  { domain: "pinterest.fr", source: "pinterest" },
+  { domain: "pinterest.it", source: "pinterest" },
+  { domain: "pinterest.es", source: "pinterest" },
+  { domain: "pinterest.jp", source: "pinterest" },
+  { domain: "pinterest.co.kr", source: "pinterest" },
+  { domain: "pinterest.com.au", source: "pinterest" },
+  { domain: "pinterest.com.mx", source: "pinterest" },
+  { domain: "pinterest.se", source: "pinterest" },
+  { domain: "pinterest.dk", source: "pinterest" },
+  { domain: "pinterest.ph", source: "pinterest" },
+  { domain: "pinterest.nz", source: "pinterest" },
+  { domain: "pinterest.ru", source: "pinterest" },
+  { domain: "pinterest.ch", source: "pinterest" },
+  { domain: "pinterest.at", source: "pinterest" },
+  { domain: "pinterest.nl", source: "pinterest" },
+  { domain: "pinterest.pt", source: "pinterest" },
+  { domain: "pin.it", source: "pinterest" },
 ];
 
 // hostname完全一致、または"."区切りを伴うサブドメインsuffix一致のみを許可する。
@@ -37,12 +65,6 @@ const SOCIAL_DOMAINS: SocialDomainEntry[] = [
 function hostMatchesDomain(hostname: string, domain: string): boolean {
   return hostname === domain || hostname.endsWith(`.${domain}`);
 }
-
-// Pinterestはpinterest.com/pinterest.jp/pinterest.co.uk等、複数のTLD/ccTLDに
-// またがるドメインを使うため、個別列挙ではなく「pinterestという1ラベルの直後に
-// TLDが続く」ことを正規表現で判定する。(^|\.)でラベル境界を要求することで、
-// "notpinterest.com"のような偽陽性を避ける。
-const PINTEREST_HOST_RE = /(^|\.)pinterest\.[a-z]{2,}(\.[a-z]{2,})?$/i;
 
 /**
  * リファラのhostnameからSNS sourceを分類する。マッチしなければnullを返し、
@@ -53,6 +75,5 @@ export function classifySocialHost(hostname: string): string | null {
   for (const { domain, source } of SOCIAL_DOMAINS) {
     if (hostMatchesDomain(host, domain)) return source;
   }
-  if (PINTEREST_HOST_RE.test(host)) return "pinterest";
   return null;
 }

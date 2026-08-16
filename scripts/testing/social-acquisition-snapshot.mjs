@@ -186,10 +186,9 @@ const ATTRIBUTION_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 // (allRowsBySession)にのみ使い、landing/funnel等の実際の集計対象は
 // fetchEventsInWindow()が返すウィンドウ内の行に限定したまま変えない
 // (Codexレビュー指摘対応)。
-// test-account除外はここでは行わない(呼び出し元のsummarizeWindow()が、この関数の
-// 戻り値とウィンドウ内rowsの両方を合わせた「凍結済み活動セット全体」から
-// test-account紐付けセッションを判定し、まとめて除外する。Codexレビュー指摘対応、
-// 10巡目、最重要)。
+// test-account除外はここでは行わない。呼び出し元のsummarizeWindow()が、この関数の
+// 戻り値とウィンドウ内rowsの両方から再構築したvisit単位でtest-account紐付けを判定
+// する(セッション/cookie単位ではない。Codexレビュー指摘対応、11巡目、最重要)。
 async function fetchPrecedingActivityRows(admin, { startISO, asOf, sessionIds }) {
   if (sessionIds.size === 0) return [];
   const lookbackStartISO = new Date(new Date(startISO).getTime() - ATTRIBUTION_LOOKBACK_MS).toISOString();
@@ -246,31 +245,19 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   });
 
   // is_test_account=trueのユーザーがログイン中に作った行を除外する(既存
-  // acquisition-snapshot.mjsと同じ既知の混入経路への対応)。ただし行単位ではなく
-  // セッション単位で除外する(Codexレビュー指摘対応、10巡目、最重要): ログアウト
-  // 状態でsocialリンクを踏んだ後、同じブラウザセッション内で後からtest accountとして
-  // 認証した場合、認証前のuser_id=null行(marker/landing等)は行単位フィルタでは
-  // 残ってしまい、そのセッションがtest accountだと判明した後もsocial集計を汚染し
-  // 続けてしまう。ウィンドウ内(rawRows)とその直前のlookback(precedingActivityRowsRaw)
-  // を合わせた凍結済み活動セット全体を見て、いずれかの行でuser_idがtest accountに
-  // 一致するセッションIDを特定し、そのセッションの行を(user_idの有無に関わらず)
-  // まるごと除外する。
-  const testAccountSessionIds = new Set(
-    [...rawRows, ...precedingActivityRowsRaw]
-      .filter((r) => r.user_id && testAccountIds.has(r.user_id))
-      .map((r) => r.anonymous_session_id)
-      .filter(Boolean),
-  );
-  function excludeTestAccountRows(list) {
-    return list.filter((r) => {
-      if (r.anonymous_session_id) return !testAccountSessionIds.has(r.anonymous_session_id);
-      // anonymous_session_idが無い(サーバー側でcookie未取得等)行は、セッション単位の
-      // 判定ができないため、その行自身のuser_idで直接判定する。
-      return !r.user_id || !testAccountIds.has(r.user_id);
-    });
-  }
-  const rows = excludeTestAccountRows(rawRows);
-  const precedingActivityRows = excludeTestAccountRows(precedingActivityRowsRaw);
+  // acquisition-snapshot.mjsと同じ既知の混入経路への対応)。除外の単位はvisitである
+  // べきで、セッション(anonymous_session_id = lv_aid cookie、365日永続)単位ではない
+  // (Codexレビュー指摘対応、11巡目、最重要)。同一cookieが無関係な複数visitに
+  // またがり得るという、このファイル冒頭の設計方針そのものが理由: 前巡目でセッション
+  // 単位除外に変更したところ、同じブラウザで正当なsocial visitをした後、無関係な
+  // 別の日にたまたま同じcookieでtest accountとしてログインしただけでも、その正当な
+  // 過去のvisitまでまるごと消えてしまっていた。visit境界の再構築(下記の
+  // attributionEventsBySession/findAttribution)がまさにこの区別のために存在するため、
+  // ここではrows/precedingActivityRowsをそのまま(test-account除外前の生データとして)
+  // 再構築に使い、除外自体はvisit単位の判定関数(isTestAccountVisit、下記)として
+  // 各集計ループの中で個別に適用する。
+  const rows = rawRows;
+  const precedingActivityRows = precedingActivityRowsRaw;
 
   // 1) セッション(anonymous_session_id)ごとに、このウィンドウ内の全行(traffic_source_detected
   //    マーカー + landing/funnel等のその他すべての行)を発生時刻順に並べ、1回の
@@ -374,6 +361,23 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     return `${sid}::${attr.occurred_at}`;
   }
 
+  // is_test_account=trueのユーザーに紐付くvisitを特定する(Codexレビュー指摘対応、
+  // 11巡目、最重要)。「行」や「セッション」単位ではなく「visit」単位で判定する:
+  // 実際にtest accountのuser_idを持つ行が(findAttribution経由で)割り当てられる
+  // visitだけを対象にする。同じcookieの中に、test accountとは無関係な別のvisit
+  // (異なるoccurred_atのtraffic_source_detectedを起点とする)が存在しても、そちらは
+  // このSetに含まれない。
+  const testAccountVisitKeys = new Set();
+  for (const r of [...rows, ...precedingActivityRows]) {
+    if (!r.user_id || !testAccountIds.has(r.user_id) || !r.anonymous_session_id) continue;
+    const attr = findAttribution(r.anonymous_session_id, r.occurred_at);
+    if (!attr) continue;
+    testAccountVisitKeys.add(visitKey(r.anonymous_session_id, attr));
+  }
+  function isTestAccountVisit(sid, attr) {
+    return testAccountVisitKeys.has(visitKey(sid, attr));
+  }
+
   // 2) LANDING_EVENT_NAMESのうち、そのイベント自身が属するvisitがsocialと判定された
   //    ものだけを対象にする(Codexレビュー指摘対応: landing_viewだけだとトップページ
   //    以外に直接リンクした投稿のlandingを取りこぼす)。visitの本当のlanding行は
@@ -392,6 +396,7 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     if (!LANDING_EVENT_NAMES.includes(r.event_name) || !r.anonymous_session_id) continue;
     const attr = findAttribution(r.anonymous_session_id, r.occurred_at);
     if (!attr || !attr.bucket) continue;
+    if (isTestAccountVisit(r.anonymous_session_id, attr)) continue;
     const key = visitKey(r.anonymous_session_id, attr);
     const existing = earliestLandingByVisitKey.get(key);
     if (!existing || r.occurred_at < existing.row.occurred_at) earliestLandingByVisitKey.set(key, { row: r, attr, key });
@@ -463,6 +468,7 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     if (!r.anonymous_session_id) continue;
     const attr = findAttribution(r.anonymous_session_id, r.occurred_at);
     if (!attr || !attr.bucket) continue;
+    if (isTestAccountVisit(r.anonymous_session_id, attr)) continue;
     if (FUNNEL_EVENTS.includes(r.event_name)) {
       funnelCounts[r.event_name]++;
       bumpFunnelByContent(attr.content, r.event_name);
