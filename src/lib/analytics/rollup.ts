@@ -354,6 +354,17 @@ async function countDistinctSessionOrUser(
 // 正とすることで同時に解消できる(Codexレビュー指摘20巡目の提案どおり)。
 // signup_completed(method=email等、google以外)は対応するoauth_completedイベントが
 // 存在しないため引き続きそのまま数える。
+//
+// dedupeキーはanonymous_session_id(lv_aid cookie、365日永続)ではなくuser_id優先
+// とする(Codexレビュー指摘対応、22巡目、最重要:「Deduplicate completed signups by
+// user rather than cookie」)。google method除外後に残る行(email等のsignup_completed、
+// およびsignup_oauth_completed)はどちらも、認証完了後(=user_id確定後)にしか
+// 発火しない(email: signInWithPassword成功後にtrackEvent、oauth: /auth/callbackの
+// サーバー側で認証後にtrackServerEvent)ため、user_idを安全に優先dedupeキーとして
+// 使える。session_id優先のままだと、同一ブラウザ(=同一lv_aid cookie)から365日以内に
+// 異なる2人のユーザーがそれぞれ新規signupした場合、user_idは異なるのに同一sidへ
+// 丸め込まれ、実際は2件のsignupが1件に過小集計されてしまう。user_idが無い
+// (=真に匿名の)行についてのみ、フォールバックとしてsession_idを使う。
 async function countDistinctSignupCompletions(
   admin: Admin,
   startISO: string,
@@ -377,11 +388,11 @@ async function countDistinctSignupCompletions(
       const props = (row.properties ?? {}) as Record<string, unknown>;
       if (props.method === "google") continue;
     }
-    const sid = row.anonymous_session_id as string | null;
-    if (sid) {
-      set.add(sid);
-    } else if (uid) {
-      set.add(uid);
+    if (uid) {
+      set.add(`uid:${uid}`);
+    } else {
+      const sid = row.anonymous_session_id as string | null;
+      if (sid) set.add(`sid:${sid}`);
     }
   }
   return set.size;

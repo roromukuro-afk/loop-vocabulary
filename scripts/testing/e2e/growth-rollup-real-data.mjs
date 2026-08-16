@@ -122,7 +122,7 @@ async function main() {
       }
     }
 
-    console.log("\n--- analytics_daily_funnels(signup_completed): signup_oauth_completedも合わせて数えつつ二重計上しないか(Codexレビュー指摘対応、19巡目・20巡目: 以前はsignup_completedのみを数えており、/loginのGoogle OAuth経由の新規signupがメインファネルから完全に抜け落ちていた。またsignup_completed(method=google)をそのまま合算すると同日内・日付境界またぎの両方で二重計上され得た) ---");
+    console.log("\n--- analytics_daily_funnels(signup_completed): signup_oauth_completedも合わせて数えつつ二重計上しないか(Codexレビュー指摘対応、19巡目・20巡目・22巡目: 以前はsignup_completedのみを数えており、/loginのGoogle OAuth経由の新規signupがメインファネルから完全に抜け落ちていた。またsignup_completed(method=google)をそのまま合算すると同日内・日付境界またぎの両方で二重計上され得た。さらにsession_id優先dedupeだと、同一ブラウザから365日以内に異なる2人がsignupした場合に過小集計され得た) ---");
     const { data: signupRows, error: signupErr } = await admin
       .from("analytics_events")
       .select("event_name, user_id, anonymous_session_id, properties")
@@ -136,14 +136,15 @@ async function main() {
     else {
       const testAccountIdSet = new Set((testAccountProfiles ?? []).map((p) => p.id));
       // rollup.tsのcountDistinctSignupCompletions()と同じロジック(signup_completed(method=
-      // google)は除外してsignup_oauth_completedに一本化、残りはanonymous_session_id優先
-      // dedupe)を独立に再実装して照合する。
+      // google)は除外してsignup_oauth_completedに一本化、残りはuser_id優先dedupe、
+      // user_idが無い行のみsession_idへフォールバック)を独立に再実装して照合する
+      // (Codexレビュー指摘対応、22巡目)。
       const distinctSignups = new Set();
       for (const r of signupRows ?? []) {
         if (r.user_id && testAccountIdSet.has(r.user_id)) continue;
         if (r.event_name === "signup_completed" && (r.properties ?? {}).method === "google") continue;
-        if (r.anonymous_session_id) distinctSignups.add(`sid:${r.anonymous_session_id}`);
-        else if (r.user_id) distinctSignups.add(`uid:${r.user_id}`);
+        if (r.user_id) distinctSignups.add(`uid:${r.user_id}`);
+        else if (r.anonymous_session_id) distinctSignups.add(`sid:${r.anonymous_session_id}`);
       }
       const { data: funnelSignupRows, error: funnelSignupErr } = await admin
         .from("analytics_daily_funnels")
