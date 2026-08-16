@@ -111,6 +111,29 @@ function pickMatchingVisit(visits, occurredAt, rowSource, rowCampaign) {
   return { chosen, matches };
 }
 
+// reloadマーカー(traffic_source_detected)の畳み込み先を、visits配列全体の中から
+// 探す(Codexレビュー指摘対応、17巡目、最重要)。以前は「直前に作成されたvisit
+// (current、=時系列上最後に始まったvisit)」としか比較していなかったため、複数タブ
+// 並行visit(例: Xマーカーの1分後にThreadsマーカー)の状態でタブA(X)がハード
+// リロードすると、比較対象が`current`(Threads)になってしまい一致せず、実際には
+// 同一visitの継続であるにもかかわらず重複した別visitが作られてしまっていた。その
+// 重複visitに以降のlanding/funnel行が誤って付け替わり、landing/campaign集計が
+// 水増しされる。occurredAt時点でactive(lastSeenAtからのgapがRELOAD_DEDUPE_WINDOW_MS
+// 以内)かつrawSource/bucket/campaign/contentが完全一致するvisitを、visits配列全体
+// から探す。
+function findActiveReloadTarget(visits, occurredAt, rawSource, bucket, campaign, content) {
+  let found = null;
+  for (const v of visits) {
+    if (v.occurred_at > occurredAt) continue;
+    const gapMs = Date.parse(occurredAt) - Date.parse(v.lastSeenAt);
+    if (gapMs > RELOAD_DEDUPE_WINDOW_MS) continue;
+    if (v.rawSource === rawSource && v.bucket === bucket && v.campaign === campaign && v.content === content) {
+      found = v;
+    }
+  }
+  return found;
+}
+
 function windowRangeISO(startDateStr, endDateStrInclusive) {
   const { startISO } = jstDayRangeISO(startDateStr);
   const { endISO } = jstDayRangeISO(endDateStrInclusive);
@@ -383,14 +406,23 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
         // しまい、保持されるbucketは先着のマーカーのものになってしまう(=有料広告経由の
         // 着地・funnel活動がsocialとして誤報告される、またはその逆で正当なsocial visitが
         // 有料visitに紛れて消える)。rawSourceとbucketの両方が一致した場合のみreloadとみなす。
+        //
+        // この一致判定は「直前に作成されたvisit(current)」だけでなく、visits配列全体
+        // (findActiveReloadTarget()、Codexレビュー指摘対応、17巡目、最重要)から探す:
+        // 複数タブ並行visit(例: Xマーカーの1分後にThreadsマーカー)の状態でタブA(X)が
+        // ハードリロードすると、修正前は比較対象が`current`(=Threads)になってしまい
+        // 一致せず、実際には同一visitの継続であるにもかかわらず重複した別visitが
+        // 作られてしまっていた。その重複visitに以降のlanding/funnel行が誤って付け替わり、
+        // landing/campaign集計が水増しされる。
         const medium = typeof r.properties?.medium === "string" ? r.properties.medium : undefined;
         const bucket = classifySocialBucket(r.source ?? undefined, medium);
         const rawSource = r.source ?? undefined;
         const campaign = r.campaign || "(none)";
         const content = typeof r.properties?.content === "string" && r.properties.content ? r.properties.content : "(none)";
-        const gapMs = current ? Date.parse(r.occurred_at) - Date.parse(current.lastSeenAt) : Infinity;
-        if (current && gapMs <= RELOAD_DEDUPE_WINDOW_MS && current.rawSource === rawSource && current.bucket === bucket && current.campaign === campaign && current.content === content) {
-          current.lastSeenAt = r.occurred_at; // reload: 同一visitの継続、活動時刻だけ延長する
+        const reloadTarget = findActiveReloadTarget(visits, r.occurred_at, rawSource, bucket, campaign, content);
+        if (reloadTarget) {
+          reloadTarget.lastSeenAt = r.occurred_at; // reload: 同一visitの継続、活動時刻だけ延長する
+          current = reloadTarget;
         } else {
           current = { occurred_at: r.occurred_at, lastSeenAt: r.occurred_at, bucket, rawSource, campaign, content };
           visits.push(current);
@@ -610,6 +642,17 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   // 後でsignupがそのvisit以降に発生したかどうか(=そのvisitが実際にsignupへ
   // つながったと言えるか)を判定し、どのcontent由来かも紐付けるために使う。
   const earliestSocialVisitByUser = new Map();
+  function registerSocialUser(r) {
+    if (!r.anonymous_session_id || !r.user_id) return;
+    const attr = findAttribution(r.anonymous_session_id, r.occurred_at, r.source ?? undefined, r.campaign);
+    if (!attr || !attr.bucket) return;
+    if (isTestAccountVisit(r.anonymous_session_id, attr)) return;
+    socialUserIds.add(r.user_id);
+    const existing = earliestSocialVisitByUser.get(r.user_id);
+    if (!existing || attr.occurred_at < existing.occurred_at) {
+      earliestSocialVisitByUser.set(r.user_id, { occurred_at: attr.occurred_at, content: attr.content });
+    }
+  }
   for (const r of rows) {
     if (!r.anonymous_session_id) continue;
     const attr = findAttribution(r.anonymous_session_id, r.occurred_at, r.source ?? undefined, r.campaign);
@@ -619,14 +662,20 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
       funnelCounts[r.event_name]++;
       bumpFunnelByContent(attr.content, r.event_name);
     }
-    if (r.user_id) {
-      socialUserIds.add(r.user_id);
-      const existing = earliestSocialVisitByUser.get(r.user_id);
-      if (!existing || attr.occurred_at < existing.occurred_at) {
-        earliestSocialVisitByUser.set(r.user_id, { occurred_at: attr.occurred_at, content: attr.content });
-      }
-    }
+    registerSocialUser(r);
   }
+  // ウィンドウ境界をまたいでendISO直後に記録されたuser_id付き行(例:
+  // signup_oauth_completedがOAuthラウンドトリップ/サーバーラウンドトリップの遅延で
+  // endISOのわずか後に記録される)も、socialUserIds/earliestSocialVisitByUserの対象に
+  // 含める(Codexレビュー指摘対応、17巡目、最重要)。この行自体は`rows`(ウィンドウ内)
+  // には含まれずfollowingActivityRowsRawにしか無いため、この行を無視すると、
+  // signup対象ユーザーのprofiles.created_atはこのウィンドウ内([startISO,endISO))
+  // にもかかわらず、そのsocial visitとの相関(user_id⇔visit)が一切解決できず、この
+  // ウィンドウでもカウントされず、次のウィンドウでもcreated_atがstartISOより前になる
+  // ため二度とカウントされないまま消えてしまう。ただしfunnelCounts/
+  // funnelCountsByContent(レポート対象指標)には一切加算しない: あくまでウィンドウ内の
+  // 行に厳密に限定し、ここではuser_id⇔visitの相関解決のためだけにこの行を使う。
+  for (const r of followingActivityRowsRaw) registerSocialUser(r);
   let socialSignupCount = 0;
   const signupCountByContent = new Map();
   if (socialUserIds.size > 0) {

@@ -121,6 +121,22 @@
  *    「Extend activity on the visit matched by the row」。複数タブが並行visitして
  *    いる場合、修正前はある行が誤って別タブのvisitのlastSeenAtを延長してしまい、
  *    正しいタブ自身のvisitは活動が無いまま期限切れと誤判定されていた)。
+ *  - ウィンドウ境界をまたいでendISO直後に記録されたuser_id付き行(例:
+ *    signup_oauth_completedがサーバーラウンドトリップの遅延でendISOのわずか後に
+ *    記録される)も、socialUserIds/earliestSocialVisitByUser(user_id⇔visitの相関
+ *    解決)の対象に含める。ただしfunnelCounts/funnelCountsByContent(レポート対象
+ *    指標)には一切加算せず、あくまでウィンドウ内の行に厳密に限定する(Codexレビュー
+ *    指摘対応、17巡目、最重要: 「Associate boundary-crossing completions with the
+ *    signup window」。修正前はこの行が`rows`に含まれないため相関付けができず、
+ *    profiles.created_atがウィンドウ内にもかかわらずsocial起点signupとして永久に
+ *    カウントされなかった)。
+ *  - reloadマーカー(traffic_source_detected)の畳み込み先は、「直前に作成された
+ *    visit(current)」だけでなくvisits配列全体から探す(Codexレビュー指摘対応、17巡目、
+ *    最重要: 「Deduplicate reload markers against their matching visit」。複数タブ
+ *    並行visit中に一方のタブがハードリロードすると、修正前は比較対象が`current`
+ *    (=たまたま別タブ)になってしまい一致せず、実際には同一visitの継続であるにも
+ *    かかわらず重複した別visitが作られ、その後続landingがlanding/campaign集計を
+ *    水増ししていた)。
  *  - visitの「実際のlanding」がウィンドウ開始前(precedingActivityRows側)にある場合、
  *    ウィンドウ内で発生した後続ページ遷移をそのvisitのlandingとして誤って計上しない
  *    (=真のlandingが前のウィンドウで既にlandingとして計上済みのはずのvisitを、この
@@ -173,9 +189,10 @@ async function main() {
   let testAccountUserId = null;
   let signupUserId = null;
   let earlySignupUserId = null;
+  let boundarySignupUserId = null;
 
   try {
-    // ---- 使い捨てユーザー3種を用意する ----
+    // ---- 使い捨てユーザー4種を用意する ----
     // (1) is_test_account=true: 「socialだがtest accountなので除外されるべき」セッション用。
     const { data: taCreated, error: taErr } = await admin.auth.admin.createUser({
       email: `test+socialsnap-ta-${runId}@loop-vocabulary.app`,
@@ -209,18 +226,37 @@ async function main() {
     if (esErr || !esCreated?.user) throw new Error(`pre-existing signup用の使い捨てユーザー作成に失敗: ${esErr?.message}`);
     earlySignupUserId = esCreated.user.id;
 
-    // signupUserId/earlySignupUserIdのprofiles.created_atは実際にcreateUser()を呼んだ
-    // 実時刻になるが、これは(A)ウォールクロックの実行タイミングに依存しdeterministicで
-    // なく、(B)offset()をJST正午基準へ変更した後は無関係な時刻になってしまう。
-    // 「visitの前later/後に正しくsignupしたと判定されるべきか」というテストの意図を
-    // 実行タイミングから完全に切り離すため、created_atをoffset(0)(このfixtureの基準
-    // 時刻そのもの)へ明示的に上書きする(Codexレビュー指摘対応)。セッションA(offset(-10000)
-    // 〜offset(-9700))はこれより前、セッションL(offset(2000)〜offset(2500))はこれより
-    // 後になるため、意図した前後関係が実行タイミングに関わらず常に保たれる。
+    // (4) is_test_account=false: 「social visitがウィンドウ内、そのvisitに紐づく
+    // user_id付き行(signup_oauth_completed相当)がウィンドウ終了(endISO)直後に
+    // 記録され、profiles.created_atはウィンドウ内(endISO直前)」というケース用
+    // (Codexレビュー指摘対応、17巡目、最重要)。
+    const { data: bsCreated, error: bsErr } = await admin.auth.admin.createUser({
+      email: `test+socialsnap-bs-${runId}@loop-vocabulary.app`,
+      password: `Fixture-${runId}-D!`,
+      email_confirm: true,
+      user_metadata: { purpose: "social-acquisition-snapshot fixture test (boundary-crossing signup)" },
+    });
+    if (bsErr || !bsCreated?.user) throw new Error(`boundary-crossing signup用の使い捨てユーザー作成に失敗: ${bsErr?.message}`);
+    boundarySignupUserId = bsCreated.user.id;
+
+    // signupUserId/earlySignupUserId/boundarySignupUserIdのprofiles.created_atは実際に
+    // createUser()を呼んだ実時刻になるが、これは(A)ウォールクロックの実行タイミングに
+    // 依存しdeterministicでなく、(B)offset()をJST正午基準へ変更した後は無関係な時刻に
+    // なってしまう。「visitの前/後に正しくsignupしたと判定されるべきか」というテストの
+    // 意図を実行タイミングから完全に切り離すため、created_atを明示的に上書きする
+    // (Codexレビュー指摘対応)。セッションA(offset(-10000)〜offset(-9700))はsignupUserIdの
+    // created_at(offset(0))より前、セッションL(offset(2000)〜offset(2500))はearlySignupUserIdの
+    // created_at(offset(0))より後になるため、意図した前後関係が実行タイミングに関わらず
+    // 常に保たれる。boundarySignupUserIdはendISO直前(beforeWindowEnd(60*1000))へ設定する。
     const { error: suCreatedAtErr } = await admin.from("profiles").update({ created_at: offset(0) }).eq("id", signupUserId);
     if (suCreatedAtErr) throw new Error(`signupユーザーのcreated_at設定に失敗: ${suCreatedAtErr.message}`);
     const { error: esCreatedAtErr } = await admin.from("profiles").update({ created_at: offset(0) }).eq("id", earlySignupUserId);
     if (esCreatedAtErr) throw new Error(`pre-existing signupユーザーのcreated_at設定に失敗: ${esCreatedAtErr.message}`);
+    const { error: bsCreatedAtErr } = await admin
+      .from("profiles")
+      .update({ created_at: beforeWindowEnd(60 * 1000) })
+      .eq("id", boundarySignupUserId);
+    if (bsCreatedAtErr) throw new Error(`boundary-crossing signupユーザーのcreated_at設定に失敗: ${bsCreatedAtErr.message}`);
 
     // ---- セッション分のanalytics_eventsをDBへ直接挿入する ----
     // (このテストは集計ロジック自体の検証が目的のため、ingestion API/trackEvent()を
@@ -513,6 +549,38 @@ async function main() {
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}aa`, source: "threads", campaign: "campAAThreads", path: null, user_id: null, properties: { source: "threads", medium: "social", content: "contentAAThreads" }, occurred_at: offset(60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "vocab_test_maker_generated", anonymous_session_id: `${prefix}aa`, source: "x", campaign: "campAA", path: null, user_id: null, properties: {}, occurred_at: offset(20 * 60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}aa`, source: "x", campaign: "campAA", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: offset(40 * 60 * 1000), is_test_event: false, schema_version: 1 },
+
+      // BB: social visitがウィンドウ内、そのvisitに紐づくuser_id付き行(signup_oauth_completed
+      // 相当)がウィンドウ終了(endISO)直後に記録され、profiles.created_atはウィンドウ内
+      // (endISO直前)というケース(Codexレビュー指摘対応、17巡目、最重要:
+      // 「Associate boundary-crossing completions with the signup window」)。marker/
+      // landing_viewはendISOの20分前・19分前(ウィンドウ内)、boundarySignupUserIdの
+      // created_atはendISOの1分前(ウィンドウ内)だが、そのuser_idを担う行自体
+      // (vocab_test_maker_generated)はendISOの2分後(ウィンドウ外、followingActivityRowsRaw
+      // にのみ存在)に記録される。修正前はsocialUserIds/earliestSocialVisitByUserを
+      // `rows`(ウィンドウ内)からしか構築しなかったため、このuser_idがそのsocial visitと
+      // 相関付けられず、created_atはウィンドウ内にもかかわらずsocial起点signupとして
+      // 一切カウントされなかった(次のウィンドウでもcreated_atがstartISOより前になるため
+      // 二度とカウントされない)。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}bb`, source: "x", campaign: "campBB", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentBB" }, occurred_at: beforeWindowEnd(20 * 60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}bb`, source: "x", campaign: "campBB", path: "/", user_id: null, properties: {}, occurred_at: beforeWindowEnd(19 * 60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "vocab_test_maker_generated", anonymous_session_id: `${prefix}bb`, source: "x", campaign: "campBB", path: null, user_id: boundarySignupUserId, properties: {}, occurred_at: afterWindowEnd(2 * 60 * 1000), is_test_event: false, schema_version: 1 },
+
+      // CC: 複数タブ並行visit(Xマーカーの1分後にThreadsマーカー)の状態でタブA(X)が
+      // ハードリロードするケース(Codexレビュー指摘対応、17巡目、最重要:
+      // 「Deduplicate reload markers against their matching visit」)。0分目にXマーカー、
+      // 30秒目にX自身のlanding(path="/")、1分目にThreadsマーカー(current=Threadsになる)、
+      // 15分目にX自身のハードリロード(0分目のXマーカーと同一rawSource/bucket/campaign/
+      // content)、15.5分目にX自身の後続ページ(vocab_test_maker_page_viewed)が発生する。
+      // 修正前は15分目のリロードマーカーが`current`(=Threads)としか比較されず一致しない
+      // ため、実際には同一visitの継続であるにもかかわらず重複した別のXvisitが作られ、
+      // 15.5分目の行がその重複visitの独自landingとして計上され、campCCのlanding
+      // identity数が1(正しい)ではなく2に水増しされてしまっていた。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}cc`, source: "x", campaign: "campCC", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentCC" }, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}cc`, source: "x", campaign: "campCC", path: "/", user_id: null, properties: {}, occurred_at: offset(30 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}cc`, source: "threads", campaign: "campCCThreads", path: null, user_id: null, properties: { source: "threads", medium: "social", content: "contentCCThreads" }, occurred_at: offset(60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}cc`, source: "x", campaign: "campCC", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentCC" }, occurred_at: offset(15 * 60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}cc`, source: "x", campaign: "campCC", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: offset(15 * 60 * 1000 + 30 * 1000), is_test_event: false, schema_version: 1 },
     ];
     const { error: insertErr } = await admin.from("analytics_events").insert(rows);
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
@@ -571,17 +639,17 @@ async function main() {
     // 並行運用するlaunch pack構成で2タブが並行visitするケースで、page_viewed行自身は
     // どちらのタブのcontentか判別できないため"(ambiguous)"として1件計上されるべき
     // (Codexレビュー指摘対応、15巡目、最重要)。 ----
-    if (result.socialLandingIdentities === 21) {
-      ok('social landing identities合計が21(A/B/D/G/H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/T-visit1/U-visit1/U-visit2/W-visit1/X-visitA/Y/Z/AA。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み、Mの40分間隔は2visitのまま、Nの0/20/40分3連続reloadは1visitに畳み込み、Oの日付境界またぎvisitも正しく計上。Qは真のlandingがウィンドウ開始前、T-visit2はtest account紐付け、Vはウィンドウ終了直後のtest account認証紐付け、W-visit2はmedium違いによる非social判定、X-visitBはそのvisit自身のlanding行が無いため計上されない。Yは同一source+campaignで複数content並行visitのため"(ambiguous)"のcontentで1件計上される。ZはcontentZAが非active化した後のcontentZBのみが正しく計上される。AAはタブA自身のlastSeenAt延長により40分目のconversionが正しくattributionされる)');
+    if (result.socialLandingIdentities === 23) {
+      ok('social landing identities合計が23(A/B/D/G/H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/T-visit1/U-visit1/U-visit2/W-visit1/X-visitA/Y/Z/AA/BB/CC。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み、Mの40分間隔は2visitのまま、Nの0/20/40分3連続reloadは1visitに畳み込み、Oの日付境界またぎvisitも正しく計上。Qは真のlandingがウィンドウ開始前、T-visit2はtest account紐付け、Vはウィンドウ終了直後のtest account認証紐付け、W-visit2はmedium違いによる非social判定、X-visitBはそのvisit自身のlanding行が無いため計上されない。Yは同一source+campaignで複数content並行visitのため"(ambiguous)"のcontentで1件計上される。ZはcontentZAが非active化した後のcontentZBのみが正しく計上される。AAはタブA自身のlastSeenAt延長により40分目のconversionが正しくattributionされる。BBはウィンドウ内のlandingが1件計上される(user_id付き行自体はウィンドウ外)。CCはXの15分目のハードリロードが正しく既存visitへ畳み込まれ、15.5分目の後続ページが重複landingとして水増しされない)');
     } else {
-      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 21)`);
+      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 23)`);
     }
 
     // ---- 検証: source別バケット(H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/T-visit1/W-visit1/
-    // X-visitA/Y/Z/AAがxへ加算され、facebookはmedium=cpcのため0のまま。U-visit1/U-visit2は
+    // X-visitA/Y/Z/AA/BB/CCがxへ加算され、facebookはmedium=cpcのため0のまま。U-visit1/U-visit2は
     // どちらもother_socialへ加算される。Qは真のlandingがウィンドウ開始前、T-visit2/V
     // はtest account紐付け、W-visit2(cpc)はbucket=nullのため加算されない) ----
-    const expectedBuckets = { x: 16, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 3 };
+    const expectedBuckets = { x: 18, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 3 };
     let bucketsOk = true;
     for (const [bucket, expected] of Object.entries(expectedBuckets)) {
       if (result.byBucket[bucket] !== expected) {
@@ -590,7 +658,7 @@ async function main() {
       }
     }
     if (bucketsOk) {
-      ok("source別バケット(x=16[A,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P,T-visit1,W-visit1,X-visitA,Y,Z,AA], instagram=1, youtube=1, other_social=3[D,U-visit1,U-visit2], facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodon/linkedinはother_socialへ、test account/test eventのxは含まれない。Qは真のlandingがウィンドウ開始前、T-visit2/Vはtest account紐付け、W-visit2はmedium違いによる非social判定、X-visitBはlanding行が無いため含まれない)");
+      ok("source別バケット(x=18[A,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P,T-visit1,W-visit1,X-visitA,Y,Z,AA,BB,CC], instagram=1, youtube=1, other_social=3[D,U-visit1,U-visit2], facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodon/linkedinはother_socialへ、test account/test eventのxは含まれない。Qは真のlandingがウィンドウ開始前、T-visit2/Vはtest account紐付け、W-visit2はmedium違いによる非social判定、X-visitBはlanding行が無いため含まれない)");
     }
 
     // ---- 検証: ウィンドウ境界をまたぐ活動連鎖の再構築が、マーカーだけでなく通常の
@@ -796,6 +864,50 @@ async function main() {
       bad(`lastSeenAt延長の対象visitが想定外: byCampaign.campAA=${result.byCampaign["campAA"]}, byContent.contentAA1=${result.byContent["contentAA1"]}, funnelCountsByContent.contentAA1=${JSON.stringify(result.funnelCountsByContent?.contentAA1)}(期待値: campAA=1, contentAA1=1, contentAA1={page_viewed:1,generated:1})`);
     }
 
+    // ---- 検証: ウィンドウ境界をまたいでendISO直後に記録されたuser_id付き行も、
+    // socialUserIds/earliestSocialVisitByUserの対象に含める(Codexレビュー指摘対応、
+    // 17巡目、最重要)。BBのsocial visit(landing_view、endISOの19分前)はウィンドウ内、
+    // boundarySignupUserIdのprofiles.created_at(endISOの1分前)もウィンドウ内だが、
+    // そのuser_idを担う行(vocab_test_maker_generated)自体はendISOの2分後(ウィンドウ外)
+    // に記録される。修正前はこの行が`rows`に含まれないため相関付けが一切できず、
+    // このsignupは永久にカウントされなかった。ただしfunnelCounts/funnelCountsByContent
+    // (レポート対象指標)には、この行自体はウィンドウ外のため一切加算されない
+    // (=funnelCounts.vocab_test_maker_generatedはA+AAの2件のまま変わらない)。 ----
+    if (
+      result.byCampaign["campBB"] === 1 &&
+      result.byContent["contentBB"] === 1 &&
+      result.socialSignupCount === 2 &&
+      result.signupCountByContent["contentBB"] === 1 &&
+      !result.funnelCountsByContent?.contentBB
+    ) {
+      ok("ウィンドウ境界をまたいでendISO直後に記録されたuser_id付き行も、そのsocial visitとの相関が正しく解決され、ウィンドウ内で作成されたprofileがsocial起点signupとして計上される(BB: campBB=1, contentBB=1, socialSignupCount=2[post1+contentBB], signupCountByContent.contentBB=1。ただしfunnelCounts側にはこの行自体は一切加算されない=ウィンドウ外のため)");
+    } else {
+      bad(`境界をまたぐsignup完了行の相関付けが想定外: byCampaign.campBB=${result.byCampaign["campBB"]}, byContent.contentBB=${result.byContent["contentBB"]}, socialSignupCount=${result.socialSignupCount}, signupCountByContent.contentBB=${result.signupCountByContent["contentBB"]}, funnelCountsByContent.contentBB=${JSON.stringify(result.funnelCountsByContent?.contentBB)}(期待値: campBB=1, contentBB=1, socialSignupCount=2, signupCountByContent.contentBB=1, funnelCountsByContent.contentBBは無し)`);
+    }
+
+    // ---- 検証: reloadマーカーの畳み込み先は「直前に作成されたvisit(current)」だけで
+    // なくvisits配列全体から探す(Codexレビュー指摘対応、17巡目、最重要)。CCはXマーカー
+    // (0分)の1分後にThreadsマーカーが立ち(current=Threads)、15分目にX自身がハード
+    // リロード(0分目と同一rawSource/bucket/campaign/content)する。修正前はこの15分目の
+    // マーカーが`current`(=Threads)としか比較されず不一致となり、実際には同一visitの
+    // 継続であるにもかかわらず重複した別のXvisitが作られてしまっていた。その結果、
+    // 15.5分目の後続ページ(vocab_test_maker_page_viewed)がこの重複visitの独自landingとして
+    // 計上され、campCCのlanding identity数が本来の1件ではなく2件に水増しされていた。
+    // 修正後は15分目のマーカーが正しく0分目のvisitへ畳み込まれ(lastSeenAtが15分へ
+    // 延長される)、15.5分目の行は同一visit内の後続ページ遷移として扱われ、landingは
+    // 0分目のlanding_view(path="/")の1件のみとなる。 ----
+    if (
+      result.byCampaign["campCC"] === 1 &&
+      result.byContent["contentCC"] === 1 &&
+      result.funnelCountsByContent?.contentCC?.vocab_test_maker_page_viewed === 1 &&
+      !("campCCThreads" in result.byCampaign) &&
+      !("contentCCThreads" in result.byContent)
+    ) {
+      ok("reloadマーカーの畳み込み先がvisits配列全体から探され、複数タブ並行visit中のハードリロードで重複visitが作られない(CC: campCC=1[重複した別visitへ水増しされていない], contentCC=1, funnelCountsByContent.contentCC.vocab_test_maker_page_viewed=1、campCCThreads/contentCCThreadsはどこにも現れない)");
+    } else {
+      bad(`reloadマーカーの畳み込み先が想定外: byCampaign.campCC=${result.byCampaign["campCC"]}, byContent.contentCC=${result.byContent["contentCC"]}, funnelCountsByContent.contentCC=${JSON.stringify(result.funnelCountsByContent?.contentCC)}(期待値: campCC=1, contentCC=1, contentCC.vocab_test_maker_page_viewed=1, campCCThreads/contentCCThreadsは無し)`);
+    }
+
     // ---- 検証: 通常のattributed行(reloadマーカーではない)からもvisitの活動時刻が
     // 延長される(Codexレビュー指摘対応、6巡目、最重要)。Pのマーカーは0分、
     // landing_viewは20分、conversion(vocab_test_maker_page_viewed)は35分に発生し、
@@ -882,11 +994,12 @@ async function main() {
     // (別チャネル経由で既にsignup済み)が後からたまたまLのsocial visitに紐づいた
     // ケースで、signupCountByContentにcontentLが一切現れてはならない。一方Aは
     // visit(過去方向のoffset)がsignup(ほぼ「今」)より確実に前のため、正しく
-    // social起点のsignupとして数えられる。 ----
-    if (result.socialSignupCount === 1 && result.signupCountByContent["post1"] === 1 && !("contentL" in result.signupCountByContent)) {
-      ok("social起点の新規signup数が1で、content別内訳もpost1=1のみ(Lのearly signupユーザーはvisitがsignupより後に発生しているため一切数えられない)");
+    // social起点のsignupとして数えられる。BB(境界をまたぐsignup完了行の相関付け、
+    // 17巡目)もcontentBB=1として加算されるため合計は2になる(post1+contentBB)。 ----
+    if (result.socialSignupCount === 2 && result.signupCountByContent["post1"] === 1 && !("contentL" in result.signupCountByContent)) {
+      ok("social起点の新規signup数が2(post1+contentBB)で、Lのearly signupユーザーはvisitがsignupより後に発生しているため一切数えられない");
     } else {
-      bad(`signupのvisit先行チェックが想定外: socialSignupCount=${result.socialSignupCount}, signupCountByContent=${JSON.stringify(result.signupCountByContent)}(期待値: 1, post1=1, contentLは無し)`);
+      bad(`signupのvisit先行チェックが想定外: socialSignupCount=${result.socialSignupCount}, signupCountByContent=${JSON.stringify(result.signupCountByContent)}(期待値: 2, post1=1, contentLは無し)`);
     }
 
     // ---- 検証: funnel/signupがcontent単位でも個別に取得できる(Codexレビュー指摘対応:
@@ -919,9 +1032,12 @@ async function main() {
       fc?.contentAA1?.vocab_test_maker_page_viewed === 1 &&
       fc?.contentAA1?.vocab_test_maker_generated === 1 &&
       !fc?.contentAAThreads &&
-      Object.keys(fc ?? {}).length === 12
+      !fc?.contentBB &&
+      fc?.contentCC?.vocab_test_maker_page_viewed === 1 &&
+      !fc?.contentCCThreads &&
+      Object.keys(fc ?? {}).length === 13
     ) {
-      ok('funnel件数のcontent別内訳が正しい(post1={page_viewed:1,generated:1}, post2={guide_view:1}, post3={page_viewed:1}, contentJ={page_viewed:1}, contentN={page_viewed:1}, contentP={page_viewed:1}, contentQ={page_viewed:1}, contentU={page_viewed:1}, contentXA={page_viewed:1}, "(ambiguous)"={page_viewed:1}, contentZB={page_viewed:1}, contentAA1={page_viewed:1,generated:1}の12件のみ。contentXB/contentYA/contentYB/contentZA/contentAAThreadsは無し)');
+      ok('funnel件数のcontent別内訳が正しい(post1={page_viewed:1,generated:1}, post2={guide_view:1}, post3={page_viewed:1}, contentJ={page_viewed:1}, contentN={page_viewed:1}, contentP={page_viewed:1}, contentQ={page_viewed:1}, contentU={page_viewed:1}, contentXA={page_viewed:1}, "(ambiguous)"={page_viewed:1}, contentZB={page_viewed:1}, contentAA1={page_viewed:1,generated:1}, contentCC={page_viewed:1}の13件のみ。contentXB/contentYA/contentYB/contentZA/contentAAThreads/contentBB/contentCCThreadsは無し)');
     } else {
       bad(`funnelCountsByContentが想定外: ${JSON.stringify(fc)}`);
     }
@@ -987,15 +1103,19 @@ async function main() {
     // /tools/vocab-test-makerのentryとして正しく1件計上される(contentの断定を
     // 避けることとpath集計は独立。Codexレビュー指摘対応、15巡目)。Z(曖昧判定の
     // active限定)・AA(lastSeenAt延長対象の修正)も、いずれも/tools/vocab-test-maker
-    // のentryとして正しく1件ずつ計上される(Codexレビュー指摘対応、16巡目)。
+    // のentryとして正しく1件ずつ計上される(Codexレビュー指摘対応、16巡目)。BB(境界を
+    // またぐsignup完了行の相関付け)のlanding(path="/")、CC(reloadマーカーの畳み込み
+    // 先修正)のlanding(path="/"、15分目のハードリロード後の15.5分目の後続ページは
+    // 重複landingとして計上されない)も、いずれも"/"のentryとして正しく1件ずつ計上
+    // される(Codexレビュー指摘対応、17巡目)。
     if (
-      result.byPath["/"] === 14 &&
+      result.byPath["/"] === 16 &&
       result.byPath["/tools/vocab-test-maker"] === 7 &&
       !("/guide/eiken-2kyu-tango" in result.byPath)
     ) {
-      ok("landing path別集計が、visitごとの実際のentry pointのみを数える(/=14[A,D,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P,T-visit1,U-visit1,W-visit1], /tools/vocab-test-maker=7[B,G,U-visit2,X-visitA,Y,Z,AA]、/guide/eiken-2kyu-tangoは同一visit内の後続遷移のため含まれない。Qは真のlandingがウィンドウ開始前、T-visit2/Vはtest account紐付け、W-visit2はmedium違いによる非social判定のため含まれない)");
+      ok("landing path別集計が、visitごとの実際のentry pointのみを数える(/=16[A,D,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P,T-visit1,U-visit1,W-visit1,BB,CC], /tools/vocab-test-maker=7[B,G,U-visit2,X-visitA,Y,Z,AA]、/guide/eiken-2kyu-tangoは同一visit内の後続遷移のため含まれない。Qは真のlandingがウィンドウ開始前、T-visit2/Vはtest account紐付け、W-visit2はmedium違いによる非social判定のため含まれない)");
     } else {
-      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=14, /tools/vocab-test-maker=7, /guide/eiken-2kyu-tangoは無し)`);
+      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=16, /tools/vocab-test-maker=7, /guide/eiken-2kyu-tangoは無し)`);
     }
 
     // ---- 検証: funnel件数(social起点セッションのみ) ----
@@ -1013,19 +1133,21 @@ async function main() {
     // 12巡目、最重要)。Xのタブ自身のvocab_test_maker_page_viewedも、時系列上より
     // 新しいタブBのmarkerへ逆流帰属せず、タブA自身のvisitへ正しく加算される
     // (Codexレビュー指摘対応、14巡目、最重要)(vocab_test_maker_page_viewed=
-    // A+G+J+N+P+Q+U-visit2+X-visitA+Y+Z+AA=11)。Yのvocab_test_maker_page_viewedも、content
+    // A+G+J+N+P+Q+U-visit2+X-visitA+Y+Z+AA+CC=12)。Yのvocab_test_maker_page_viewedも、content
     // レベルでは"(ambiguous)"に計上されるがfunnelCounts自体(content非依存の合計)には
     // 正しく1件加算される(Codexレビュー指摘対応、15巡目、最重要)。Zのconversion(51分目)
     // も曖昧判定のactive限定により正しくcontentZBへ加算される(Codexレビュー指摘対応、
     // 16巡目、最重要)。AAのconversion(40分目)も、20分目の行によるlastSeenAt延長が
     // 正しいタブ(X)へ行われるため正しく加算される(Codexレビュー指摘対応、16巡目、
-    // 最重要)。Kのvocab_test_maker_generated行は未attributionのため加算されない
-    // (=AAの1件のみ加算されて2、上のarr[0]-fallback回帰確認と同じ)。Vの
-    // vocab_test_maker_page_viewed(test account認証行自体)はfollowingActivityRowsRaw
-    // からしか取得されず、そもそもfunnel loopが見るrows([startISO,endISO)限定)には
-    // 含まれないため計上されない。
+    // 最重要)。CCの15.5分目のvocab_test_maker_page_viewedも、15分目のハードリロードが
+    // 正しく既存visitへ畳み込まれた結果として正しく1件加算される(Codexレビュー指摘対応、
+    // 17巡目、最重要)。Kのvocab_test_maker_generated行は未attributionのため加算されない
+    // (=AAの1件のみ加算されて2、上のarr[0]-fallback回帰確認と同じ)。BBのuser_id付き行
+    // (vocab_test_maker_generated、endISO直後)はfollowingActivityRowsRawからしか取得されず、
+    // そもそもfunnel loopが見るrows([startISO,endISO)限定)には含まれないため計上されない
+    // (Vと同じ理由、Codexレビュー指摘対応、17巡目)。
     const expectedFunnel = {
-      vocab_test_maker_page_viewed: 11,
+      vocab_test_maker_page_viewed: 12,
       vocab_test_maker_generated: 2,
       vocab_test_maker_srs_cta_clicked: 0,
       vocab_test_maker_saved_to_wordbook: 0,
@@ -1039,7 +1161,7 @@ async function main() {
         bad(`funnelCounts.${name}が想定外: ${result.funnelCounts[name]}(期待値: ${expected})`);
       }
     }
-    if (funnelOk) ok("social起点セッションのfunnel件数(vocab_test_maker_page_viewed=11[A,G,J,N-41分目,P-35分目,Q-window開始5分後,U-visit2,X-visitA,Y,Z,AA]、_generated=2[A,AA]、guide_view=1[B]、他=0)が正しい(N-41分目・P-35分目はlastSeenAt基準のgap判定、Qはwindow境界をまたぐ活動連鎖の再構築、U-visit2は生source区別、X-visitAは行自身のsource/campaign優先マッチにより正しくattributionされる、Yはcontent曖昧化されてもfunnelCounts自体は正しく加算される、Zは曖昧判定のactive限定により正しくattributionされる、AAはlastSeenAt延長対象の修正により40分目のconversionも正しくattributionされる)");
+    if (funnelOk) ok("social起点セッションのfunnel件数(vocab_test_maker_page_viewed=12[A,G,J,N-41分目,P-35分目,Q-window開始5分後,U-visit2,X-visitA,Y,Z,AA,CC]、_generated=2[A,AA]、guide_view=1[B]、他=0)が正しい(N-41分目・P-35分目はlastSeenAt基準のgap判定、Qはwindow境界をまたぐ活動連鎖の再構築、U-visit2は生source区別、X-visitAは行自身のsource/campaign優先マッチにより正しくattributionされる、Yはcontent曖昧化されてもfunnelCounts自体は正しく加算される、Zは曖昧判定のactive限定により正しくattributionされる、AAはlastSeenAt延長対象の修正により40分目のconversionも正しくattributionされる、CCはreloadマーカーの畳み込み先修正により15.5分目の後続ページも正しくattributionされる)");
     // social起点signup数のvisit先行チェック(socialSignupCount=1, signupCountByContent)は
     // 上の専用assertionで検証済み。
   } finally {
@@ -1051,7 +1173,7 @@ async function main() {
     if (cleanupEventsErr) {
       bad(`fixture行のcleanupに失敗しました。手動確認が必要です(prefix=${prefix}): ${cleanupEventsErr.message}`);
     }
-    for (const [label, userId] of [["test account", testAccountUserId], ["signup", signupUserId], ["pre-existing signup", earlySignupUserId]]) {
+    for (const [label, userId] of [["test account", testAccountUserId], ["signup", signupUserId], ["pre-existing signup", earlySignupUserId], ["boundary-crossing signup", boundarySignupUserId]]) {
       if (!userId) continue;
       const { error: deleteUserErr } = await admin.auth.admin.deleteUser(userId);
       if (deleteUserErr) {
