@@ -73,15 +73,27 @@ export function ShareUrlButton({ url, title, text, label = "🔗 シェアする
 
   async function handleClick() {
     if (typeof navigator !== "undefined" && navigator.share) {
-      onShareInvoked?.("web_share");
       try {
         await navigator.share({ title, text, url });
+        // resolveは、ネイティブの共有シートが実際に開きユーザーが操作を完了させた
+        // ことを意味する(投稿完了を意味しないことは上のコメント参照)ため、ここで
+        // web_shareとして記録する。
+        onShareInvoked?.("web_share");
       } catch (err) {
-        // ユーザーが共有シートをキャンセルした場合(AbortError)はエラーではないため
-        // 何もしない。それ以外(非対応payload・権限ポリシー・プラットフォーム側の
-        // 失敗等)でrejectされた場合は、ボタンを押したのに何も起きないまま終わって
-        // しまうため、既存のコピー/手動フォールバックへ委ねる(Codexレビュー指摘対応)。
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        // ユーザーが共有シートをキャンセルした場合(AbortError)は、シート自体は
+        // 実際に開いた上でのキャンセルのため、共有操作は成立している。
+        if (err instanceof DOMException && err.name === "AbortError") {
+          onShareInvoked?.("web_share");
+          return;
+        }
+        // それ以外(非対応payload・権限ポリシー・プラットフォーム側の失敗等)で
+        // rejectされた場合、共有シート自体が実際には開いていない可能性が高く、
+        // ボタンを押したのに何も起きないまま終わってしまうため、既存のコピー/
+        // 手動フォールバックへ委ねる(Codexレビュー指摘対応)。ここではweb_shareを
+        // 記録しない: 以前はtry開始前に楽観的にweb_shareを記録していたため、この
+        // フォールバック経路でcopyLink()自身が記録するcopy_linkと合わせて1回の
+        // クリックが2件のイベントとして水増しされ、かつ実際には開いていない
+        // share sheetをweb_share起動として誤記録していた(Codexレビュー指摘対応)。
         await copyLink();
       }
       return;

@@ -68,6 +68,15 @@
  *    含めてlookbackする(=マーカーが境界の40分前・attributedな行が境界の15分前・
  *    conversionが境界の5分後でも、個々の間隔が一度も30分を超えていなければ継続visit
  *    として正しくattributionされる。Codexレビュー指摘対応、7巡目、最重要)
+ *  - このlookback用のprecedingActivityRowsクエリからもtest account(is_test_account=true)
+ *    の行が除外される(=test accountのmarkerが、境界後に同一cookieで発生した実
+ *    ユーザーのlandingへ誤って継承されない。Codexレビュー指摘対応、8巡目)
+ *  - visitの「実際のlanding」がウィンドウ開始前(precedingActivityRows側)にある場合、
+ *    ウィンドウ内で発生した後続ページ遷移をそのvisitのlandingとして誤って計上しない
+ *    (=真のlandingが前のウィンドウで既にlandingとして計上済みのはずのvisitを、この
+ *    ウィンドウでも二重計上しない。ただしfunnelCounts/funnelCountsByContentは
+ *    landing判定と独立のため、ウィンドウ内のconversion自体は引き続き正しく計上される。
+ *    Codexレビュー指摘対応、9巡目、最重要)
  *  - social visitのfunnelイベント件数が正しい
  *  - social visit起点の新規signup数(user_id突き合わせ、ウィンドウ内新規作成のみ)が正しい
  *
@@ -341,7 +350,7 @@ async function main() {
     const result = await summarizeWindow(admin, "fixture", today, today, testAccountIds, asOf, prefix);
 
     // ---- 検証: social landing identities合計 = A, B, D, G, H(visit1のみ), J, K, L,
-    // M(visit1・visit2の2件), N, O, P, Q の14件(C=非social, E=test account, F=test event,
+    // M(visit1・visit2の2件), N, O, P の13件(C=非social, E=test account, F=test event,
     // H visit2=非social, I=medium違いはすべて除外)。Gはlanding_viewを一度も発火
     // しない(vocab_test_maker_page_viewedのみ)セッションで、これも正しくlandingと
     // して数えられることを確認する(Codexレビュー指摘対応)。Jは2回のreload(同一
@@ -352,17 +361,21 @@ async function main() {
     // Nは0分・20分・40分の3連続reloadでも(連続する間隔がどちらも20分<30分のため)
     // 1visitのまま畳み込まれることの確認、Oはウィンドウの日付境界をまたぐvisitが
     // 取りこぼされないことの確認、Pは通常のattributed行(マーカーではない)からも
-    // visitの活動時刻が延長されることの確認、Qはウィンドウ境界をまたぐ活動連鎖の
-    // 再構築がマーカーだけでなく通常のattributed行も含めてlookbackすることの確認を
-    // 兼ねる。 ----
-    if (result.socialLandingIdentities === 14) {
-      ok("social landing identities合計が14(A/B/D/G/H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/Q。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み、Mの40分間隔は2visitのまま、Nの0/20/40分3連続reloadは1visitに畳み込み、Oの日付境界またぎvisitも正しく計上)");
+    // visitの活動時刻が延長されることの確認を兼ねる。Qは「真のlandingがウィンドウ
+    // 開始前(境界の15分前のlanding_view)であるvisit」のため、ウィンドウ内で発生する
+    // vocab_test_maker_page_viewed(境界の5分後)はfunnelCounts/funnelCountsByContent
+    // には計上されるが、landing identity/byBucket/byCampaign/byContent/byPathには
+    // 一切現れないのが正しい(そのvisitの本当のlandingは前のウィンドウで既に計上
+    // 済みのはずであり、ここでも数えると二重計上になる。Codexレビュー指摘対応、
+    // 9巡目、最重要)。 ----
+    if (result.socialLandingIdentities === 13) {
+      ok("social landing identities合計が13(A/B/D/G/H-visit1/J/K/L/M-visit1/M-visit2/N/O/P。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み、Mの40分間隔は2visitのまま、Nの0/20/40分3連続reloadは1visitに畳み込み、Oの日付境界またぎvisitも正しく計上。Qは真のlandingがウィンドウ開始前のため計上されない)");
     } else {
-      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 14)`);
+      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 13)`);
     }
 
-    // ---- 検証: source別バケット(H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/Qがxへ加算され、facebookはmedium=cpcのため0のまま) ----
-    const expectedBuckets = { x: 11, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 1 };
+    // ---- 検証: source別バケット(H-visit1/J/K/L/M-visit1/M-visit2/N/O/Pがxへ加算され、facebookはmedium=cpcのため0のまま。Qは真のlandingがウィンドウ開始前のため加算されない) ----
+    const expectedBuckets = { x: 10, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 1 };
     let bucketsOk = true;
     for (const [bucket, expected] of Object.entries(expectedBuckets)) {
       if (result.byBucket[bucket] !== expected) {
@@ -371,7 +384,7 @@ async function main() {
       }
     }
     if (bucketsOk) {
-      ok("source別バケット(x=11[A,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P,Q], instagram=1, youtube=1, other_social=1, facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodonはother_socialへ、test account/test eventのxは含まれない)");
+      ok("source別バケット(x=10[A,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P], instagram=1, youtube=1, other_social=1, facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodonはother_socialへ、test account/test eventのxは含まれない。Qは真のlandingがウィンドウ開始前のため含まれない)");
     }
 
     // ---- 検証: ウィンドウ境界をまたぐ活動連鎖の再構築が、マーカーだけでなく通常の
@@ -518,6 +531,8 @@ async function main() {
     }
 
     // ---- 検証: campaign/content/path(identity単位、同一visitの複数行を二重計上しない) ----
+    // campQ/contentQは含まれない(Qの真のlandingはウィンドウ開始前のため。Codexレビュー
+    // 指摘対応、9巡目)。
     if (
       result.byCampaign["camp1"] === 2 &&
       result.byCampaign["(none)"] === 1 &&
@@ -530,11 +545,11 @@ async function main() {
       result.byCampaign["campN"] === 1 &&
       result.byCampaign["campO"] === 1 &&
       result.byCampaign["campP"] === 1 &&
-      result.byCampaign["campQ"] === 1
+      !("campQ" in result.byCampaign)
     ) {
-      ok("campaign別集計が正しい(camp1=2[A,B], (none)=1[D], camp2=1[G], camp3=1[H-visit1], campJ=1[J], campK=1[K], campL=1[L], campM=2[M-visit1+M-visit2], campN=1[N], campO=1[O], campP=1[P], campQ=1[Q])");
+      ok("campaign別集計が正しい(camp1=2[A,B], (none)=1[D], camp2=1[G], camp3=1[H-visit1], campJ=1[J], campK=1[K], campL=1[L], campM=2[M-visit1+M-visit2], campN=1[N], campO=1[O], campP=1[P]。campQは真のlandingがウィンドウ開始前のため含まれない)");
     } else {
-      bad(`campaign別集計が想定外: ${JSON.stringify(result.byCampaign)}(期待値: camp1=2, (none)=1, camp2=1, camp3=1, campJ=1, campK=1, campL=1, campM=2, campN=1, campO=1, campP=1, campQ=1)`);
+      bad(`campaign別集計が想定外: ${JSON.stringify(result.byCampaign)}(期待値: camp1=2, (none)=1, camp2=1, camp3=1, campJ=1, campK=1, campL=1, campM=2, campN=1, campO=1, campP=1, campQ無し)`);
     }
     if (
       result.byContent["post1"] === 1 &&
@@ -549,11 +564,11 @@ async function main() {
       result.byContent["contentN"] === 1 &&
       result.byContent["contentO"] === 1 &&
       result.byContent["contentP"] === 1 &&
-      result.byContent["contentQ"] === 1
+      !("contentQ" in result.byContent)
     ) {
-      ok("content別集計が正しい(post1=1[A], post2=1[B], (none)=1[D], post3=1[G], post4=1[H-visit1], contentJ=1[J], contentK=1[K], contentL=1[L], contentM=2[M-visit1+M-visit2], contentN=1[N], contentO=1[O], contentP=1[P], contentQ=1[Q])");
+      ok("content別集計が正しい(post1=1[A], post2=1[B], (none)=1[D], post3=1[G], post4=1[H-visit1], contentJ=1[J], contentK=1[K], contentL=1[L], contentM=2[M-visit1+M-visit2], contentN=1[N], contentO=1[O], contentP=1[P]。contentQは真のlandingがウィンドウ開始前のため含まれない)");
     } else {
-      bad(`content別集計が想定外: ${JSON.stringify(result.byContent)}(期待値: post1=1, post2=1, (none)=1, post3=1, post4=1, contentJ=1, contentK=1, contentL=1, contentM=2, contentN=1, contentO=1, contentP=1, contentQ=1)`);
+      bad(`content別集計が想定外: ${JSON.stringify(result.byContent)}(期待値: post1=1, post2=1, (none)=1, post3=1, post4=1, contentJ=1, contentK=1, contentL=1, contentM=2, contentN=1, contentO=1, contentP=1, contentQ無し)`);
     }
     // landing pathはvisitごとに実際のentry point(最も早いlanding行)の1件だけを数える
     // (Codexレビュー指摘対応)。"/" = A/D/H-visit1/J/K/L/M-visit1/M-visit2/N/O/Pのentry。
@@ -562,18 +577,18 @@ async function main() {
     // page_viewed、Bの後続guide_view、Jの後続landing_view(2回目)・vocab_test_maker_
     // page_viewed、Pの後続vocab_test_maker_page_viewedは、いずれも同一visit内の
     // 後続ページ遷移としてbyPathへは加算されない(=/guide/eiken-2kyu-tangoはbyPathに
-    // 一切現れない)。Qはwindow開始前のlanding_view(/)がprecedingActivityRowsにのみ
-    // 存在しrowsには含まれないため、window内で唯一のLANDING_EVENT_NAMES行である
-    // vocab_test_maker_page_viewed(/tools/vocab-test-maker)がそのままentry行として
-    // 数えられる。
+    // 一切現れない)。Qは真のlanding(precedingActivityRowsにのみ存在するwindow開始前の
+    // landing_view、path="/")がウィンドウ外のため、その視座を含めてQ自体がbyPathに
+    // 一切現れない(window内のvocab_test_maker_page_viewedを誤ってentry行として
+    // 数えることはない。Codexレビュー指摘対応、9巡目、最重要)。
     if (
       result.byPath["/"] === 11 &&
-      result.byPath["/tools/vocab-test-maker"] === 3 &&
+      result.byPath["/tools/vocab-test-maker"] === 2 &&
       !("/guide/eiken-2kyu-tango" in result.byPath)
     ) {
-      ok("landing path別集計が、visitごとの実際のentry pointのみを数える(/=11[A,D,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P], /tools/vocab-test-maker=3[B,G,Q]、/guide/eiken-2kyu-tangoは同一visit内の後続遷移のため含まれない)");
+      ok("landing path別集計が、visitごとの実際のentry pointのみを数える(/=11[A,D,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P], /tools/vocab-test-maker=2[B,G]、/guide/eiken-2kyu-tangoは同一visit内の後続遷移のため含まれない。Qは真のlandingがウィンドウ開始前のため含まれない)");
     } else {
-      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=11, /tools/vocab-test-maker=3, /guide/eiken-2kyu-tangoは無し)`);
+      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=11, /tools/vocab-test-maker=2, /guide/eiken-2kyu-tangoは無し)`);
     }
 
     // ---- 検証: funnel件数(social起点セッションのみ) ----

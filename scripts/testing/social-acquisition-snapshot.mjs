@@ -354,14 +354,29 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
 
   // 2) LANDING_EVENT_NAMESのうち、そのイベント自身が属するvisitがsocialと判定された
   //    ものだけを対象にする(Codexレビュー指摘対応: landing_viewだけだとトップページ
-  //    以外に直接リンクした投稿のlandingを取りこぼす)。
-  const socialLandingEntries = [];
-  for (const r of rows) {
+  //    以外に直接リンクした投稿のlandingを取りこぼす)。visitの本当のlanding行は
+  //    precedingActivityRows側(ウィンドウ開始前)にしか無い場合がある: 境界をまたぐ
+  //    visitで、真のlanding(例: 23:55のlanding_view)がウィンドウ開始前に発生し、
+  //    その後の別ページへの遷移(例: 00:05のvocab_test_maker_page_viewed、これも
+  //    LANDING_EVENT_NAMESに含まれる)だけがウィンドウ内で発生するケース。この場合、
+  //    ウィンドウ内の遷移をそのままlandingとして数えると、実際には前のウィンドウで
+  //    既にlandingとして計上済みのvisitを二重計上し、着地pathも誤って報告してしまう
+  //    (Codexレビュー指摘対応、最重要)。そのためlanding候補はrows(ウィンドウ内)と
+  //    precedingActivityRows(ウィンドウ外の先行活動)の両方から集めてvisitごとに
+  //    最も早いlanding行を特定し、その行自身がウィンドウ内([startISO, endISO))に
+  //    収まっている場合のみ、このウィンドウのlandingとして採用する。
+  const earliestLandingByVisitKey = new Map();
+  for (const r of [...rows, ...precedingActivityRows]) {
     if (!LANDING_EVENT_NAMES.includes(r.event_name) || !r.anonymous_session_id) continue;
     const attr = findAttribution(r.anonymous_session_id, r.occurred_at);
     if (!attr || !attr.bucket) continue;
-    socialLandingEntries.push({ row: r, attr, key: visitKey(r.anonymous_session_id, attr) });
+    const key = visitKey(r.anonymous_session_id, attr);
+    const existing = earliestLandingByVisitKey.get(key);
+    if (!existing || r.occurred_at < existing.row.occurred_at) earliestLandingByVisitKey.set(key, { row: r, attr, key });
   }
+  const socialLandingEntries = [...earliestLandingByVisitKey.values()].filter(
+    ({ row: r }) => r.occurred_at >= startISO && r.occurred_at < endISO,
+  );
   const socialLandingIdentities = new Set(socialLandingEntries.map((e) => e.key));
 
   const byBucket = new Map();
@@ -378,18 +393,10 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   for (const bucket of SOCIAL_BUCKETS) byBucket.set(bucket, identitiesByBucket.get(bucket)?.size ?? 0);
 
   // landing pathはvisit(identity)ごとに、実際に最初に到達したentry pointの1行だけを
-  // 数える。同一visit内で例えばlanding_view(/)の後にvocab_test_maker_page_viewed
-  // (/tools/vocab-test-maker)へ遷移した場合、後者は「そのvisitの着地先」ではなく
-  // 単なるvisit中の後続ページ遷移であり、これをそのまま加算するとlanding path集計に
-  // 後続ページが混入し、同一visitで複数のLANDING_EVENT_NAMES行が発生するたびに
-  // 二重計上もされてしまう(Codexレビュー指摘対応)。visitKeyごとに最も早い
-  // occurred_atの行だけを採用する。
-  const entryRowByVisitKey = new Map();
-  for (const { row: r, key } of socialLandingEntries) {
-    const existing = entryRowByVisitKey.get(key);
-    if (!existing || r.occurred_at < existing.occurred_at) entryRowByVisitKey.set(key, r);
-  }
-  for (const r of entryRowByVisitKey.values()) {
+  // 数える。socialLandingEntriesは上ですでにvisitKeyごとの最も早いlanding行(かつ
+  // ウィンドウ内)に絞られているため、そのままpathを加算すればよい(Codexレビュー
+  // 指摘対応)。
+  for (const { row: r } of socialLandingEntries) {
     const p = r.path ?? "(不明)";
     byPath.set(p, (byPath.get(p) ?? 0) + 1);
   }

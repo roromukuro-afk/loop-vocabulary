@@ -2,14 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { trackServerEvent } from "@/lib/analytics/trackServerEvent";
+import { isNewGoogleOauthSignup } from "@/lib/auth/googleOauthSignup";
 
 export const dynamic = "force-dynamic";
-
-// signup(/login両方が同じ/auth/callbackを経由するため、created_atとlast_sign_in_atが
-// (数秒以内の)ほぼ同時刻であることを「このOAuth往復自体が新規signupだった」ことの
-// 判定に使う(Supabaseは新規ユーザー作成時にこの2つを同時刻で設定するため。既存
-// ユーザーの再ログインではlast_sign_in_atだけが更新されcreated_atは過去のまま)。
-const NEW_SIGNUP_THRESHOLD_MS = 10_000;
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -52,22 +47,27 @@ export async function GET(req: NextRequest) {
   // user_idがanalytics_eventsに一切残らずsocial起点signupとして検出できなかった。
   // /auth/callbackはlogin/signup両方の入口を兼ねるため、既存ユーザーの再ログインでは
   // 発火しないよう、created_at/last_sign_in_atの近さで「新規signupだったか」を判定する。
+  //
+  // ただし/auth/callbackはOAuth(Google)だけでなく、src/app/login/page.tsxの
+  // signInWithOtp(マジックリンク)経由のログインも同じコールバックを共有している。
+  // マジックリンクで新規ユーザーが作成された場合もcreated_at/last_sign_in_atは
+  // ほぼ同時刻になるため、provider種別を確認せずに判定するとマジックリンク経由の
+  // 新規signupまでmethod="google"のOAuth signupとして誤記録してしまう
+  // (Codexレビュー指摘対応)。isNewGoogleOauthSignup()がuser.app_metadata.providerを
+  // 確認するため、実際にGoogle OAuth経由の新規signupだった場合のみ発火する。
   const user = data.user;
-  if (user?.created_at && user.last_sign_in_at) {
-    const isNewSignup = Math.abs(new Date(user.last_sign_in_at).getTime() - new Date(user.created_at).getTime()) < NEW_SIGNUP_THRESHOLD_MS;
-    if (isNewSignup) {
-      const anonymousSessionId = req.cookies.get("lv_aid")?.value ?? null;
-      // サーバーレス環境ではレスポンスを返した後、awaitしていない処理の継続実行が
-      // 保証されない(Codexレビュー指摘対応)。trackServerEvent()自体は例外を握りつぶし
-      // 呼び出し元の処理を止めないため、ここでawaitしてもリダイレクト自体が失敗する
-      // ことはない。
-      await trackServerEvent("signup_oauth_completed", {
-        userId: user.id,
-        anonymousSessionId,
-        properties: { method: "google" },
-        e2eHeaderValue: req.headers.get("x-lv-e2e-test"),
-      });
-    }
+  if (isNewGoogleOauthSignup(user)) {
+    const anonymousSessionId = req.cookies.get("lv_aid")?.value ?? null;
+    // サーバーレス環境ではレスポンスを返した後、awaitしていない処理の継続実行が
+    // 保証されない(Codexレビュー指摘対応)。trackServerEvent()自体は例外を握りつぶし
+    // 呼び出し元の処理を止めないため、ここでawaitしてもリダイレクト自体が失敗する
+    // ことはない。
+    await trackServerEvent("signup_oauth_completed", {
+      userId: user.id,
+      anonymousSessionId,
+      properties: { method: "google" },
+      e2eHeaderValue: req.headers.get("x-lv-e2e-test"),
+    });
   }
 
   return response;

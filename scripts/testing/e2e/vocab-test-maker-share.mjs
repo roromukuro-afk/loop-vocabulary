@@ -195,11 +195,16 @@ async function main() {
     }
 
     // ---------- 7. navigator.share がAbortError(ユーザーキャンセル)で拒否された場合、
-    // クリップボードへは自動フォールバックしない ----------
+    // クリップボードへは自動フォールバックしない。共有シート自体は実際に開いた上での
+    // キャンセルのため、vocab_test_maker_share_invoked(method=web_share)はちょうど
+    // 1回だけ発火する(Codexレビュー指摘対応: 以前はtry開始前に楽観的にweb_shareを
+    // 記録していたため、この経路自体では正しく1回のままだったが、8のフォールバック
+    // 経路では2回に水増しされていた。回帰確認として揃えて検証する) ----------
     {
       const context = await browser.newContext();
       const page = await context.newPage();
       const errors = collectErrors(page);
+      const captured = await interceptAnalyticsEvents(page);
 
       await page.addInitScript(() => {
         window.__clipboardCalls = [];
@@ -225,17 +230,31 @@ async function main() {
         fail(`AbortError後にクリップボードへフォールバックしてしまっている: ${JSON.stringify(clipboardCallsAfterAbort)}`);
       }
 
+      const abortShareEvents = captured.filter((e) => e.event_name === "vocab_test_maker_share_invoked");
+      if (abortShareEvents.length === 1 && abortShareEvents[0]?.properties?.method === "web_share") {
+        ok("AbortErrorケースでもvocab_test_maker_share_invoked(method=web_share)がちょうど1回だけ発火する(共有シート自体は開いているため)");
+      } else {
+        fail(`AbortErrorケースでのイベント発火が想定外: ${JSON.stringify(abortShareEvents)}`);
+      }
+
       if (errors.length === 0) ok("AbortErrorケースの操作中にconsole error/5xxなし");
       else fail(`AbortErrorケースの操作中にエラー検出: ${errors.join(" | ")}`);
       await context.close();
     }
 
     // ---------- 8. navigator.share がAbortError以外の理由で拒否された場合、
-    // クリップボードコピーへfallbackする(Codexレビュー指摘対応) ----------
+    // クリップボードコピーへfallbackする(Codexレビュー指摘対応)。この経路では
+    // 共有シート自体が実際には開いていない可能性が高いため、
+    // vocab_test_maker_share_invokedはmethod=copy_linkでちょうど1回だけ発火し、
+    // web_shareは一切記録されない(Codexレビュー指摘対応、9巡目: 以前はtry開始前の
+    // 楽観的なweb_share記録+copyLink()自身のcopy_link記録で1クリックが2件に
+    // 水増しされ、かつ実際には開いていないshare sheetがweb_share起動として
+    // 誤って記録されていた) ----------
     {
       const context = await browser.newContext();
       const page = await context.newPage();
       const errors = collectErrors(page);
+      const captured = await interceptAnalyticsEvents(page);
 
       await page.addInitScript(() => {
         window.__clipboardCalls = [];
@@ -259,6 +278,13 @@ async function main() {
         ok(`navigator.shareがAbortError以外(NotAllowedError等)で拒否された場合、クリップボードへ正規URLがコピーされる (${clipboardCallsAfterOperationalFailure[0]})`);
       } else {
         fail(`operational failure後のクリップボードフォールバックが想定外: ${JSON.stringify(clipboardCallsAfterOperationalFailure)}`);
+      }
+
+      const operationalFailureShareEvents = captured.filter((e) => e.event_name === "vocab_test_maker_share_invoked");
+      if (operationalFailureShareEvents.length === 1 && operationalFailureShareEvents[0]?.properties?.method === "copy_link") {
+        ok("operational failureケースではvocab_test_maker_share_invoked(method=copy_link)がちょうど1回だけ発火し、web_shareは記録されない(Codexレビュー指摘対応: 1クリックでの2重計上・失敗したshare sheetの誤記録を修正)");
+      } else {
+        fail(`operational failureケースでのイベント発火が想定外: ${JSON.stringify(operationalFailureShareEvents)}(期待値: method=copy_linkで1件のみ)`);
       }
 
       if (errors.length === 0) ok("operational failureケースの操作中にconsole error/5xxなし");
