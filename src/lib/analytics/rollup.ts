@@ -331,16 +331,29 @@ async function countDistinctSessionOrUser(
   return set.size;
 }
 
-// signup_completedステップ専用のカウント(Codexレビュー指摘対応、19巡目、最重要)。
-// signup_completed(クライアント側、/signup・/loginのGoogle OAuth開始直前に発火。この
-// 時点ではまだ未認証のためuser_idを持たない)とsignup_oauth_completed(サーバー側、
-// /auth/callbackから認証完了後に発火。user_idを持つ)の両方を1つのsignup完了として
-// 数える。countDistinctSessionOrUser()と同じuser_id優先dedupeをそのまま使うと、
-// /signupのGoogle OAuth経路(同一anonymous_session_idで、signup_completedはuser_id無し・
-// signup_oauth_completedはuser_id有りの2行が発生する)で同じ1件のsignupが2件として
-// 二重計上されてしまう。anonymous_session_idは両方の行に必ず含まれる共通の識別子の
-// ため、これを優先してdedupeする(user_idはこのcookieが欠落した場合の保険としてのみ
-// 使う)。
+// signup_completedステップ専用のカウント(Codexレビュー指摘対応、19巡目・20巡目、
+// 最重要)。signup_completed(クライアント側、/signupのOAuthリダイレクト直前に発火する
+// 「開始した」だけの楽観的マーカー)とsignup_oauth_completed(サーバー側、
+// /auth/callbackから実際の認証完了後にのみ発火する検証済みの完了イベント)の両方を
+// 1つのsignup完了として数える必要がある(/loginのGoogle OAuth新規signupはこちらしか
+// 発火しない)。ただしGoogle経路については、signup_completed(method=google)を
+// そのまま数に含めると2つの問題が生じる:
+//  (1) 同一日内の二重計上: 同一anonymous_session_idで、signup_completedはOAuth
+//      リダイレクト前=未認証でuser_id無し、signup_oauth_completedは認証後で
+//      user_id有りの2行が発生し、user_id優先dedupeだと別人として扱われてしまう
+//      (Codexレビュー指摘対応、19巡目)。
+//  (2) 日付境界をまたぐ二重計上: このカウント自体が日ごとに独立したクエリとして
+//      呼ばれるため、OAuth開始(signup_completed)がJST日付境界の直前、callback完了
+//      (signup_oauth_completed)が直後に発生した場合、同一sidが「前日の1件」と
+//      「翌日の1件」として別々の日次クエリでそれぞれ1件ずつカウントされ、
+//      複数日ファネル合計では2件に水増しされてしまう(Codexレビュー指摘対応、
+//      20巡目、最重要:「Deduplicate OAuth completion across daily boundaries」)。
+// (1)(2)いずれも、signup_completed(method=google)を「開始した」という未検証の
+// シグナルとして完全に除外し、Google経由の完了は必ずsignup_oauth_completed
+// (常にただ1つの原子的なイベントであり、日付をまたいで分裂しない)だけを唯一の
+// 正とすることで同時に解消できる(Codexレビュー指摘20巡目の提案どおり)。
+// signup_completed(method=email等、google以外)は対応するoauth_completedイベントが
+// 存在しないため引き続きそのまま数える。
 async function countDistinctSignupCompletions(
   admin: Admin,
   startISO: string,
@@ -349,7 +362,7 @@ async function countDistinctSignupCompletions(
 ): Promise<number> {
   const { data, error } = await admin
     .from("analytics_events")
-    .select("user_id, anonymous_session_id")
+    .select("event_name, user_id, anonymous_session_id, properties")
     .in("event_name", ["signup_completed", "signup_oauth_completed"])
     .eq("is_test_event", false)
     .gte("occurred_at", startISO)
@@ -360,6 +373,10 @@ async function countDistinctSignupCompletions(
   for (const row of data ?? []) {
     const uid = row.user_id as string | null;
     if (uid && testAccountIds.has(uid)) continue;
+    if (row.event_name === "signup_completed") {
+      const props = (row.properties ?? {}) as Record<string, unknown>;
+      if (props.method === "google") continue;
+    }
     const sid = row.anonymous_session_id as string | null;
     if (sid) {
       set.add(sid);

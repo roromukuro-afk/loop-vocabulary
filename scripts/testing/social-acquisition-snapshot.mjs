@@ -448,11 +448,28 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
         // 期限切れ(35分>30分)と誤判定されていた。
         const rowSource = r.source ?? undefined;
         const rowCampaign = r.campaign || "(none)";
-        const { chosen: target } = pickMatchingVisit(visits, r.occurred_at, rowSource, rowCampaign);
+        const { chosen: target, matches } = pickMatchingVisit(visits, r.occurred_at, rowSource, rowCampaign);
         if (target) {
-          const gapMs = Date.parse(r.occurred_at) - Date.parse(target.lastSeenAt);
-          if (gapMs <= RELOAD_DEDUPE_WINDOW_MS && Date.parse(r.occurred_at) > Date.parse(target.lastSeenAt)) {
-            target.lastSeenAt = r.occurred_at;
+          // 行自身のsource/campaignに一致する候補visitがoccurredAt時点で複数active
+          // (=同一source+campaignで複数content並行visit)な場合、行自身にはどちらの
+          // タブ由来かを判別する手がかりが一切無い。修正前はmatches[last](=時系列
+          // 最新の1件)だけを延長していたため、「たまたま選ばれなかった側」の
+          // lastSeenAtが凍結されたまま徐々に非active化し、本来ambiguousなはずの
+          // 後続行が、片方が期限切れになったことで誤って残った側への確定attribution
+          // にされてしまっていた(Codexレビュー指摘対応、20巡目、最重要:「Keep
+          // unresolved same-campaign tabs ambiguous」)。行がどちらに属すか判別
+          // できない以上、occurredAt時点で実際にactiveな候補「全員」のlastSeenAtを
+          // 延長し、どちらか一方だけを不当に優先しない(=曖昧さをそのまま後続行へ
+          // 伝播させる)。
+          const activeMatches = matches.filter(
+            (m) => Date.parse(r.occurred_at) - Date.parse(m.lastSeenAt) <= RELOAD_DEDUPE_WINDOW_MS,
+          );
+          const targets = activeMatches.length > 0 ? activeMatches : [target];
+          for (const t of targets) {
+            const gapMs = Date.parse(r.occurred_at) - Date.parse(t.lastSeenAt);
+            if (gapMs <= RELOAD_DEDUPE_WINDOW_MS && Date.parse(r.occurred_at) > Date.parse(t.lastSeenAt)) {
+              t.lastSeenAt = r.occurred_at;
+            }
           }
         }
       }
