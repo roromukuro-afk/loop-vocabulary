@@ -630,6 +630,25 @@ async function main() {
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}ee`, source: "x", campaign: "campEE", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentEEB" }, occurred_at: offset(60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "vocab_test_maker_generated", anonymous_session_id: `${prefix}ee`, source: "x", campaign: "campEE", path: null, user_id: null, properties: {}, occurred_at: offset(20 * 60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}ee`, source: "x", campaign: "campEE", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: offset(40 * 60 * 1000), is_test_event: false, schema_version: 1 },
+
+      // FF: EEと同様に同一source+campaignで複数content並行visit(タブA=contentFFA、
+      // タブB=contentFFB)が発生している状態で、その後test accountとして認証した行
+      // (vocab_test_maker_generated、90秒目)が発生するケース(Codexレビュー指摘対応、
+      // 23巡目、最重要:「Taint every ambiguous test-account visit」)。修正前は
+      // test-account紐付け判定にfindAttribution()をそのまま使っており、90秒目の行は
+      // 両タブとも既にactiveなため曖昧判定が発動し、matches[last](=時系列最新の
+      // タブB)だけがtaint対象になっていた。その結果、実際には同じブラウザ(同一
+      // cookie)のタブAで0秒目に発生した正当なlanding_view(その時点ではタブBがまだ
+      // 存在しないため曖昧にならず、単独でcontentFFAへ確定attributionされる)が
+      // taintされず、test accountによる操作であるにもかかわらず実trafficとして
+      // social landing/funnel集計に混入してしまっていた。修正後はtest-account紐付け
+      // 専用のfindAttributionsForTainting()が、90秒目の行のoccurredAt時点で実際に
+      // activeな候補「両方」(タブA・タブB)を漏れなくtaintするため、タブAの0秒目の
+      // landing_viewも正しく除外される。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}ff`, source: "x", campaign: "campFF", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentFFA" }, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}ff`, source: "x", campaign: "campFF", path: "/", user_id: null, properties: {}, occurred_at: offset(100), is_test_event: false, schema_version: 1 },
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}ff`, source: "x", campaign: "campFF", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentFFB" }, occurred_at: offset(60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "vocab_test_maker_generated", anonymous_session_id: `${prefix}ff`, source: "x", campaign: "campFF", path: null, user_id: testAccountUserId, properties: {}, occurred_at: offset(90 * 1000), is_test_event: false, schema_version: 1 },
     ];
     const { error: insertErr } = await admin.from("analytics_events").insert(rows);
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
@@ -1004,6 +1023,30 @@ async function main() {
       ok('マーカー以外の通常のattributed行によるlastSeenAt延長が、occurredAt時点で判別不能な複数のactive候補全員に対して行われる(EE: campEE=1、20分目の行はfunnelCountsByContent["(ambiguous)"].vocab_test_maker_generated=1として計上され、40分目の行も"(ambiguous)"のまま[上のY/EE合算assertionで検証済み]。contentEEA/contentEEBはどこにも現れない=誤って一方だけが確定attributionされていない)');
     } else {
       bad(`lastSeenAt延長の対象が想定外: byCampaign.campEE=${result.byCampaign["campEE"]}, funnelCountsByContent["(ambiguous)"]=${JSON.stringify(result.funnelCountsByContent?.["(ambiguous)"])}, byContent.contentEEA=${result.byContent["contentEEA"]}, byContent.contentEEB=${result.byContent["contentEEB"]}(期待値: campEE=1, "(ambiguous)".vocab_test_maker_generated=1, contentEEA/contentEEBは無し)`);
+    }
+
+    // ---- 検証: test-account紐付け判定は、行自身のoccurredAt時点で判別不能な複数の
+    // active候補と一致する場合、そのうち1件だけでなく全員をtaintする(Codexレビュー
+    // 指摘対応、23巡目、最重要:「Taint every ambiguous test-account visit」)。FFは
+    // 同一source+campaign(campFF)のタブA(contentFFA)・タブB(contentFFB)が並行visit
+    // している状態で、90秒目にtest accountとして認証した行(vocab_test_maker_generated、
+    // user_id=testAccountUserId)が発生する。この90秒目の行自身はタブA・タブB両方が
+    // activeなため曖昧(判別不能)である。修正前はtest-account紐付け判定にfindAttribution()
+    // をそのまま使っており、曖昧な場合はmatches[last](=タブB)だけをtaint対象にして
+    // いたため、同じブラウザ(同一cookie)のタブAで0秒目に発生した正当なlanding_view
+    // (その時点ではタブBがまだ存在しないため単独でcontentFFAへ確定attributionされ、
+    // taintされない)が、test accountによる操作であるにもかかわらず実trafficとして
+    // 混入していた。修正後はoccurredAt時点で実際にactiveな候補(タブA・タブB)両方が
+    // taintされるため、タブAの0秒目のlanding_viewも正しく除外され、campFF/contentFFA/
+    // contentFFBはいずれもsocial集計に一切現れない。 ----
+    if (
+      !("campFF" in result.byCampaign) &&
+      !("contentFFA" in result.byContent) &&
+      !("contentFFB" in result.byContent)
+    ) {
+      ok("test-account紐付け判定が、行自身のoccurredAt時点で判別不能な複数のactive候補全員をtaintする(FF: campFF/contentFFA/contentFFBはいずれもsocial集計に現れない。修正前はタブB[matches[last]]だけがtaintされ、タブAの0秒目のlanding_viewが実trafficとして混入していた)");
+    } else {
+      bad(`test-account紐付けのtaint対象が想定外: byCampaign.campFF=${result.byCampaign["campFF"]}, byContent.contentFFA=${result.byContent["contentFFA"]}, byContent.contentFFB=${result.byContent["contentFFB"]}(期待値: いずれも無し)`);
     }
 
     // ---- 検証: 通常のattributed行(reloadマーカーではない)からもvisitの活動時刻が

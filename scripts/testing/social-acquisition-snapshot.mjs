@@ -568,22 +568,49 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     return `${sid}::${attr.occurred_at}`;
   }
 
+  // test-account紐付け判定専用(Codexレビュー指摘対応、23巡目、最重要:「Taint every
+  // ambiguous test-account visit」)。findAttribution()はレポート集計のため「誤った
+  // 断定をしない」設計になっており、曖昧な場合は候補1件だけをcontent="(ambiguous)"と
+  // して返す(content違い)か、null(bucket違い)を返す。しかしtest-account紐付けの
+  // 目的は逆で、「実際にどのvisitがtest accountの認証によるものか判別できない」
+  // 場合は、判別不能な候補"全員"を安全側でtaintしなければならない。同一source+
+  // campaignで複数タブが並行visitしている状態でtest accountとして認証した場合、
+  // findAttribution()が選ぶ1件(content違いのケース)や0件(bucket違いのケース)だけを
+  // taintすると、実際に認証に使われたタブが別候補だった場合にそのtest visitが
+  // 素通りしてsocial集計に混入してしまう(content違いのケース)、またはどちらの
+  // タブもtaintされずに両方とも素通りしてしまう(bucket違いのケース)。そのため
+  // ここではfindAttribution()を呼ばず、pickMatchingVisit()が返すmatchesのうち
+  // occurredAt時点で実際にactiveな候補を直接列挙し、その全員をtaint対象とする。
+  function findAttributionsForTainting(sid, occurredAt, rowSource, rowCampaign) {
+    const arr = attributionEventsBySession.get(sid);
+    if (!arr || arr.length === 0) return [];
+    const { chosen, matches } = pickMatchingVisit(arr, occurredAt, rowSource, rowCampaign);
+    if (!chosen) return [];
+    const gapMs = Date.parse(occurredAt) - Date.parse(chosen.lastSeenAt);
+    if (gapMs > RELOAD_DEDUPE_WINDOW_MS) return [];
+    const activeMatches = matches.filter(
+      (m) => Date.parse(occurredAt) - Date.parse(m.lastSeenAt) <= RELOAD_DEDUPE_WINDOW_MS,
+    );
+    return activeMatches.length > 0 ? activeMatches : [chosen];
+  }
+
   // is_test_account=trueのユーザーに紐付くvisitを特定する(Codexレビュー指摘対応、
   // 11巡目、最重要)。「行」や「セッション」単位ではなく「visit」単位で判定する:
-  // 実際にtest accountのuser_idを持つ行が(findAttribution経由で)割り当てられる
-  // visitだけを対象にする。同じcookieの中に、test accountとは無関係な別のvisit
-  // (異なるoccurred_atのtraffic_source_detectedを起点とする)が存在しても、そちらは
-  // このSetに含まれない。followingActivityRowsRawも含める(Codexレビュー指摘対応、
-  // 12巡目、最重要): endISO直後に発生したtest account認証行もこのループで
+  // 実際にtest accountのuser_idを持つ行が(findAttributionsForTainting経由で)
+  // 割り当てられるvisitだけを対象にする。同じcookieの中に、test accountとは無関係な
+  // 別のvisit(異なるoccurred_atのtraffic_source_detectedを起点とする)が存在しても、
+  // そちらはこのSetに含まれない。followingActivityRowsRawも含める(Codexレビュー
+  // 指摘対応、12巡目、最重要): endISO直後に発生したtest account認証行もこのループで
   // 見つけられるようにする(=endISO直前の匿名landingが、endISO直後にtest account
   // として認証される同一visitに属する場合、その認証行自体がここに含まれていなければ
   // 検出できず、素通りしてしまう)。
   const testAccountVisitKeys = new Set();
   for (const r of [...rows, ...precedingActivityRows, ...followingActivityRowsRaw]) {
     if (!r.user_id || !testAccountIds.has(r.user_id) || !r.anonymous_session_id) continue;
-    const attr = findAttribution(r.anonymous_session_id, r.occurred_at, r.source ?? undefined, r.campaign);
-    if (!attr) continue;
-    testAccountVisitKeys.add(visitKey(r.anonymous_session_id, attr));
+    const attrs = findAttributionsForTainting(r.anonymous_session_id, r.occurred_at, r.source ?? undefined, r.campaign);
+    for (const attr of attrs) {
+      testAccountVisitKeys.add(visitKey(r.anonymous_session_id, attr));
+    }
   }
   function isTestAccountVisit(sid, attr) {
     return testAccountVisitKeys.has(visitKey(sid, attr));
