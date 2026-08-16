@@ -10,6 +10,7 @@
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAllowedEventName, sanitizeProperties } from "./eventSchema";
+import { normalizeServerEventAttribution } from "./serverEventAttribution";
 import { computeIsTestEvent, isProductionEnvironment } from "./testEventClassification";
 
 export async function trackServerEvent(
@@ -25,16 +26,26 @@ export async function trackServerEvent(
      * 引数を渡さなくても自動的にis_test_event=trueになる)。
      */
     e2eHeaderValue?: string | null;
+    /**
+     * 呼び出し元がクライアント側で判定済みのsource/campaignをそのまま渡したい場合に
+     * 使う(Codexレビュー指摘対応、16巡目、最重要: src/app/auth/callback/route.ts の
+     * signup_oauth_completedがこれを使う。詳細はsrc/lib/analytics/track.tsの
+     * buildOAuthAttributionQuery()コメント参照)。渡さない場合は従来どおりnullのまま
+     * 保存される(=クライアント側の対応する行を突き合わせて後から解決するしかない)。
+     */
+    source?: string | null;
+    campaign?: string | null;
   } = {},
 ): Promise<void> {
   try {
     if (!isAllowedEventName(eventName)) return;
     const admin = createAdminClient();
-    // anonymous_session_idは/api/analytics/events(クライアント側送信経路)と同じ
-    // 「未信用のまま100文字に切り詰めて保存」方針(rate limit以外の用途には使わない
-    // ただの相関キーであり、認証やアクセス制御には使わない)。
+    // anonymous_session_id/source/campaignはいずれも/api/analytics/events(クライアント側
+    // 送信経路)と同じ「未信用のまま100文字に切り詰めて保存」方針(rate limit以外の
+    // 用途には使わないただの相関キーであり、認証やアクセス制御には使わない)。
     const anonymousSessionId =
       typeof opts.anonymousSessionId === "string" ? opts.anonymousSessionId.slice(0, 100) : null;
+    const { source, campaign } = normalizeServerEventAttribution(opts.source, opts.campaign);
     const { error } = await admin.from("analytics_events").insert({
       event_name: eventName,
       occurred_at: new Date().toISOString(),
@@ -42,8 +53,8 @@ export async function trackServerEvent(
       user_id: opts.userId ?? null,
       page_type: null,
       path: null,
-      source: null,
-      campaign: null,
+      source,
+      campaign,
       device_category: "unknown",
       properties: sanitizeProperties(eventName, opts.properties ?? {}),
       schema_version: 1,

@@ -88,6 +88,29 @@ export function classifySocialBucket(source, medium) {
   return "other_social";
 }
 
+// 複数タブが同じcookie(sid)を共有して並行してsocial visitしている場合に、
+// occurredAt以前の候補visitの中から行自身のrawSource/campaignと一致する最新visitを
+// 優先して選ぶ(一致が無ければ単純に時系列最新へfallback)共通ロジック。visit境界の
+// 順方向再構築(lastSeenAt延長)とfindAttribution()の両方から使う(Codexレビュー
+// 指摘対応、16巡目、最重要): 以前はこのロジックがfindAttribution()にしか実装されて
+// おらず、順方向走査自身は単純に「直前に作成したvisit(=時系列上最後に始まった
+// visit)」のlastSeenAtを延長していたため、並行タブで後から開いたタブのmarkerが
+// 先に作られたタブのlastSeenAtを乗っ取ってしまい、先に作られたタブの後続conversionが
+// 実際には30分以内の継続活動があったにもかかわらず期限切れと誤判定されていた。
+// 呼び出し元がmatches配列自体(曖昧判定等に使う)も必要な場合があるため、
+// {chosen, matches}をまとめて返す。
+function pickMatchingVisit(visits, occurredAt, rowSource, rowCampaign) {
+  const candidates = visits.filter((entry) => entry.occurred_at <= occurredAt);
+  if (candidates.length === 0) return { chosen: null, matches: [] };
+  const normalizedRowSource = rowSource ?? undefined;
+  const normalizedRowCampaign = rowCampaign || "(none)";
+  const matches = candidates.filter(
+    (entry) => entry.rawSource === normalizedRowSource && entry.campaign === normalizedRowCampaign,
+  );
+  const chosen = matches.length > 0 ? matches[matches.length - 1] : candidates[candidates.length - 1];
+  return { chosen, matches };
+}
+
 function windowRangeISO(startDateStr, endDateStrInclusive) {
   const { startISO } = jstDayRangeISO(startDateStr);
   const { endISO } = jstDayRangeISO(endDateStrInclusive);
@@ -374,15 +397,31 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
         }
       } else if (current) {
         // マーカー以外の行(landing/funnel等)自身は新しいvisitを開始したり既存visitを
-        // 打ち切ったりしない。現在開いているvisitの活動時刻からRELOAD_DEDUPE_WINDOW_MS
-        // 以内であれば、その行自身もvisitの「活動」とみなしlastSeenAtを延長する
-        // (Codexレビュー指摘対応、6巡目、最重要)。修正前はlastSeenAtがreloadマーカー
-        // からしか延長されなかったため、マーカーが0分・attributed行が20分・別のconversion
-        // が35分で発生した場合(=実際の無操作期間は15分のみ)、35分目の行がマーカー
-        // 自身の時刻(0分)基準で期限切れ(35分>30分)と誤判定されていた。
-        const gapMs = Date.parse(r.occurred_at) - Date.parse(current.lastSeenAt);
-        if (gapMs <= RELOAD_DEDUPE_WINDOW_MS && Date.parse(r.occurred_at) > Date.parse(current.lastSeenAt)) {
-          current.lastSeenAt = r.occurred_at;
+        // 打ち切ったりしない。延長すべきなのは「直前に作成されたvisit(current、=
+        // 時系列上最後に始まったvisit)」ではなく、行自身のrawSource/campaignと一致する
+        // visitである(findAttribution()と同じpickMatchingVisit()を使う。Codexレビュー
+        // 指摘対応、16巡目、最重要)。複数タブが並行visitしている場合、修正前は単純に
+        // `current`(=最後に作られたvisit、たまたま別タブの可能性がある)を延長して
+        // いたため、例えばXマーカー(0分)の1分後にThreadsマーカーが立つと、20分目の
+        // X活動が誤ってThreadsのlastSeenAtを延長し、X visit自身のlastSeenAtは0分の
+        // ままになる。その結果、40分目の別のX conversionは実際には20分の無操作期間
+        // (20分目→40分目)しか無いにもかかわらず、X visit自身のlastSeenAt(0分)基準で
+        // 40分>30分と誤って期限切れ判定されてしまっていた。
+        //
+        // 現在開いているvisitの活動時刻からRELOAD_DEDUPE_WINDOW_MS以内であれば、その
+        // 行自身もvisitの「活動」とみなしlastSeenAtを延長する(Codexレビュー指摘対応、
+        // 6巡目、最重要)。修正前はlastSeenAtがreloadマーカーからしか延長されなかった
+        // ため、マーカーが0分・attributed行が20分・別のconversionが35分で発生した場合
+        // (=実際の無操作期間は15分のみ)、35分目の行がマーカー自身の時刻(0分)基準で
+        // 期限切れ(35分>30分)と誤判定されていた。
+        const rowSource = r.source ?? undefined;
+        const rowCampaign = r.campaign || "(none)";
+        const { chosen: target } = pickMatchingVisit(visits, r.occurred_at, rowSource, rowCampaign);
+        if (target) {
+          const gapMs = Date.parse(r.occurred_at) - Date.parse(target.lastSeenAt);
+          if (gapMs <= RELOAD_DEDUPE_WINDOW_MS && Date.parse(r.occurred_at) > Date.parse(target.lastSeenAt)) {
+            target.lastSeenAt = r.occurred_at;
+          }
         }
       }
     }
@@ -432,20 +471,27 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   // どちらのcontentか正しく判定する術は無いため、誤った断定はせず"(ambiguous)"を
   // 返す。source/campaign/bucket単位の集計はcontentに依存しないため、この場合も
   // 引き続き正しい。
+  //
+  // ただし、この曖昧判定はoccurredAt時点で実際に「並行してactive」なvisit同士にのみ
+  // 適用すべきである(Codexレビュー指摘対応、16巡目、最重要)。修正前はmatches配列に
+  // occurredAtよりRELOAD_DEDUPE_WINDOW_MSを大きく超えて古い(=とっくに終了した)過去の
+  // 同一source+campaign visitまで無条件に含めていたため、例えば数日前に同じcampaignの
+  // 別投稿(content違い)を踏んだだけの無関係な過去visitが、今日の新しいvisitと
+  // content違いで衝突し、今日のconversionまで誤って"(ambiguous)"にされてしまって
+  // いた。matches自体(chosenの選択)は変えず、曖昧判定の対象だけを「occurredAt時点で
+  // 実際にactive(=lastSeenAtからのgapがRELOAD_DEDUPE_WINDOW_MS以内)なmatch」に
+  // 絞り込む。
   function findAttribution(sid, occurredAt, rowSource, rowCampaign) {
     const arr = attributionEventsBySession.get(sid);
     if (!arr || arr.length === 0) return null;
-    const candidates = arr.filter((entry) => entry.occurred_at <= occurredAt);
-    if (candidates.length === 0) return null;
-    const normalizedRowSource = rowSource ?? undefined;
-    const normalizedRowCampaign = rowCampaign || "(none)";
-    const matches = candidates.filter(
-      (entry) => entry.rawSource === normalizedRowSource && entry.campaign === normalizedRowCampaign,
-    );
-    const chosen = matches.length > 0 ? matches[matches.length - 1] : candidates[candidates.length - 1];
+    const { chosen, matches } = pickMatchingVisit(arr, occurredAt, rowSource, rowCampaign);
+    if (!chosen) return null;
     const gapMs = Date.parse(occurredAt) - Date.parse(chosen.lastSeenAt);
     if (gapMs > RELOAD_DEDUPE_WINDOW_MS) return null;
-    if (matches.length > 1 && new Set(matches.map((m) => m.content)).size > 1) {
+    const activeMatches = matches.filter(
+      (m) => Date.parse(occurredAt) - Date.parse(m.lastSeenAt) <= RELOAD_DEDUPE_WINDOW_MS,
+    );
+    if (activeMatches.length > 1 && new Set(activeMatches.map((m) => m.content)).size > 1) {
       return { ...chosen, content: "(ambiguous)" };
     }
     return chosen;

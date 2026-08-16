@@ -37,6 +37,7 @@
     "test:adsense-auto-ads-guard": "node scripts/testing/test-adsense-auto-ads-guard.mjs",
     "test:analytics-event-sanitize": "node scripts/testing/test-analytics-event-sanitize.mjs",
     "test:google-oauth-signup-detection": "node scripts/testing/test-google-oauth-signup-detection.mjs",
+    "test:track-server-event-attribution": "node scripts/testing/test-track-server-event-attribution.mjs",
     "test:social-referrer-classification": "node scripts/testing/test-social-referrer-classification.mjs",
     "test:analytics-environment-classification": "node scripts/testing/test-analytics-environment-classification.mjs",
     "test:analytics-environment-isolation": "node scripts/testing/e2e/analytics-environment-isolation.mjs",

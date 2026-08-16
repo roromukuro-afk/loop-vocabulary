@@ -152,6 +152,30 @@ function detectTrafficSource(): TrafficSource {
   return result;
 }
 
+/**
+ * OAuth(Google)ラウンドトリップ後もタブ自身のsource/campaignを維持するために使う
+ * クエリ文字列(例: "lv_source=x&lv_campaign=camp1")を返す(Codexレビュー指摘対応、
+ * 16巡目、最重要)。/auth/callbackはサーバー側で完結するためsessionStorageへ一切
+ * アクセスできず、複数タブが同じlv_aid cookieを共有している場合、そこで発火する
+ * signup_oauth_completedはsource/campaignを一切持たないままscripts/testing/
+ * social-acquisition-snapshot.mjsのfindAttribution()に渡ってしまい、行自身の
+ * source/campaign一致による判定を使えず、時系列最新のvisitへ誤って帰属してしまって
+ * いた(=タブAでOAuth完了してもタブBのvisitへsignupが付け替わる)。呼び出し元
+ * (signup/loginページのGoogle OAuth開始処理)がredirectTo URLにこの値を追加で
+ * 付与し、/auth/callbackがそれを読み取ってtrackServerEvent()のsource/campaignへ
+ * そのまま渡すことで解決する。contentは含めない: eventSchema.tsのsignup_oauth_completed
+ * properties whitelistにutm_contentが無く、そもそもfindAttribution()がrowSource/
+ * rowCampaign一致で正しいvisit自体を選べれば、そのvisit自身のcontentも連動して
+ * 正しく解決されるため不要(=source/campaignさえ通れば十分)。
+ */
+export function buildOAuthAttributionQuery(): string {
+  const { source, campaign } = detectTrafficSource();
+  const params = new URLSearchParams();
+  if (source) params.set("lv_source", source);
+  if (campaign) params.set("lv_campaign", campaign);
+  return params.toString();
+}
+
 let trafficSourceDetectedFired = false;
 
 type EventName = keyof typeof EVENT_SCHEMAS;

@@ -58,6 +58,16 @@ export async function GET(req: NextRequest) {
   const user = data.user;
   if (isNewGoogleOauthSignup(user)) {
     const anonymousSessionId = req.cookies.get("lv_aid")?.value ?? null;
+    // 複数タブが同じlv_aid cookieを共有している場合、このイベント自体にはどのタブが
+    // OAuthを開始したかの手がかりが無い(サーバー側でsessionStorageへアクセスできない
+    // ため)。signup/loginページがredirectTo URLに埋め込んだ、OAuth開始タブ自身の
+    // source/campaignをここで読み取り、そのままtrackServerEvent()へ渡すことで、
+    // scripts/testing/social-acquisition-snapshot.mjsのfindAttribution()が
+    // 行自身のsource/campaign一致で正しいvisitを選べるようにする(Codexレビュー
+    // 指摘対応、16巡目、最重要: 詳細はsrc/lib/analytics/track.tsの
+    // buildOAuthAttributionQuery()コメント参照)。
+    const attributionSource = url.searchParams.get("lv_source");
+    const attributionCampaign = url.searchParams.get("lv_campaign");
     // サーバーレス環境ではレスポンスを返した後、awaitしていない処理の継続実行が
     // 保証されない(Codexレビュー指摘対応)。trackServerEvent()自体は例外を握りつぶし
     // 呼び出し元の処理を止めないため、ここでawaitしてもリダイレクト自体が失敗する
@@ -67,6 +77,8 @@ export async function GET(req: NextRequest) {
       anonymousSessionId,
       properties: { method: "google" },
       e2eHeaderValue: req.headers.get("x-lv-e2e-test"),
+      source: attributionSource,
+      campaign: attributionCampaign,
     });
   }
 
