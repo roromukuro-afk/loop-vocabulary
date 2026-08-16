@@ -221,6 +221,48 @@ async function fetchPrecedingActivityRows(admin, { startISO, asOf, sessionIds })
   return rows;
 }
 
+// ウィンドウ終了(endISO)直後の活動を、test-account紐付け判定のためだけに取得する
+// (Codexレビュー指摘対応、12巡目、最重要)。fetchPrecedingActivityRows()と対称的な
+// 問題: 匿名のsocial landingがendISO直前(例: 23:55)に発生し、同一visitのまま
+// endISO直後(例: 翌日00:05)にtest accountとして認証した場合、認証行はこのウィンドウの
+// [startISO, endISO)にも、precedingActivityRowsが見るendISOより前のlookbackにも
+// 含まれないため、testAccountVisitKeysがそのvisitを検出できず、23:55のlandingが
+// 素通りしてtest account由来だと判明しないまま実trafficとして報告されてしまう。
+// 取得したprecedingActivityRowsと同様、visit境界の再構築とtest-account紐付け判定
+// にのみ使い、landing/funnel等の実際の集計対象(rows、[startISO, endISO)限定)には
+// 含めない。
+async function fetchFollowingActivityRows(admin, { endISO, asOf, sessionIds }) {
+  if (sessionIds.size === 0) return [];
+  const lookaheadEndISO = new Date(new Date(endISO).getTime() + ATTRIBUTION_LOOKBACK_MS).toISOString();
+  const sessionIdsArr = [...sessionIds];
+  const rows = [];
+  const chunkSize = 500;
+  for (let i = 0; i < sessionIdsArr.length; i += chunkSize) {
+    const chunk = sessionIdsArr.slice(i, i + chunkSize);
+    let cursorId = null;
+    for (;;) {
+      let query = admin
+        .from("analytics_events")
+        .select("id, event_name, anonymous_session_id, source, campaign, user_id, properties, occurred_at")
+        .eq("is_test_event", false)
+        .in("anonymous_session_id", chunk)
+        .gte("occurred_at", endISO)
+        .lt("occurred_at", lookaheadEndISO)
+        .lte("created_at", asOf)
+        .order("id", { ascending: true })
+        .limit(1000);
+      if (cursorId) query = query.gt("id", cursorId);
+      const { data, error } = await query;
+      if (error) throw new Error(`following activity rows query failed: ${error.message}`);
+      if (!data || data.length === 0) break;
+      rows.push(...data);
+      if (data.length < 1000) break;
+      cursorId = data[data.length - 1].id;
+    }
+  }
+  return rows;
+}
+
 function topEntries(map, n = 10) {
   return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);
 }
@@ -240,6 +282,14 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   const sessionIdsInRawRows = new Set(rawRows.map((r) => r.anonymous_session_id).filter(Boolean));
   const precedingActivityRowsRaw = await fetchPrecedingActivityRows(admin, {
     startISO,
+    asOf,
+    sessionIds: sessionIdsInRawRows,
+  });
+  // endISO直後の活動も、test-account紐付け判定とvisit境界の再構築のためだけに取得する
+  // (Codexレビュー指摘対応、12巡目、最重要)。fetchFollowingActivityRows()自体の
+  // コメント参照。
+  const followingActivityRowsRaw = await fetchFollowingActivityRows(admin, {
+    endISO,
     asOf,
     sessionIds: sessionIdsInRawRows,
   });
@@ -268,9 +318,12 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   //    訪問し得る(例: 月曜にXから流入→水曜にInstagramから流入→金曜にdirect再訪問)。
   //    セッション単位で1つのattributionへキャッシュしてしまうと、そのうちの1回
   //    (配列の並び順で偶然先頭に来たもの)へ全ての行が誤って一括帰属してしまい、
-  //    チャネル別・転換の集計が実態と乖離する。
+  //    チャネル別・転換の集計が実態と乖離する。visit境界の再構築にはfollowingActivityRowsRaw
+  //    (endISO以降)も含める(Codexレビュー指摘対応、12巡目、最重要): これが無いと、
+  //    endISO直前の匿名landingがendISO直後のtest account認証と同一visitであることを
+  //    検出できず、test-account紐付け判定(下記)がすり抜けてしまう。
   const allRowsBySession = new Map();
-  for (const r of [...rows, ...precedingActivityRows]) {
+  for (const r of [...rows, ...precedingActivityRows, ...followingActivityRowsRaw]) {
     const sid = r.anonymous_session_id;
     if (!sid) continue;
     if (!allRowsBySession.has(sid)) allRowsBySession.set(sid, []);
@@ -294,16 +347,24 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
         // RELOAD_DEDUPE_WINDOW_MS以内の場合のみ同一visitの継続とみなす。時間幅で
         // 区切らないと、同じX投稿を数時間・数日後に改めてクリックした正当な再訪問まで
         // 最初のvisitへ吸収してしまい、逆にsource/campaign/content集計が過小になる
-        // (Codexレビュー指摘対応、2巡目)。
+        // (Codexレビュー指摘対応、2巡目)。この一致判定はbucketだけでなく生のsourceも
+        // 見る必要がある(Codexレビュー指摘対応、12巡目、最重要): 未知source(例:
+        // linkedin/mastodon)はいずれもbucket="other_social"に丸められるため、bucketだけ
+        // 比較すると、30分以内に同じcampaign/contentで異なる未知sourceが2つ届いた場合
+        // (例: linkedinの投稿の直後にmastodonの投稿を踏んだ)、後者を誤って前者の
+        // reloadとして畳み込んでしまい、実際には別のvisit・別のsourceからのlandingを
+        // 1件に過小集計してしまう。bucketは報告用(byBucket)にのみ使い、reload判定には
+        // 生のsource文字列(rawSource)を使う。
         const medium = typeof r.properties?.medium === "string" ? r.properties.medium : undefined;
         const bucket = classifySocialBucket(r.source ?? undefined, medium);
+        const rawSource = r.source ?? undefined;
         const campaign = r.campaign || "(none)";
         const content = typeof r.properties?.content === "string" && r.properties.content ? r.properties.content : "(none)";
         const gapMs = current ? Date.parse(r.occurred_at) - Date.parse(current.lastSeenAt) : Infinity;
-        if (current && gapMs <= RELOAD_DEDUPE_WINDOW_MS && current.bucket === bucket && current.campaign === campaign && current.content === content) {
+        if (current && gapMs <= RELOAD_DEDUPE_WINDOW_MS && current.rawSource === rawSource && current.campaign === campaign && current.content === content) {
           current.lastSeenAt = r.occurred_at; // reload: 同一visitの継続、活動時刻だけ延長する
         } else {
-          current = { occurred_at: r.occurred_at, lastSeenAt: r.occurred_at, bucket, campaign, content };
+          current = { occurred_at: r.occurred_at, lastSeenAt: r.occurred_at, bucket, rawSource, campaign, content };
           visits.push(current);
         }
       } else if (current) {
@@ -366,9 +427,13 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   // 実際にtest accountのuser_idを持つ行が(findAttribution経由で)割り当てられる
   // visitだけを対象にする。同じcookieの中に、test accountとは無関係な別のvisit
   // (異なるoccurred_atのtraffic_source_detectedを起点とする)が存在しても、そちらは
-  // このSetに含まれない。
+  // このSetに含まれない。followingActivityRowsRawも含める(Codexレビュー指摘対応、
+  // 12巡目、最重要): endISO直後に発生したtest account認証行もこのループで
+  // 見つけられるようにする(=endISO直前の匿名landingが、endISO直後にtest account
+  // として認証される同一visitに属する場合、その認証行自体がここに含まれていなければ
+  // 検出できず、素通りしてしまう)。
   const testAccountVisitKeys = new Set();
-  for (const r of [...rows, ...precedingActivityRows]) {
+  for (const r of [...rows, ...precedingActivityRows, ...followingActivityRowsRaw]) {
     if (!r.user_id || !testAccountIds.has(r.user_id) || !r.anonymous_session_id) continue;
     const attr = findAttribution(r.anonymous_session_id, r.occurred_at);
     if (!attr) continue;
