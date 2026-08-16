@@ -419,6 +419,19 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   // 反映している。そのためoccurredAt以前の候補visitの中に、行自身のsource/campaignと
   // 一致するものがあれば(複数あれば最新のもの)それを優先して選び、単純な時系列最新
   // 選択はどの候補とも一致しない場合のみのフォールバックとする。
+  //
+  // ただし、同じsource+campaignで複数の投稿(=異なるutm_content)を並行運用する
+  // launch pack(MARKETING_SOCIAL_LAUNCH_PACK_2026-08.md)のようなケースでは、
+  // 2つ以上の候補visitがrowSource/rowCampaignに一致しつつcontentだけが異なることが
+  // ある。FUNNEL_EVENTS側の行(vocab_test_maker_page_viewed等)はeventSchema.tsの
+  // properties whitelistにutm_contentを含まないため、行自身にはどちらのタブ由来かを
+  // 判別する手がかりが一切無い。この場合に(元の実装のように)単純に時系列最新の
+  // 候補を選ぶと、実際にはタブA由来の行がタブBのcontentへ誤って断定されてしまう
+  // (Codexレビュー指摘対応、15巡目、最重要: launch packが実際にこの構成を使っている
+  // ため理論上の edge case ではない)。行自身にcontentの手がかりが無い以上、
+  // どちらのcontentか正しく判定する術は無いため、誤った断定はせず"(ambiguous)"を
+  // 返す。source/campaign/bucket単位の集計はcontentに依存しないため、この場合も
+  // 引き続き正しい。
   function findAttribution(sid, occurredAt, rowSource, rowCampaign) {
     const arr = attributionEventsBySession.get(sid);
     if (!arr || arr.length === 0) return null;
@@ -426,13 +439,15 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     if (candidates.length === 0) return null;
     const normalizedRowSource = rowSource ?? undefined;
     const normalizedRowCampaign = rowCampaign || "(none)";
-    let matched = null;
-    for (const entry of candidates) {
-      if (entry.rawSource === normalizedRowSource && entry.campaign === normalizedRowCampaign) matched = entry;
-    }
-    const chosen = matched ?? candidates[candidates.length - 1];
+    const matches = candidates.filter(
+      (entry) => entry.rawSource === normalizedRowSource && entry.campaign === normalizedRowCampaign,
+    );
+    const chosen = matches.length > 0 ? matches[matches.length - 1] : candidates[candidates.length - 1];
     const gapMs = Date.parse(occurredAt) - Date.parse(chosen.lastSeenAt);
     if (gapMs > RELOAD_DEDUPE_WINDOW_MS) return null;
+    if (matches.length > 1 && new Set(matches.map((m) => m.content)).size > 1) {
+      return { ...chosen, content: "(ambiguous)" };
+    }
     return chosen;
   }
 
