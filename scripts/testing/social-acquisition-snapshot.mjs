@@ -407,15 +407,30 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   // 時系列走査でreloadマーカーだけでなく、その間に発生した通常のattributed行からも
   // 延長されているため、実際の最後の活動時刻を正しく反映する(Codexレビュー指摘対応、
   // 6巡目)。
-  function findAttribution(sid, occurredAt) {
+  //
+  // 複数タブが同時に開かれ、同じcookie(sid)の下でタブごとに異なるsocial攻撃元
+  // (例: タブAはX、タブBはThreads)が並行してattributionされている場合、単純に
+  // 「occurredAt以前で直近のvisit」を選ぶと、タブAでの後続行がタブBの(たまたま
+  // 時系列上は新しい)markerへ誤って帰属してしまう(Codexレビュー指摘対応、14巡目、
+  // 最重要)。track.tsのtrackEvent()は呼び出しのたびにdetectTrafficSource()を
+  // 再評価し、そのタブ自身のsessionStorageキャッシュ由来のsource/campaignを
+  // 行自身のトップレベル列としてpropertiesとは独立に必ず送信するため、行r自身の
+  // r.source/r.campaignは常に「そのタブで実際にattributionされていた値」を正確に
+  // 反映している。そのためoccurredAt以前の候補visitの中に、行自身のsource/campaignと
+  // 一致するものがあれば(複数あれば最新のもの)それを優先して選び、単純な時系列最新
+  // 選択はどの候補とも一致しない場合のみのフォールバックとする。
+  function findAttribution(sid, occurredAt, rowSource, rowCampaign) {
     const arr = attributionEventsBySession.get(sid);
     if (!arr || arr.length === 0) return null;
-    let chosen = null;
-    for (const entry of arr) {
-      if (entry.occurred_at <= occurredAt) chosen = entry;
-      else break;
+    const candidates = arr.filter((entry) => entry.occurred_at <= occurredAt);
+    if (candidates.length === 0) return null;
+    const normalizedRowSource = rowSource ?? undefined;
+    const normalizedRowCampaign = rowCampaign || "(none)";
+    let matched = null;
+    for (const entry of candidates) {
+      if (entry.rawSource === normalizedRowSource && entry.campaign === normalizedRowCampaign) matched = entry;
     }
-    if (!chosen) return null;
+    const chosen = matched ?? candidates[candidates.length - 1];
     const gapMs = Date.parse(occurredAt) - Date.parse(chosen.lastSeenAt);
     if (gapMs > RELOAD_DEDUPE_WINDOW_MS) return null;
     return chosen;
@@ -440,7 +455,7 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   const testAccountVisitKeys = new Set();
   for (const r of [...rows, ...precedingActivityRows, ...followingActivityRowsRaw]) {
     if (!r.user_id || !testAccountIds.has(r.user_id) || !r.anonymous_session_id) continue;
-    const attr = findAttribution(r.anonymous_session_id, r.occurred_at);
+    const attr = findAttribution(r.anonymous_session_id, r.occurred_at, r.source ?? undefined, r.campaign);
     if (!attr) continue;
     testAccountVisitKeys.add(visitKey(r.anonymous_session_id, attr));
   }
@@ -464,7 +479,7 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   const earliestLandingByVisitKey = new Map();
   for (const r of [...rows, ...precedingActivityRows]) {
     if (!LANDING_EVENT_NAMES.includes(r.event_name) || !r.anonymous_session_id) continue;
-    const attr = findAttribution(r.anonymous_session_id, r.occurred_at);
+    const attr = findAttribution(r.anonymous_session_id, r.occurred_at, r.source ?? undefined, r.campaign);
     if (!attr || !attr.bucket) continue;
     if (isTestAccountVisit(r.anonymous_session_id, attr)) continue;
     const key = visitKey(r.anonymous_session_id, attr);
@@ -536,7 +551,7 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   const earliestSocialVisitByUser = new Map();
   for (const r of rows) {
     if (!r.anonymous_session_id) continue;
-    const attr = findAttribution(r.anonymous_session_id, r.occurred_at);
+    const attr = findAttribution(r.anonymous_session_id, r.occurred_at, r.source ?? undefined, r.campaign);
     if (!attr || !attr.bucket) continue;
     if (isTestAccountVisit(r.anonymous_session_id, attr)) continue;
     if (FUNNEL_EVENTS.includes(r.event_name)) {
