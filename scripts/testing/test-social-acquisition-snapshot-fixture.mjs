@@ -89,6 +89,11 @@
  *    mastodon、どちらもbucket=other_socialに丸められる)が届いた場合、誤って
  *    reloadとして畳み込まず別visitとして数える。Codexレビュー指摘対応、12巡目、
  *    最重要)
+ *  - reload畳み込みの一致条件は、生のsource文字列だけでなくbucketも含む(=同一sourceで
+ *    30分以内にmediumだけが変わった場合(例: source=x&medium=social→source=x&
+ *    medium=cpc、classifySocialBucket()の結果が異なる)、誤ってreloadとして畳み込まず
+ *    別visitとして切り離す。これが無いと有料visitのfunnel活動が先着マーカーのbucketを
+ *    引き継いでsocialとして誤集計される。Codexレビュー指摘対応、13巡目、最重要)
  *  - visitの「実際のlanding」がウィンドウ開始前(precedingActivityRows側)にある場合、
  *    ウィンドウ内で発生した後続ページ遷移をそのvisitのlandingとして誤って計上しない
  *    (=真のlandingが前のウィンドウで既にlandingとして計上済みのはずのvisitを、この
@@ -404,6 +409,20 @@ async function main() {
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}v`, source: "x", campaign: "campV", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentV" }, occurred_at: beforeWindowEnd(5 * 60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "landing_view", anonymous_session_id: `${prefix}v`, source: "x", campaign: "campV", path: "/", user_id: null, properties: {}, occurred_at: beforeWindowEnd(4 * 60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}v`, source: "x", campaign: "campV", path: "/tools/vocab-test-maker", user_id: testAccountUserId, properties: {}, occurred_at: afterWindowEnd(5 * 60 * 1000), is_test_event: false, schema_version: 1 },
+
+      // W: 30分以内に同一source/campaign/contentだがmediumだけが変わるケース
+      // (Codexレビュー指摘対応、13巡目、最重要)。1件目はsource=x&medium=social(正当な
+      // social visit、visit1のlanding_viewのみ発生)、2件目はsource=x&medium=cpc(有料広告、
+      // classifySocialBucket()はmedium!=="social"のためnullを返す)。rawSourceだけを
+      // 一致条件にすると2件目を1件目のreloadとして誤って畳み込んでしまい、2件目以降の
+      // 有料visitのfunnel活動(4行目のvocab_test_maker_page_viewed)が1件目のbucket(x、
+      // social)を引き継いで誤ってsocial funnelとして計上されてしまう。正しくはbucketも
+      // 一致条件に含めることで2件目は別visit(bucket=null、非social)として扱われ、
+      // 4行目のfunnel活動はsocialとして一切計上されない。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}w`, source: "x", campaign: "campW", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentW" }, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}w`, source: "x", campaign: "campW", path: "/", user_id: null, properties: {}, occurred_at: offset(30 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}w`, source: "x", campaign: "campW", path: null, user_id: null, properties: { source: "x", medium: "cpc", content: "contentW" }, occurred_at: offset(60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}w`, source: "x", campaign: "campW", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: offset(90 * 1000), is_test_event: false, schema_version: 1 },
     ];
     const { error: insertErr } = await admin.from("analytics_events").insert(rows);
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
@@ -451,18 +470,21 @@ async function main() {
     // べき(=U-visit1, U-visit2の2件。Codexレビュー指摘対応、12巡目、最重要)。Vは
     // 匿名のlandingがウィンドウ終了(endISO)の5分前、同一visit内でのtest account認証が
     // endISOの5分後に発生するケースで、Rの「startISOより前」対称形として、こちらも
-    // まるごと除外されるべき(Codexレビュー指摘対応、12巡目、最重要)。 ----
-    if (result.socialLandingIdentities === 16) {
-      ok("social landing identities合計が16(A/B/D/G/H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/T-visit1/U-visit1/U-visit2。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み、Mの40分間隔は2visitのまま、Nの0/20/40分3連続reloadは1visitに畳み込み、Oの日付境界またぎvisitも正しく計上。Qは真のlandingがウィンドウ開始前、T-visit2はtest account紐付け、Vはウィンドウ終了直後のtest account認証紐付けのため計上されない)");
+    // まるごと除外されるべき(Codexレビュー指摘対応、12巡目、最重要)。Wは30分以内に
+    // 同一source/campaign/contentだがmediumだけが変わる(social→cpc)ケースで、visit1
+    // (social)のみが正当なlandingとして計上され、visit2(cpc、非social)は別visitとして
+    // 正しく切り離される(Codexレビュー指摘対応、13巡目、最重要)。 ----
+    if (result.socialLandingIdentities === 17) {
+      ok("social landing identities合計が17(A/B/D/G/H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/T-visit1/U-visit1/U-visit2/W-visit1。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み、Mの40分間隔は2visitのまま、Nの0/20/40分3連続reloadは1visitに畳み込み、Oの日付境界またぎvisitも正しく計上。Qは真のlandingがウィンドウ開始前、T-visit2はtest account紐付け、Vはウィンドウ終了直後のtest account認証紐付け、W-visit2はmedium違いによる非social判定のため計上されない)");
     } else {
-      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 16)`);
+      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 17)`);
     }
 
-    // ---- 検証: source別バケット(H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/T-visit1がxへ
-    // 加算され、facebookはmedium=cpcのため0のまま。U-visit1/U-visit2はどちらも
+    // ---- 検証: source別バケット(H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/T-visit1/W-visit1が
+    // xへ加算され、facebookはmedium=cpcのため0のまま。U-visit1/U-visit2はどちらも
     // other_socialへ加算される。Qは真のlandingがウィンドウ開始前、T-visit2/Vはtest
-    // account紐付けのため加算されない) ----
-    const expectedBuckets = { x: 11, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 3 };
+    // account紐付け、W-visit2(cpc)はbucket=nullのため加算されない) ----
+    const expectedBuckets = { x: 12, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 3 };
     let bucketsOk = true;
     for (const [bucket, expected] of Object.entries(expectedBuckets)) {
       if (result.byBucket[bucket] !== expected) {
@@ -471,7 +493,7 @@ async function main() {
       }
     }
     if (bucketsOk) {
-      ok("source別バケット(x=11[A,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P,T-visit1], instagram=1, youtube=1, other_social=3[D,U-visit1,U-visit2], facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodon/linkedinはother_socialへ、test account/test eventのxは含まれない。Qは真のlandingがウィンドウ開始前、T-visit2/Vはtest account紐付けのため含まれない)");
+      ok("source別バケット(x=12[A,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P,T-visit1,W-visit1], instagram=1, youtube=1, other_social=3[D,U-visit1,U-visit2], facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodon/linkedinはother_socialへ、test account/test eventのxは含まれない。Qは真のlandingがウィンドウ開始前、T-visit2/Vはtest account紐付け、W-visit2はmedium違いによる非social判定のため含まれない)");
     }
 
     // ---- 検証: ウィンドウ境界をまたぐ活動連鎖の再構築が、マーカーだけでなく通常の
@@ -571,6 +593,24 @@ async function main() {
       ok("ウィンドウ終了直後のtest account認証も、そのvisit全体(endISO直前の匿名landingを含む)を正しく除外する(V: campV/contentVはbyCampaign/byContent/funnelCountsByContentのどこにも現れない)");
     } else {
       bad(`ウィンドウ終了直後のtest account認証によるvisit除外が想定外: byCampaign.campV=${result.byCampaign["campV"]}, byContent.contentV=${result.byContent["contentV"]}, funnelCountsByContent.contentV=${JSON.stringify(result.funnelCountsByContent?.contentV)}(期待値: いずれも無し)`);
+    }
+
+    // ---- 検証: reload畳み込みはbucketも一致条件に含む(Codexレビュー指摘対応、13巡目、
+    // 最重要)。Wは30分以内に同一source/campaign/content(campW/contentW)だが
+    // mediumだけが変わる(social→cpc)ケースで、visit1(social)のlanding_viewはそのまま
+    // campW/contentW=1として正しく計上される一方、visit2(cpc、bucket=null)の
+    // vocab_test_maker_page_viewedはbucketが一致しないため別visitとして切り離され、
+    // 非socialとしてfunnelCountsByContentに一切現れないはずである。修正前はrawSourceのみ
+    // を見ていたため2件目のmarkerが1件目のreloadとして畳み込まれ、有料visitのfunnel
+    // 活動が1件目のbucket(social)を引き継いで誤ってsocial funnelとして計上されていた。 ----
+    if (
+      result.byCampaign["campW"] === 1 &&
+      result.byContent["contentW"] === 1 &&
+      !result.funnelCountsByContent?.contentW
+    ) {
+      ok("reload畳み込みがbucketも一致条件に含み、同一source/campaign/contentでもmedium違いによる別bucketは別visitとして切り離される(W: byCampaign.campW=1[visit1のみ]、visit2のvocab_test_maker_page_viewedはfunnelCountsByContentに一切現れない)");
+    } else {
+      bad(`bucket区別によるreload畳み込みが想定外: byCampaign.campW=${result.byCampaign["campW"]}, byContent.contentW=${result.byContent["contentW"]}, funnelCountsByContent.contentW=${JSON.stringify(result.funnelCountsByContent?.contentW)}(期待値: campW=1, contentW=1, contentWは無し)`);
     }
 
     // ---- 検証: 通常のattributed行(reloadマーカーではない)からもvisitの活動時刻が
@@ -740,15 +780,17 @@ async function main() {
     // 一切現れない(window内のvocab_test_maker_page_viewedを誤ってentry行として
     // 数えることはない。Codexレビュー指摘対応、9巡目、最重要)。Vも真のlandingは
     // ウィンドウ内にあるが、endISO直後のtest account認証によりvisitごと除外される
-    // ためbyPathに現れない(Codexレビュー指摘対応、12巡目、最重要)。
+    // ためbyPathに現れない(Codexレビュー指摘対応、12巡目、最重要)。Wのvisit1(social)は
+    // "/"のentryとして計上され、visit2(cpc、非social)の4行目は非socialのため
+    // byPathに一切現れない(Codexレビュー指摘対応、13巡目、最重要)。
     if (
-      result.byPath["/"] === 13 &&
+      result.byPath["/"] === 14 &&
       result.byPath["/tools/vocab-test-maker"] === 3 &&
       !("/guide/eiken-2kyu-tango" in result.byPath)
     ) {
-      ok("landing path別集計が、visitごとの実際のentry pointのみを数える(/=13[A,D,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P,T-visit1,U-visit1], /tools/vocab-test-maker=3[B,G,U-visit2]、/guide/eiken-2kyu-tangoは同一visit内の後続遷移のため含まれない。Qは真のlandingがウィンドウ開始前、T-visit2/Vはtest account紐付けのため含まれない)");
+      ok("landing path別集計が、visitごとの実際のentry pointのみを数える(/=14[A,D,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P,T-visit1,U-visit1,W-visit1], /tools/vocab-test-maker=3[B,G,U-visit2]、/guide/eiken-2kyu-tangoは同一visit内の後続遷移のため含まれない。Qは真のlandingがウィンドウ開始前、T-visit2/Vはtest account紐付け、W-visit2はmedium違いによる非social判定のため含まれない)");
     } else {
-      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=13, /tools/vocab-test-maker=3, /guide/eiken-2kyu-tangoは無し)`);
+      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=14, /tools/vocab-test-maker=3, /guide/eiken-2kyu-tangoは無し)`);
     }
 
     // ---- 検証: funnel件数(social起点セッションのみ) ----

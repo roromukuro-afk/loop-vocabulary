@@ -353,15 +353,20 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
         // 比較すると、30分以内に同じcampaign/contentで異なる未知sourceが2つ届いた場合
         // (例: linkedinの投稿の直後にmastodonの投稿を踏んだ)、後者を誤って前者の
         // reloadとして畳み込んでしまい、実際には別のvisit・別のsourceからのlandingを
-        // 1件に過小集計してしまう。bucketは報告用(byBucket)にのみ使い、reload判定には
-        // 生のsource文字列(rawSource)を使う。
+        // 1件に過小集計してしまう。逆にbucketも一致条件に含める必要がある(Codexレビュー
+        // 指摘対応、13巡目、最重要): 同じsourceでも30分以内にmediumだけが変わった場合
+        // (例: source=x&medium=social の直後にsource=x&medium=cpc)、classifySocialBucket()
+        // は異なるbucket(x / null)を返すが、rawSourceだけの比較ではreloadとして畳み込んで
+        // しまい、保持されるbucketは先着のマーカーのものになってしまう(=有料広告経由の
+        // 着地・funnel活動がsocialとして誤報告される、またはその逆で正当なsocial visitが
+        // 有料visitに紛れて消える)。rawSourceとbucketの両方が一致した場合のみreloadとみなす。
         const medium = typeof r.properties?.medium === "string" ? r.properties.medium : undefined;
         const bucket = classifySocialBucket(r.source ?? undefined, medium);
         const rawSource = r.source ?? undefined;
         const campaign = r.campaign || "(none)";
         const content = typeof r.properties?.content === "string" && r.properties.content ? r.properties.content : "(none)";
         const gapMs = current ? Date.parse(r.occurred_at) - Date.parse(current.lastSeenAt) : Infinity;
-        if (current && gapMs <= RELOAD_DEDUPE_WINDOW_MS && current.rawSource === rawSource && current.campaign === campaign && current.content === content) {
+        if (current && gapMs <= RELOAD_DEDUPE_WINDOW_MS && current.rawSource === rawSource && current.bucket === bucket && current.campaign === campaign && current.content === content) {
           current.lastSeenAt = r.occurred_at; // reload: 同一visitの継続、活動時刻だけ延長する
         } else {
           current = { occurred_at: r.occurred_at, lastSeenAt: r.occurred_at, bucket, rawSource, campaign, content };

@@ -16,6 +16,11 @@ type SocialDomainEntry = { domain: string; source: string };
 const SOCIAL_DOMAINS: SocialDomainEntry[] = [
   { domain: "x.com", source: "x" },
   { domain: "twitter.com", source: "x" },
+  // t.co: XのURL短縮ドメイン(Codexレビュー指摘対応、13巡目)。UTM無し/剥がれた状態で
+  // X投稿内の生リンクをクリックした場合、document.referrerがx.com/twitter.comではなく
+  // 中間の短縮ドメインt.coになることがあり、これが無いとX由来のtrafficがreferral(x以外)
+  // へ誤分類されてしまう。t.coはX社が単独で運用するため安全に追加できる。
+  { domain: "t.co", source: "x" },
   { domain: "instagram.com", source: "instagram" },
   { domain: "threads.com", source: "threads" },
   // threads.net: 2023年ローンチ時点のドメイン。2024年にthreads.comへ移行済みだが、

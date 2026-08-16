@@ -19,6 +19,7 @@ function main() {
   const knownExact = [
     ["x.com", "x"],
     ["twitter.com", "x"],
+    ["t.co", "x"], // XのURL短縮ドメイン
     ["instagram.com", "instagram"],
     ["threads.com", "threads"],
     ["threads.net", "threads"], // legacy互換
