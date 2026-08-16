@@ -7,7 +7,7 @@ import { isSupabaseNotConfigured } from "@/lib/supabase/env";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { trackLoginComplete } from "@/lib/analytics/events";
-import { buildOAuthAttributionQuery } from "@/lib/analytics/track";
+import { buildOAuthAttributionQuery, trackEvent } from "@/lib/analytics/track";
 import { getSafeNextPath } from "@/lib/utils/safeNextPath";
 
 type Mode = "password" | "magic";
@@ -118,6 +118,20 @@ function LoginForm() {
     let navigating = false;
     try {
       const supabase = createClient();
+      // 新規訪問者がSNSリンクから直接/loginへ着地し、そのままGoogle OAuthで新規
+      // signupする場合、/loginページ自身はここまで一切trackEvent()を呼んでいない
+      // (trackLoginComplete()はGA専用でfirst-party Growth OSには送らない)。
+      // trackEvent()の初回呼び出しがそのセッションのtraffic_source_detectedマーカーを
+      // 発火させる仕組みのため、これを呼ばないままOAuthへリダイレクトすると、
+      // scripts/testing/social-acquisition-snapshot.mjsのsummarizeWindow()は
+      // マーカー行からしかvisitを再構築できず、後でcallbackが送るsignup_oauth_completed
+      // を紐付けるvisit自体が存在しないままattributionが完全に失われてしまう
+      // (Codexレビュー指摘対応、18巡目、最重要:「Emit an attribution marker before
+      // login-page OAuth」)。/signupページのsignup_started発火と同じ理由でここでも
+      // 呼ぶ(実際に新規signupだったかはサーバー側のisNewGoogleOauthSignup()が
+      // 別途正しく判定するため、既存ユーザーの再ログインでこのイベントが発火しても
+      // 実害は無い)。
+      trackEvent("signup_started", { method: "google" });
       // タブ自身のsource/campaignをredirectTo URLに乗せてOAuthラウンドトリップ後も
       // 維持する(Codexレビュー指摘対応、16巡目、最重要。詳細はbuildOAuthAttributionQuery()
       // のコメント参照)。

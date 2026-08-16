@@ -137,6 +137,20 @@
  *    (=たまたま別タブ)になってしまい一致せず、実際には同一visitの継続であるにも
  *    かかわらず重複した別visitが作られ、その後続landingがlanding/campaign集計を
  *    水増ししていた)。
+ *  - /loginページのGoogle OAuth開始処理は、リダイレクト前に(/signupページと同様)
+ *    first-partyのtrackEvent()を呼ぶ(Codexレビュー指摘対応、18巡目、最重要:
+ *    「Emit an attribution marker before login-page OAuth」。/loginページはtrackEvent()
+ *    を一度も呼ばないままGoogle OAuthへ遷移し得るため、そのセッションのtraffic_source_
+ *    detectedマーカーが一切記録されず、summarizeWindow()がマーカー行からしかvisitを
+ *    再構築できない以上、後でcallbackが送るsignup_oauth_completedを紐付けるvisit自体が
+ *    存在せずattributionが完全に失われていた)。
+ *  - 行自身のrowSource/rowCampaignに一致する複数のactive visitが、bucket(social/
+ *    非social)自体で食い違う場合(例: 同一campaign文字列を有料広告とsocialの両方で
+ *    使い回すケース)、断定せず未attributionとして扱う(Codexレビュー指摘対応、18巡目、
+ *    最重要: 「Carry medium and content through OAuth attribution」の一部。修正前は
+ *    時系列最新のvisitのbucketへ機械的に断定していたため、実際には無関係な有料visit
+ *    経由のconversionがsocialとして誤カウントされ得た。content曖昧化より深刻な誤りの
+ *    ため、"(ambiguous)"のような妥協ではなく未attribution化する)。
  *  - visitの「実際のlanding」がウィンドウ開始前(precedingActivityRows側)にある場合、
  *    ウィンドウ内で発生した後続ページ遷移をそのvisitのlandingとして誤って計上しない
  *    (=真のlandingが前のウィンドウで既にlandingとして計上済みのはずのvisitを、この
@@ -581,6 +595,23 @@ async function main() {
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}cc`, source: "threads", campaign: "campCCThreads", path: null, user_id: null, properties: { source: "threads", medium: "social", content: "contentCCThreads" }, occurred_at: offset(60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}cc`, source: "x", campaign: "campCC", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentCC" }, occurred_at: offset(15 * 60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}cc`, source: "x", campaign: "campCC", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: offset(15 * 60 * 1000 + 30 * 1000), is_test_event: false, schema_version: 1 },
+
+      // DD: 同一source+campaignで2つの並行active visitが存在するが、bucket(social/
+      // 非social)自体が異なるケース(Codexレビュー指摘対応、18巡目、最重要:
+      // 「Carry medium and content through OAuth attribution」)。1件目(medium=cpc、
+      // 非social)が0分、2件目(medium=social)が1分に発生し、どちらもcampDDを共有する。
+      // その後の行(vocab_test_maker_page_viewed、rowSourceとrowCampaignのみ保持し
+      // medium/bucketの手がかりを持たない。signup_oauth_completed等と同じ制約)が
+      // 1.5分目に発生する。修正前はmatches[last](=時系列最新、2件目のsocial visit)へ
+      // 機械的に断定していたため、実際にはどちらのvisit由来か判別不能であるにも
+      // かかわらず、有料visit経由かもしれないconversionがsocialとして誤って
+      // カウントされ得た(逆に、social visit経由のconversionが有料visitの陰に隠れて
+      // 除外されるケースもあり得る)。修正後はbucketが食い違うactive matchが複数ある
+      // 場合、断定せず未attributionとして扱うため、campDD/contentDD1/contentDD2は
+      // どの集計にも一切現れない。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}dd`, source: "x", campaign: "campDD", path: null, user_id: null, properties: { source: "x", medium: "cpc", content: "contentDD1" }, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}dd`, source: "x", campaign: "campDD", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentDD2" }, occurred_at: offset(60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}dd`, source: "x", campaign: "campDD", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: offset(90 * 1000), is_test_event: false, schema_version: 1 },
     ];
     const { error: insertErr } = await admin.from("analytics_events").insert(rows);
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
@@ -906,6 +937,26 @@ async function main() {
       ok("reloadマーカーの畳み込み先がvisits配列全体から探され、複数タブ並行visit中のハードリロードで重複visitが作られない(CC: campCC=1[重複した別visitへ水増しされていない], contentCC=1, funnelCountsByContent.contentCC.vocab_test_maker_page_viewed=1、campCCThreads/contentCCThreadsはどこにも現れない)");
     } else {
       bad(`reloadマーカーの畳み込み先が想定外: byCampaign.campCC=${result.byCampaign["campCC"]}, byContent.contentCC=${result.byContent["contentCC"]}, funnelCountsByContent.contentCC=${JSON.stringify(result.funnelCountsByContent?.contentCC)}(期待値: campCC=1, contentCC=1, contentCC.vocab_test_maker_page_viewed=1, campCCThreads/contentCCThreadsは無し)`);
+    }
+
+    // ---- 検証: 同一source+campaignの複数active visitがbucket(social/非social)自体で
+    // 食い違う場合、行自身にmedium/bucketの手がかりが無ければ断定せず未attributionとして
+    // 扱う(Codexレビュー指摘対応、18巡目、最重要: 「Carry medium and content through
+    // OAuth attribution」)。DDは0分目(medium=cpc、非social)・1分目(medium=social)の
+    // 2つのactive visitがcampDDを共有し、1.5分目の行がどちらか判別不能なケース。修正前は
+    // 時系列最新(social)visitへ機械的に断定していたため、実際には有料visit経由かも
+    // しれないconversionがsocialとして誤カウントされ得た。修正後はcampDD/contentDD1/
+    // contentDD2がどの集計にも一切現れないはずである。 ----
+    if (
+      !("campDD" in result.byCampaign) &&
+      !("contentDD1" in result.byContent) &&
+      !("contentDD2" in result.byContent) &&
+      !result.funnelCountsByContent?.contentDD1 &&
+      !result.funnelCountsByContent?.contentDD2
+    ) {
+      ok("同一source+campaignの複数active visitがbucketで食い違う場合、行自身に判別の手がかりが無ければ誤って断定せず未attributionとして扱う(DD: campDD/contentDD1/contentDD2はbyCampaign/byContent/funnelCountsByContentのどこにも現れない)");
+    } else {
+      bad(`bucket食い違いによる未attribution化が想定外: byCampaign.campDD=${result.byCampaign["campDD"]}, byContent.contentDD1=${result.byContent["contentDD1"]}, byContent.contentDD2=${result.byContent["contentDD2"]}, funnelCountsByContent.contentDD1=${JSON.stringify(result.funnelCountsByContent?.contentDD1)}, funnelCountsByContent.contentDD2=${JSON.stringify(result.funnelCountsByContent?.contentDD2)}(期待値: いずれも無し)`);
     }
 
     // ---- 検証: 通常のattributed行(reloadマーカーではない)からもvisitの活動時刻が

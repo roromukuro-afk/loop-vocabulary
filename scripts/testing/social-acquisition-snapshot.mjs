@@ -523,8 +523,24 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     const activeMatches = matches.filter(
       (m) => Date.parse(occurredAt) - Date.parse(m.lastSeenAt) <= RELOAD_DEDUPE_WINDOW_MS,
     );
-    if (activeMatches.length > 1 && new Set(activeMatches.map((m) => m.content)).size > 1) {
-      return { ...chosen, content: "(ambiguous)" };
+    if (activeMatches.length > 1) {
+      // signup_oauth_completedのように行自身がmedium/bucketの手がかりを一切持たない
+      // (rowSource/rowCampaignのみでmatchする)行の場合、同一source+campaignの複数
+      // active visitがbucketまで異なることがある(例: 同じcampaign文字列を社会流入と
+      // 有料広告の両方で使い回すケース、またはlaunch packで同一source+campaignの
+      // 投稿がmediumだけ異なるケース)。この場合、行がどちらのbucket(=social扱いすべき
+      // かどうか)に属すか判別する手がかりが一切無いため、誤ってどちらか一方の
+      // bucketを断定すると、実際には非socialのconversionがsocialとして誤カウント
+      // される、またはその逆(実際はsocialのconversionが除外される)という、content
+      // 曖昧化より深刻な誤りを生む。断定せず未attributionとして扱う(Codexレビュー
+      // 指摘対応、18巡目、最重要: 「Carry medium and content through OAuth
+      // attribution」の一部。medium/content自体をeventSchema.ts経由で行に持たせる
+      // ことはスキーマ変更が必要になるため避け、代わりに判別不能な場合は誤った断定を
+      // せず未attributionとして安全側に倒す設計にした)。
+      if (new Set(activeMatches.map((m) => m.bucket)).size > 1) return null;
+      if (new Set(activeMatches.map((m) => m.content)).size > 1) {
+        return { ...chosen, content: "(ambiguous)" };
+      }
     }
     return chosen;
   }
