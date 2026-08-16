@@ -61,8 +61,14 @@ function main() {
   const route = readSrc("src/app/api/analytics/events/route.ts");
   if (route.includes("is_test_event: isTestRequest")) ok("取り込みAPI: is_test_event列への書き込みがある");
   else bad("取り込みAPI: is_test_event列への書き込みが見つからない");
-  if (route.includes('req.headers.get(E2E_TEST_HEADER) === "1"')) ok("取り込みAPI: E2Eテストヘッダー判定がある");
-  else bad("取り込みAPI: E2Eテストヘッダー判定が見つからない");
+  // Issue #95対応でE2Eヘッダー判定は共有helper computeIsTestEvent()
+  // (src/lib/analytics/testEventClassification.ts)へ抽出された。route側では
+  // `computeIsTestEvent(req.headers.get(E2E_TEST_HEADER))`という呼び出し形になる。
+  if (route.includes("computeIsTestEvent(req.headers.get(E2E_TEST_HEADER))")) {
+    ok("取り込みAPI: E2Eテストヘッダー判定(共有helper経由)がある");
+  } else {
+    bad("取り込みAPI: E2Eテストヘッダー判定が見つからない");
+  }
 
   console.log(fail ? `\n=== test:test-account-exclusion: ${fail}件失敗 (${pass}件成功) ===` : `\n=== test:test-account-exclusion RESULT: all ${pass} checks passed ===`);
   process.exit(fail ? 1 : 0);

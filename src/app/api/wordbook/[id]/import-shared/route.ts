@@ -3,11 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { trackServerEvent } from "@/lib/analytics/trackServerEvent";
 import { buildImportedWordRows } from "@/lib/wordbooks/buildImportedWordRows";
+import { E2E_TEST_HEADER } from "@/lib/analytics/testEventClassification";
 
 export const runtime = "nodejs";
 
 // POST: 他ユーザーの共有単語帳を自分の単語帳としてコピー
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const e2eHeaderValue = req.headers.get(E2E_TEST_HEADER);
   const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -78,7 +80,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   // wordbook_created: 単語帳作成・単語コピーまですべて成功し、cleanup経路に入らないことが
   // 確定してから発火する(材料インポート側routeと同じ方針)。
-  await trackServerEvent("wordbook_created", { userId: user.id, properties: { source_type: "shared" } });
+  await trackServerEvent("wordbook_created", { userId: user.id, e2eHeaderValue, properties: { source_type: "shared" } });
 
   return NextResponse.json({ ok: true, wordbook_id: newBook.id, word_count: words?.length ?? 0 });
 }

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAllowedEventName, sanitizeProperties, MAX_STRING_PROPERTY_LENGTH } from "@/lib/analytics/eventSchema";
 import { looksLikeBot, isSameOriginRequest, checkRateLimit, isDuplicateEvent } from "@/lib/analytics/serverEventGuards";
+import { E2E_TEST_HEADER, computeIsTestEvent } from "@/lib/analytics/testEventClassification";
 
 export const runtime = "nodejs";
 
@@ -45,11 +46,6 @@ type RejectReason =
   | "invalid_batch_size"
   | "insert_failed";
 
-// E2Eテストハーネス専用ヘッダー。実ユーザーのブラウザはこのヘッダーを送らない。
-// 付与された送信は analytics_events.is_test_event=true として保存し、集計から除外する
-// (匿名イベントは is_test_account のようなユーザー単位の除外ができないための代替策)。
-const E2E_TEST_HEADER = "x-lv-e2e-test";
-
 // 本番でもPIIを含まない失敗件数だけを記録する(理由コード+件数のみ。path/session/propertiesは出さない)。
 function logRejection(reason: RejectReason, count: number) {
   console.warn("[analytics/events] rejected", { reason, count });
@@ -60,7 +56,11 @@ export async function POST(req: NextRequest) {
   const userAgent = req.headers.get("user-agent");
   const origin = req.headers.get("origin");
   const referer = req.headers.get("referer");
-  const isTestRequest = req.headers.get(E2E_TEST_HEADER) === "1";
+  // 匿名イベントは is_test_account のようなユーザー単位の除外ができないため、
+  // E2Eヘッダー付与 または 非production環境(Preview/ローカルdev/CI)からの送信を
+  // is_test_event=true として保存し、集計(rollup)から除外する
+  // (判定ロジックの詳細・環境契約はtestEventClassification.tsのコメント参照)。
+  const isTestRequest = computeIsTestEvent(req.headers.get(E2E_TEST_HEADER));
 
   let body: unknown;
   try {
