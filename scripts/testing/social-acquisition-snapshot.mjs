@@ -121,10 +121,22 @@ export async function fetchTestAccountIds(admin, asOf) {
   return new Set(rows.map((p) => p.id));
 }
 
-async function fetchEventsInWindow(admin, { startISO, endISO, asOf }) {
+async function fetchEventsInWindow(admin, { startISO, endISO, asOf, sessionIdPrefix }) {
   // analytics_events.idはgen_random_uuid()で挿入順と無相関のため、asOf以前に
   // created_atされた行だけへ読み取り対象を凍結してからid順ページングする
   // (acquisition-snapshot.mjs / audit-analytics-pollution.mjsと同じ理由・同じ設計)。
+  //
+  // sessionIdPrefixはfixture testからのみ渡される(scripts/testing/
+  // test-social-acquisition-snapshot-fixture.mjs参照)。本番呼び出し(main())では
+  // 渡さないため挙動は変わらない。fixture testはこのリポジトリの実dev/staging
+  // Supabaseプロジェクトへ直接接続しており、絶対値でassertionする以上、fixture行
+  // insert中・前後に発生し得る無関係な実トラフィック(手動確認・他エンジニアの操作・
+  // 並行実行)を完全に除外する必要がある。以前はinsert前後でsummarizeWindow()を
+  // 2回呼び差分を取っていたが、baseline取得とinsertの間に発生した実トラフィックは
+  // 依然として混入し得た(Codexレビュー指摘対応、6巡目)。fixtureの
+  // anonymous_session_idは全て使い捨てのランダムrunIdを含む一意なprefixを持つため、
+  // DB側でこのprefixに一致する行だけへ絞り込めば、タイミングに関わらず完全に
+  // 隔離できる。
   const rows = [];
   const pageSize = 1000;
   let cursorId = null;
@@ -138,6 +150,7 @@ async function fetchEventsInWindow(admin, { startISO, endISO, asOf }) {
       .lte("created_at", asOf)
       .order("id", { ascending: true })
       .limit(pageSize);
+    if (sessionIdPrefix) query = query.like("anonymous_session_id", `${sessionIdPrefix}%`);
     if (cursorId) query = query.gt("id", cursorId);
     const { data, error } = await query;
     if (error) throw new Error(error.message);
@@ -204,10 +217,11 @@ function topEntries(map, n = 10) {
 }
 
 // fixture testから直接importして検証するためexportする
-// (scripts/testing/test-social-acquisition-snapshot-fixture.mjs参照)。
-export async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive, testAccountIds, asOf) {
+// (scripts/testing/test-social-acquisition-snapshot-fixture.mjs参照)。sessionIdPrefixは
+// fixture testのみが渡すオプション引数(上記fetchEventsInWindow()のコメント参照)。
+export async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive, testAccountIds, asOf, sessionIdPrefix) {
   const { startISO, endISO } = windowRangeISO(startDateStr, endDateStrInclusive);
-  const rawRows = await fetchEventsInWindow(admin, { startISO, endISO, asOf });
+  const rawRows = await fetchEventsInWindow(admin, { startISO, endISO, asOf, sessionIdPrefix });
   // is_test_account=trueのユーザーがログイン中に作った行を除外する(既存
   // acquisition-snapshot.mjsと同じ既知の混入経路への対応)。user_idがnull(匿名行)は
   // 対象外にしない。
@@ -221,107 +235,88 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   const sessionIdsInRows = new Set(rows.map((r) => r.anonymous_session_id).filter(Boolean));
   const precedingMarkers = await fetchPrecedingAttributionMarkers(admin, { startISO, asOf, sessionIds: sessionIdsInRows });
 
-  // 1) セッション(anonymous_session_id)ごとに、このウィンドウ内の全traffic_source_detected
-  //    行を発生時刻順に並べたリストを作る(social/非socialを問わず保持する)。
+  // 1) セッション(anonymous_session_id)ごとに、このウィンドウ内の全行(traffic_source_detected
+  //    マーカー + landing/funnel等のその他すべての行)を発生時刻順に並べ、1回の
+  //    時系列走査でvisit(識別時刻・attribution・最後に観測された活動時刻lastSeenAt)を
+  //    再構築する。
   //    Codexレビュー指摘対応(重要): anonymous_session_idはlv_aid cookie由来で365日
   //    永続するため、同じcookieが同じ7日間ウィンドウ内で複数回・異なるsourceで
   //    訪問し得る(例: 月曜にXから流入→水曜にInstagramから流入→金曜にdirect再訪問)。
   //    セッション単位で1つのattributionへキャッシュしてしまうと、そのうちの1回
   //    (配列の並び順で偶然先頭に来たもの)へ全ての行が誤って一括帰属してしまい、
-  //    チャネル別・転換の集計が実態と乖離する。そのため、各行ごとにその行自身の
-  //    occurred_at以前で直近のtraffic_source_detectedを探し、その回(visit)の
-  //    attributionだけを適用する(=同じcookieでもvisitごとに正しく別々の
-  //    チャネルへ帰属させる)。
-  const attributionEventsBySession = new Map();
+  //    チャネル別・転換の集計が実態と乖離する。
+  const allRowsBySession = new Map();
   for (const r of [...rows, ...precedingMarkers]) {
-    if (r.event_name !== "traffic_source_detected") continue;
     const sid = r.anonymous_session_id;
     if (!sid) continue;
-    const medium = typeof r.properties?.medium === "string" ? r.properties.medium : undefined;
-    const bucket = classifySocialBucket(r.source ?? undefined, medium);
-    const entry = {
-      occurred_at: r.occurred_at,
-      bucket, // nullの場合は非social visit(visit境界の再構築には使うが、social集計自体からは除外)
-      campaign: r.campaign || "(none)",
-      content: typeof r.properties?.content === "string" && r.properties.content ? r.properties.content : "(none)",
-    };
-    if (!attributionEventsBySession.has(sid)) attributionEventsBySession.set(sid, []);
-    attributionEventsBySession.get(sid).push(entry);
-  }
-  for (const [sid, arr] of attributionEventsBySession) {
-    arr.sort((a, b) => (a.occurred_at < b.occurred_at ? -1 : a.occurred_at > b.occurred_at ? 1 : 0));
-    // 同一visit内でのページ再読み込み(reload)は、track.tsのtrafficSourceDetectedFired
-    // フラグ(モジュールレベル変数)がハード再読み込みのたびにリセットされるため、
-    // 同じsessionStorageキャッシュ値(=同一のbucket/campaign/content)を持つ
-    // traffic_source_detectedを何度も再送してしまう。これをそれぞれ別visitとして
-    // 数えると、1回の実際の訪問での数回の再読み込みだけでlanding/source/campaign/
-    // content集計が水増しされる(Codexレビュー指摘対応)。直前のattributionと
-    // bucket/campaign/contentが完全一致し、かつRELOAD_DEDUPE_WINDOW_MS以内の場合のみ
-    // 同一visitの継続とみなし、そのエントリを取り込まず先頭(最初にそのattributionへ
-    // 切り替わった時刻)のまま保つ。時間幅で区切らないと、同じX投稿を数時間・数日後に
-    // 改めてクリックした正当な再訪問まで最初のvisitへ吸収してしまい、逆に
-    // source/campaign/content集計が過小になる(Codexレビュー指摘対応、2巡目)。
-    //
-    // gap判定は「直前に保持(push)したマーカー」ではなく「直前の生マーカー」との
-    // 間隔で行う(Codexレビュー指摘対応、3巡目)。例えば0分・20分・40分に同一
-    // attributionのマーカーが並ぶ場合、20分マーカーは畳み込まれてdedupedには入らない
-    // が、40分マーカーとの間隔比較を「最後にpushされた0分マーカー」基準で行うと
-    // 40分>30分となり誤って新visitとして切り出してしまう。実際には20分→40分の間隔は
-    // 20分であり、一度も30分以上の無操作間隔が発生していないため、本来は連続した
-    // 1visitのままであるべき。visitのidentity(occurred_at)は最初にそのattributionへ
-    // 切り替わった時刻のまま据え置きつつ、gap計算だけは常に直前の生マーカーを使う。
-    //
-    // 畳み込まれた各visitには、そのvisit内で最後に観測された生マーカーの時刻を
-    // lastSeenAtとして別途保持する(Codexレビュー指摘対応、5巡目)。findAttribution()の
-    // 期限切れ判定(下記)は、visitのidentity時刻(occurred_at=最初のマーカー時刻)
-    // ではなくこのlastSeenAtを基準にしないと、0分・20分・40分と継続的にreloadして
-    // いる最中のユーザーが41分目に何か操作した場合、実際には一度も30分以上の
-    // 無操作期間が無いにもかかわらず「identity時刻(0分)から41分経過している」と
-    // 誤って未attribution扱いされてしまう。
-    const deduped = [];
-    let lastRaw = null;
-    for (const entry of arr) {
-      const prev = deduped[deduped.length - 1];
-      const gapMs = lastRaw ? Date.parse(entry.occurred_at) - Date.parse(lastRaw.occurred_at) : Infinity;
-      if (
-        prev &&
-        gapMs <= RELOAD_DEDUPE_WINDOW_MS &&
-        prev.bucket === entry.bucket &&
-        prev.campaign === entry.campaign &&
-        prev.content === entry.content
-      ) {
-        prev.lastSeenAt = entry.occurred_at;
-        lastRaw = entry;
-        continue;
-      }
-      deduped.push({ ...entry, lastSeenAt: entry.occurred_at });
-      lastRaw = entry;
-    }
-    attributionEventsBySession.set(sid, deduped);
+    if (!allRowsBySession.has(sid)) allRowsBySession.set(sid, []);
+    allRowsBySession.get(sid).push(r);
   }
 
-  // 指定occurredAt以前で直近のtraffic_source_detectedを返す(occurred_atはクライアント
-  // 指定値のため完全には信用できないが、同一セッション内でのvisit境界を再構築する
-  // 唯一の手がかりであり、このスクリプトが読み取り専用集計であることを踏まえた
-  // 現実的な近似として採用する)。該当が1件も無い場合(そのセッションの最初の
-  // traffic_source_detectedより前のoccurred_atを持つ行 = 例えば最初のvisitの
-  // traffic_source_detected送信自体が失敗/欠落し、後から始まった別visitの
-  // attributionしかそのセッションに存在しないケース)は、未attributionとして扱い
-  // nullを返す。ここでarr[0](=時間的に未来のattribution)へfallbackすると、
-  // 実際には無関係な後続visitの判定を過去の行へ逆流させてしまう
-  // (Codexレビュー指摘対応)。
+  const attributionEventsBySession = new Map();
+  for (const [sid, arr] of allRowsBySession) {
+    arr.sort((a, b) => (a.occurred_at < b.occurred_at ? -1 : a.occurred_at > b.occurred_at ? 1 : 0));
+    const visits = [];
+    let current = null;
+    for (const r of arr) {
+      if (r.event_name === "traffic_source_detected") {
+        // 同一visit内でのページ再読み込み(reload)は、track.tsのtrafficSourceDetectedFired
+        // フラグ(モジュールレベル変数)がハード再読み込みのたびにリセットされるため、
+        // 同じsessionStorageキャッシュ値(=同一のbucket/campaign/content)を持つ
+        // traffic_source_detectedを何度も再送してしまう。これをそれぞれ別visitとして
+        // 数えると、1回の実際の訪問での数回の再読み込みだけでlanding/source/campaign/
+        // content集計が水増しされる(Codexレビュー指摘対応)。直前のattributionと
+        // bucket/campaign/contentが完全一致し、かつcurrent.lastSeenAtからの間隔が
+        // RELOAD_DEDUPE_WINDOW_MS以内の場合のみ同一visitの継続とみなす。時間幅で
+        // 区切らないと、同じX投稿を数時間・数日後に改めてクリックした正当な再訪問まで
+        // 最初のvisitへ吸収してしまい、逆にsource/campaign/content集計が過小になる
+        // (Codexレビュー指摘対応、2巡目)。
+        const medium = typeof r.properties?.medium === "string" ? r.properties.medium : undefined;
+        const bucket = classifySocialBucket(r.source ?? undefined, medium);
+        const campaign = r.campaign || "(none)";
+        const content = typeof r.properties?.content === "string" && r.properties.content ? r.properties.content : "(none)";
+        const gapMs = current ? Date.parse(r.occurred_at) - Date.parse(current.lastSeenAt) : Infinity;
+        if (current && gapMs <= RELOAD_DEDUPE_WINDOW_MS && current.bucket === bucket && current.campaign === campaign && current.content === content) {
+          current.lastSeenAt = r.occurred_at; // reload: 同一visitの継続、活動時刻だけ延長する
+        } else {
+          current = { occurred_at: r.occurred_at, lastSeenAt: r.occurred_at, bucket, campaign, content };
+          visits.push(current);
+        }
+      } else if (current) {
+        // マーカー以外の行(landing/funnel等)自身は新しいvisitを開始したり既存visitを
+        // 打ち切ったりしない。現在開いているvisitの活動時刻からRELOAD_DEDUPE_WINDOW_MS
+        // 以内であれば、その行自身もvisitの「活動」とみなしlastSeenAtを延長する
+        // (Codexレビュー指摘対応、6巡目、最重要)。修正前はlastSeenAtがreloadマーカー
+        // からしか延長されなかったため、マーカーが0分・attributed行が20分・別のconversion
+        // が35分で発生した場合(=実際の無操作期間は15分のみ)、35分目の行がマーカー
+        // 自身の時刻(0分)基準で期限切れ(35分>30分)と誤判定されていた。
+        const gapMs = Date.parse(r.occurred_at) - Date.parse(current.lastSeenAt);
+        if (gapMs <= RELOAD_DEDUPE_WINDOW_MS && Date.parse(r.occurred_at) > Date.parse(current.lastSeenAt)) {
+          current.lastSeenAt = r.occurred_at;
+        }
+      }
+    }
+    attributionEventsBySession.set(sid, visits);
+  }
+
+  // 指定occurredAt以前で直近のvisitを返す(occurred_atはクライアント指定値のため
+  // 完全には信用できないが、同一セッション内でのvisit境界を再構築する唯一の
+  // 手がかりであり、このスクリプトが読み取り専用集計であることを踏まえた現実的な
+  // 近似として採用する)。該当が1件も無い場合(そのセッションの最初のvisitより前の
+  // occurred_atを持つ行 = 例えば最初のvisitのtraffic_source_detected送信自体が
+  // 失敗/欠落し、後から始まった別visitのattributionしかそのセッションに存在しない
+  // ケース)は、未attributionとして扱いnullを返す。ここでarr[0](=時間的に未来の
+  // attribution)へfallbackすると、実際には無関係な後続visitの判定を過去の行へ
+  // 逆流させてしまう(Codexレビュー指摘対応)。
   //
-  // 見つかったマーカーがRELOAD_DEDUPE_WINDOW_MSより古い場合も未attributionとして扱う
-  // (Codexレビュー指摘対応、4巡目、最重要)。anonymous_session_idは365日永続するため、
-  // 例えば月曜にXから流入したセッションが金曜にdirectで再訪問し、その際の
-  // traffic_source_detected送信だけが失敗/欠落した場合、何のガードも無いと金曜の行が
-  // 何日も前の月曜のマーカーへ誤って帰属してしまう。visit識別(dedup)と同じ時間幅を
-  // 「このマーカーをどれだけ後の行まで正当と見なすか」の上限としても使う。基準時刻は
-  // chosen.occurred_at(=visitの最初のマーカー時刻)ではなくchosen.lastSeenAt(=その
-  // visit内で最後に観測された生マーカー時刻)を使う(Codexレビュー指摘対応、5巡目)。
-  // 0分・20分・40分と継続的にreloadしているユーザーが41分目に何か操作した場合、
-  // occurred_at(0分)基準だと41分>30分で誤って未attribution扱いになってしまうが、
-  // 実際には一度も30分以上の無操作期間が発生していない継続visitである。
+  // 見つかったvisitのlastSeenAtがRELOAD_DEDUPE_WINDOW_MSより古い場合も未attribution
+  // として扱う(Codexレビュー指摘対応、4巡目、最重要)。anonymous_session_idは365日
+  // 永続するため、例えば月曜にXから流入したセッションが金曜にdirectで再訪問し、
+  // その際のtraffic_source_detected送信だけが失敗/欠落した場合、何のガードも無いと
+  // 金曜の行が何日も前の月曜のマーカーへ誤って帰属してしまう。lastSeenAtは上記の
+  // 時系列走査でreloadマーカーだけでなく、その間に発生した通常のattributed行からも
+  // 延長されているため、実際の最後の活動時刻を正しく反映する(Codexレビュー指摘対応、
+  // 6巡目)。
   function findAttribution(sid, occurredAt) {
     const arr = attributionEventsBySession.get(sid);
     if (!arr || arr.length === 0) return null;
