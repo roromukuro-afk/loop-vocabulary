@@ -45,6 +45,14 @@
  *    social visitとして集計される(Codexレビュー指摘対応、4巡目、重要)
  *  - fixture自体のタイムスタンプがJST日付境界(実行時刻依存)をまたいでも
  *    テストが不安定に失敗しない(Codexレビュー指摘対応、4巡目)
+ *  - このfixtureが接続する実DB上に、同じJST当日分の無関係な実トラフィックが
+ *    既に存在していても(または並行して発生しても)assertionが揺れない。fixture行
+ *    insert前後でsummarizeWindow()を2回呼び、差分(このfixtureが追加した分のみ)を
+ *    検証する(Codexレビュー指摘対応、4巡目)
+ *  - そのセッション最初のtraffic_source_detectedが見つかっても、対象の行から
+ *    RELOAD_DEDUPE_WINDOW_MSより古い場合は未attributionとして扱う(=365日persistする
+ *    cookieが何日も前の別visitのattributionを、間のtraffic_source_detected送信が
+ *    欠落した後続visitへ誤って逆流帰属させない。Codexレビュー指摘対応、4巡目、最重要)
  *  - social visitのfunnelイベント件数が正しい
  *  - social visit起点の新規signup数(user_id突き合わせ、ウィンドウ内新規作成のみ)が正しい
  *
@@ -59,6 +67,53 @@ let pass = 0;
 let fail = 0;
 function ok(msg) { console.log(`✅ ${msg}`); pass++; }
 function bad(msg) { console.error(`❌ FAIL: ${msg}`); fail++; }
+
+// summarizeWindow()はfixture用に隔離されたDBを持たず、このリポジトリのdev/staging
+// Supabaseプロジェクトへ直接接続する。同じJST当日分に無関係な実トラフィック(手動確認・
+// 他エンジニアの操作等)が既に存在する、またはこのテスト実行中に発生すると、
+// socialLandingIdentities等の絶対値assertionは実装が正しくても揺れてしまう
+// (Codexレビュー指摘対応、4巡目)。fixture行insert前後でsummarizeWindow()を2回呼び、
+// 「このfixtureが追加した分だけの差分」をassertion対象にすることで、既存/並行する
+// 実トラフィックの有無に関わらず安定させる。
+// byBucket/funnelCountsは「特定バケット/イベント名が0件であること」自体を検証する
+// assertionがあるため、差分が0のキーも省略せず残す(dense)。
+function diffCountsDense(after, before) {
+  const result = {};
+  for (const k of new Set([...Object.keys(after ?? {}), ...Object.keys(before ?? {})])) {
+    result[k] = (after?.[k] ?? 0) - (before?.[k] ?? 0);
+  }
+  return result;
+}
+// byCampaign/byContent/byPath/signupCountByContentはsummarizeWindow()自体が元々
+// sparse(該当が無いキーは存在しない)な設計のため、差分が0のキーは結果から省略する
+// (「そのキーが存在しない」ことを検証するassertionと整合させる)。
+function diffCountsSparse(after, before) {
+  const dense = diffCountsDense(after, before);
+  const result = {};
+  for (const [k, v] of Object.entries(dense)) if (v !== 0) result[k] = v;
+  return result;
+}
+function diffNestedCounts(after, before) {
+  const result = {};
+  for (const k of new Set([...Object.keys(after ?? {}), ...Object.keys(before ?? {})])) {
+    const diffed = diffCountsDense(after?.[k], before?.[k]);
+    if (Object.values(diffed).some((v) => v !== 0)) result[k] = diffed;
+  }
+  return result;
+}
+function diffResult(after, before) {
+  return {
+    socialLandingIdentities: after.socialLandingIdentities - before.socialLandingIdentities,
+    byBucket: diffCountsDense(after.byBucket, before.byBucket),
+    byCampaign: diffCountsSparse(after.byCampaign, before.byCampaign),
+    byContent: diffCountsSparse(after.byContent, before.byContent),
+    byPath: diffCountsSparse(after.byPath, before.byPath),
+    funnelCounts: diffCountsDense(after.funnelCounts, before.funnelCounts),
+    funnelCountsByContent: diffNestedCounts(after.funnelCountsByContent, before.funnelCountsByContent),
+    socialSignupCount: after.socialSignupCount - before.socialSignupCount,
+    signupCountByContent: diffCountsSparse(after.signupCountByContent, before.signupCountByContent),
+  };
+}
 
 async function main() {
   loadEnv();
@@ -133,6 +188,18 @@ async function main() {
     if (suCreatedAtErr) throw new Error(`signupユーザーのcreated_at設定に失敗: ${suCreatedAtErr.message}`);
     const { error: esCreatedAtErr } = await admin.from("profiles").update({ created_at: offset(0) }).eq("id", earlySignupUserId);
     if (esCreatedAtErr) throw new Error(`pre-existing signupユーザーのcreated_at設定に失敗: ${esCreatedAtErr.message}`);
+
+    // ---- fixture行を挿入する前に、この時点の集計を「baseline」として記録する ----
+    // (Codexレビュー指摘対応、4巡目)。この後assertionはbaseline→fixture行insert後の
+    // 差分のみを見るため、このDB上に既に存在する(または並行して発生する)無関係な
+    // 実トラフィックがあっても、以降のassertionには一切影響しない。
+    const testAccountIds = await fetchTestAccountIds(admin, new Date().toISOString());
+    if (testAccountIds.has(testAccountUserId)) {
+      ok("fetchTestAccountIds()が今回作成したis_test_account=trueユーザーを正しく含む");
+    } else {
+      bad("fetchTestAccountIds()が今回作成したis_test_account=trueユーザーを含んでいない");
+    }
+    const baseline = await summarizeWindow(admin, "baseline(fixture行insert前)", today, today, testAccountIds, new Date().toISOString());
 
     // ---- セッション分のanalytics_eventsをDBへ直接挿入する ----
     // (このテストは集計ロジック自体の検証が目的のため、ingestion API/trackEvent()を
@@ -260,19 +327,16 @@ async function main() {
     const { error: insertErr } = await admin.from("analytics_events").insert(rows);
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
 
-    // ---- 集計を実行する(本番スクリプトと同じ関数を直接呼ぶ) ----
-    const asOf = new Date().toISOString();
-    const testAccountIds = await fetchTestAccountIds(admin, asOf);
-    if (testAccountIds.has(testAccountUserId)) {
-      ok("fetchTestAccountIds()が今回作成したis_test_account=trueユーザーを正しく含む");
-    } else {
-      bad("fetchTestAccountIds()が今回作成したis_test_account=trueユーザーを含んでいない");
-    }
-
+    // ---- 集計を実行する(本番スクリプトと同じ関数を直接呼ぶ)。baselineと同じ
+    // testAccountIdsを再利用する(testAccountUserIdの状態はここまで変わっていない)。
     // today変数はファイル冒頭でoffset()の基準(JST正午)を計算する際に既に取得済みの
     // ものを再利用する(この時点で再度todayJST()を呼ぶと、テスト実行がJST日付境界を
-    // またいだ場合にoffset()の基準日とクエリ対象日がずれてしまう)。
-    const result = await summarizeWindow(admin, "fixture", today, today, testAccountIds, asOf);
+    // またいだ場合にoffset()の基準日とクエリ対象日がずれてしまう)。 ----
+    const asOf = new Date().toISOString();
+    const afterInsert = await summarizeWindow(admin, "fixture", today, today, testAccountIds, asOf);
+    // 以降のassertionは全て、baseline→fixture行insert後の差分(=このfixtureが追加した
+    // 分のみ)に対して行う(Codexレビュー指摘対応、4巡目)。
+    const result = diffResult(afterInsert, baseline);
 
     // ---- 検証: social landing identities合計 = A, B, D, G, H(visit1のみ), J, K, L,
     // M(visit1・visit2の2件), N, O の12件(C=非social, E=test account, F=test event,

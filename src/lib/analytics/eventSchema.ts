@@ -150,6 +150,14 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   },
   signup_started: { category: "onboarding", properties: { method: "string" } },
   signup_completed: { category: "onboarding", properties: { method: "string" } },
+  // OAuth(Google)経由の新規signupのみ、サーバー側(src/app/auth/callback/route.ts)から
+  // 発火する。signup_completed(method=google)はクライアント側でOAuthリダイレクト
+  // 直前に発火するため、その時点ではまだ未認証でuser_idを持てない。それ以降、
+  // ユーザーが何のイベントも起こさずタブを閉じた場合、そのsocial visitのuser_idが
+  // 一切analytics_eventsに残らず、social起点signupとして検出できなくなっていた
+  // (Codexレビュー指摘対応、Issue #98)。signup_completedとは別名にし、二重計上を
+  // 避ける(既存のsignup_completedを行数ベースで集計している他の箇所を壊さない)。
+  signup_oauth_completed: { category: "onboarding", properties: { method: "string" } },
   onboarding_started: { category: "onboarding", properties: {} },
   first_word_added: { category: "onboarding", properties: {} },
   five_words_added: { category: "onboarding", properties: {} },

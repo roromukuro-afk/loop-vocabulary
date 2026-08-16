@@ -154,9 +154,12 @@ async function fetchEventsInWindow(admin, { startISO, endISO, asOf }) {
 // (ウィンドウ内)にlanding/funnel行が発生するケースでは、fetchEventsInWindow()が
 // startISO以降しか取得しないためtraffic_source_detected自体がrowsに含まれず、
 // findAttribution()が該当無し(null)を返してしまい、実際にはsocial visitである
-// はずのconversionが集計から丸ごと消えてしまう(Codexレビュー指摘対応)。24時間分
-// 遡れば、日付境界をまたぐケースは確実にカバーできる。
-const ATTRIBUTION_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+// はずのconversionが集計から丸ごと消えてしまう(Codexレビュー指摘対応)。
+// findAttribution()自体がRELOAD_DEDUPE_WINDOW_MSより古いマーカーを未attribution扱い
+// するため(Codexレビュー指摘対応、4巡目)、それより遡って取得しても採用され得る
+// マーカーは増えない。よってlookback幅はRELOAD_DEDUPE_WINDOW_MSと同じに揃える
+// (無駄に長い期間のマーカーを取得しない)。
+const ATTRIBUTION_LOOKBACK_MS = RELOAD_DEDUPE_WINDOW_MS;
 
 // ウィンドウ内に登場するセッションIDについてのみ、startISOより前
 // (ATTRIBUTION_LOOKBACK_MS以内)のtraffic_source_detectedを追加取得する。
@@ -298,6 +301,13 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   // nullを返す。ここでarr[0](=時間的に未来のattribution)へfallbackすると、
   // 実際には無関係な後続visitの判定を過去の行へ逆流させてしまう
   // (Codexレビュー指摘対応)。
+  //
+  // 見つかったマーカーがRELOAD_DEDUPE_WINDOW_MSより古い場合も未attributionとして扱う
+  // (Codexレビュー指摘対応、4巡目、最重要)。anonymous_session_idは365日永続するため、
+  // 例えば月曜にXから流入したセッションが金曜にdirectで再訪問し、その際の
+  // traffic_source_detected送信だけが失敗/欠落した場合、何のガードも無いと金曜の行が
+  // 何日も前の月曜のマーカーへ誤って帰属してしまう。visit識別(dedup)と同じ時間幅を
+  // 「このマーカーをどれだけ後の行まで正当と見なすか」の上限としても使う。
   function findAttribution(sid, occurredAt) {
     const arr = attributionEventsBySession.get(sid);
     if (!arr || arr.length === 0) return null;
@@ -306,6 +316,9 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
       if (entry.occurred_at <= occurredAt) chosen = entry;
       else break;
     }
+    if (!chosen) return null;
+    const gapMs = Date.parse(occurredAt) - Date.parse(chosen.occurred_at);
+    if (gapMs > RELOAD_DEDUPE_WINDOW_MS) return null;
     return chosen;
   }
 

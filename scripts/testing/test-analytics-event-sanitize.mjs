@@ -227,6 +227,24 @@ const PII_AND_UNKNOWN_PROBE = {
   assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "guide_cta_click: sanitize後にemail/user_id/password/未許可キーが残らない");
 }
 
+// ── signup_oauth_completed: methodのみが残る(Issue #98。src/app/auth/callback/route.tsから
+// サーバー側で発火する新規OAuth signup完了イベント) ──
+{
+  const raw = {
+    method: "google",
+    utm_source: "x",
+    utm_medium: "social",
+    ...PII_AND_UNKNOWN_PROBE,
+  };
+  const sanitized = sanitizeProperties("signup_oauth_completed", raw);
+  assertEqual(
+    sanitized,
+    { method: "google" },
+    "signup_oauth_completed: sanitize後にmethodのみが残り、utm_*・PIIは含まれない"
+  );
+  assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "signup_oauth_completed: sanitize後にemail/user_id/password/未許可キーが残らない");
+}
+
 // ── 未許可イベント名はAPI層で丸ごと拒否される(isAllowedEventName) ──
 {
   const allowed = isAllowedEventName("signup_cta_click");
