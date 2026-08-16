@@ -308,6 +308,17 @@ async function main() {
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}q`, source: "x", campaign: "campQ", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentQ" }, occurred_at: beforeWindowStart(40 * 60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "landing_view", anonymous_session_id: `${prefix}q`, source: "x", campaign: "campQ", path: "/", user_id: null, properties: {}, occurred_at: beforeWindowStart(15 * 60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}q`, source: "x", campaign: "campQ", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: afterWindowStart(5 * 60 * 1000), is_test_event: false, schema_version: 1 },
+
+      // R: is_test_account=trueユーザーが境界の20分前にsocial markerを発生させ、その後
+      // (同一cookie=同一anonymous_session_id)境界の5分後に匿名のconversionが発生する
+      // ケース(Codexレビュー指摘対応、8巡目)。間隔は25分(<30分)のため、
+      // fetchPrecedingActivityRows()がtest account除外を行わないと、このtest account由来の
+      // markerがそのままconversionのattributionへ継承されてしまう(campR/contentRとして
+      // 誤collect)。正しくはtest accountのmarkerごと除外され、conversionは未attribution
+      // (=byCampaign/byContent/funnelCountsByContentのどこにもcontentR/campRが現れない)
+      // ままになるべき。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}r`, source: "x", campaign: "campR", path: null, user_id: testAccountUserId, properties: { source: "x", medium: "social", content: "contentR" }, occurred_at: beforeWindowStart(20 * 60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}r`, source: "x", campaign: "campR", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: afterWindowStart(5 * 60 * 1000), is_test_event: false, schema_version: 1 },
     ];
     const { error: insertErr } = await admin.from("analytics_events").insert(rows);
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
@@ -375,6 +386,23 @@ async function main() {
       ok("ウィンドウ境界をまたぐ活動連鎖が、マーカーだけでなく通常のattributed行も含めて正しく再構築される(Q: funnelCountsByContent.contentQ.vocab_test_maker_page_viewed=1。修正前はlookback幅とマーカー限定の取得により未attribution扱いになっていた)");
     } else {
       bad(`境界をまたぐ活動連鎖の再構築が想定外: ${JSON.stringify(result.funnelCountsByContent?.contentQ)}(期待値: vocab_test_maker_page_viewed=1)`);
+    }
+
+    // ---- 検証: pre-window activity chainからもtest accountのmarkerは除外される
+    // (Codexレビュー指摘対応、8巡目)。Rはis_test_account=trueユーザーが境界の20分前に
+    // 発生させたmarkerと、その25分後(境界の5分後)に同一cookieで発生した匿名の
+    // conversionから成る。修正前はfetchPrecedingActivityRows()がuser_idを取得も
+    // フィルタもしていなかったため、test accountのmarker(campR/contentR)がそのまま
+    // conversionへ継承されてしまっていた。修正後はmarkerごと除外され、conversionは
+    // 未attributionのままとなり、campR/contentRはどの集計にも一切現れないはずである。
+    if (
+      !result.funnelCountsByContent?.contentR &&
+      !("campR" in result.byCampaign) &&
+      !("contentR" in result.byContent)
+    ) {
+      ok("pre-window activity chainのtest account markerが正しく除外され、実ユーザーのconversionへ誤って継承されない(R: campR/contentRはbyCampaign/byContent/funnelCountsByContentのどこにも現れない)");
+    } else {
+      bad(`test account markerの除外が想定外: byCampaign.campR=${result.byCampaign["campR"]}, byContent.contentR=${result.byContent["contentR"]}, funnelCountsByContent.contentR=${JSON.stringify(result.funnelCountsByContent?.contentR)}(期待値: いずれも無し)`);
     }
 
     // ---- 検証: 通常のattributed行(reloadマーカーではない)からもvisitの活動時刻が

@@ -15,6 +15,16 @@ import { classifySocialHost } from "./socialReferrer";
 const SESSION_COOKIE_NAME = "lv_aid";
 const SESSION_COOKIE_DAYS = 365;
 const SOURCE_STORAGE_KEY = "lv_traffic_source";
+// sessionStorageにキャッシュしたtraffic sourceの有効期限(Codexレビュー指摘対応)。
+// 期限が無いと、タブを30分以上開いたまま放置し、UTM無しで再読み込み・再訪問した際に
+// 古いsource/medium/campaign/contentがそのまま再利用され、実質「直接の再訪問」を
+// 「新しいsocial visit」として扱ってしまう(scripts/testing/social-acquisition-snapshot.mjs
+// のRELOAD_DEDUPE_WINDOW_MSを超える間隔は別visitとして数えられるため)。閾値をその
+// 定数と揃え、有効なキャッシュを再利用するたびにlastSeenAtをスライドさせることで、
+// 継続して閲覧中の正当な長時間visit(各イベント間隔が30分未満)では期限切れにならず、
+// 実際に30分以上操作が無かった場合のみ期限切れとしてreferrer/direct判定へフォールバック
+// する。
+const SOURCE_CACHE_EXPIRY_MS = 30 * 60 * 1000;
 
 // cookie値がpercent-encodingとして不正な場合、decodeURIComponentは同期的にthrowする。
 // 破損したcookie値をmalformedのまま使わず、null(=既存IDなし扱い)を返す。呼び出し元の
@@ -52,6 +62,16 @@ export function getAnonymousSessionId(): string {
 }
 
 type TrafficSource = { source: string; medium: string; campaign: string; content: string };
+type CachedTrafficSource = TrafficSource & { lastSeenAt: number };
+
+function cacheTrafficSource(result: TrafficSource): void {
+  try {
+    const toStore: CachedTrafficSource = { ...result, lastSeenAt: Date.now() };
+    sessionStorage.setItem(SOURCE_STORAGE_KEY, JSON.stringify(toStore));
+  } catch {
+    /* noop */
+  }
+}
 
 function detectTrafficSource(): TrafficSource {
   if (typeof window === "undefined") return { source: "direct", medium: "none", campaign: "", content: "" };
@@ -60,7 +80,8 @@ function detectTrafficSource(): TrafficSource {
   // 1. 現在のURLにUTMがあれば、それを採用してキャッシュを更新する(同一タブでdirect訪問後に
   //    UTM付きリンクへ遷移した場合等、古いキャッシュ値を優先して新しいキャンペーンの
   //    アトリビューションを取りこぼさないため)。
-  // 2. 現在のURLにUTMが無ければ、このセッションで既に判定済みのキャッシュを使う。
+  // 2. 現在のURLにUTMが無く、キャッシュが有効期限内(SOURCE_CACHE_EXPIRY_MS)であれば、
+  //    このセッションで既に判定済みのキャッシュを使う。
   // 3. どちらも無ければreferrer/direct判定。
   const params = new URLSearchParams(window.location.search);
   const utmSource = params.get("utm_source");
@@ -75,20 +96,27 @@ function detectTrafficSource(): TrafficSource {
       campaign: utmCampaign,
       content: utmContent,
     };
-    try {
-      sessionStorage.setItem(SOURCE_STORAGE_KEY, JSON.stringify(result));
-    } catch {
-      /* noop */
-    }
+    cacheTrafficSource(result);
     return result;
   }
 
   try {
     const cached = sessionStorage.getItem(SOURCE_STORAGE_KEY);
     if (cached) {
-      const parsed = JSON.parse(cached);
-      // 旧バージョン(campaign/content未保存)のキャッシュ値との後方互換
-      return { campaign: "", content: "", ...parsed };
+      const parsed = JSON.parse(cached) as Partial<CachedTrafficSource>;
+      const lastSeenAt = typeof parsed.lastSeenAt === "number" ? parsed.lastSeenAt : 0;
+      if (Date.now() - lastSeenAt <= SOURCE_CACHE_EXPIRY_MS) {
+        // 旧バージョン(campaign/content未保存)のキャッシュ値との後方互換。lastSeenAtは
+        // TrafficSourceのフィールドではないため明示的に除外する。
+        const result: TrafficSource = {
+          source: parsed.source ?? "direct",
+          medium: parsed.medium ?? "none",
+          campaign: parsed.campaign ?? "",
+          content: parsed.content ?? "",
+        };
+        cacheTrafficSource(result); // 継続利用中はlastSeenAtをスライドさせ期限切れにしない
+        return result;
+      }
     }
   } catch {
     /* noop */
@@ -120,11 +148,7 @@ function detectTrafficSource(): TrafficSource {
     }
   }
 
-  try {
-    sessionStorage.setItem(SOURCE_STORAGE_KEY, JSON.stringify(result));
-  } catch {
-    /* noop */
-  }
+  cacheTrafficSource(result);
   return result;
 }
 

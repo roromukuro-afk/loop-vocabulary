@@ -186,7 +186,7 @@ const ATTRIBUTION_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 // (allRowsBySession)にのみ使い、landing/funnel等の実際の集計対象は
 // fetchEventsInWindow()が返すウィンドウ内の行に限定したまま変えない
 // (Codexレビュー指摘対応)。
-async function fetchPrecedingActivityRows(admin, { startISO, asOf, sessionIds }) {
+async function fetchPrecedingActivityRows(admin, { startISO, asOf, sessionIds, testAccountIds }) {
   if (sessionIds.size === 0) return [];
   const lookbackStartISO = new Date(new Date(startISO).getTime() - ATTRIBUTION_LOOKBACK_MS).toISOString();
   const sessionIdsArr = [...sessionIds];
@@ -198,7 +198,7 @@ async function fetchPrecedingActivityRows(admin, { startISO, asOf, sessionIds })
     for (;;) {
       let query = admin
         .from("analytics_events")
-        .select("id, event_name, anonymous_session_id, source, campaign, properties, occurred_at")
+        .select("id, event_name, anonymous_session_id, source, campaign, user_id, properties, occurred_at")
         .eq("is_test_event", false)
         .in("anonymous_session_id", chunk)
         .gte("occurred_at", lookbackStartISO)
@@ -215,7 +215,11 @@ async function fetchPrecedingActivityRows(admin, { startISO, asOf, sessionIds })
       cursorId = data[data.length - 1].id;
     }
   }
-  return rows;
+  // ウィンドウ内のrowsと同じtest-account除外(Codexレビュー指摘対応)。除外しないと、
+  // startISO直前にtest accountが発生させたsocial markerが、境界後の匿名/実ユーザーの
+  // 同一cookie行のvisit再構築へそのまま混入し、test accountのattributionを実ユーザーの
+  // landingへ誤って継承させてしまう。
+  return rows.filter((r) => !r.user_id || !testAccountIds.has(r.user_id));
 }
 
 function topEntries(map, n = 10) {
@@ -239,7 +243,12 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   // 使い、landing/funnel等の実際の集計対象(socialLandingEntries/funnelCounts等)は
   // 下記のrows(ウィンドウ内のみ)に限定したまま変えない。
   const sessionIdsInRows = new Set(rows.map((r) => r.anonymous_session_id).filter(Boolean));
-  const precedingActivityRows = await fetchPrecedingActivityRows(admin, { startISO, asOf, sessionIds: sessionIdsInRows });
+  const precedingActivityRows = await fetchPrecedingActivityRows(admin, {
+    startISO,
+    asOf,
+    sessionIds: sessionIdsInRows,
+    testAccountIds,
+  });
 
   // 1) セッション(anonymous_session_id)ごとに、このウィンドウ内の全行(traffic_source_detected
   //    マーカー + landing/funnel等のその他すべての行)を発生時刻順に並べ、1回の
