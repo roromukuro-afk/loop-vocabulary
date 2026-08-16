@@ -206,6 +206,27 @@ const PII_AND_UNKNOWN_PROBE = {
   assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "guide_share_invoked: sanitize後にemail/user_id/password/未許可キーが残らない");
 }
 
+// ── guide_cta_click: guide_slug/targetのみが残る(Issue #98でGA4専用だったものを
+// first-party側にも追加。Codexレビュー指摘: acquisition-snapshot.mjs/
+// social-acquisition-snapshot.mjsのfunnel集計が参照していたが、analytics_eventsには
+// 一度も保存されておらず常に0件だった) ──
+{
+  const raw = {
+    guide_slug: "eiken-2kyu-tango",
+    target: "tools",
+    utm_source: "x",
+    utm_medium: "social",
+    ...PII_AND_UNKNOWN_PROBE,
+  };
+  const sanitized = sanitizeProperties("guide_cta_click", raw);
+  assertEqual(
+    sanitized,
+    { guide_slug: "eiken-2kyu-tango", target: "tools" },
+    "guide_cta_click: sanitize後にguide_slug/targetのみが残り、utm_*・PIIは含まれない"
+  );
+  assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "guide_cta_click: sanitize後にemail/user_id/password/未許可キーが残らない");
+}
+
 // ── 未許可イベント名はAPI層で丸ごと拒否される(isAllowedEventName) ──
 {
   const allowed = isAllowedEventName("signup_cta_click");

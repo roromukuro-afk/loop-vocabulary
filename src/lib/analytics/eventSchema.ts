@@ -28,6 +28,13 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   // ── 集客 ──────────────────────────────────────────────
   landing_view: { category: "acquisition", properties: {} },
   guide_view: { category: "acquisition", properties: { guide_slug: "string" } },
+  // guide_cta_click: 記事内リンク(/signup以外。vocab_check/dictionary/premium/
+  // materials/tools/other_guide)のクリックをfirst-party側でも記録する(Issue #98)。
+  // 従来 src/components/guide/GuideTracker.tsx の trackGuideCtaClick() はGA4のみに
+  // 送信しており、analytics_eventsには一度も保存されていなかった(Codexレビュー指摘:
+  // scripts/testing/acquisition-snapshot.mjs・social-acquisition-snapshot.mjsの
+  // funnel集計がこの列を含めていたにもかかわらず常に0件になっていた)。
+  guide_cta_click: { category: "acquisition", properties: { guide_slug: "string", target: "string" } },
   // guide_share_invoked: 記事末尾の共有CTA(Issue #98)の操作起点を記録する。
   // vocab_test_maker_share_invokedと同じ理由でmethod以外は増やさない
   // (「投稿完了」を意味する名前・propertiesにしない)。

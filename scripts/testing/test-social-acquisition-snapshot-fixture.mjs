@@ -96,6 +96,13 @@ async function main() {
       // F: x / social だが is_test_event=true → 完全に除外されるべき
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}f`, source: "x", campaign: "camp1", path: null, user_id: null, properties: { source: "x", medium: "social", content: "post1" }, occurred_at: now(), is_test_event: true, schema_version: 1 },
       { event_name: "landing_view", anonymous_session_id: `${prefix}f`, source: "x", campaign: "camp1", path: "/", user_id: null, properties: {}, occurred_at: now(), is_test_event: true, schema_version: 1 },
+
+      // G: youtube / social / camp2 / content=post3 → landing_view自体が一度も無い
+      // (SNS投稿が/tools/vocab-test-makerへ直接リンクし、トップページを経由しない
+      // ケースを再現する。Codexレビュー指摘対応: landing_view基準だけだとこの
+      // セッションのlandingが0件になってしまっていた)。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}g`, source: "youtube", campaign: "camp2", path: null, user_id: null, properties: { source: "youtube", medium: "social", content: "post3" }, occurred_at: now(), is_test_event: false, schema_version: 1 },
+      { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}g`, source: "youtube", campaign: "camp2", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: now(), is_test_event: false, schema_version: 1 },
     ];
     const { error: insertErr } = await admin.from("analytics_events").insert(rows);
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
@@ -112,15 +119,18 @@ async function main() {
     const today = todayJST();
     const result = await summarizeWindow(admin, "fixture", today, today, testAccountIds, asOf);
 
-    // ---- 検証: social landing identities合計 = A, B, D の3件(C=非social, E=test account, F=test event は除外) ----
-    if (result.socialLandingIdentities === 3) {
-      ok("social landing identities合計が3(A/B/D。C=非social/E=test account/F=test eventは除外)");
+    // ---- 検証: social landing identities合計 = A, B, D, G の4件
+    // (C=非social, E=test account, F=test event は除外)。Gはlanding_viewを一度も
+    // 発火しない(vocab_test_maker_page_viewedのみ)セッションで、これも正しく
+    // landingとして数えられることを確認する(Codexレビュー指摘対応)。 ----
+    if (result.socialLandingIdentities === 4) {
+      ok("social landing identities合計が4(A/B/D/G。C=非social/E=test account/F=test eventは除外)");
     } else {
-      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 3)`);
+      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 4)`);
     }
 
     // ---- 検証: source別バケット ----
-    const expectedBuckets = { x: 1, threads: 0, instagram: 1, tiktok: 0, youtube: 0, pinterest: 0, facebook: 0, line: 0, other_social: 1 };
+    const expectedBuckets = { x: 1, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 1 };
     let bucketsOk = true;
     for (const [bucket, expected] of Object.entries(expectedBuckets)) {
       if (result.byBucket[bucket] !== expected) {
@@ -128,28 +138,38 @@ async function main() {
         bad(`byBucket.${bucket}が想定外: ${result.byBucket[bucket]}(期待値: ${expected})`);
       }
     }
-    if (bucketsOk) ok("source別バケット(x=1, instagram=1, other_social=1、他=0)が正しい(未知source=mastodonはother_socialへ、test account/test eventのxは含まれない)");
+    if (bucketsOk) ok("source別バケット(x=1, instagram=1, youtube=1, other_social=1、他=0)が正しい(未知source=mastodonはother_socialへ、test account/test eventのxは含まれない)");
 
     // ---- 検証: campaign/content/path(identity単位、同一セッションの複数行を二重計上しない) ----
-    if (result.byCampaign["camp1"] === 2 && result.byCampaign["(none)"] === 1) {
-      ok("campaign別集計が正しい(camp1=2[A,B], (none)=1[D])");
+    if (result.byCampaign["camp1"] === 2 && result.byCampaign["(none)"] === 1 && result.byCampaign["camp2"] === 1) {
+      ok("campaign別集計が正しい(camp1=2[A,B], (none)=1[D], camp2=1[G])");
     } else {
-      bad(`campaign別集計が想定外: ${JSON.stringify(result.byCampaign)}(期待値: camp1=2, (none)=1)`);
+      bad(`campaign別集計が想定外: ${JSON.stringify(result.byCampaign)}(期待値: camp1=2, (none)=1, camp2=1)`);
     }
-    if (result.byContent["post1"] === 1 && result.byContent["post2"] === 1 && result.byContent["(none)"] === 1) {
-      ok("content別集計が正しい(post1=1[A], post2=1[B], (none)=1[D])");
+    if (
+      result.byContent["post1"] === 1 &&
+      result.byContent["post2"] === 1 &&
+      result.byContent["(none)"] === 1 &&
+      result.byContent["post3"] === 1
+    ) {
+      ok("content別集計が正しい(post1=1[A], post2=1[B], (none)=1[D], post3=1[G])");
     } else {
-      bad(`content別集計が想定外: ${JSON.stringify(result.byContent)}(期待値: post1=1, post2=1, (none)=1)`);
+      bad(`content別集計が想定外: ${JSON.stringify(result.byContent)}(期待値: post1=1, post2=1, (none)=1, post3=1)`);
     }
-    if (result.byPath["/"] === 2 && result.byPath["/tools/vocab-test-maker"] === 1) {
-      ok("landing path別集計が正しい(/=2[A,D], /tools/vocab-test-maker=1[B])(件数=行数、identityではなくlanding_view行単位)");
+    // landing_view(A,D)に加え、vocab_test_maker_page_viewed(A,G)・landing_view(B、
+    // path=/tools/vocab-test-maker)・guide_view(B)もlandingの行としてカウントされる
+    // (Codexレビュー指摘対応の中核: セッションAはlanding_viewとvocab_test_maker_
+    // page_viewedの両方を持つため/tools/vocab-test-makerへ2行、セッションGは
+    // vocab_test_maker_page_viewedのみだがそれ自体が1行としてカウントされる)。
+    if (result.byPath["/"] === 2 && result.byPath["/tools/vocab-test-maker"] === 3 && result.byPath["/guide/eiken-2kyu-tango"] === 1) {
+      ok("landing path別集計が正しい(/=2[A,D], /tools/vocab-test-maker=3[Aのlanding_view+vocab_test_maker_page_viewed, Bのlanding_view, Gのvocab_test_maker_page_viewed], /guide/eiken-2kyu-tango=1[Bのguide_view])(件数=行数、identityではなくlanding行単位)");
     } else {
-      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=2, /tools/vocab-test-maker=1)`);
+      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=2, /tools/vocab-test-maker=3, /guide/eiken-2kyu-tango=1)`);
     }
 
     // ---- 検証: funnel件数(social起点セッションのみ) ----
     const expectedFunnel = {
-      vocab_test_maker_page_viewed: 1,
+      vocab_test_maker_page_viewed: 2,
       vocab_test_maker_generated: 1,
       vocab_test_maker_srs_cta_clicked: 0,
       vocab_test_maker_saved_to_wordbook: 0,
@@ -163,7 +183,7 @@ async function main() {
         bad(`funnelCounts.${name}が想定外: ${result.funnelCounts[name]}(期待値: ${expected})`);
       }
     }
-    if (funnelOk) ok("social起点セッションのfunnel件数(vocab_test_maker_page_viewed=1, _generated=1, guide_view=1、他=0)が正しい");
+    if (funnelOk) ok("social起点セッションのfunnel件数(vocab_test_maker_page_viewed=2[A,G], _generated=1[A], guide_view=1[B]、他=0)が正しい");
 
     // ---- 検証: social起点の新規signup数 = 1(セッションAのvocab_test_maker_generated行に紐づくsignupUserId) ----
     if (result.socialSignupCount === 1) {

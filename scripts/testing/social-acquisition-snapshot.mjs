@@ -15,7 +15,8 @@
  * properties.medium/content に記録される(Issue #98でcontentプロパティを追加)。
  *
  * 集計内容(直近7日 vs 前7日、JST基準・いずれも当日を含まず昨日までの完全な7日間同士を比較):
- *  - social landing識別数(distinct anonymous_session_id、landing_view基準)の合計
+ *  - social landing識別数(distinct anonymous_session_id、LANDING_EVENT_NAMES基準:
+ *    landing_view/vocab_test_maker_page_viewed/guide_viewのいずれか)の合計
  *  - source別(x/threads/instagram/tiktok/youtube/pinterest/facebook/line/other_social)
  *  - campaign別 / content別 / landing path別
  *  - social起点セッションについて、以下のfunnel件数(可能な範囲で):
@@ -47,6 +48,14 @@ const FUNNEL_EVENTS = [
   "guide_view",
   "guide_cta_click",
 ];
+
+// "landing"とみなすイベント名の集合(Codexレビュー指摘対応)。landing_viewは
+// src/app/page.tsx(トップページ)のLandingPageTrackerからしか発火しないため、
+// これだけを基準にすると、このIssue #98でまさに促進している/tools/vocab-test-maker
+// (vocab_test_maker_page_viewed)や/guide/*(guide_view)へ直接リンクしたSNS投稿の
+// landingがすべて0件に近くなり、集計そのものが実質トップページ限定になってしまう。
+// 3イベントいずれかを「このセッションのentry pointに到達した」証跡として扱う。
+const LANDING_EVENT_NAMES = ["landing_view", "vocab_test_maker_page_viewed", "guide_view"];
 
 // source(トップレベル列)とmedium(properties.medium)から、socialバケット名 or
 // null(social以外)を返す。既知の8チャネル名ならそのまま、utm_medium=socialだが
@@ -154,9 +163,14 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   }
   const socialSessionIds = new Set(socialAttributionBySession.keys());
 
-  // 2) landing_viewのうち、social起点セッションのものだけを対象にする。
+  // 2) LANDING_EVENT_NAMESのうち、social起点セッションのものだけを対象にする
+  // (Codexレビュー指摘対応: landing_viewだけだとトップページ以外に直接リンクした
+  // 投稿のlandingを取りこぼす)。
   const socialLandingRows = rows.filter(
-    (r) => r.event_name === "landing_view" && r.anonymous_session_id && socialSessionIds.has(r.anonymous_session_id),
+    (r) =>
+      LANDING_EVENT_NAMES.includes(r.event_name) &&
+      r.anonymous_session_id &&
+      socialSessionIds.has(r.anonymous_session_id),
   );
   const socialLandingIdentities = new Set(socialLandingRows.map((r) => r.anonymous_session_id));
 
