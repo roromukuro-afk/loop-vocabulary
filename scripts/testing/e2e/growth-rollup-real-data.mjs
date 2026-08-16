@@ -8,6 +8,7 @@
 import { loadEnv, requireEnv } from "../lib/env.mjs";
 import { ensureServer, stopDevServer } from "../lib/devServer.mjs";
 import { getAdminClient } from "../lib/supabaseAdmin.mjs";
+import { lastNDaysJST, jstDayRangeISO } from "../../../src/lib/utils/date.ts";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 
@@ -82,6 +83,44 @@ async function main() {
     else ok("day_offset=28(旧仕様)の行は存在しない");
     if ([...offsets].every((o) => [1, 3, 7, 14, 30].includes(o))) ok("day_offsetはすべて[1,3,7,14,30]の範囲内");
     else bad(`想定外のday_offsetがある: ${[...offsets].join(",")}`);
+
+    console.log("\n--- analytics_content_performance: guide_cta_clickがconversionsとして正しく集計されるか(Codexレビュー指摘対応、19巡目: 以前はguide_cta_clickが許可リスト未登録のためconversionsが常に0固定だった) ---");
+    const rollupDays = lastNDaysJST(7);
+    const { startISO: rollupStartISO } = jstDayRangeISO(rollupDays[0]);
+    const { endISO: rollupEndISO } = jstDayRangeISO(rollupDays[rollupDays.length - 1]);
+    const [{ data: guideCtaRows, error: guideCtaErr }, { data: testAccountProfiles, error: testAccountErr }] = await Promise.all([
+      admin
+        .from("analytics_events")
+        .select("user_id")
+        .eq("event_name", "guide_cta_click")
+        .eq("is_test_event", false)
+        .gte("occurred_at", rollupStartISO)
+        .lt("occurred_at", rollupEndISO)
+        .limit(5000),
+      admin.from("profiles").select("id").eq("is_test_account", true),
+    ]);
+    if (guideCtaErr) bad(`analytics_events(guide_cta_click)読み取り失敗: ${guideCtaErr.message}`);
+    else if (testAccountErr) bad(`profiles(is_test_account)読み取り失敗: ${testAccountErr.message}`);
+    else {
+      const testAccountIdSet = new Set((testAccountProfiles ?? []).map((p) => p.id));
+      const rawGuideCtaCount = (guideCtaRows ?? []).filter((r) => !r.user_id || !testAccountIdSet.has(r.user_id)).length;
+      const { data: guidePerfRows, error: guidePerfErr } = await admin
+        .from("analytics_content_performance")
+        .select("conversions")
+        .eq("content_type", "guide")
+        .in("metric_date", rollupDays);
+      if (guidePerfErr) bad(`analytics_content_performance(guide)読み取り失敗: ${guidePerfErr.message}`);
+      else {
+        const rolledUpConversions = (guidePerfRows ?? []).reduce((sum, r) => sum + (r.conversions ?? 0), 0);
+        if (rawGuideCtaCount === 0) {
+          console.log("ℹ️  直近7日にguide_cta_click(実ユーザー)が0件のため、この期間での正の値チェックはスキップ");
+        } else if (rolledUpConversions === rawGuideCtaCount) {
+          ok(`analytics_content_performance(guide)のconversions合計が生のguide_cta_click件数と一致する(${rolledUpConversions}件。修正前は常に0だった)`);
+        } else {
+          bad(`analytics_content_performance(guide)のconversions合計が生のguide_cta_click件数と一致しない: 集計=${rolledUpConversions}, 生データ=${rawGuideCtaCount}`);
+        }
+      }
+    }
   } finally {
     stopDevServer(dev);
   }

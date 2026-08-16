@@ -401,17 +401,25 @@ export async function computeContentPerformance(
 ): Promise<CategoryResult> {
   const rows: { metric_date: string; content_type: string; content_key: string; views: number; conversions: number }[] = [];
   const notes: string[] = [
-    "guide: guide_view(views)のみ。CTAクリックの完了先イベントがanalytics_eventsの許可リストに未登録のためconversionsは常に0(未配線)。",
+    "guide: guide_view(views) + guide_cta_click(properties.guide_slug, conversions)。conversionsは記事内リンク(vocab_check/dictionary/premium/materials/tools/other_guide)のクリック件数であり、遷移先での完了(signup等)そのものではないクリックスルー指標(Codexレビュー指摘対応、19巡目: 以前はguide_cta_clickが許可リスト未登録のためconversionsが常に0だった)。",
     "tool: tool_view(views)。conversionsはvocab_check_completedのproperties.variantをtool_keyと同一視するベストエフォート対応(値の命名が一致しない場合は0になる)。",
   ];
 
   for (const day of days) {
     const { startISO, endISO } = jstDayRangeISO(day);
 
-    // guide: 閲覧数のみ(コンバージョンイベント未配線)
+    // guide: guide_view(views) + guide_cta_click(properties.guide_slug, conversions)
     const guideViews = await groupCountByProperty(admin, "guide_view", "guide_slug", startISO, endISO, testAccountIds);
-    for (const [key, views] of guideViews) {
-      rows.push({ metric_date: day, content_type: "guide", content_key: key, views, conversions: 0 });
+    const guideConversions = await groupCountByProperty(admin, "guide_cta_click", "guide_slug", startISO, endISO, testAccountIds);
+    const guideKeys = new Set([...guideViews.keys(), ...guideConversions.keys()]);
+    for (const key of guideKeys) {
+      rows.push({
+        metric_date: day,
+        content_type: "guide",
+        content_key: key,
+        views: guideViews.get(key) ?? 0,
+        conversions: guideConversions.get(key) ?? 0,
+      });
     }
 
     // material: material_view(views) + words.material_id(その日に追加された語数, conversions)

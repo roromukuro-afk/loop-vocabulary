@@ -127,11 +127,13 @@ function LoginForm() {
       // マーカー行からしかvisitを再構築できず、後でcallbackが送るsignup_oauth_completed
       // を紐付けるvisit自体が存在しないままattributionが完全に失われてしまう
       // (Codexレビュー指摘対応、18巡目、最重要:「Emit an attribution marker before
-      // login-page OAuth」)。/signupページのsignup_started発火と同じ理由でここでも
-      // 呼ぶ(実際に新規signupだったかはサーバー側のisNewGoogleOauthSignup()が
-      // 別途正しく判定するため、既存ユーザーの再ログインでこのイベントが発火しても
-      // 実害は無い)。
-      trackEvent("signup_started", { method: "google" });
+      // login-page OAuth」)。login_started(signup_startedとは独立したイベント名)を
+      // 呼ぶ: 既存ユーザーの通常の再ログインでも/loginのGoogleボタンを押すたびに
+      // 発火するため、signup_startedを再利用するとisNewGoogleOauthSignup()が
+      // ログインと判定してsignup完了イベントを一切発火しないケースまでsignup_started
+      // 名義の実験・分析に混入してしまう(Codexレビュー指摘対応、19巡目、最重要:
+      // 「Avoid recording existing Google logins as signup starts」)。
+      trackEvent("login_started", { method: "google" });
       // タブ自身のsource/campaignをredirectTo URLに乗せてOAuthラウンドトリップ後も
       // 維持する(Codexレビュー指摘対応、16巡目、最重要。詳細はbuildOAuthAttributionQuery()
       // のコメント参照)。

@@ -150,6 +150,15 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   },
   signup_started: { category: "onboarding", properties: { method: "string" } },
   signup_completed: { category: "onboarding", properties: { method: "string" } },
+  // login_started: /loginページのGoogle OAuth開始処理が、SNSリンクから直接/loginへ
+  // 着地したケースでもtraffic_source_detectedマーカーを発火できるよう、リダイレクト前に
+  // 呼ぶ中立イベント(Codexレビュー指摘対応、Issue #98)。以前はsignup_started(method=
+  // "google")を再利用していたが、既存ユーザーの通常のGoogleログインでも毎回発火して
+  // しまい、isNewGoogleOauthSignup()が後でログインと判定してsignup完了イベントを一切
+  // 発火しないにもかかわらず、signup_startedというイベント名を使った実験・分析が
+  // 通常のリログインで汚染されてしまっていた。signup_started/signup_completedとは
+  // 独立したイベント名にすることで、この用途の重複を避ける。
+  login_started: { category: "onboarding", properties: { method: "string" } },
   // OAuth(Google)経由の新規signupのみ、サーバー側(src/app/auth/callback/route.ts)から
   // 発火する。signup_completed(method=google)はクライアント側でOAuthリダイレクト
   // 直前に発火するため、その時点ではまだ未認証でuser_idを持てない。それ以降、
