@@ -60,6 +60,14 @@
  *    行う(=0分・20分・40分と継続的にreloadしているユーザーが41分目に操作しても、
  *    一度も30分以上の無操作期間が無い継続visitとして正しくattributionされる。
  *    Codexレビュー指摘対応、5巡目、最重要)
+ *  - visitの活動時刻(lastSeenAt)は、reloadマーカーだけでなく通常のattributed行
+ *    (landing/funnel等)からも延長される(=マーカーが0分、attributedな行が20分、
+ *    conversionが35分でも、実際の無操作期間は15分のみのため継続visitとして正しく
+ *    attributionされる。Codexレビュー指摘対応、6巡目、最重要)
+ *  - ウィンドウ境界をまたぐ活動連鎖の再構築は、マーカーだけでなく通常のattributed行も
+ *    含めてlookbackする(=マーカーが境界の40分前・attributedな行が境界の15分前・
+ *    conversionが境界の5分後でも、個々の間隔が一度も30分を超えていなければ継続visit
+ *    として正しくattributionされる。Codexレビュー指摘対応、7巡目、最重要)
  *  - social visitのfunnelイベント件数が正しい
  *  - social visit起点の新規signup数(user_id突き合わせ、ウィンドウ内新規作成のみ)が正しい
  *
@@ -288,6 +296,18 @@ async function main() {
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}p`, source: "x", campaign: "campP", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentP" }, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
       { event_name: "landing_view", anonymous_session_id: `${prefix}p`, source: "x", campaign: "campP", path: "/", user_id: null, properties: {}, occurred_at: offset(20 * 60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}p`, source: "x", campaign: "campP", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: offset(35 * 60 * 1000), is_test_event: false, schema_version: 1 },
+
+      // Q: マーカーが境界の40分前(ウィンドウ外)、通常のattributed行が境界の15分前
+      // (ウィンドウ外、マーカーとの間隔25分<30分で活動連鎖を延長)、conversionが境界の
+      // 5分後(ウィンドウ内)に発生するケース(Codexレビュー指摘対応、7巡目、最重要)。
+      // 個々の間隔は一度も30分を超えていない(40分前→15分前=25分、15分前→5分後=20分)
+      // ため本来は継続した1visitのはずだが、修正前はlookback幅がRELOAD_DEDUPE_WINDOW_MS
+      // (30分)に短縮されておりmarker自体(40分前)が取得されず、かつマーカー以外の
+      // 行(15分前のlanding_view)もそもそも取得対象外だったため、5分後のconversionが
+      // 未attributionのまま集計から消えていた。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}q`, source: "x", campaign: "campQ", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentQ" }, occurred_at: beforeWindowStart(40 * 60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}q`, source: "x", campaign: "campQ", path: "/", user_id: null, properties: {}, occurred_at: beforeWindowStart(15 * 60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}q`, source: "x", campaign: "campQ", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: afterWindowStart(5 * 60 * 1000), is_test_event: false, schema_version: 1 },
     ];
     const { error: insertErr } = await admin.from("analytics_events").insert(rows);
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
@@ -310,7 +330,7 @@ async function main() {
     const result = await summarizeWindow(admin, "fixture", today, today, testAccountIds, asOf, prefix);
 
     // ---- 検証: social landing identities合計 = A, B, D, G, H(visit1のみ), J, K, L,
-    // M(visit1・visit2の2件), N, O, P の13件(C=非social, E=test account, F=test event,
+    // M(visit1・visit2の2件), N, O, P, Q の14件(C=非social, E=test account, F=test event,
     // H visit2=非social, I=medium違いはすべて除外)。Gはlanding_viewを一度も発火
     // しない(vocab_test_maker_page_viewedのみ)セッションで、これも正しくlandingと
     // して数えられることを確認する(Codexレビュー指摘対応)。Jは2回のreload(同一
@@ -321,15 +341,17 @@ async function main() {
     // Nは0分・20分・40分の3連続reloadでも(連続する間隔がどちらも20分<30分のため)
     // 1visitのまま畳み込まれることの確認、Oはウィンドウの日付境界をまたぐvisitが
     // 取りこぼされないことの確認、Pは通常のattributed行(マーカーではない)からも
-    // visitの活動時刻が延長されることの確認を兼ねる。 ----
-    if (result.socialLandingIdentities === 13) {
-      ok("social landing identities合計が13(A/B/D/G/H-visit1/J/K/L/M-visit1/M-visit2/N/O/P。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み、Mの40分間隔は2visitのまま、Nの0/20/40分3連続reloadは1visitに畳み込み、Oの日付境界またぎvisitも正しく計上)");
+    // visitの活動時刻が延長されることの確認、Qはウィンドウ境界をまたぐ活動連鎖の
+    // 再構築がマーカーだけでなく通常のattributed行も含めてlookbackすることの確認を
+    // 兼ねる。 ----
+    if (result.socialLandingIdentities === 14) {
+      ok("social landing identities合計が14(A/B/D/G/H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/Q。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み、Mの40分間隔は2visitのまま、Nの0/20/40分3連続reloadは1visitに畳み込み、Oの日付境界またぎvisitも正しく計上)");
     } else {
-      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 13)`);
+      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 14)`);
     }
 
-    // ---- 検証: source別バケット(H-visit1/J/K/L/M-visit1/M-visit2/N/O/Pがxへ加算され、facebookはmedium=cpcのため0のまま) ----
-    const expectedBuckets = { x: 10, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 1 };
+    // ---- 検証: source別バケット(H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/Qがxへ加算され、facebookはmedium=cpcのため0のまま) ----
+    const expectedBuckets = { x: 11, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 1 };
     let bucketsOk = true;
     for (const [bucket, expected] of Object.entries(expectedBuckets)) {
       if (result.byBucket[bucket] !== expected) {
@@ -338,7 +360,21 @@ async function main() {
       }
     }
     if (bucketsOk) {
-      ok("source別バケット(x=10[A,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P], instagram=1, youtube=1, other_social=1, facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodonはother_socialへ、test account/test eventのxは含まれない)");
+      ok("source別バケット(x=11[A,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P,Q], instagram=1, youtube=1, other_social=1, facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodonはother_socialへ、test account/test eventのxは含まれない)");
+    }
+
+    // ---- 検証: ウィンドウ境界をまたぐ活動連鎖の再構築が、マーカーだけでなく通常の
+    // attributed行も含めてlookbackする(Codexレビュー指摘対応、7巡目、最重要)。
+    // Qのマーカーは境界の40分前、attributedなlanding_viewは境界の15分前、conversion
+    // (vocab_test_maker_page_viewed)は境界の5分後に発生し、個々の間隔は一度も30分を
+    // 超えていない(40分前→15分前=25分、15分前→5分後=20分)。修正前はlookback幅が
+    // 30分に短縮されていた上マーカーしか取得していなかったため、40分前のマーカー・
+    // 15分前のlanding_viewのどちらも取得されず、5分後のconversionが未attribution
+    // のまま集計から消えていた。 ----
+    if (result.funnelCountsByContent?.contentQ?.vocab_test_maker_page_viewed === 1) {
+      ok("ウィンドウ境界をまたぐ活動連鎖が、マーカーだけでなく通常のattributed行も含めて正しく再構築される(Q: funnelCountsByContent.contentQ.vocab_test_maker_page_viewed=1。修正前はlookback幅とマーカー限定の取得により未attribution扱いになっていた)");
+    } else {
+      bad(`境界をまたぐ活動連鎖の再構築が想定外: ${JSON.stringify(result.funnelCountsByContent?.contentQ)}(期待値: vocab_test_maker_page_viewed=1)`);
     }
 
     // ---- 検証: 通常のattributed行(reloadマーカーではない)からもvisitの活動時刻が
@@ -445,9 +481,10 @@ async function main() {
       fc?.contentJ?.vocab_test_maker_page_viewed === 1 &&
       fc?.contentN?.vocab_test_maker_page_viewed === 1 &&
       fc?.contentP?.vocab_test_maker_page_viewed === 1 &&
-      Object.keys(fc ?? {}).length === 6
+      fc?.contentQ?.vocab_test_maker_page_viewed === 1 &&
+      Object.keys(fc ?? {}).length === 7
     ) {
-      ok("funnel件数のcontent別内訳が正しい(post1={page_viewed:1,generated:1}, post2={guide_view:1}, post3={page_viewed:1}, contentJ={page_viewed:1}, contentN={page_viewed:1}, contentP={page_viewed:1}の6件のみ)");
+      ok("funnel件数のcontent別内訳が正しい(post1={page_viewed:1,generated:1}, post2={guide_view:1}, post3={page_viewed:1}, contentJ={page_viewed:1}, contentN={page_viewed:1}, contentP={page_viewed:1}, contentQ={page_viewed:1}の7件のみ)");
     } else {
       bad(`funnelCountsByContentが想定外: ${JSON.stringify(fc)}`);
     }
@@ -464,11 +501,12 @@ async function main() {
       result.byCampaign["campM"] === 2 &&
       result.byCampaign["campN"] === 1 &&
       result.byCampaign["campO"] === 1 &&
-      result.byCampaign["campP"] === 1
+      result.byCampaign["campP"] === 1 &&
+      result.byCampaign["campQ"] === 1
     ) {
-      ok("campaign別集計が正しい(camp1=2[A,B], (none)=1[D], camp2=1[G], camp3=1[H-visit1], campJ=1[J], campK=1[K], campL=1[L], campM=2[M-visit1+M-visit2], campN=1[N], campO=1[O], campP=1[P])");
+      ok("campaign別集計が正しい(camp1=2[A,B], (none)=1[D], camp2=1[G], camp3=1[H-visit1], campJ=1[J], campK=1[K], campL=1[L], campM=2[M-visit1+M-visit2], campN=1[N], campO=1[O], campP=1[P], campQ=1[Q])");
     } else {
-      bad(`campaign別集計が想定外: ${JSON.stringify(result.byCampaign)}(期待値: camp1=2, (none)=1, camp2=1, camp3=1, campJ=1, campK=1, campL=1, campM=2, campN=1, campO=1, campP=1)`);
+      bad(`campaign別集計が想定外: ${JSON.stringify(result.byCampaign)}(期待値: camp1=2, (none)=1, camp2=1, camp3=1, campJ=1, campK=1, campL=1, campM=2, campN=1, campO=1, campP=1, campQ=1)`);
     }
     if (
       result.byContent["post1"] === 1 &&
@@ -482,11 +520,12 @@ async function main() {
       result.byContent["contentM"] === 2 &&
       result.byContent["contentN"] === 1 &&
       result.byContent["contentO"] === 1 &&
-      result.byContent["contentP"] === 1
+      result.byContent["contentP"] === 1 &&
+      result.byContent["contentQ"] === 1
     ) {
-      ok("content別集計が正しい(post1=1[A], post2=1[B], (none)=1[D], post3=1[G], post4=1[H-visit1], contentJ=1[J], contentK=1[K], contentL=1[L], contentM=2[M-visit1+M-visit2], contentN=1[N], contentO=1[O], contentP=1[P])");
+      ok("content別集計が正しい(post1=1[A], post2=1[B], (none)=1[D], post3=1[G], post4=1[H-visit1], contentJ=1[J], contentK=1[K], contentL=1[L], contentM=2[M-visit1+M-visit2], contentN=1[N], contentO=1[O], contentP=1[P], contentQ=1[Q])");
     } else {
-      bad(`content別集計が想定外: ${JSON.stringify(result.byContent)}(期待値: post1=1, post2=1, (none)=1, post3=1, post4=1, contentJ=1, contentK=1, contentL=1, contentM=2, contentN=1, contentO=1, contentP=1)`);
+      bad(`content別集計が想定外: ${JSON.stringify(result.byContent)}(期待値: post1=1, post2=1, (none)=1, post3=1, post4=1, contentJ=1, contentK=1, contentL=1, contentM=2, contentN=1, contentO=1, contentP=1, contentQ=1)`);
     }
     // landing pathはvisitごとに実際のentry point(最も早いlanding行)の1件だけを数える
     // (Codexレビュー指摘対応)。"/" = A/D/H-visit1/J/K/L/M-visit1/M-visit2/N/O/Pのentry。
@@ -495,15 +534,18 @@ async function main() {
     // page_viewed、Bの後続guide_view、Jの後続landing_view(2回目)・vocab_test_maker_
     // page_viewed、Pの後続vocab_test_maker_page_viewedは、いずれも同一visit内の
     // 後続ページ遷移としてbyPathへは加算されない(=/guide/eiken-2kyu-tangoはbyPathに
-    // 一切現れない)。
+    // 一切現れない)。Qはwindow開始前のlanding_view(/)がprecedingActivityRowsにのみ
+    // 存在しrowsには含まれないため、window内で唯一のLANDING_EVENT_NAMES行である
+    // vocab_test_maker_page_viewed(/tools/vocab-test-maker)がそのままentry行として
+    // 数えられる。
     if (
       result.byPath["/"] === 11 &&
-      result.byPath["/tools/vocab-test-maker"] === 2 &&
+      result.byPath["/tools/vocab-test-maker"] === 3 &&
       !("/guide/eiken-2kyu-tango" in result.byPath)
     ) {
-      ok("landing path別集計が、visitごとの実際のentry pointのみを数える(/=11[A,D,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P], /tools/vocab-test-maker=2[B,G]、/guide/eiken-2kyu-tangoは同一visit内の後続遷移のため含まれない)");
+      ok("landing path別集計が、visitごとの実際のentry pointのみを数える(/=11[A,D,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P], /tools/vocab-test-maker=3[B,G,Q]、/guide/eiken-2kyu-tangoは同一visit内の後続遷移のため含まれない)");
     } else {
-      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=11, /tools/vocab-test-maker=2, /guide/eiken-2kyu-tangoは無し)`);
+      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=11, /tools/vocab-test-maker=3, /guide/eiken-2kyu-tangoは無し)`);
     }
 
     // ---- 検証: funnel件数(social起点セッションのみ) ----
@@ -513,11 +555,14 @@ async function main() {
     // (<30分)のため正しくattributionされ加算される(Codexレビュー指摘対応、5巡目)。
     // Pの35分目のvocab_test_maker_page_viewedも、20分目のlanding_view(通常の
     // attributed行)によるlastSeenAt延長のおかげで正しくattributionされ加算される
-    // (Codexレビュー指摘対応、6巡目、最重要)(vocab_test_maker_page_viewed=
-    // A+G+J+N+P=5)。Kのvocab_test_maker_generated行は未attributionのため加算されない
+    // (Codexレビュー指摘対応、6巡目、最重要)。Qのwindow開始5分後のvocab_test_maker_
+    // page_viewedも、window境界をまたぐ活動連鎖の再構築(preceding activity rowsの
+    // 全種別取得+24時間lookback)によりattributionされ加算される(Codexレビュー
+    // 指摘対応、直近巡目)(vocab_test_maker_page_viewed=A+G+J+N+P+Q=6)。
+    // Kのvocab_test_maker_generated行は未attributionのため加算されない
     // (=1のまま、上のarr[0]-fallback回帰確認と同じ)。
     const expectedFunnel = {
-      vocab_test_maker_page_viewed: 5,
+      vocab_test_maker_page_viewed: 6,
       vocab_test_maker_generated: 1,
       vocab_test_maker_srs_cta_clicked: 0,
       vocab_test_maker_saved_to_wordbook: 0,
@@ -531,7 +576,7 @@ async function main() {
         bad(`funnelCounts.${name}が想定外: ${result.funnelCounts[name]}(期待値: ${expected})`);
       }
     }
-    if (funnelOk) ok("social起点セッションのfunnel件数(vocab_test_maker_page_viewed=5[A,G,J,N-41分目,P-35分目]、_generated=1[Aのみ、Kは未attributionのため除外]、guide_view=1[B]、他=0)が正しい(N-41分目・P-35分目はlastSeenAt基準のgap判定により継続visitとして正しくattributionされる)");
+    if (funnelOk) ok("social起点セッションのfunnel件数(vocab_test_maker_page_viewed=6[A,G,J,N-41分目,P-35分目,Q-window開始5分後]、_generated=1[Aのみ、Kは未attributionのため除外]、guide_view=1[B]、他=0)が正しい(N-41分目・P-35分目はlastSeenAt基準のgap判定、Qはwindow境界をまたぐ活動連鎖の再構築により正しくattributionされる)");
     // social起点signup数のvisit先行チェック(socialSignupCount=1, signupCountByContent)は
     // 上の専用assertionで検証済み。
   } finally {

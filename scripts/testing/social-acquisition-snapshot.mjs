@@ -168,18 +168,25 @@ async function fetchEventsInWindow(admin, { startISO, endISO, asOf, sessionIdPre
 // startISO以降しか取得しないためtraffic_source_detected自体がrowsに含まれず、
 // findAttribution()が該当無し(null)を返してしまい、実際にはsocial visitである
 // はずのconversionが集計から丸ごと消えてしまう(Codexレビュー指摘対応)。
-// findAttribution()自体がRELOAD_DEDUPE_WINDOW_MSより古いマーカーを未attribution扱い
-// するため(Codexレビュー指摘対応、4巡目)、それより遡って取得しても採用され得る
-// マーカーは増えない。よってlookback幅はRELOAD_DEDUPE_WINDOW_MSと同じに揃える
-// (無駄に長い期間のマーカーを取得しない)。
-const ATTRIBUTION_LOOKBACK_MS = RELOAD_DEDUPE_WINDOW_MS;
+//
+// visitの活動時刻(lastSeenAt)は通常のattributed行からも延長される設計
+// (Codexレビュー指摘対応、6巡目)のため、「30分より古いマーカーは採用され得ない」
+// という前提はもう成り立たない。例えばマーカーがstartISOの40分前、その後
+// 20分ごとに通常の行が続いてstartISOをまたいで活動が継続していれば、個々の間隔は
+// 一度も30分を超えないまま、visit全体としては40分以上前から始まっていることになる
+// (Codexレビュー指摘対応、7巡目、最重要)。この連鎖を正しく再構築するため、
+// lookback幅は24時間分の余裕を持たせる(現実的にこれを超えて一度も30分の
+// 無操作期間が無いまま継続する単一visitは想定しない)。
+const ATTRIBUTION_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
 // ウィンドウ内に登場するセッションIDについてのみ、startISOより前
-// (ATTRIBUTION_LOOKBACK_MS以内)のtraffic_source_detectedを追加取得する。
-// visit境界の再構築(findAttribution)にのみ使い、landing/funnel等の実際の
-// 集計対象はfetchEventsInWindow()が返すウィンドウ内の行に限定したまま変えない
+// (ATTRIBUTION_LOOKBACK_MS以内)の行を追加取得する。マーカー(traffic_source_detected)
+// だけでなく全イベント種別を取得する(Codexレビュー指摘対応、7巡目): 通常の
+// attributed行もvisitの活動連鎖を再構築する上で必要なため。visit境界の再構築
+// (allRowsBySession)にのみ使い、landing/funnel等の実際の集計対象は
+// fetchEventsInWindow()が返すウィンドウ内の行に限定したまま変えない
 // (Codexレビュー指摘対応)。
-async function fetchPrecedingAttributionMarkers(admin, { startISO, asOf, sessionIds }) {
+async function fetchPrecedingActivityRows(admin, { startISO, asOf, sessionIds }) {
   if (sessionIds.size === 0) return [];
   const lookbackStartISO = new Date(new Date(startISO).getTime() - ATTRIBUTION_LOOKBACK_MS).toISOString();
   const sessionIdsArr = [...sessionIds];
@@ -192,7 +199,6 @@ async function fetchPrecedingAttributionMarkers(admin, { startISO, asOf, session
       let query = admin
         .from("analytics_events")
         .select("id, event_name, anonymous_session_id, source, campaign, properties, occurred_at")
-        .eq("event_name", "traffic_source_detected")
         .eq("is_test_event", false)
         .in("anonymous_session_id", chunk)
         .gte("occurred_at", lookbackStartISO)
@@ -202,7 +208,7 @@ async function fetchPrecedingAttributionMarkers(admin, { startISO, asOf, session
         .limit(1000);
       if (cursorId) query = query.gt("id", cursorId);
       const { data, error } = await query;
-      if (error) throw new Error(`preceding attribution markers query failed: ${error.message}`);
+      if (error) throw new Error(`preceding activity rows query failed: ${error.message}`);
       if (!data || data.length === 0) break;
       rows.push(...data);
       if (data.length < 1000) break;
@@ -228,12 +234,12 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   const rows = rawRows.filter((r) => !r.user_id || !testAccountIds.has(r.user_id));
 
   // ウィンドウの日付境界(startISO)をまたぐvisitを取りこぼさないよう、rowsに登場する
-  // セッションIDについてstartISOより前のtraffic_source_detectedも追加取得する
-  // (Codexレビュー指摘対応)。visit境界の再構築(attributionEventsBySession)にのみ
+  // セッションIDについてstartISOより前の行(マーカー・通常のattributed行の両方)も
+  // 追加取得する(Codexレビュー指摘対応)。visit境界の再構築(allRowsBySession)にのみ
   // 使い、landing/funnel等の実際の集計対象(socialLandingEntries/funnelCounts等)は
   // 下記のrows(ウィンドウ内のみ)に限定したまま変えない。
   const sessionIdsInRows = new Set(rows.map((r) => r.anonymous_session_id).filter(Boolean));
-  const precedingMarkers = await fetchPrecedingAttributionMarkers(admin, { startISO, asOf, sessionIds: sessionIdsInRows });
+  const precedingActivityRows = await fetchPrecedingActivityRows(admin, { startISO, asOf, sessionIds: sessionIdsInRows });
 
   // 1) セッション(anonymous_session_id)ごとに、このウィンドウ内の全行(traffic_source_detected
   //    マーカー + landing/funnel等のその他すべての行)を発生時刻順に並べ、1回の
@@ -246,7 +252,7 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   //    (配列の並び順で偶然先頭に来たもの)へ全ての行が誤って一括帰属してしまい、
   //    チャネル別・転換の集計が実態と乖離する。
   const allRowsBySession = new Map();
-  for (const r of [...rows, ...precedingMarkers]) {
+  for (const r of [...rows, ...precedingActivityRows]) {
     const sid = r.anonymous_session_id;
     if (!sid) continue;
     if (!allRowsBySession.has(sid)) allRowsBySession.set(sid, []);
