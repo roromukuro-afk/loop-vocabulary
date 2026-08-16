@@ -28,6 +28,15 @@
  *    誤って逆流帰属しない(Codexレビュー指摘対応)
  *  - landing path集計が、同一visit内の後続ページ遷移ではなく実際のentry pointの
  *    1行だけを数える(Codexレビュー指摘対応)
+ *  - 同一source/campaign/contentでも、RELOAD_DEDUPE_WINDOW_MS(30分)より間隔が
+ *    空いていれば別visitとして数える(=reload畳み込みが無制限に効いて正当な
+ *    再訪問まで吸収してしまわない。Codexレビュー指摘対応、2巡目)
+ *  - signupが、そのユーザーの最も早いsocial visitより前に発生していた場合(=別
+ *    チャネル経由の既存ユーザーが後から偶然social visitしただけ)は、social起点の
+ *    signupとして数えない(Codexレビュー指摘対応)
+ *  - funnel/signup件数がcontent(utm_content)単位でも個別に取得できる
+ *    (MARKETING_SOCIAL_LAUNCH_PACK_2026-08.mdの投稿別評価に必要。Codexレビュー
+ *    指摘対応)
  *  - social visitのfunnelイベント件数が正しい
  *  - social visit起点の新規signup数(user_id突き合わせ、ウィンドウ内新規作成のみ)が正しい
  *
@@ -54,9 +63,10 @@ async function main() {
 
   let testAccountUserId = null;
   let signupUserId = null;
+  let earlySignupUserId = null;
 
   try {
-    // ---- 使い捨てユーザー2種を用意する ----
+    // ---- 使い捨てユーザー3種を用意する ----
     // (1) is_test_account=true: 「socialだがtest accountなので除外されるべき」セッション用。
     const { data: taCreated, error: taErr } = await admin.auth.admin.createUser({
       email: `test+socialsnap-ta-${runId}@loop-vocabulary.app`,
@@ -70,6 +80,9 @@ async function main() {
     if (markTaErr) throw new Error(`is_test_account設定に失敗: ${markTaErr.message}`);
 
     // (2) is_test_account=false(既定のまま): 「social起点の新規signup」として数えられるべきユーザー。
+    // このユーザーのprofiles.created_atは(下記のuserId作成タイミング上)必ずセッションAの
+    // 訪問行より後になるよう、セッションAの各行には過去方向のoffset(負の値)を使う
+    // (=「social visitの後にsignupした」という正しい因果順序を再現するため)。
     const { data: suCreated, error: suErr } = await admin.auth.admin.createUser({
       email: `test+socialsnap-su-${runId}@loop-vocabulary.app`,
       password: `Fixture-${runId}-B!`,
@@ -79,18 +92,34 @@ async function main() {
     if (suErr || !suCreated?.user) throw new Error(`signup用の使い捨てユーザー作成に失敗: ${suErr?.message}`);
     signupUserId = suCreated.user.id;
 
-    // ---- 6セッション分のanalytics_eventsをDBへ直接挿入する ----
+    // (3) is_test_account=false: 「別チャネル経由で既にsignup済みのユーザーが、後から
+    // (このウィンドウ内で)たまたまsocial visitした」ケース用(Codexレビュー指摘対応)。
+    // このユーザーのprofiles.created_atは、下のセッションLのtraffic_source_detected
+    // (未来方向のoffset)より前になる。
+    const { data: esCreated, error: esErr } = await admin.auth.admin.createUser({
+      email: `test+socialsnap-es-${runId}@loop-vocabulary.app`,
+      password: `Fixture-${runId}-C!`,
+      email_confirm: true,
+      user_metadata: { purpose: "social-acquisition-snapshot fixture test (pre-existing signup)" },
+    });
+    if (esErr || !esCreated?.user) throw new Error(`pre-existing signup用の使い捨てユーザー作成に失敗: ${esErr?.message}`);
+    earlySignupUserId = esCreated.user.id;
+
+    // ---- セッション分のanalytics_eventsをDBへ直接挿入する ----
     // (このテストは集計ロジック自体の検証が目的のため、ingestion API/trackEvent()を
     //  経由せず、admin clientで直接insertする。)
     const rows = [
       // A: x / social / camp1 / content=post1 → vocab_test_maker funnel 到達 + このセッションで新規signup
       // (landing_viewが最初のlanding行=entry。後続のvocab_test_maker_page_viewedは
       // 同一visit内の後続ページ遷移としてbyPathからは除外されるべき。Codexレビュー
-      // 指摘対応)。
-      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}a`, source: "x", campaign: "camp1", path: null, user_id: null, properties: { source: "x", medium: "social", content: "post1" }, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
-      { event_name: "landing_view", anonymous_session_id: `${prefix}a`, source: "x", campaign: "camp1", path: "/", user_id: null, properties: {}, occurred_at: offset(100), is_test_event: false, schema_version: 1 },
-      { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}a`, source: "x", campaign: "camp1", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: offset(200), is_test_event: false, schema_version: 1 },
-      { event_name: "vocab_test_maker_generated", anonymous_session_id: `${prefix}a`, source: "x", campaign: "camp1", path: "/tools/vocab-test-maker", user_id: signupUserId, properties: {}, occurred_at: offset(300), is_test_event: false, schema_version: 1 },
+      // 指摘対応)。occurred_atは過去方向のoffset(負の値)を使い、signupUserIdの
+      // profiles.created_at(このコード実行時点=ほぼ「今」)より確実に前になるようにする
+      // (=「visitの後にsignupした」という正しい因果順序。Codexレビュー指摘対応、2巡目:
+      // signupはそれを引き起こしたvisitより後でなければならない)。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}a`, source: "x", campaign: "camp1", path: null, user_id: null, properties: { source: "x", medium: "social", content: "post1" }, occurred_at: offset(-10000), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}a`, source: "x", campaign: "camp1", path: "/", user_id: null, properties: {}, occurred_at: offset(-9900), is_test_event: false, schema_version: 1 },
+      { event_name: "vocab_test_maker_page_viewed", anonymous_session_id: `${prefix}a`, source: "x", campaign: "camp1", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: offset(-9800), is_test_event: false, schema_version: 1 },
+      { event_name: "vocab_test_maker_generated", anonymous_session_id: `${prefix}a`, source: "x", campaign: "camp1", path: "/tools/vocab-test-maker", user_id: signupUserId, properties: {}, occurred_at: offset(-9700), is_test_event: false, schema_version: 1 },
 
       // B: instagram / social / camp1 / content=post2 → guide funnel 到達
       // (landing_view(/tools/vocab-test-maker)がentry。後続のguide_viewは同一visit内の
@@ -157,6 +186,25 @@ async function main() {
       { event_name: "vocab_test_maker_generated", anonymous_session_id: `${prefix}k`, source: "direct", campaign: "", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}k`, source: "x", campaign: "campK", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentK" }, occurred_at: offset(10000), is_test_event: false, schema_version: 1 },
       { event_name: "landing_view", anonymous_session_id: `${prefix}k`, source: "x", campaign: "campK", path: "/", user_id: null, properties: {}, occurred_at: offset(10500), is_test_event: false, schema_version: 1 },
+
+      // L: 別チャネル経由で既にsignup済み(earlySignupUserId、created_atはほぼ「今」)の
+      // ユーザーが、後から(このウィンドウ内で)たまたまsocial visitしたケース
+      // (Codexレビュー指摘対応)。visitのoccurred_atはearlySignupUserIdのcreated_at
+      // より確実に後になるよう未来方向のoffsetを使う。このvisit自体はlandingとして
+      // 正しく数えられるが、signupとしては数えられてはならない(=visitがsignupの
+      // 原因ではなく、signupの方が先に起きているため)。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}l`, source: "x", campaign: "campL", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentL" }, occurred_at: offset(2000), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}l`, source: "x", campaign: "campL", path: "/", user_id: earlySignupUserId, properties: {}, occurred_at: offset(2500), is_test_event: false, schema_version: 1 },
+
+      // M: 同一source/campaign/content(x/social/campM/contentM)による2回の訪問が、
+      // RELOAD_DEDUPE_WINDOW_MS(30分)を大きく超える間隔(40分)で発生するケース
+      // (Codexレビュー指摘対応、2巡目)。reload畳み込みの時間幅を設けないと、これも
+      // 1visitへ誤って畳み込まれ、同じ投稿を後日改めてクリックした正当な再訪問が
+      // 消えてしまう。2つの別visitとして数えられるべき。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}m`, source: "x", campaign: "campM", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentM" }, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}m`, source: "x", campaign: "campM", path: "/", user_id: null, properties: {}, occurred_at: offset(100), is_test_event: false, schema_version: 1 },
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}m`, source: "x", campaign: "campM", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentM" }, occurred_at: offset(40 * 60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}m`, source: "x", campaign: "campM", path: "/", user_id: null, properties: {}, occurred_at: offset(40 * 60 * 1000 + 100), is_test_event: false, schema_version: 1 },
     ];
     const { error: insertErr } = await admin.from("analytics_events").insert(rows);
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
@@ -173,21 +221,24 @@ async function main() {
     const today = todayJST();
     const result = await summarizeWindow(admin, "fixture", today, today, testAccountIds, asOf);
 
-    // ---- 検証: social landing identities合計 = A, B, D, G, H(visit1のみ), J, K の7件
-    // (C=非social, E=test account, F=test event, H visit2=非social, I=medium違いは
-    // すべて除外)。Gはlanding_viewを一度も発火しない(vocab_test_maker_page_viewed
-    // のみ)セッションで、これも正しくlandingとして数えられることを確認する
-    // (Codexレビュー指摘対応)。Jは2回のreload(同一attribution)を1visitに畳み込めて
-    // いることの確認、Kは先行する未attribution行が後続visitへ誤って逆流しないことの
-    // 確認を兼ねる。 ----
-    if (result.socialLandingIdentities === 7) {
-      ok("social landing identities合計が7(A/B/D/G/H-visit1/J/K。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み)");
+    // ---- 検証: social landing identities合計 = A, B, D, G, H(visit1のみ), J, K, L,
+    // M(visit1・visit2の2件) の10件(C=非social, E=test account, F=test event,
+    // H visit2=非social, I=medium違いはすべて除外)。Gはlanding_viewを一度も発火
+    // しない(vocab_test_maker_page_viewedのみ)セッションで、これも正しくlandingと
+    // して数えられることを確認する(Codexレビュー指摘対応)。Jは2回のreload(同一
+    // attribution・30分以内)を1visitに畳み込めていることの確認、Kは先行する未
+    // attribution行が後続visitへ誤って逆流しないことの確認、Lは別チャネル経由の
+    // 既存ユーザーが後からsocial visitしてもsignupとしては数えないことの確認、Mは
+    // 同一attributionでも30分を大きく超える間隔なら別visitとして数えることの確認を
+    // 兼ねる。 ----
+    if (result.socialLandingIdentities === 10) {
+      ok("social landing identities合計が10(A/B/D/G/H-visit1/J/K/L/M-visit1/M-visit2。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み、Mの40分間隔は2visitのまま)");
     } else {
-      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 7)`);
+      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 10)`);
     }
 
-    // ---- 検証: source別バケット(H-visit1/J/Kがxへ加算され、facebookはmedium=cpcのため0のまま) ----
-    const expectedBuckets = { x: 4, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 1 };
+    // ---- 検証: source別バケット(H-visit1/J/K/L/M-visit1/M-visit2がxへ加算され、facebookはmedium=cpcのため0のまま) ----
+    const expectedBuckets = { x: 7, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 1 };
     let bucketsOk = true;
     for (const [bucket, expected] of Object.entries(expectedBuckets)) {
       if (result.byBucket[bucket] !== expected) {
@@ -196,7 +247,7 @@ async function main() {
       }
     }
     if (bucketsOk) {
-      ok("source別バケット(x=4[A,H-visit1,J,K], instagram=1, youtube=1, other_social=1, facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodonはother_socialへ、test account/test eventのxは含まれない)");
+      ok("source別バケット(x=7[A,H-visit1,J,K,L,M-visit1,M-visit2], instagram=1, youtube=1, other_social=1, facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodonはother_socialへ、test account/test eventのxは含まれない)");
     }
 
     // ---- 検証: 同一cookieの複数visitが個別に正しくattributionされる(最重要の回帰確認) ----
@@ -208,7 +259,7 @@ async function main() {
       bad(`複数visit attributionが想定外: byCampaign=${JSON.stringify(result.byCampaign)}, byContent=${JSON.stringify(result.byContent)}(期待値: camp3=1, post4=1)`);
     }
 
-    // ---- 検証: 同一visit内でのreload(同一source/campaign/content)が別visitとして
+    // ---- 検証: 同一visit内でのreload(同一source/campaign/content、30分以内)が別visitとして
     // 水増しされない(Codexレビュー指摘対応)。JはtrafficSourceDetectedFiredが
     // ハード再読み込みでリセットされ、同一attributionのtraffic_source_detectedを
     // 2回送信するケース。修正前はvisitKeyがtraffic_source_detected自身のoccurred_at
@@ -218,6 +269,16 @@ async function main() {
       ok("同一visit内でのページ再読み込み(reload)による複数回のtraffic_source_detectedが1visitに畳み込まれる(J: campJ=1, contentJ=1。修正前は2に水増しされていた)");
     } else {
       bad(`reload dedupが想定外: byCampaign.campJ=${result.byCampaign["campJ"]}, byContent.contentJ=${result.byContent["contentJ"]}(期待値: 1, 1)`);
+    }
+
+    // ---- 検証: 同一attributionでもRELOAD_DEDUPE_WINDOW_MS(30分)を大きく超える間隔
+    // (40分)なら畳み込まず別visitとして数える(Codexレビュー指摘対応、2巡目)。
+    // 無制限にdedupeすると、同じX投稿を後日改めてクリックした正当な再訪問まで
+    // 最初のvisitへ吸収され、byCampaign["campM"]が1に過小集計されてしまう。 ----
+    if (result.byCampaign["campM"] === 2 && result.byContent["contentM"] === 2) {
+      ok("reload畳み込みは時間幅で区切られ、30分を超える間隔の同一attribution訪問は別visitとして数えられる(M: campM=2, contentM=2。無制限dedupeだと1に過小集計されていた)");
+    } else {
+      bad(`reload dedupの時間幅制限が想定外: byCampaign.campM=${result.byCampaign["campM"]}, byContent.contentM=${result.byContent["contentM"]}(期待値: 2, 2)`);
     }
 
     // ---- 検証: 先行する未attribution行(そのセッション最初のtraffic_source_detected
@@ -234,6 +295,36 @@ async function main() {
       bad(`未来visitへの逆流帰属防止が想定外: funnelCounts.vocab_test_maker_generated=${result.funnelCounts.vocab_test_maker_generated}(期待値: 1)`);
     }
 
+    // ---- 検証: signupは、そのユーザーの最も早いsocial visitより後でなければ
+    // social起点として数えない(Codexレビュー指摘対応)。Lはearly SignupUserId
+    // (別チャネル経由で既にsignup済み)が後からたまたまLのsocial visitに紐づいた
+    // ケースで、signupCountByContentにcontentLが一切現れてはならない。一方Aは
+    // visit(過去方向のoffset)がsignup(ほぼ「今」)より確実に前のため、正しく
+    // social起点のsignupとして数えられる。 ----
+    if (result.socialSignupCount === 1 && result.signupCountByContent["post1"] === 1 && !("contentL" in result.signupCountByContent)) {
+      ok("social起点の新規signup数が1で、content別内訳もpost1=1のみ(Lのearly signupユーザーはvisitがsignupより後に発生しているため一切数えられない)");
+    } else {
+      bad(`signupのvisit先行チェックが想定外: socialSignupCount=${result.socialSignupCount}, signupCountByContent=${JSON.stringify(result.signupCountByContent)}(期待値: 1, post1=1, contentLは無し)`);
+    }
+
+    // ---- 検証: funnel/signupがcontent単位でも個別に取得できる(Codexレビュー指摘対応:
+    // MARKETING_SOCIAL_LAUNCH_PACK_2026-08.mdの投稿別評価に必要)。post1(A)/post2(B)/
+    // post3(G)/contentJ(J)のみが現れ、funnel行の無いD/H/L/M、未attributionのKは
+    // 現れない。 ----
+    const fc = result.funnelCountsByContent;
+    if (
+      fc?.post1?.vocab_test_maker_page_viewed === 1 &&
+      fc?.post1?.vocab_test_maker_generated === 1 &&
+      fc?.post2?.guide_view === 1 &&
+      fc?.post3?.vocab_test_maker_page_viewed === 1 &&
+      fc?.contentJ?.vocab_test_maker_page_viewed === 1 &&
+      Object.keys(fc ?? {}).length === 4
+    ) {
+      ok("funnel件数のcontent別内訳が正しい(post1={page_viewed:1,generated:1}, post2={guide_view:1}, post3={page_viewed:1}, contentJ={page_viewed:1}の4件のみ)");
+    } else {
+      bad(`funnelCountsByContentが想定外: ${JSON.stringify(fc)}`);
+    }
+
     // ---- 検証: campaign/content/path(identity単位、同一visitの複数行を二重計上しない) ----
     if (
       result.byCampaign["camp1"] === 2 &&
@@ -241,11 +332,13 @@ async function main() {
       result.byCampaign["camp2"] === 1 &&
       result.byCampaign["camp3"] === 1 &&
       result.byCampaign["campJ"] === 1 &&
-      result.byCampaign["campK"] === 1
+      result.byCampaign["campK"] === 1 &&
+      result.byCampaign["campL"] === 1 &&
+      result.byCampaign["campM"] === 2
     ) {
-      ok("campaign別集計が正しい(camp1=2[A,B], (none)=1[D], camp2=1[G], camp3=1[H-visit1], campJ=1[J], campK=1[K])");
+      ok("campaign別集計が正しい(camp1=2[A,B], (none)=1[D], camp2=1[G], camp3=1[H-visit1], campJ=1[J], campK=1[K], campL=1[L], campM=2[M-visit1+M-visit2])");
     } else {
-      bad(`campaign別集計が想定外: ${JSON.stringify(result.byCampaign)}(期待値: camp1=2, (none)=1, camp2=1, camp3=1, campJ=1, campK=1)`);
+      bad(`campaign別集計が想定外: ${JSON.stringify(result.byCampaign)}(期待値: camp1=2, (none)=1, camp2=1, camp3=1, campJ=1, campK=1, campL=1, campM=2)`);
     }
     if (
       result.byContent["post1"] === 1 &&
@@ -254,27 +347,29 @@ async function main() {
       result.byContent["post3"] === 1 &&
       result.byContent["post4"] === 1 &&
       result.byContent["contentJ"] === 1 &&
-      result.byContent["contentK"] === 1
+      result.byContent["contentK"] === 1 &&
+      result.byContent["contentL"] === 1 &&
+      result.byContent["contentM"] === 2
     ) {
-      ok("content別集計が正しい(post1=1[A], post2=1[B], (none)=1[D], post3=1[G], post4=1[H-visit1], contentJ=1[J], contentK=1[K])");
+      ok("content別集計が正しい(post1=1[A], post2=1[B], (none)=1[D], post3=1[G], post4=1[H-visit1], contentJ=1[J], contentK=1[K], contentL=1[L], contentM=2[M-visit1+M-visit2])");
     } else {
-      bad(`content別集計が想定外: ${JSON.stringify(result.byContent)}(期待値: post1=1, post2=1, (none)=1, post3=1, post4=1, contentJ=1, contentK=1)`);
+      bad(`content別集計が想定外: ${JSON.stringify(result.byContent)}(期待値: post1=1, post2=1, (none)=1, post3=1, post4=1, contentJ=1, contentK=1, contentL=1, contentM=2)`);
     }
     // landing pathはvisitごとに実際のentry point(最も早いlanding行)の1件だけを数える
-    // (Codexレビュー指摘対応)。"/" = A/D/H-visit1/J/Kのentry。"/tools/vocab-test-maker"
-    // = B/Gのentry(BのlandingがそこでGはlanding_view自体が無くvocab_test_maker_page_
-    // viewedがentry)。Aの後続vocab_test_maker_page_viewed、Bの後続guide_view、Jの
-    // 後続landing_view(2回目)・vocab_test_maker_page_viewedは、いずれも同一visit内の
-    // 後続ページ遷移としてbyPathへは加算されない(=/guide/eiken-2kyu-tangoはbyPathに
-    // 一切現れない)。
+    // (Codexレビュー指摘対応)。"/" = A/D/H-visit1/J/K/L/M-visit1/M-visit2のentry。
+    // "/tools/vocab-test-maker" = B/Gのentry(BのlandingがそこでGはlanding_view
+    // 自体が無くvocab_test_maker_page_viewedがentry)。Aの後続vocab_test_maker_
+    // page_viewed、Bの後続guide_view、Jの後続landing_view(2回目)・vocab_test_maker_
+    // page_viewedは、いずれも同一visit内の後続ページ遷移としてbyPathへは加算
+    // されない(=/guide/eiken-2kyu-tangoはbyPathに一切現れない)。
     if (
-      result.byPath["/"] === 5 &&
+      result.byPath["/"] === 8 &&
       result.byPath["/tools/vocab-test-maker"] === 2 &&
       !("/guide/eiken-2kyu-tango" in result.byPath)
     ) {
-      ok("landing path別集計が、visitごとの実際のentry pointのみを数える(/=5[A,D,H-visit1,J,K], /tools/vocab-test-maker=2[B,G]、/guide/eiken-2kyu-tangoは同一visit内の後続遷移のため含まれない)");
+      ok("landing path別集計が、visitごとの実際のentry pointのみを数える(/=8[A,D,H-visit1,J,K,L,M-visit1,M-visit2], /tools/vocab-test-maker=2[B,G]、/guide/eiken-2kyu-tangoは同一visit内の後続遷移のため含まれない)");
     } else {
-      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=5, /tools/vocab-test-maker=2, /guide/eiken-2kyu-tangoは無し)`);
+      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=8, /tools/vocab-test-maker=2, /guide/eiken-2kyu-tangoは無し)`);
     }
 
     // ---- 検証: funnel件数(social起点セッションのみ) ----
@@ -298,15 +393,10 @@ async function main() {
       }
     }
     if (funnelOk) ok("social起点セッションのfunnel件数(vocab_test_maker_page_viewed=3[A,G,J], _generated=1[Aのみ、Kは未attributionのため除外], guide_view=1[B]、他=0)が正しい");
-
-    // ---- 検証: social起点の新規signup数 = 1(セッションAのvocab_test_maker_generated行に紐づくsignupUserId) ----
-    if (result.socialSignupCount === 1) {
-      ok("social起点の新規signup数が1(セッションAで後からuser_idが付与された新規ユーザーのみ)");
-    } else {
-      bad(`social起点の新規signup数が想定外: ${result.socialSignupCount}(期待値: 1)`);
-    }
+    // social起点signup数のvisit先行チェック(socialSignupCount=1, signupCountByContent)は
+    // 上の専用assertionで検証済み。
   } finally {
-    // ---- 後片付け: fixture行 → 使い捨てユーザー2件の順で削除する ----
+    // ---- 後片付け: fixture行 → 使い捨てユーザー3件の順で削除する ----
     // (analytics_events.user_idはON DELETE SET NULLのため、先にevents自体を明示的に
     //  削除しないと、authユーザー削除後もfixture行がuser_id=NULLの孤立行として
     //  残り続けてしまう。PR #96で確立した既存パターンと同じ。)
@@ -314,7 +404,7 @@ async function main() {
     if (cleanupEventsErr) {
       bad(`fixture行のcleanupに失敗しました。手動確認が必要です(prefix=${prefix}): ${cleanupEventsErr.message}`);
     }
-    for (const [label, userId] of [["test account", testAccountUserId], ["signup", signupUserId]]) {
+    for (const [label, userId] of [["test account", testAccountUserId], ["signup", signupUserId], ["pre-existing signup", earlySignupUserId]]) {
       if (!userId) continue;
       const { error: deleteUserErr } = await admin.auth.admin.deleteUser(userId);
       if (deleteUserErr) {

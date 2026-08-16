@@ -26,13 +26,18 @@ type Props = {
   text: string;
   label?: string;
   className?: string;
+  // 手動コピー用<input>のスタイル。既定値は暗い背景(/tools/vocab-test-maker等)向けの
+  // 配色のため、白背景のカード(GuideShareCta等)で使う場合は呼び出し側から明るい
+  // 背景向けのクラスを渡す(Codexレビュー指摘対応: 既定値のまま白カードへ置くと
+  // ほぼ判読不能だった)。
+  inputClassName?: string;
   onShareInvoked?: (method: ShareMethod) => void;
 };
 
 const COPY_SUCCESS_MESSAGE = "リンクをコピーしました";
 const COPY_FAILURE_MESSAGE = "コピーできませんでした。下のURLを選択してコピーしてください。";
 
-export function ShareUrlButton({ url, title, text, label = "🔗 シェアする", className, onShareInvoked }: Props) {
+export function ShareUrlButton({ url, title, text, label = "🔗 シェアする", className, inputClassName, onShareInvoked }: Props) {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   // navigator.clipboard.writeText()自体が使えない/権限拒否された場合、失敗メッセージは
@@ -116,7 +121,10 @@ export function ShareUrlButton({ url, title, text, label = "🔗 シェアする
           onFocus={(e) => e.currentTarget.select()}
           aria-label="共有URL(手動でコピーしてください)"
           data-testid="share-url-manual-fallback"
-          className="mt-2 w-full text-xs bg-white/10 border border-white/20 rounded-lg px-3 py-2 font-mono text-navy-100"
+          className={
+            inputClassName ??
+            "mt-2 w-full text-xs bg-white/10 border border-white/20 rounded-lg px-3 py-2 font-mono text-navy-100"
+          }
         />
       )}
     </div>

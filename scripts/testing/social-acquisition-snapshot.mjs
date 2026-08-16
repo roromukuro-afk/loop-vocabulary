@@ -62,6 +62,16 @@ const FUNNEL_EVENTS = [
 // 3イベントいずれかを「このセッションのentry pointに到達した」証跡として扱う。
 const LANDING_EVENT_NAMES = ["landing_view", "vocab_test_maker_page_viewed", "guide_view"];
 
+// 同一visit内でのreload(track.tsのtrafficSourceDetectedFiredがハード再読み込みで
+// リセットされることによる、同一attributionのtraffic_source_detected再送)を1visitへ
+// 畳み込む際の許容時間幅。これより間隔が空いた、同一source/campaign/contentの
+// traffic_source_detectedは、同じ投稿を何時間・何日も後に再クリックした「別visit」
+// である可能性が高いため畳み込まない(Codexレビュー指摘対応: 無制限にdedupeすると、
+// 同じX投稿を後日改めてクリックした正当な再訪問まで最初のvisitへ吸収され、
+// source/campaign/content集計が過小になっていた)。一般的なWeb解析のセッション
+// タイムアウト慣行(30分)に合わせる。
+const RELOAD_DEDUPE_WINDOW_MS = 30 * 60 * 1000;
+
 // source(トップレベル列)とmedium(properties.medium)から、socialバケット名 or
 // null(social以外)を返す。既知の8チャネル名ならそのまま、utm_medium=socialだが
 // 未知のsource文字列ならother_socialにまとめる。
@@ -188,12 +198,22 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     // traffic_source_detectedを何度も再送してしまう。これをそれぞれ別visitとして
     // 数えると、1回の実際の訪問での数回の再読み込みだけでlanding/source/campaign/
     // content集計が水増しされる(Codexレビュー指摘対応)。直前のattributionと
-    // bucket/campaign/contentが完全一致する場合は同一visitの継続とみなし、その
-    // エントリを取り込まず先頭(最初にそのattributionへ切り替わった時刻)のまま保つ。
+    // bucket/campaign/contentが完全一致し、かつRELOAD_DEDUPE_WINDOW_MS以内の場合のみ
+    // 同一visitの継続とみなし、そのエントリを取り込まず先頭(最初にそのattributionへ
+    // 切り替わった時刻)のまま保つ。時間幅で区切らないと、同じX投稿を数時間・数日後に
+    // 改めてクリックした正当な再訪問まで最初のvisitへ吸収してしまい、逆に
+    // source/campaign/content集計が過小になる(Codexレビュー指摘対応、2巡目)。
     const deduped = [];
     for (const entry of arr) {
       const prev = deduped[deduped.length - 1];
-      if (prev && prev.bucket === entry.bucket && prev.campaign === entry.campaign && prev.content === entry.content) {
+      const gapMs = prev ? Date.parse(entry.occurred_at) - Date.parse(prev.occurred_at) : Infinity;
+      if (
+        prev &&
+        gapMs <= RELOAD_DEDUPE_WINDOW_MS &&
+        prev.bucket === entry.bucket &&
+        prev.campaign === entry.campaign &&
+        prev.content === entry.content
+      ) {
         continue;
       }
       deduped.push(entry);
@@ -286,27 +306,65 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
 
   // 3) funnel/signup(可能な範囲で)。行ごとに個別のvisit attributionを判定し、
   //    そのvisitがsocialと判定された行だけを対象にする(landing行の有無とは独立)。
+  //    MARKETING_SOCIAL_LAUNCH_PACK_2026-08.mdの8投稿はutm_content単位で個別に
+  //    landing→funnel→signupを評価する設計のため、集計全体の合計に加えてcontent別の
+  //    内訳も保持する(Codexレビュー指摘対応: 以前はfunnel/signupが1つの合計値に
+  //    潰れており、どの投稿がtool操作やsignupを生んだか判別できなかった)。
   const funnelCounts = {};
   for (const name of FUNNEL_EVENTS) funnelCounts[name] = 0;
+  const funnelCountsByContent = new Map();
+  function bumpFunnelByContent(content, eventName) {
+    if (!funnelCountsByContent.has(content)) {
+      const init = {};
+      for (const name of FUNNEL_EVENTS) init[name] = 0;
+      funnelCountsByContent.set(content, init);
+    }
+    funnelCountsByContent.get(content)[eventName]++;
+  }
   const socialUserIds = new Set();
+  // user_idごとに「最も早いsocial visit」のoccurred_at/contentを覚えておく。
+  // 後でsignupがそのvisit以降に発生したかどうか(=そのvisitが実際にsignupへ
+  // つながったと言えるか)を判定し、どのcontent由来かも紐付けるために使う。
+  const earliestSocialVisitByUser = new Map();
   for (const r of rows) {
     if (!r.anonymous_session_id) continue;
     const attr = findAttribution(r.anonymous_session_id, r.occurred_at);
     if (!attr || !attr.bucket) continue;
-    if (FUNNEL_EVENTS.includes(r.event_name)) funnelCounts[r.event_name]++;
-    if (r.user_id) socialUserIds.add(r.user_id);
+    if (FUNNEL_EVENTS.includes(r.event_name)) {
+      funnelCounts[r.event_name]++;
+      bumpFunnelByContent(attr.content, r.event_name);
+    }
+    if (r.user_id) {
+      socialUserIds.add(r.user_id);
+      const existing = earliestSocialVisitByUser.get(r.user_id);
+      if (!existing || attr.occurred_at < existing.occurred_at) {
+        earliestSocialVisitByUser.set(r.user_id, { occurred_at: attr.occurred_at, content: attr.content });
+      }
+    }
   }
   let socialSignupCount = 0;
+  const signupCountByContent = new Map();
   if (socialUserIds.size > 0) {
-    const { count, error: signupError } = await admin
+    const { data: signupProfiles, error: signupError } = await admin
       .from("profiles")
-      .select("*", { count: "exact", head: true })
+      .select("id, created_at")
       .eq("is_test_account", false)
       .in("id", [...socialUserIds])
       .gte("created_at", startISO)
       .lt("created_at", endISO);
     if (signupError) throw new Error(`social signup count query failed: ${signupError.message}`);
-    socialSignupCount = count ?? 0;
+    for (const p of signupProfiles ?? []) {
+      const visit = earliestSocialVisitByUser.get(p.id);
+      // そのユーザーの最も早いsocial visitより前にsignup済みの場合、このsignupは
+      // 別チャネル経由であり、後から偶然同じ期間内にsocial visitがあっただけ
+      // (=social visitがsignupの原因ではない)。そのため除外する(Codexレビュー
+      // 指摘対応: 以前はwindow内のcreated_atだけを見ており、月曜にdirect signupした
+      // ユーザーが金曜にXから再訪しただけでも「social起点のsignup」に誤集計されて
+      // いた)。
+      if (!visit || p.created_at < visit.occurred_at) continue;
+      socialSignupCount++;
+      signupCountByContent.set(visit.content, (signupCountByContent.get(visit.content) ?? 0) + 1);
+    }
   }
 
   console.log(`\n=== ${label} (${startDateStr} 〜 ${endDateStrInclusive}, JST) ===`);
@@ -322,6 +380,12 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   console.log("funnel件数(social起点セッション、可能な範囲で):");
   for (const name of FUNNEL_EVENTS) console.log(`  ${name}: ${funnelCounts[name]}`);
   console.log(`signup数(social起点、is_test_account=false、ウィンドウ内新規作成分のみ): ${socialSignupCount}`);
+  console.log("funnel件数 content別 (上位10):");
+  for (const [content, counts] of topEntries(new Map([...funnelCountsByContent].map(([k, v]) => [k, Object.values(v).reduce((a, b) => a + b, 0)])))) {
+    console.log(`  ${content}: ${JSON.stringify(funnelCountsByContent.get(content))} (合計${counts})`);
+  }
+  console.log("signup数 content別 (上位10):");
+  for (const [k, c] of topEntries(signupCountByContent)) console.log(`  ${k}: ${c}`);
 
   return {
     socialLandingIdentities: socialLandingIdentities.size,
@@ -330,7 +394,9 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     byContent: Object.fromEntries(byContent),
     byPath: Object.fromEntries(byPath),
     funnelCounts,
+    funnelCountsByContent: Object.fromEntries(funnelCountsByContent),
     socialSignupCount,
+    signupCountByContent: Object.fromEntries(signupCountByContent),
   };
 }
 

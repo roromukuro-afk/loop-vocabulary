@@ -22,6 +22,10 @@ export function GuideShareCta() {
         text={SHARE_TEXT}
         label="🔗 この記事をシェア"
         className="px-6 py-2.5 rounded-xl bg-navy-800 text-white font-bold text-sm hover:bg-navy-900 transition-colors"
+        // 既定のinputスタイルは/tools/vocab-test-maker等の暗い背景向けで、この白い
+        // カード上ではURL/枠がほぼ判読できなくなるため、明るい背景向けに上書きする
+        // (Codexレビュー指摘対応)。
+        inputClassName="mt-2 w-full text-xs bg-navy-50 border border-navy-200 rounded-lg px-3 py-2 font-mono text-navy-800"
         onShareInvoked={(method) => trackEvent("guide_share_invoked", { guide_slug: "eiken-2kyu-tango", method })}
       />
     </div>
