@@ -149,6 +149,53 @@ async function fetchEventsInWindow(admin, { startISO, endISO, asOf }) {
   return rows;
 }
 
+// JSTの日付境界をまたぐvisitを取りこぼさないためのlookback幅。ウィンドウの
+// startISO直前(前日深夜)にtraffic_source_detectedが発生し、日付が変わった直後
+// (ウィンドウ内)にlanding/funnel行が発生するケースでは、fetchEventsInWindow()が
+// startISO以降しか取得しないためtraffic_source_detected自体がrowsに含まれず、
+// findAttribution()が該当無し(null)を返してしまい、実際にはsocial visitである
+// はずのconversionが集計から丸ごと消えてしまう(Codexレビュー指摘対応)。24時間分
+// 遡れば、日付境界をまたぐケースは確実にカバーできる。
+const ATTRIBUTION_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+
+// ウィンドウ内に登場するセッションIDについてのみ、startISOより前
+// (ATTRIBUTION_LOOKBACK_MS以内)のtraffic_source_detectedを追加取得する。
+// visit境界の再構築(findAttribution)にのみ使い、landing/funnel等の実際の
+// 集計対象はfetchEventsInWindow()が返すウィンドウ内の行に限定したまま変えない
+// (Codexレビュー指摘対応)。
+async function fetchPrecedingAttributionMarkers(admin, { startISO, asOf, sessionIds }) {
+  if (sessionIds.size === 0) return [];
+  const lookbackStartISO = new Date(new Date(startISO).getTime() - ATTRIBUTION_LOOKBACK_MS).toISOString();
+  const sessionIdsArr = [...sessionIds];
+  const rows = [];
+  const chunkSize = 500;
+  for (let i = 0; i < sessionIdsArr.length; i += chunkSize) {
+    const chunk = sessionIdsArr.slice(i, i + chunkSize);
+    let cursorId = null;
+    for (;;) {
+      let query = admin
+        .from("analytics_events")
+        .select("id, event_name, anonymous_session_id, source, campaign, properties, occurred_at")
+        .eq("event_name", "traffic_source_detected")
+        .eq("is_test_event", false)
+        .in("anonymous_session_id", chunk)
+        .gte("occurred_at", lookbackStartISO)
+        .lt("occurred_at", startISO)
+        .lte("created_at", asOf)
+        .order("id", { ascending: true })
+        .limit(1000);
+      if (cursorId) query = query.gt("id", cursorId);
+      const { data, error } = await query;
+      if (error) throw new Error(`preceding attribution markers query failed: ${error.message}`);
+      if (!data || data.length === 0) break;
+      rows.push(...data);
+      if (data.length < 1000) break;
+      cursorId = data[data.length - 1].id;
+    }
+  }
+  return rows;
+}
+
 function topEntries(map, n = 10) {
   return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);
 }
@@ -163,6 +210,14 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   // 対象外にしない。
   const rows = rawRows.filter((r) => !r.user_id || !testAccountIds.has(r.user_id));
 
+  // ウィンドウの日付境界(startISO)をまたぐvisitを取りこぼさないよう、rowsに登場する
+  // セッションIDについてstartISOより前のtraffic_source_detectedも追加取得する
+  // (Codexレビュー指摘対応)。visit境界の再構築(attributionEventsBySession)にのみ
+  // 使い、landing/funnel等の実際の集計対象(socialLandingEntries/funnelCounts等)は
+  // 下記のrows(ウィンドウ内のみ)に限定したまま変えない。
+  const sessionIdsInRows = new Set(rows.map((r) => r.anonymous_session_id).filter(Boolean));
+  const precedingMarkers = await fetchPrecedingAttributionMarkers(admin, { startISO, asOf, sessionIds: sessionIdsInRows });
+
   // 1) セッション(anonymous_session_id)ごとに、このウィンドウ内の全traffic_source_detected
   //    行を発生時刻順に並べたリストを作る(social/非socialを問わず保持する)。
   //    Codexレビュー指摘対応(重要): anonymous_session_idはlv_aid cookie由来で365日
@@ -175,7 +230,7 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   //    attributionだけを適用する(=同じcookieでもvisitごとに正しく別々の
   //    チャネルへ帰属させる)。
   const attributionEventsBySession = new Map();
-  for (const r of rows) {
+  for (const r of [...rows, ...precedingMarkers]) {
     if (r.event_name !== "traffic_source_detected") continue;
     const sid = r.anonymous_session_id;
     if (!sid) continue;
