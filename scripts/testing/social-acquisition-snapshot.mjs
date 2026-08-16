@@ -203,10 +203,20 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     // 切り替わった時刻)のまま保つ。時間幅で区切らないと、同じX投稿を数時間・数日後に
     // 改めてクリックした正当な再訪問まで最初のvisitへ吸収してしまい、逆に
     // source/campaign/content集計が過小になる(Codexレビュー指摘対応、2巡目)。
+    //
+    // gap判定は「直前に保持(push)したマーカー」ではなく「直前の生マーカー」との
+    // 間隔で行う(Codexレビュー指摘対応、3巡目)。例えば0分・20分・40分に同一
+    // attributionのマーカーが並ぶ場合、20分マーカーは畳み込まれてdedupedには入らない
+    // が、40分マーカーとの間隔比較を「最後にpushされた0分マーカー」基準で行うと
+    // 40分>30分となり誤って新visitとして切り出してしまう。実際には20分→40分の間隔は
+    // 20分であり、一度も30分以上の無操作間隔が発生していないため、本来は連続した
+    // 1visitのままであるべき。visitのidentity(occurred_at)は最初にそのattributionへ
+    // 切り替わった時刻のまま据え置きつつ、gap計算だけは常に直前の生マーカーを使う。
     const deduped = [];
+    let lastRaw = null;
     for (const entry of arr) {
       const prev = deduped[deduped.length - 1];
-      const gapMs = prev ? Date.parse(entry.occurred_at) - Date.parse(prev.occurred_at) : Infinity;
+      const gapMs = lastRaw ? Date.parse(entry.occurred_at) - Date.parse(lastRaw.occurred_at) : Infinity;
       if (
         prev &&
         gapMs <= RELOAD_DEDUPE_WINDOW_MS &&
@@ -214,9 +224,11 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
         prev.campaign === entry.campaign &&
         prev.content === entry.content
       ) {
+        lastRaw = entry;
         continue;
       }
       deduped.push(entry);
+      lastRaw = entry;
     }
     attributionEventsBySession.set(sid, deduped);
   }
@@ -345,15 +357,26 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   let socialSignupCount = 0;
   const signupCountByContent = new Map();
   if (socialUserIds.size > 0) {
-    const { data: signupProfiles, error: signupError } = await admin
-      .from("profiles")
-      .select("id, created_at")
-      .eq("is_test_account", false)
-      .in("id", [...socialUserIds])
-      .gte("created_at", startISO)
-      .lt("created_at", endISO);
-    if (signupError) throw new Error(`social signup count query failed: ${signupError.message}`);
-    for (const p of signupProfiles ?? []) {
+    // socialUserIdsが多い場合、.in()を無制限に渡すとPostgRESTの既定レスポンス上限
+    // (1000行)で静かに一部だけが返り、URL自体も長大になり得る。他のクエリ
+    // (fetchTestAccountIds/fetchEventsInWindow)と同じくbounded chunkに分けて
+    // 全件を確実に取得する(Codexレビュー指摘対応)。
+    const SIGNUP_LOOKUP_CHUNK_SIZE = 500;
+    const socialUserIdsArr = [...socialUserIds];
+    const signupProfiles = [];
+    for (let i = 0; i < socialUserIdsArr.length; i += SIGNUP_LOOKUP_CHUNK_SIZE) {
+      const chunk = socialUserIdsArr.slice(i, i + SIGNUP_LOOKUP_CHUNK_SIZE);
+      const { data, error: signupError } = await admin
+        .from("profiles")
+        .select("id, created_at")
+        .eq("is_test_account", false)
+        .in("id", chunk)
+        .gte("created_at", startISO)
+        .lt("created_at", endISO);
+      if (signupError) throw new Error(`social signup count query failed: ${signupError.message}`);
+      signupProfiles.push(...(data ?? []));
+    }
+    for (const p of signupProfiles) {
       const visit = earliestSocialVisitByUser.get(p.id);
       // そのユーザーの最も早いsocial visitより前にsignup済みの場合、このsignupは
       // 別チャネル経由であり、後から偶然同じ期間内にsocial visitがあっただけ

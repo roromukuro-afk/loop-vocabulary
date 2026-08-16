@@ -205,6 +205,18 @@ async function main() {
       { event_name: "landing_view", anonymous_session_id: `${prefix}m`, source: "x", campaign: "campM", path: "/", user_id: null, properties: {}, occurred_at: offset(100), is_test_event: false, schema_version: 1 },
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}m`, source: "x", campaign: "campM", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentM" }, occurred_at: offset(40 * 60 * 1000), is_test_event: false, schema_version: 1 },
       { event_name: "landing_view", anonymous_session_id: `${prefix}m`, source: "x", campaign: "campM", path: "/", user_id: null, properties: {}, occurred_at: offset(40 * 60 * 1000 + 100), is_test_event: false, schema_version: 1 },
+
+      // N: 同一attribution(x/social/campN/contentN)のreloadマーカーが0分・20分・40分の
+      // 3回発生するケース(Codexレビュー指摘対応、3巡目)。連続する間隔はどちらも
+      // 20分(<30分)で無操作期間は一度も発生していないため、本来は1visitのまま
+      // であるべき。しかしgap判定を「直前に保持(push)したマーカー」基準で行うと、
+      // 20分マーカーは畳み込まれてdedupedに入らず、40分マーカーは「保持済みの0分
+      // マーカー」との間隔(40分>30分)で誤って別visitとして切り出されてしまう。
+      // gapは常に直前の"生"マーカーとの間隔で判定しなければならない。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}n`, source: "x", campaign: "campN", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentN" }, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
+      { event_name: "landing_view", anonymous_session_id: `${prefix}n`, source: "x", campaign: "campN", path: "/", user_id: null, properties: {}, occurred_at: offset(100), is_test_event: false, schema_version: 1 },
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}n`, source: "x", campaign: "campN", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentN" }, occurred_at: offset(20 * 60 * 1000), is_test_event: false, schema_version: 1 },
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}n`, source: "x", campaign: "campN", path: null, user_id: null, properties: { source: "x", medium: "social", content: "contentN" }, occurred_at: offset(40 * 60 * 1000), is_test_event: false, schema_version: 1 },
     ];
     const { error: insertErr } = await admin.from("analytics_events").insert(rows);
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
@@ -222,23 +234,24 @@ async function main() {
     const result = await summarizeWindow(admin, "fixture", today, today, testAccountIds, asOf);
 
     // ---- 検証: social landing identities合計 = A, B, D, G, H(visit1のみ), J, K, L,
-    // M(visit1・visit2の2件) の10件(C=非social, E=test account, F=test event,
+    // M(visit1・visit2の2件), N の11件(C=非social, E=test account, F=test event,
     // H visit2=非social, I=medium違いはすべて除外)。Gはlanding_viewを一度も発火
     // しない(vocab_test_maker_page_viewedのみ)セッションで、これも正しくlandingと
     // して数えられることを確認する(Codexレビュー指摘対応)。Jは2回のreload(同一
     // attribution・30分以内)を1visitに畳み込めていることの確認、Kは先行する未
     // attribution行が後続visitへ誤って逆流しないことの確認、Lは別チャネル経由の
     // 既存ユーザーが後からsocial visitしてもsignupとしては数えないことの確認、Mは
-    // 同一attributionでも30分を大きく超える間隔なら別visitとして数えることの確認を
-    // 兼ねる。 ----
-    if (result.socialLandingIdentities === 10) {
-      ok("social landing identities合計が10(A/B/D/G/H-visit1/J/K/L/M-visit1/M-visit2。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み、Mの40分間隔は2visitのまま)");
+    // 同一attributionでも30分を大きく超える間隔なら別visitとして数えることの確認、
+    // Nは0分・20分・40分の3連続reloadでも(連続する間隔がどちらも20分<30分のため)
+    // 1visitのまま畳み込まれることの確認を兼ねる。 ----
+    if (result.socialLandingIdentities === 11) {
+      ok("social landing identities合計が11(A/B/D/G/H-visit1/J/K/L/M-visit1/M-visit2/N。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み、Mの40分間隔は2visitのまま、Nの0/20/40分3連続reloadは1visitに畳み込み)");
     } else {
-      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 10)`);
+      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 11)`);
     }
 
-    // ---- 検証: source別バケット(H-visit1/J/K/L/M-visit1/M-visit2がxへ加算され、facebookはmedium=cpcのため0のまま) ----
-    const expectedBuckets = { x: 7, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 1 };
+    // ---- 検証: source別バケット(H-visit1/J/K/L/M-visit1/M-visit2/Nがxへ加算され、facebookはmedium=cpcのため0のまま) ----
+    const expectedBuckets = { x: 8, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 1 };
     let bucketsOk = true;
     for (const [bucket, expected] of Object.entries(expectedBuckets)) {
       if (result.byBucket[bucket] !== expected) {
@@ -247,7 +260,17 @@ async function main() {
       }
     }
     if (bucketsOk) {
-      ok("source別バケット(x=7[A,H-visit1,J,K,L,M-visit1,M-visit2], instagram=1, youtube=1, other_social=1, facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodonはother_socialへ、test account/test eventのxは含まれない)");
+      ok("source別バケット(x=8[A,H-visit1,J,K,L,M-visit1,M-visit2,N], instagram=1, youtube=1, other_social=1, facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodonはother_socialへ、test account/test eventのxは含まれない)");
+    }
+
+    // ---- 検証: 0分・20分・40分の3連続reload(いずれも直前の生マーカーからは30分以内)が
+    // 1visitに畳み込まれる(Codexレビュー指摘対応、3巡目、最重要)。gap判定を「直前に
+    // 保持したマーカー」基準で行うと、20分マーカーが畳み込まれて消えた後、40分マーカーは
+    // 「保持済みの0分マーカー」との間隔(40分>30分)で誤って別visitに切り出されてしまう。 ----
+    if (result.byCampaign["campN"] === 1 && result.byContent["contentN"] === 1) {
+      ok("0分・20分・40分の3連続reloadが1visitに畳み込まれる(N: campN=1, contentN=1。直前に保持したマーカー基準でgapを見ると誤って2visitに水増しされていた)");
+    } else {
+      bad(`3連続reloadのgap判定が想定外: byCampaign.campN=${result.byCampaign["campN"]}, byContent.contentN=${result.byContent["contentN"]}(期待値: 1, 1)`);
     }
 
     // ---- 検証: 同一cookieの複数visitが個別に正しくattributionされる(最重要の回帰確認) ----
@@ -334,11 +357,12 @@ async function main() {
       result.byCampaign["campJ"] === 1 &&
       result.byCampaign["campK"] === 1 &&
       result.byCampaign["campL"] === 1 &&
-      result.byCampaign["campM"] === 2
+      result.byCampaign["campM"] === 2 &&
+      result.byCampaign["campN"] === 1
     ) {
-      ok("campaign別集計が正しい(camp1=2[A,B], (none)=1[D], camp2=1[G], camp3=1[H-visit1], campJ=1[J], campK=1[K], campL=1[L], campM=2[M-visit1+M-visit2])");
+      ok("campaign別集計が正しい(camp1=2[A,B], (none)=1[D], camp2=1[G], camp3=1[H-visit1], campJ=1[J], campK=1[K], campL=1[L], campM=2[M-visit1+M-visit2], campN=1[N])");
     } else {
-      bad(`campaign別集計が想定外: ${JSON.stringify(result.byCampaign)}(期待値: camp1=2, (none)=1, camp2=1, camp3=1, campJ=1, campK=1, campL=1, campM=2)`);
+      bad(`campaign別集計が想定外: ${JSON.stringify(result.byCampaign)}(期待値: camp1=2, (none)=1, camp2=1, camp3=1, campJ=1, campK=1, campL=1, campM=2, campN=1)`);
     }
     if (
       result.byContent["post1"] === 1 &&
@@ -349,27 +373,28 @@ async function main() {
       result.byContent["contentJ"] === 1 &&
       result.byContent["contentK"] === 1 &&
       result.byContent["contentL"] === 1 &&
-      result.byContent["contentM"] === 2
+      result.byContent["contentM"] === 2 &&
+      result.byContent["contentN"] === 1
     ) {
-      ok("content別集計が正しい(post1=1[A], post2=1[B], (none)=1[D], post3=1[G], post4=1[H-visit1], contentJ=1[J], contentK=1[K], contentL=1[L], contentM=2[M-visit1+M-visit2])");
+      ok("content別集計が正しい(post1=1[A], post2=1[B], (none)=1[D], post3=1[G], post4=1[H-visit1], contentJ=1[J], contentK=1[K], contentL=1[L], contentM=2[M-visit1+M-visit2], contentN=1[N])");
     } else {
-      bad(`content別集計が想定外: ${JSON.stringify(result.byContent)}(期待値: post1=1, post2=1, (none)=1, post3=1, post4=1, contentJ=1, contentK=1, contentL=1, contentM=2)`);
+      bad(`content別集計が想定外: ${JSON.stringify(result.byContent)}(期待値: post1=1, post2=1, (none)=1, post3=1, post4=1, contentJ=1, contentK=1, contentL=1, contentM=2, contentN=1)`);
     }
     // landing pathはvisitごとに実際のentry point(最も早いlanding行)の1件だけを数える
-    // (Codexレビュー指摘対応)。"/" = A/D/H-visit1/J/K/L/M-visit1/M-visit2のentry。
+    // (Codexレビュー指摘対応)。"/" = A/D/H-visit1/J/K/L/M-visit1/M-visit2/Nのentry。
     // "/tools/vocab-test-maker" = B/Gのentry(BのlandingがそこでGはlanding_view
     // 自体が無くvocab_test_maker_page_viewedがentry)。Aの後続vocab_test_maker_
     // page_viewed、Bの後続guide_view、Jの後続landing_view(2回目)・vocab_test_maker_
     // page_viewedは、いずれも同一visit内の後続ページ遷移としてbyPathへは加算
     // されない(=/guide/eiken-2kyu-tangoはbyPathに一切現れない)。
     if (
-      result.byPath["/"] === 8 &&
+      result.byPath["/"] === 9 &&
       result.byPath["/tools/vocab-test-maker"] === 2 &&
       !("/guide/eiken-2kyu-tango" in result.byPath)
     ) {
-      ok("landing path別集計が、visitごとの実際のentry pointのみを数える(/=8[A,D,H-visit1,J,K,L,M-visit1,M-visit2], /tools/vocab-test-maker=2[B,G]、/guide/eiken-2kyu-tangoは同一visit内の後続遷移のため含まれない)");
+      ok("landing path別集計が、visitごとの実際のentry pointのみを数える(/=9[A,D,H-visit1,J,K,L,M-visit1,M-visit2,N], /tools/vocab-test-maker=2[B,G]、/guide/eiken-2kyu-tangoは同一visit内の後続遷移のため含まれない)");
     } else {
-      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=8, /tools/vocab-test-maker=2, /guide/eiken-2kyu-tangoは無し)`);
+      bad(`landing path別集計が想定外: ${JSON.stringify(result.byPath)}(期待値: /=9, /tools/vocab-test-maker=2, /guide/eiken-2kyu-tangoは無し)`);
     }
 
     // ---- 検証: funnel件数(social起点セッションのみ) ----
