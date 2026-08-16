@@ -121,6 +121,46 @@ async function main() {
         }
       }
     }
+
+    console.log("\n--- analytics_daily_funnels(signup_completed): signup_oauth_completedも合わせて数えつつ二重計上しないか(Codexレビュー指摘対応、19巡目: 以前はsignup_completedのみを数えており、/loginのGoogle OAuth経由の新規signupがメインファネルから完全に抜け落ちていた) ---");
+    const { data: signupRows, error: signupErr } = await admin
+      .from("analytics_events")
+      .select("user_id, anonymous_session_id")
+      .in("event_name", ["signup_completed", "signup_oauth_completed"])
+      .eq("is_test_event", false)
+      .gte("occurred_at", rollupStartISO)
+      .lt("occurred_at", rollupEndISO)
+      .limit(5000);
+    if (signupErr) bad(`analytics_events(signup_completed,signup_oauth_completed)読み取り失敗: ${signupErr.message}`);
+    else if (testAccountErr) bad(`profiles(is_test_account)読み取り失敗: ${testAccountErr.message}`);
+    else {
+      const testAccountIdSet = new Set((testAccountProfiles ?? []).map((p) => p.id));
+      // rollup.tsのcountDistinctSignupCompletions()と同じロジック(anonymous_session_id
+      // 優先dedupe)を独立に再実装して照合する。
+      const distinctSignups = new Set();
+      for (const r of signupRows ?? []) {
+        if (r.user_id && testAccountIdSet.has(r.user_id)) continue;
+        if (r.anonymous_session_id) distinctSignups.add(`sid:${r.anonymous_session_id}`);
+        else if (r.user_id) distinctSignups.add(`uid:${r.user_id}`);
+      }
+      const { data: funnelSignupRows, error: funnelSignupErr } = await admin
+        .from("analytics_daily_funnels")
+        .select("count")
+        .eq("funnel_key", "main")
+        .eq("step_key", "signup_completed")
+        .in("metric_date", rollupDays);
+      if (funnelSignupErr) bad(`analytics_daily_funnels(signup_completed)読み取り失敗: ${funnelSignupErr.message}`);
+      else {
+        const rolledUpSignups = (funnelSignupRows ?? []).reduce((sum, r) => sum + (r.count ?? 0), 0);
+        if (distinctSignups.size === 0) {
+          console.log("ℹ️  直近7日にsignup_completed/signup_oauth_completed(実ユーザー)が0件のため、この期間での正の値チェックはスキップ");
+        } else if (rolledUpSignups === distinctSignups.size) {
+          ok(`analytics_daily_funnels(signup_completed)の合計が、signup_completed/signup_oauth_completedを重複無く統合した件数と一致する(${rolledUpSignups}件。修正前はsignup_oauth_completedのみのsignupが漏れ、/signupのGoogle OAuth経路では逆に二重計上され得た)`);
+        } else {
+          bad(`analytics_daily_funnels(signup_completed)の合計が想定外: 集計=${rolledUpSignups}, 独立に計算したdistinct件数=${distinctSignups.size}`);
+        }
+      }
+    }
   } finally {
     stopDevServer(dev);
   }

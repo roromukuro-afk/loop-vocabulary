@@ -269,6 +269,7 @@ export async function computeDailyMetrics(
 
 type FunnelStepDef =
   | { key: string; order: number; kind: "events"; eventNames: string[] }
+  | { key: string; order: number; kind: "signup_completed_union" }
   | { key: string; order: number; kind: "first_word_added" }
   | { key: string; order: number; kind: "first_test_completed" }
   | { key: string; order: number; kind: "first_review_completed" }
@@ -279,7 +280,18 @@ const FUNNEL_STEPS: FunnelStepDef[] = [
   { key: "tool_started", order: 2, kind: "events", eventNames: ["vocab_check_started"] },
   { key: "tool_completed", order: 3, kind: "events", eventNames: ["vocab_check_completed"] },
   { key: "signup_cta_clicked", order: 4, kind: "events", eventNames: ["vocab_check_signup_clicked"] },
-  { key: "signup_completed", order: 5, kind: "events", eventNames: ["signup_completed"] },
+  // signup_completed: 単純にsignup_completedイベントだけを数えるのではなく、
+  // signup_oauth_completed(/loginページのGoogle OAuth経由の新規signup。callback側から
+  // サーバー発火する)も合わせて数える(Codexレビュー指摘対応、19巡目、最重要:
+  // 「Include callback-only signups in the main funnel」。/loginでGoogle OAuth経由の
+  // 新規signupが完了した場合、signup_completedは一切発火せずsignup_oauth_completedのみが
+  // 発火するため、以前はこのメインファネルから完全に抜け落ちていた)。両者をそのまま
+  // countDistinctSessionOrUser()でuser_id優先dedupeすると、/signupのGoogle OAuth経路
+  // (client側のsignup_completedはOAuthリダイレクト前=未認証でuser_id=null、server側の
+  // signup_oauth_completedは認証後でuser_id有り。両者は同一anonymous_session_idを共有する)
+  // で同じ1件のsignupが2件として二重計上されてしまうため、専用のkind
+  // (signup_completed_union)でanonymous_session_id優先のdedupeを行う。
+  { key: "signup_completed", order: 5, kind: "signup_completed_union" },
   { key: "first_word_added", order: 6, kind: "first_word_added" },
   { key: "first_test_completed", order: 7, kind: "first_test_completed" },
   { key: "first_review_completed", order: 8, kind: "first_review_completed" },
@@ -315,6 +327,45 @@ async function countDistinctSessionOrUser(
     }
     const sid = row.anonymous_session_id as string | null;
     if (sid) set.add(sid);
+  }
+  return set.size;
+}
+
+// signup_completedステップ専用のカウント(Codexレビュー指摘対応、19巡目、最重要)。
+// signup_completed(クライアント側、/signup・/loginのGoogle OAuth開始直前に発火。この
+// 時点ではまだ未認証のためuser_idを持たない)とsignup_oauth_completed(サーバー側、
+// /auth/callbackから認証完了後に発火。user_idを持つ)の両方を1つのsignup完了として
+// 数える。countDistinctSessionOrUser()と同じuser_id優先dedupeをそのまま使うと、
+// /signupのGoogle OAuth経路(同一anonymous_session_idで、signup_completedはuser_id無し・
+// signup_oauth_completedはuser_id有りの2行が発生する)で同じ1件のsignupが2件として
+// 二重計上されてしまう。anonymous_session_idは両方の行に必ず含まれる共通の識別子の
+// ため、これを優先してdedupeする(user_idはこのcookieが欠落した場合の保険としてのみ
+// 使う)。
+async function countDistinctSignupCompletions(
+  admin: Admin,
+  startISO: string,
+  endISO: string,
+  testAccountIds: Set<string>,
+): Promise<number> {
+  const { data, error } = await admin
+    .from("analytics_events")
+    .select("user_id, anonymous_session_id")
+    .in("event_name", ["signup_completed", "signup_oauth_completed"])
+    .eq("is_test_event", false)
+    .gte("occurred_at", startISO)
+    .lt("occurred_at", endISO)
+    .limit(BULK_FETCH_LIMIT);
+  if (error) throw new Error(`analytics_events(signup_completed,signup_oauth_completed)取得失敗: ${error.message}`);
+  const set = new Set<string>();
+  for (const row of data ?? []) {
+    const uid = row.user_id as string | null;
+    if (uid && testAccountIds.has(uid)) continue;
+    const sid = row.anonymous_session_id as string | null;
+    if (sid) {
+      set.add(sid);
+    } else if (uid) {
+      set.add(uid);
+    }
   }
   return set.size;
 }
@@ -360,6 +411,8 @@ export async function computeFunnels(
       try {
         if (step.kind === "events") {
           count = await countDistinctSessionOrUser(admin, step.eventNames, startISO, endISO, testAccountIds);
+        } else if (step.kind === "signup_completed_union") {
+          count = await countDistinctSignupCompletions(admin, startISO, endISO, testAccountIds);
         } else if (step.kind === "first_word_added") {
           count = [...proxies.firstWordDate.entries()].filter(([, d]) => d === day).length;
         } else if (step.kind === "first_test_completed") {
