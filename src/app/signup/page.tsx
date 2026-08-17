@@ -1,16 +1,30 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseNotConfigured } from "@/lib/supabase/env";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { trackSignupComplete } from "@/lib/analytics/events";
-import { trackEvent } from "@/lib/analytics/track";
+import { buildOAuthAttributionQuery, trackEvent } from "@/lib/analytics/track";
+import { getSafeNextPath } from "@/lib/utils/safeNextPath";
 
 export default function SignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignupForm />
+    </Suspense>
+  );
+}
+
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // next: /loginと同じ規約。未指定時は従来どおり/dashboard(後方互換)。
+  // getSafeNextPath()で内部の相対パスのみに限定する(open redirect / javascript:
+  // スキーム注入対策。詳細はsrc/lib/utils/safeNextPath.tsのコメント参照)。
+  const next = getSafeNextPath(searchParams.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +85,7 @@ export default function SignupPage() {
       trackSignupComplete("email");
       trackEvent("signup_completed", { method: "email" });
       fetch("/api/email/welcome", { method: "POST" }).catch(() => {});
-      router.replace("/dashboard");
+      router.replace(next);
       router.refresh();
       setTimeout(() => {
         if (mountedRef.current) setBusy(false);
@@ -101,9 +115,14 @@ export default function SignupPage() {
     let navigating = false;
     try {
       const supabase = createClient();
+      // タブ自身のsource/campaignをredirectTo URLに乗せてOAuthラウンドトリップ後も
+      // 維持する(Codexレビュー指摘対応、16巡目、最重要。詳細はbuildOAuthAttributionQuery()
+      // のコメント参照)。
+      const attributionQuery = buildOAuthAttributionQuery();
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}${attributionQuery ? `&${attributionQuery}` : ""}`;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
+        options: { redirectTo },
       });
       if (error) {
         setError(error.message);
@@ -172,13 +191,13 @@ export default function SignupPage() {
 
         <form onSubmit={onSubmit} className="space-y-4" aria-busy={busy}>
           <Field label="メールアドレス">
-            <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+            <Input data-testid="signup-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
           </Field>
           <Field label="パスワード" hint="6文字以上">
-            <Input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+            <Input data-testid="signup-password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
           </Field>
           {error && <div role="alert" className="text-sm text-red-600">{error}</div>}
-          <Button type="submit" fullWidth size="lg" disabled={busy || googleBusy}>
+          <Button data-testid="signup-submit" type="submit" fullWidth size="lg" disabled={busy || googleBusy}>
             {busy ? "登録中..." : "無料で登録"}
           </Button>
           <p className="text-xs text-navy-400">
@@ -188,7 +207,8 @@ export default function SignupPage() {
         </form>
 
         <div className="mt-5 text-sm text-navy-500">
-          すでにアカウントをお持ちの方は <Link href="/login" className="text-navy-800 font-semibold">ログイン</Link>
+          すでにアカウントをお持ちの方は{" "}
+          <Link href={next !== "/dashboard" ? `/login?next=${encodeURIComponent(next)}` : "/login"} className="text-navy-800 font-semibold">ログイン</Link>
         </div>
       </div>
     </div>

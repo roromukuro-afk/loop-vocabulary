@@ -243,6 +243,15 @@ export default function EitangoNoOboekataPage() {
               </p>
             </Link>
             <Link
+              href="/tools/vocab-test-maker"
+              className="block bg-white rounded-xl p-4 border border-sky-100 hover:shadow-sm transition-shadow"
+            >
+              <div className="font-bold text-navy-800 text-sm">✏️ 英単語テスト作成(登録不要)</div>
+              <p className="text-xs text-navy-600 mt-0.5 leading-relaxed">
+                自分の単語リストを貼り付けるだけで、無料・登録不要ですぐ小テストを作成。印刷してPDFとして保存できます。
+              </p>
+            </Link>
+            <Link
               href="/tools"
               className="block bg-white rounded-xl p-4 border border-sky-100 hover:shadow-sm transition-shadow"
             >

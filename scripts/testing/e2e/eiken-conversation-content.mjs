@@ -202,13 +202,15 @@ async function main() {
       fail(`教材CTAの表示回数が想定外(重複表示の可能性): ${materialTitles.map((m, i) => `${m}=${materialOccurrences[i]}`).join(", ")}`);
     }
 
-    // ---- 9. /signup・/vocab-check・GuideEmailCaptureが維持されている ----
+    // ---- 9. /signup・/vocab-check/eiken・GuideEmailCaptureが維持されている ----
+    // (growth/vocab-check-acquisition-foundation: このページは英検専用コンテンツのため、
+    // 汎用/vocab-checkへのリンクを英検variant/vocab-check/eikenへ昇格した)
     const signupLink = page.locator('a[href="/signup"]');
-    const vocabCheckLink = page.locator('a[href="/vocab-check"]');
+    const vocabCheckLink = page.locator('a[href="/vocab-check/eiken"]');
     if ((await signupLink.count()) > 0) ok("/signup へのCTAが維持されている");
     else fail("/signup へのCTAが見つからない");
-    if ((await vocabCheckLink.count()) > 0) ok("/vocab-check へのCTAが維持されている");
-    else fail("/vocab-check へのCTAが見つからない");
+    if ((await vocabCheckLink.count()) > 0) ok("/vocab-check/eiken へのCTAが維持されている");
+    else fail("/vocab-check/eiken へのCTAが見つからない");
     if (bodyText.includes("英単語学習ヒントをメールで受け取る")) {
       ok("GuideEmailCaptureが表示されている");
     } else {

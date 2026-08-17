@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { trackWordCountMilestones } from "@/lib/analytics/trackServerEvent";
+import { E2E_TEST_HEADER } from "@/lib/analytics/testEventClassification";
 
 export const runtime = "nodejs";
 
@@ -8,6 +9,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const e2eHeaderValue = req.headers.get(E2E_TEST_HEADER);
   const { user, supabase } = await requireUser();
 
   const { data: profile } = await supabase
@@ -49,7 +51,7 @@ export async function POST(
   const { error } = await supabase.from("words").insert(rows);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + rows.length);
+  await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + rows.length, e2eHeaderValue);
 
   return NextResponse.json({ ok: true, added: rows.length });
 }

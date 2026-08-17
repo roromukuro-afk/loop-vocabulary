@@ -250,6 +250,21 @@ async function main() {
 
     console.log("\n=== 69. 単語帳共有ボタンの失敗通知・二重送信防止(Issue #81) E2E ===");
     results.wordbookSharingFeedback = runNode("scripts/testing/e2e/a11y-wordbook-sharing-feedback.mjs");
+
+    console.log("\n=== 70. 語彙力チェックのオーガニック発見性強化 E2E ===");
+    results.vocabCheckAcquisitionDiscoverability = runNode("scripts/testing/e2e/vocab-check-acquisition-discoverability.mjs");
+
+    console.log("\n=== 71. 英単語テスト作成ツール(未ログイン) E2E ===");
+    results.vocabTestMakerAnonymous = runNode("scripts/testing/e2e/vocab-test-maker-anonymous.mjs");
+
+    console.log("\n=== 72. 英単語テスト作成ツール(ログイン済み) E2E ===");
+    results.vocabTestMakerAuthenticated = runNode("scripts/testing/e2e/vocab-test-maker-authenticated.mjs");
+
+    console.log("\n=== 73. 英検2級ガイド 2026形式・検索意図対応 E2E ===");
+    results.eiken2kyuGuideContent = runNode("scripts/testing/e2e/eiken-2kyu-guide-content.mjs");
+
+    console.log("\n=== 74. 英単語テスト作成ツール 共有CTA(Issue #98) E2E ===");
+    results.vocabTestMakerShare = runNode("scripts/testing/e2e/vocab-test-maker-share.mjs");
   } finally {
     stopDevServer(dev);
   }

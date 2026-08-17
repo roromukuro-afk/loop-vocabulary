@@ -33,7 +33,10 @@ const PORT = Number(process.env.TEST_PORT || 3799);
 // 表示されているべき静的ガイドページ。showCse=true は英検CSEスコア注記も必須。
 const DISCLAIMER_PAGES = [
   { slug: "eiken-jun1-tango", showCse: true },
-  { slug: "eiken-2kyu-tango", showCse: true },
+  // eiken-2kyu-tango: 2026-08-15の検索意図対応で合否ライン「約65%」の数値カードを
+  // 削除し、公式に確認できる出題数(17問/31問/約7分)のみに変更したため、CSE注記は
+  // 不要(eiken-1kyu-tangoと同じ「数値カードに合否率の記載がないため注記なし」の扱い)。
+  { slug: "eiken-2kyu-tango", showCse: false },
   { slug: "eiken-3kyu-tango", showCse: true },
   { slug: "eiken-jun2-tango", showCse: true },
   { slug: "eiken-1kyu-tango", showCse: false },

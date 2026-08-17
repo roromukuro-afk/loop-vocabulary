@@ -138,7 +138,7 @@ export function trackVocabCheckShareClick(variant: VocabCheckVariant) {
   gtag("vocab_check_share_click", { variant, event_category: "viral" });
 }
 
-export function trackVocabCheckCtaClick(variant: VocabCheckVariant, target: "signup" | "login" | "materials" | "guide" | "vocab_check_variant") {
+export function trackVocabCheckCtaClick(variant: VocabCheckVariant, target: "signup" | "login" | "materials" | "guide" | "vocab_check_variant" | "dictionary") {
   gtag("vocab_check_cta_click", { variant, target, event_category: "conversion" });
 }
 
@@ -201,7 +201,7 @@ export function trackWordPageRelatedWordClick(wordSlug: string, relatedWord: str
 // ── グロース計測: /guide ─────────────────────────────────────────
 // trackGuideRead（記事表示）は既存。CTA/導線クリックのみ追加する。
 
-export function trackGuideCtaClick(guideSlug: string, target: "vocab_check" | "dictionary" | "premium" | "materials" | "other_guide") {
+export function trackGuideCtaClick(guideSlug: string, target: "vocab_check" | "dictionary" | "premium" | "materials" | "other_guide" | "tools") {
   gtag("guide_cta_click", { guide_slug: guideSlug, target, event_category: "conversion" });
 }
 

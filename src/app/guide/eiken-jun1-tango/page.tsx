@@ -212,7 +212,7 @@ export default function EikenJun1Page() {
         <div className="bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-6 text-white text-center">
           <div className="font-black text-lg mb-1">Loop Vocabulary で準1級語彙を始める</div>
           <p className="text-sm text-navy-300 mb-4">SRS×AI解説×弱点分析。無料でもすぐ使える。</p>
-          <div className="flex gap-3 justify-center">
+          <div className="flex gap-3 justify-center flex-wrap">
             <Link
               href="/signup"
               className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
@@ -225,6 +225,12 @@ export default function EikenJun1Page() {
             >
               Premiumを見る
             </Link>
+            <Link
+              href="/vocab-check/eiken"
+              className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors"
+            >
+              英検語彙チェック
+            </Link>
           </div>
         </div>
 
@@ -233,7 +239,7 @@ export default function EikenJun1Page() {
           <div className="text-sm font-bold text-navy-700 mb-3">関連ガイド</div>
           <div className="space-y-2">
             {[
-              { href: "/guide/eiken-2kyu-tango", tag: "英検", title: "英検2級 単語対策【頻出1,500語カテゴリ別解説】" },
+              { href: "/guide/eiken-2kyu-tango", tag: "英検", title: "英検2級 単語対策【頻出テーマ別】" },
               { href: "/guide/eiken-jun2-tango", tag: "英検", title: "英検準2級 単語対策【合格への最短ルート】" },
               { href: "/guide/toeic-tango", tag: "TOEIC", title: "TOEIC頻出単語・語彙対策【スコア別必須リスト】" },
             ].map((r) => (

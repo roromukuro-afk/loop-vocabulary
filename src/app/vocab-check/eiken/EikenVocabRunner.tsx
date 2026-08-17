@@ -189,6 +189,7 @@ export function EikenVocabRunner() {
           <div className="mt-6 text-center space-y-2">
             <Link href="/vocab-check" onClick={() => trackVocabCheckCtaClick("eiken", "vocab_check_variant")} className="block text-sm text-navy-500 underline">← 一般語彙力チェックに戻る</Link>
             <Link href="/vocab-check/toeic" onClick={() => trackVocabCheckCtaClick("eiken", "vocab_check_variant")} className="block text-sm text-sky-600 underline">TOEIC語彙チェックを試す →</Link>
+            <Link href="/dictionary" onClick={() => trackVocabCheckCtaClick("eiken", "dictionary")} className="block text-sm text-navy-500 underline">わからなかった単語を辞書で調べる →</Link>
           </div>
         </div>
       </div>
