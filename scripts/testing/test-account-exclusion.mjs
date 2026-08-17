@@ -20,7 +20,7 @@ function ok(msg) { console.log(`✅ ${msg}`); pass++; }
 function bad(msg) { console.error(`❌ FAIL: ${msg}`); fail++; }
 
 function readSrc(relPath) {
-  return readFileSync(resolve(REPO_ROOT, relPath), "utf8");
+  return readFileSync(resolve(REPO_ROOT, relPath), "utf8").replace(/\r\n/g, "\n");
 }
 
 // needle が haystack 内に出現し、かつその近傍(±windowチャース)に guard のいずれかが
