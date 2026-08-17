@@ -31,7 +31,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
-  const rawWords = body && typeof body === "object" ? (body as Record<string, unknown>).words : null;
+  const bodyRecord = body && typeof body === "object" ? body as Record<string, unknown> : null;
+  const rawWords = bodyRecord?.words ?? null;
+  // attributionは認証・保存可否には一切使わない未信用の分析用相関値。
+  // trackServerEvent()側でクライアントイベントと同じ100文字上限へ正規化する。
+  const rawAttribution = bodyRecord?.attribution;
+  const attributionRecord =
+    rawAttribution && typeof rawAttribution === "object"
+      ? rawAttribution as Record<string, unknown>
+      : null;
+  const attributionSource =
+    typeof attributionRecord?.source === "string" ? attributionRecord.source : null;
+  const attributionCampaign =
+    typeof attributionRecord?.campaign === "string" ? attributionRecord.campaign : null;
   const rows = sanitizeRows(rawWords);
   if (rows.length === 0) {
     return NextResponse.json({ error: "no_valid_words" }, { status: 400 });
@@ -129,8 +141,22 @@ export async function POST(req: NextRequest) {
   // 他のイベントと同じ相関キーで繋げられるようにする(/api/analytics/eventsの
   // 既存クライアント経路と同じ「未信用の相関キーとして100文字に切り詰め」方針)。
   const anonymousSessionId = req.cookies.get("lv_aid")?.value ?? null;
-  await trackServerEvent("wordbook_created", { userId: user.id, anonymousSessionId, e2eHeaderValue, properties: { source_type: "custom" } });
-  await trackServerEvent("vocab_test_maker_saved_to_wordbook", { userId: user.id, anonymousSessionId, e2eHeaderValue, properties: { row_count: rows.length } });
+  await trackServerEvent("wordbook_created", {
+    userId: user.id,
+    anonymousSessionId,
+    e2eHeaderValue,
+    source: attributionSource,
+    campaign: attributionCampaign,
+    properties: { source_type: "custom" },
+  });
+  await trackServerEvent("vocab_test_maker_saved_to_wordbook", {
+    userId: user.id,
+    anonymousSessionId,
+    e2eHeaderValue,
+    source: attributionSource,
+    campaign: attributionCampaign,
+    properties: { row_count: rows.length },
+  });
   if (!countBeforeErr) {
     await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + wordRows.length, e2eHeaderValue);
   }

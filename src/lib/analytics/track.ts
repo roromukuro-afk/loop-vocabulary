@@ -153,6 +153,18 @@ function detectTrafficSource(): TrafficSource {
 }
 
 /**
+ * サーバー側APIへ、その操作を開始したタブ自身のattributionを引き継ぐための
+ * 最小ペイロードを返す。Cookie(lv_aid)は複数タブで共有される一方、traffic source
+ * はsessionStorageでタブごとに保持されるため、サーバーイベントをCookieと時刻だけで
+ * 後付け帰属すると並行タブ間で取り違える。自由記述や入力データは含めず、既存の
+ * source/campaignだけを返す。
+ */
+export function getCurrentTrafficSourceAttribution(): { source: string; campaign: string } {
+  const { source, campaign } = detectTrafficSource();
+  return { source, campaign };
+}
+
+/**
  * OAuth(Google)ラウンドトリップ後もタブ自身のsource/campaignを維持するために使う
  * クエリ文字列(例: "lv_source=x&lv_campaign=camp1")を返す(Codexレビュー指摘対応、
  * 16巡目、最重要)。/auth/callbackはサーバー側で完結するためsessionStorageへ一切
@@ -169,7 +181,7 @@ function detectTrafficSource(): TrafficSource {
  * 正しく解決されるため不要(=source/campaignさえ通れば十分)。
  */
 export function buildOAuthAttributionQuery(): string {
-  const { source, campaign } = detectTrafficSource();
+  const { source, campaign } = getCurrentTrafficSourceAttribution();
   const params = new URLSearchParams();
   if (source) params.set("lv_source", source);
   if (campaign) params.set("lv_campaign", campaign);

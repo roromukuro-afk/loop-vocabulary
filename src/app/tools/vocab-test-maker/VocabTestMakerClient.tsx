@@ -7,7 +7,7 @@ import { Field } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { createClient } from "@/lib/supabase/client";
 import { shuffle } from "@/lib/utils/shuffle";
-import { trackEvent } from "@/lib/analytics/track";
+import { getCurrentTrafficSourceAttribution, trackEvent } from "@/lib/analytics/track";
 import { ShareUrlButton } from "@/components/share/ShareUrlButton";
 import { parsePastedWords, MAX_WORDS, MAX_FIELD_LENGTH } from "@/lib/vocabTest/parsePastedWords";
 import type { ParseWarning } from "@/lib/vocabTest/parsePastedWords";
@@ -266,10 +266,13 @@ export function VocabTestMakerClient() {
 
   const saveToWordbook = async (rows: Row[]): Promise<{ ok: boolean; wordbookId?: string }> => {
     try {
+      // lv_aid Cookieは複数タブで共有されるため、保存操作を開始したタブ自身の
+      // source/campaignもPOSTへ同梱する。単語データ以外の自由記述やPIIは含めない。
+      const attribution = getCurrentTrafficSourceAttribution();
       const res = await fetch("/api/tools/vocab-test-maker/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ words: rows }),
+        body: JSON.stringify({ words: rows, attribution }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) return { ok: false };
