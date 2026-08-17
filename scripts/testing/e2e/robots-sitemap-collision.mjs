@@ -92,7 +92,11 @@ function extractStaticSitemapPaths(sitemapSrc) {
 }
 
 // 本PRで変更していないことを確認するための、既知のGUIDE_SLUGS件数と代表slug。
-const EXPECTED_GUIDE_SLUG_COUNT = 40;
+// この値は本PRのbase更新(origin/main取り込み)のたびにmainの実際のガイド件数へ
+// 合わせる必要がある(PR自体はsitemap.tsを一切変更していないため、この定数のズレは
+// 常にPRとは無関係なmain側の追加によるもの)。件数チェック自体を動的化する対応は
+// 別PR(#89)のスコープ。
+const EXPECTED_GUIDE_SLUG_COUNT = 44;
 const EXPECTED_SAMPLE_SLUGS = ["eigo-listening-renshu", "toeic-tango", "eiken-1kyu-tango"];
 
 function main() {
