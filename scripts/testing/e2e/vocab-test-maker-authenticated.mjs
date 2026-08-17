@@ -86,7 +86,7 @@ async function main() {
       const errors = collectErrors(page);
 
       await login(page, baseUrl, email, password);
-      await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
+      await gotoReady(page, `${baseUrl}${PAGE_PATH}?utm_source=x&utm_medium=social&utm_campaign=save_attribution_test&utm_content=save_attribution_x`);
 
       // word-count milestone(five_words_added/ten_words_added)がこの保存経路でも
       // 発火するかを、実際のDB件数から動的に期待値を算出して検証する(Codexレビュー
@@ -179,7 +179,7 @@ async function main() {
           // 繋がるようになっているかを確認する(監査で発見したP2対応)。
           const { data: savedEvents } = await admin
             .from("analytics_events")
-            .select("anonymous_session_id")
+            .select("anonymous_session_id, source, campaign")
             .eq("user_id", testUserId)
             .eq("event_name", "vocab_test_maker_saved_to_wordbook")
             .gte("occurred_at", milestoneCheckStartedAt)
@@ -190,6 +190,13 @@ async function main() {
             ok(`シナリオA: vocab_test_maker_saved_to_wordbookに、閲覧時と同じanonymous_session_id(lv_aid)が記録される(匿名funnelとの結合キーが繋がる)`);
           } else {
             fail(`シナリオA: anonymous_session_idが繋がっていない(cookie=${lvAidBeforeSaveA}, DB記録=${recordedSessionId})`);
+          }
+          const recordedSource = savedEvents?.[0]?.source ?? null;
+          const recordedCampaign = savedEvents?.[0]?.campaign ?? null;
+          if (recordedSource === "x" && recordedCampaign === "save_attribution_test") {
+            ok("シナリオA: 保存操作を開始したタブのsource/campaignがサーバー側保存イベントへ引き継がれる");
+          } else {
+            fail(`シナリオA: 保存イベントのsource/campaignが起点タブと一致しない(source=${recordedSource}, campaign=${recordedCampaign})`);
           }
 
           // 二重送信で2件目のword_booksが作られていないことを確認

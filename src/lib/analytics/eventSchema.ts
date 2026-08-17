@@ -28,13 +28,37 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   // ── 集客 ──────────────────────────────────────────────
   landing_view: { category: "acquisition", properties: {} },
   guide_view: { category: "acquisition", properties: { guide_slug: "string" } },
+  // guide_cta_click: 記事内リンク(/signup以外。vocab_check/dictionary/premium/
+  // materials/tools/other_guide)のクリックをfirst-party側でも記録する(Issue #98)。
+  // 従来 src/components/guide/GuideTracker.tsx の trackGuideCtaClick() はGA4のみに
+  // 送信しており、analytics_eventsには一度も保存されていなかった(Codexレビュー指摘:
+  // scripts/testing/acquisition-snapshot.mjs・social-acquisition-snapshot.mjsの
+  // funnel集計がこの列を含めていたにもかかわらず常に0件になっていた)。
+  guide_cta_click: { category: "acquisition", properties: { guide_slug: "string", target: "string" } },
+  // guide_share_invoked: 記事末尾の共有CTA(Issue #98)の操作起点を記録する。
+  // vocab_test_maker_share_invokedと同じ理由でmethod以外は増やさない
+  // (「投稿完了」を意味する名前・propertiesにしない)。
+  guide_share_invoked: { category: "acquisition", properties: { guide_slug: "string", method: "string" } },
   material_view: { category: "acquisition", properties: { material_id: "string" } },
   dictionary_view: { category: "acquisition", properties: {} },
   word_page_view: { category: "acquisition", properties: { word_slug: "string" } },
   tool_view: { category: "acquisition", properties: { tool_key: "string" } },
+  // contentプロパティ(Issue #98): utm_contentはanalytics_eventsのトップレベル列
+  // ではなくpropertiesを経由してのみ保存できるが、landing_view等のacquisition系
+  // イベントはproperties whitelistが空のため、utm_contentを付与してもsanitizeで
+  // 黙って落ちる(source/campaignはbuildPayload()がトップレベル列として全イベントに
+  // 常時付与するため生き残るが、contentにはトップレベル列が存在しない)。
+  // このセッションで発生するイベントの中でtraffic_source_detectedだけがセッション
+  // 開始時に1回だけ発火し、既にsource/mediumをproperties経由でも保存している
+  // (トップレベルsource列と重複する形で既に定着済みの設計)ため、その1イベントにのみ
+  // contentを追加する。他の全acquisition/funnelイベントのschemaにutm_*を複製すると、
+  // 同じセッション属性が数十イベントへ無意味に重複保存されてしまうため避ける。
+  // source/campaign/content単位の投稿別パフォーマンスは、このtraffic_source_detected
+  // 行(トップレベルsource/campaign + properties.content)とanonymous_session_idで
+  // 後続イベントを突き合わせることで再現できる。
   traffic_source_detected: {
     category: "acquisition",
-    properties: { source: "string", medium: "string" },
+    properties: { source: "string", medium: "string", content: "string" },
   },
 
   // ── 英単語小テスト作成ツール(no-login公開ツール) ─────────
@@ -52,6 +76,11 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   },
   vocab_test_maker_parse_failed: { category: "acquisition", properties: { reason: "string" } },
   vocab_test_maker_srs_cta_clicked: { category: "acquisition", properties: { authenticated: "boolean" } },
+  // vocab_test_maker_share_invoked: 生成後のvalue momentに置いた共有CTAの操作起点を
+  // 記録する(Issue #98)。navigator.share()のPromiseがresolveすることは実際の投稿
+  // 完了を意味しないため、「投稿された/共有された」ではなく「共有操作を開始した」
+  // という事実のみを表す名前・propertiesにする(methodはweb_share/copy_linkのみ)。
+  vocab_test_maker_share_invoked: { category: "acquisition", properties: { method: "string" } },
 
   // ── 語彙力チェック ─────────────────────────────────────
   // vocab_check_page_viewed: GA4側のvocab_check_view(トップ表示)に対応。診断を開始せず
@@ -121,6 +150,23 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   },
   signup_started: { category: "onboarding", properties: { method: "string" } },
   signup_completed: { category: "onboarding", properties: { method: "string" } },
+  // login_started: /loginページのGoogle OAuth開始処理が、SNSリンクから直接/loginへ
+  // 着地したケースでもtraffic_source_detectedマーカーを発火できるよう、リダイレクト前に
+  // 呼ぶ中立イベント(Codexレビュー指摘対応、Issue #98)。以前はsignup_started(method=
+  // "google")を再利用していたが、既存ユーザーの通常のGoogleログインでも毎回発火して
+  // しまい、isNewGoogleOauthSignup()が後でログインと判定してsignup完了イベントを一切
+  // 発火しないにもかかわらず、signup_startedというイベント名を使った実験・分析が
+  // 通常のリログインで汚染されてしまっていた。signup_started/signup_completedとは
+  // 独立したイベント名にすることで、この用途の重複を避ける。
+  login_started: { category: "onboarding", properties: { method: "string" } },
+  // OAuth(Google)経由の新規signupのみ、サーバー側(src/app/auth/callback/route.ts)から
+  // 発火する。signup_completed(method=google)はクライアント側でOAuthリダイレクト
+  // 直前に発火するため、その時点ではまだ未認証でuser_idを持てない。それ以降、
+  // ユーザーが何のイベントも起こさずタブを閉じた場合、そのsocial visitのuser_idが
+  // 一切analytics_eventsに残らず、social起点signupとして検出できなくなっていた
+  // (Codexレビュー指摘対応、Issue #98)。signup_completedとは別名にし、二重計上を
+  // 避ける(既存のsignup_completedを行数ベースで集計している他の箇所を壊さない)。
+  signup_oauth_completed: { category: "onboarding", properties: { method: "string" } },
   onboarding_started: { category: "onboarding", properties: {} },
   first_word_added: { category: "onboarding", properties: {} },
   five_words_added: { category: "onboarding", properties: {} },

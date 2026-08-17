@@ -269,6 +269,7 @@ export async function computeDailyMetrics(
 
 type FunnelStepDef =
   | { key: string; order: number; kind: "events"; eventNames: string[] }
+  | { key: string; order: number; kind: "signup_completed_union" }
   | { key: string; order: number; kind: "first_word_added" }
   | { key: string; order: number; kind: "first_test_completed" }
   | { key: string; order: number; kind: "first_review_completed" }
@@ -279,7 +280,18 @@ const FUNNEL_STEPS: FunnelStepDef[] = [
   { key: "tool_started", order: 2, kind: "events", eventNames: ["vocab_check_started"] },
   { key: "tool_completed", order: 3, kind: "events", eventNames: ["vocab_check_completed"] },
   { key: "signup_cta_clicked", order: 4, kind: "events", eventNames: ["vocab_check_signup_clicked"] },
-  { key: "signup_completed", order: 5, kind: "events", eventNames: ["signup_completed"] },
+  // signup_completed: 単純にsignup_completedイベントだけを数えるのではなく、
+  // signup_oauth_completed(/loginページのGoogle OAuth経由の新規signup。callback側から
+  // サーバー発火する)も合わせて数える(Codexレビュー指摘対応、19巡目、最重要:
+  // 「Include callback-only signups in the main funnel」。/loginでGoogle OAuth経由の
+  // 新規signupが完了した場合、signup_completedは一切発火せずsignup_oauth_completedのみが
+  // 発火するため、以前はこのメインファネルから完全に抜け落ちていた)。両者をそのまま
+  // countDistinctSessionOrUser()でuser_id優先dedupeすると、/signupのGoogle OAuth経路
+  // (client側のsignup_completedはOAuthリダイレクト前=未認証でuser_id=null、server側の
+  // signup_oauth_completedは認証後でuser_id有り。両者は同一anonymous_session_idを共有する)
+  // で同じ1件のsignupが2件として二重計上されてしまうため、専用のkind
+  // (signup_completed_union)でanonymous_session_id優先のdedupeを行う。
+  { key: "signup_completed", order: 5, kind: "signup_completed_union" },
   { key: "first_word_added", order: 6, kind: "first_word_added" },
   { key: "first_test_completed", order: 7, kind: "first_test_completed" },
   { key: "first_review_completed", order: 8, kind: "first_review_completed" },
@@ -315,6 +327,73 @@ async function countDistinctSessionOrUser(
     }
     const sid = row.anonymous_session_id as string | null;
     if (sid) set.add(sid);
+  }
+  return set.size;
+}
+
+// signup_completedステップ専用のカウント(Codexレビュー指摘対応、19巡目・20巡目、
+// 最重要)。signup_completed(クライアント側、/signupのOAuthリダイレクト直前に発火する
+// 「開始した」だけの楽観的マーカー)とsignup_oauth_completed(サーバー側、
+// /auth/callbackから実際の認証完了後にのみ発火する検証済みの完了イベント)の両方を
+// 1つのsignup完了として数える必要がある(/loginのGoogle OAuth新規signupはこちらしか
+// 発火しない)。ただしGoogle経路については、signup_completed(method=google)を
+// そのまま数に含めると2つの問題が生じる:
+//  (1) 同一日内の二重計上: 同一anonymous_session_idで、signup_completedはOAuth
+//      リダイレクト前=未認証でuser_id無し、signup_oauth_completedは認証後で
+//      user_id有りの2行が発生し、user_id優先dedupeだと別人として扱われてしまう
+//      (Codexレビュー指摘対応、19巡目)。
+//  (2) 日付境界をまたぐ二重計上: このカウント自体が日ごとに独立したクエリとして
+//      呼ばれるため、OAuth開始(signup_completed)がJST日付境界の直前、callback完了
+//      (signup_oauth_completed)が直後に発生した場合、同一sidが「前日の1件」と
+//      「翌日の1件」として別々の日次クエリでそれぞれ1件ずつカウントされ、
+//      複数日ファネル合計では2件に水増しされてしまう(Codexレビュー指摘対応、
+//      20巡目、最重要:「Deduplicate OAuth completion across daily boundaries」)。
+// (1)(2)いずれも、signup_completed(method=google)を「開始した」という未検証の
+// シグナルとして完全に除外し、Google経由の完了は必ずsignup_oauth_completed
+// (常にただ1つの原子的なイベントであり、日付をまたいで分裂しない)だけを唯一の
+// 正とすることで同時に解消できる(Codexレビュー指摘20巡目の提案どおり)。
+// signup_completed(method=email等、google以外)は対応するoauth_completedイベントが
+// 存在しないため引き続きそのまま数える。
+//
+// dedupeキーはanonymous_session_id(lv_aid cookie、365日永続)ではなくuser_id優先
+// とする(Codexレビュー指摘対応、22巡目、最重要:「Deduplicate completed signups by
+// user rather than cookie」)。google method除外後に残る行(email等のsignup_completed、
+// およびsignup_oauth_completed)はどちらも、認証完了後(=user_id確定後)にしか
+// 発火しない(email: signInWithPassword成功後にtrackEvent、oauth: /auth/callbackの
+// サーバー側で認証後にtrackServerEvent)ため、user_idを安全に優先dedupeキーとして
+// 使える。session_id優先のままだと、同一ブラウザ(=同一lv_aid cookie)から365日以内に
+// 異なる2人のユーザーがそれぞれ新規signupした場合、user_idは異なるのに同一sidへ
+// 丸め込まれ、実際は2件のsignupが1件に過小集計されてしまう。user_idが無い
+// (=真に匿名の)行についてのみ、フォールバックとしてsession_idを使う。
+async function countDistinctSignupCompletions(
+  admin: Admin,
+  startISO: string,
+  endISO: string,
+  testAccountIds: Set<string>,
+): Promise<number> {
+  const { data, error } = await admin
+    .from("analytics_events")
+    .select("event_name, user_id, anonymous_session_id, properties")
+    .in("event_name", ["signup_completed", "signup_oauth_completed"])
+    .eq("is_test_event", false)
+    .gte("occurred_at", startISO)
+    .lt("occurred_at", endISO)
+    .limit(BULK_FETCH_LIMIT);
+  if (error) throw new Error(`analytics_events(signup_completed,signup_oauth_completed)取得失敗: ${error.message}`);
+  const set = new Set<string>();
+  for (const row of data ?? []) {
+    const uid = row.user_id as string | null;
+    if (uid && testAccountIds.has(uid)) continue;
+    if (row.event_name === "signup_completed") {
+      const props = (row.properties ?? {}) as Record<string, unknown>;
+      if (props.method === "google") continue;
+    }
+    if (uid) {
+      set.add(`uid:${uid}`);
+    } else {
+      const sid = row.anonymous_session_id as string | null;
+      if (sid) set.add(`sid:${sid}`);
+    }
   }
   return set.size;
 }
@@ -360,6 +439,8 @@ export async function computeFunnels(
       try {
         if (step.kind === "events") {
           count = await countDistinctSessionOrUser(admin, step.eventNames, startISO, endISO, testAccountIds);
+        } else if (step.kind === "signup_completed_union") {
+          count = await countDistinctSignupCompletions(admin, startISO, endISO, testAccountIds);
         } else if (step.kind === "first_word_added") {
           count = [...proxies.firstWordDate.entries()].filter(([, d]) => d === day).length;
         } else if (step.kind === "first_test_completed") {
@@ -401,17 +482,25 @@ export async function computeContentPerformance(
 ): Promise<CategoryResult> {
   const rows: { metric_date: string; content_type: string; content_key: string; views: number; conversions: number }[] = [];
   const notes: string[] = [
-    "guide: guide_view(views)のみ。CTAクリックの完了先イベントがanalytics_eventsの許可リストに未登録のためconversionsは常に0(未配線)。",
+    "guide: guide_view(views) + guide_cta_click(properties.guide_slug, conversions)。conversionsは記事内リンク(vocab_check/dictionary/premium/materials/tools/other_guide)のクリック件数であり、遷移先での完了(signup等)そのものではないクリックスルー指標(Codexレビュー指摘対応、19巡目: 以前はguide_cta_clickが許可リスト未登録のためconversionsが常に0だった)。",
     "tool: tool_view(views)。conversionsはvocab_check_completedのproperties.variantをtool_keyと同一視するベストエフォート対応(値の命名が一致しない場合は0になる)。",
   ];
 
   for (const day of days) {
     const { startISO, endISO } = jstDayRangeISO(day);
 
-    // guide: 閲覧数のみ(コンバージョンイベント未配線)
+    // guide: guide_view(views) + guide_cta_click(properties.guide_slug, conversions)
     const guideViews = await groupCountByProperty(admin, "guide_view", "guide_slug", startISO, endISO, testAccountIds);
-    for (const [key, views] of guideViews) {
-      rows.push({ metric_date: day, content_type: "guide", content_key: key, views, conversions: 0 });
+    const guideConversions = await groupCountByProperty(admin, "guide_cta_click", "guide_slug", startISO, endISO, testAccountIds);
+    const guideKeys = new Set([...guideViews.keys(), ...guideConversions.keys()]);
+    for (const key of guideKeys) {
+      rows.push({
+        metric_date: day,
+        content_type: "guide",
+        content_key: key,
+        views: guideViews.get(key) ?? 0,
+        conversions: guideConversions.get(key) ?? 0,
+      });
     }
 
     // material: material_view(views) + words.material_id(その日に追加された語数, conversions)

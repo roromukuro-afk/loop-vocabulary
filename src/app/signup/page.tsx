@@ -7,7 +7,7 @@ import { isSupabaseNotConfigured } from "@/lib/supabase/env";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { trackSignupComplete } from "@/lib/analytics/events";
-import { trackEvent } from "@/lib/analytics/track";
+import { buildOAuthAttributionQuery, trackEvent } from "@/lib/analytics/track";
 import { getSafeNextPath } from "@/lib/utils/safeNextPath";
 
 export default function SignupPage() {
@@ -115,9 +115,14 @@ function SignupForm() {
     let navigating = false;
     try {
       const supabase = createClient();
+      // タブ自身のsource/campaignをredirectTo URLに乗せてOAuthラウンドトリップ後も
+      // 維持する(Codexレビュー指摘対応、16巡目、最重要。詳細はbuildOAuthAttributionQuery()
+      // のコメント参照)。
+      const attributionQuery = buildOAuthAttributionQuery();
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}${attributionQuery ? `&${attributionQuery}` : ""}`;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+        options: { redirectTo },
       });
       if (error) {
         setError(error.message);

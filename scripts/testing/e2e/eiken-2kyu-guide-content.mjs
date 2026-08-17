@@ -10,7 +10,8 @@
  * 2. 英検2級教材(/materials/00000000-0000-0000-0000-000000000022)への単語一覧CTAが
  *    ページ前半（テーマ別セクションより前）に配置されていること
  * 3. /tools/vocab-test-maker への導線があり、クリックでguide_cta_click(target=tools)が
- *    発火すること(guide→test-maker acquisition funnel計測)
+ *    GA4・first-party Growth OS(analytics_events)の両方へ発火すること
+ *    (guide→test-maker acquisition funnel計測。Issue #98でfirst-party側を追加)
  * 4. 準2級プラスに関するFAQが追加されていること
  * 5. H1が1つ・自己canonical・BreadcrumbListが新タイトルと一致すること
  *
@@ -38,6 +39,24 @@ async function getEvents(page, name) {
   return page.evaluate((n) => (window.__gaEvents || []).filter((e) => e[0] === "event" && e[1] === n), name);
 }
 
+// GA4(gtag mock)とは別に、first-party Growth OS(/api/analytics/events)への送信も
+// 横取りして検証する(Codexレビュー指摘対応: guide_cta_clickはGA4にしか送られておらず、
+// analytics_eventsには一度も保存されていなかった)。
+async function interceptAnalyticsEvents(page) {
+  const captured = [];
+  await page.route("**/api/analytics/events", async (route) => {
+    try {
+      const body = route.request().postDataJSON();
+      const events = Array.isArray(body) ? body : [body];
+      captured.push(...events);
+    } catch {
+      /* ignore malformed body */
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, accepted: 1 }) });
+  });
+  return captured;
+}
+
 const STALE_STRINGS = ["25問", "1,500〜2,500", "1,500〜3,600", "約65%", "80〜100字", "大問3・4", "語彙数が4倍", "週1〜2本"];
 const REQUIRED_STRINGS = ["17問", "31問", "約7分", "短文の語句空所補充", "準2級プラス"];
 
@@ -53,6 +72,7 @@ async function main() {
     const page = await context.newPage();
     await page.addInitScript(MOCK_GTAG_INIT);
     const errors = collectErrors(page);
+    const analyticsEvents = await interceptAnalyticsEvents(page);
 
     await page.setExtraHTTPHeaders({ "x-lv-e2e-test": "1" });
     const response = await page.goto(`${baseUrl}${PAGE_PATH}`, { waitUntil: "load" });
@@ -130,9 +150,20 @@ async function main() {
     await page.waitForTimeout(300);
     const ctaEvents = await getEvents(page, "guide_cta_click");
     if (ctaEvents.some((e) => e[2]?.target === "tools" && e[2]?.guide_slug === "eiken-2kyu-tango")) {
-      ok("vocab-test-makerリンク押下でguide_cta_click(target=tools)が発火する(guide→test-maker funnel計測)");
+      ok("vocab-test-makerリンク押下でguide_cta_click(target=tools)がGA4へ発火する(guide→test-maker funnel計測)");
     } else {
-      fail(`guide_cta_click(target=tools)が発火しない: ${JSON.stringify(ctaEvents)}`);
+      fail(`GA4へguide_cta_click(target=tools)が発火しない: ${JSON.stringify(ctaEvents)}`);
+    }
+
+    // first-party側(Growth OS analytics_events)にも同じクリックで送られることを確認する
+    // (Codexレビュー指摘対応: GA4のみでfirst-partyには一度も保存されていなかった)。
+    const firstPartyCtaEvents = analyticsEvents.filter((e) => e.event_name === "guide_cta_click");
+    if (
+      firstPartyCtaEvents.some((e) => e.properties?.target === "tools" && e.properties?.guide_slug === "eiken-2kyu-tango")
+    ) {
+      ok("vocab-test-makerリンク押下でguide_cta_click(target=tools)がfirst-party analytics_eventsへも発火する(guide→test-maker funnel計測)");
+    } else {
+      fail(`first-party側へguide_cta_click(target=tools)が発火しない: ${JSON.stringify(analyticsEvents)}`);
     }
 
     if (errors.length === 0) ok("操作中に console error / 5xx なし");

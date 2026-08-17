@@ -10,10 +10,21 @@
  *   Supabase側の一次分析基盤(Growth OS)専用。
  */
 import { EVENT_SCHEMAS } from "./eventSchema";
+import { classifySocialHost } from "./socialReferrer";
 
 const SESSION_COOKIE_NAME = "lv_aid";
 const SESSION_COOKIE_DAYS = 365;
 const SOURCE_STORAGE_KEY = "lv_traffic_source";
+// sessionStorageにキャッシュしたtraffic sourceの有効期限(Codexレビュー指摘対応)。
+// 期限が無いと、タブを30分以上開いたまま放置し、UTM無しで再読み込み・再訪問した際に
+// 古いsource/medium/campaign/contentがそのまま再利用され、実質「直接の再訪問」を
+// 「新しいsocial visit」として扱ってしまう(scripts/testing/social-acquisition-snapshot.mjs
+// のRELOAD_DEDUPE_WINDOW_MSを超える間隔は別visitとして数えられるため)。閾値をその
+// 定数と揃え、有効なキャッシュを再利用するたびにlastSeenAtをスライドさせることで、
+// 継続して閲覧中の正当な長時間visit(各イベント間隔が30分未満)では期限切れにならず、
+// 実際に30分以上操作が無かった場合のみ期限切れとしてreferrer/direct判定へフォールバック
+// する。
+const SOURCE_CACHE_EXPIRY_MS = 30 * 60 * 1000;
 
 // cookie値がpercent-encodingとして不正な場合、decodeURIComponentは同期的にthrowする。
 // 破損したcookie値をmalformedのまま使わず、null(=既存IDなし扱い)を返す。呼び出し元の
@@ -51,6 +62,16 @@ export function getAnonymousSessionId(): string {
 }
 
 type TrafficSource = { source: string; medium: string; campaign: string; content: string };
+type CachedTrafficSource = TrafficSource & { lastSeenAt: number };
+
+function cacheTrafficSource(result: TrafficSource): void {
+  try {
+    const toStore: CachedTrafficSource = { ...result, lastSeenAt: Date.now() };
+    sessionStorage.setItem(SOURCE_STORAGE_KEY, JSON.stringify(toStore));
+  } catch {
+    /* noop */
+  }
+}
 
 function detectTrafficSource(): TrafficSource {
   if (typeof window === "undefined") return { source: "direct", medium: "none", campaign: "", content: "" };
@@ -59,7 +80,8 @@ function detectTrafficSource(): TrafficSource {
   // 1. 現在のURLにUTMがあれば、それを採用してキャッシュを更新する(同一タブでdirect訪問後に
   //    UTM付きリンクへ遷移した場合等、古いキャッシュ値を優先して新しいキャンペーンの
   //    アトリビューションを取りこぼさないため)。
-  // 2. 現在のURLにUTMが無ければ、このセッションで既に判定済みのキャッシュを使う。
+  // 2. 現在のURLにUTMが無く、キャッシュが有効期限内(SOURCE_CACHE_EXPIRY_MS)であれば、
+  //    このセッションで既に判定済みのキャッシュを使う。
   // 3. どちらも無ければreferrer/direct判定。
   const params = new URLSearchParams(window.location.search);
   const utmSource = params.get("utm_source");
@@ -74,20 +96,27 @@ function detectTrafficSource(): TrafficSource {
       campaign: utmCampaign,
       content: utmContent,
     };
-    try {
-      sessionStorage.setItem(SOURCE_STORAGE_KEY, JSON.stringify(result));
-    } catch {
-      /* noop */
-    }
+    cacheTrafficSource(result);
     return result;
   }
 
   try {
     const cached = sessionStorage.getItem(SOURCE_STORAGE_KEY);
     if (cached) {
-      const parsed = JSON.parse(cached);
-      // 旧バージョン(campaign/content未保存)のキャッシュ値との後方互換
-      return { campaign: "", content: "", ...parsed };
+      const parsed = JSON.parse(cached) as Partial<CachedTrafficSource>;
+      const lastSeenAt = typeof parsed.lastSeenAt === "number" ? parsed.lastSeenAt : 0;
+      if (Date.now() - lastSeenAt <= SOURCE_CACHE_EXPIRY_MS) {
+        // 旧バージョン(campaign/content未保存)のキャッシュ値との後方互換。lastSeenAtは
+        // TrafficSourceのフィールドではないため明示的に除外する。
+        const result: TrafficSource = {
+          source: parsed.source ?? "direct",
+          medium: parsed.medium ?? "none",
+          campaign: parsed.campaign ?? "",
+          content: parsed.content ?? "",
+        };
+        cacheTrafficSource(result); // 継続利用中はlastSeenAtをスライドさせ期限切れにしない
+        return result;
+      }
     }
   } catch {
     /* noop */
@@ -105,20 +134,58 @@ function detectTrafficSource(): TrafficSource {
       else if (refHost.includes("chatgpt.com") || refHost.includes("openai.com"))
         result = { source: "chatgpt", medium: "ai_search", campaign: "", content: "" };
       else if (refHost.includes("perplexity.ai")) result = { source: "perplexity", medium: "ai_search", campaign: "", content: "" };
-      else if (refHost.includes("x.com") || refHost.includes("twitter.com"))
-        result = { source: "x", medium: "social", campaign: "", content: "" };
-      else result = { source: refHost.slice(0, 100), medium: "referral", campaign: "", content: "" };
+      else {
+        // UTM無しでのSNS流入(投稿本文中の生リンククリック等)をsocial扱いで捕捉する
+        // フォールバック。UTM付きリンクの場合は上のutmSource分岐が常に優先される
+        // ため、ここに到達するのはUTMを付け忘れた/剥がれた場合のみ(Issue #98)。
+        const socialSource = classifySocialHost(refHost);
+        result = socialSource
+          ? { source: socialSource, medium: "social", campaign: "", content: "" }
+          : { source: refHost.slice(0, 100), medium: "referral", campaign: "", content: "" };
+      }
     } catch {
       result = { source: "unknown", medium: "referral", campaign: "", content: "" };
     }
   }
 
-  try {
-    sessionStorage.setItem(SOURCE_STORAGE_KEY, JSON.stringify(result));
-  } catch {
-    /* noop */
-  }
+  cacheTrafficSource(result);
   return result;
+}
+
+/**
+ * サーバー側APIへ、その操作を開始したタブ自身のattributionを引き継ぐための
+ * 最小ペイロードを返す。Cookie(lv_aid)は複数タブで共有される一方、traffic source
+ * はsessionStorageでタブごとに保持されるため、サーバーイベントをCookieと時刻だけで
+ * 後付け帰属すると並行タブ間で取り違える。自由記述や入力データは含めず、既存の
+ * source/campaignだけを返す。
+ */
+export function getCurrentTrafficSourceAttribution(): { source: string; campaign: string } {
+  const { source, campaign } = detectTrafficSource();
+  return { source, campaign };
+}
+
+/**
+ * OAuth(Google)ラウンドトリップ後もタブ自身のsource/campaignを維持するために使う
+ * クエリ文字列(例: "lv_source=x&lv_campaign=camp1")を返す(Codexレビュー指摘対応、
+ * 16巡目、最重要)。/auth/callbackはサーバー側で完結するためsessionStorageへ一切
+ * アクセスできず、複数タブが同じlv_aid cookieを共有している場合、そこで発火する
+ * signup_oauth_completedはsource/campaignを一切持たないままscripts/testing/
+ * social-acquisition-snapshot.mjsのfindAttribution()に渡ってしまい、行自身の
+ * source/campaign一致による判定を使えず、時系列最新のvisitへ誤って帰属してしまって
+ * いた(=タブAでOAuth完了してもタブBのvisitへsignupが付け替わる)。呼び出し元
+ * (signup/loginページのGoogle OAuth開始処理)がredirectTo URLにこの値を追加で
+ * 付与し、/auth/callbackがそれを読み取ってtrackServerEvent()のsource/campaignへ
+ * そのまま渡すことで解決する。contentは含めない: eventSchema.tsのsignup_oauth_completed
+ * properties whitelistにutm_contentが無く、そもそもfindAttribution()がrowSource/
+ * rowCampaign一致で正しいvisit自体を選べれば、そのvisit自身のcontentも連動して
+ * 正しく解決されるため不要(=source/campaignさえ通れば十分)。
+ */
+export function buildOAuthAttributionQuery(): string {
+  const { source, campaign } = getCurrentTrafficSourceAttribution();
+  const params = new URLSearchParams();
+  if (source) params.set("lv_source", source);
+  if (campaign) params.set("lv_campaign", campaign);
+  return params.toString();
 }
 
 let trafficSourceDetectedFired = false;
@@ -146,8 +213,11 @@ export function trackEvent(
     if (!trafficSourceDetectedFired) {
       trafficSourceDetectedFired = true;
       if (eventName !== "traffic_source_detected") {
+        // contentはトップレベル列が無くpropertiesでしか保存できないため、セッション
+        // 属性を一度だけ記録するこのイベントに明示的に含める(Issue #98。詳細は
+        // eventSchema.tsのtraffic_source_detectedコメント参照)。
         void sendPayload([
-          buildPayload("traffic_source_detected", { source, medium }, anonymousSessionId, source, campaign),
+          buildPayload("traffic_source_detected", { source, medium, content }, anonymousSessionId, source, campaign),
         ]);
       }
     }

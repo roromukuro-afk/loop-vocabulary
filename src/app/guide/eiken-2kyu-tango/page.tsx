@@ -6,6 +6,7 @@ import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
 import { ExamInfoDisclaimer } from "@/components/guide/ExamInfoDisclaimer";
+import { GuideShareCta } from "./GuideShareCta";
 
 const PAGE_TITLE = "英検2級 単語対策｜頻出テーマ別の覚え方と無料単語一覧";
 
@@ -276,6 +277,8 @@ export default function Eiken2KyuPage() {
             ))}
           </div>
         </div>
+
+        <GuideShareCta />
 
         {/* アフィリエイト */}
         <AmazonBookSection

@@ -7,7 +7,8 @@ import { Field } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { createClient } from "@/lib/supabase/client";
 import { shuffle } from "@/lib/utils/shuffle";
-import { trackEvent } from "@/lib/analytics/track";
+import { getCurrentTrafficSourceAttribution, trackEvent } from "@/lib/analytics/track";
+import { ShareUrlButton } from "@/components/share/ShareUrlButton";
 import { parsePastedWords, MAX_WORDS, MAX_FIELD_LENGTH } from "@/lib/vocabTest/parsePastedWords";
 import type { ParseWarning } from "@/lib/vocabTest/parsePastedWords";
 import { renderTestHtml, MIN_CHOICE_ROWS, countUniqueAnswers, findConflictingPrompt } from "@/lib/vocabTest/renderTestHtml";
@@ -20,6 +21,13 @@ import type { AnswerMode, Direction, Format, Order, Row } from "@/lib/vocabTest/
 // 特定の単語データを持たない匿名生成物からでも、次に自分の単語で同じツールを
 // 使うという行動へ直接つながるため(PR body参照)。
 const QR_TARGET_URL = "https://loop-vocabulary.app/tools/vocab-test-maker?utm_source=vocab_test_pdf&utm_medium=offline&utm_campaign=public_vocab_test_maker";
+
+// SNS共有CTA(Issue #98)で渡す固定値。共有するのはこのツール自身の正規URLのみで、
+// 貼り付けた単語・生成結果・sessionStorageの内容等は絶対に含めない
+// (URL queryへの語彙prefillも行わない)。
+const SHARE_URL = "https://loop-vocabulary.app/tools/vocab-test-maker";
+const SHARE_TITLE = "英単語テスト作成【無料・登録不要】";
+const SHARE_TEXT = "自分の単語リストから、登録不要ですぐ英単語の小テストを作れます。";
 
 const PENDING_KEY = "lv_pending_vocab_test";
 const PENDING_VERSION = 1;
@@ -258,10 +266,13 @@ export function VocabTestMakerClient() {
 
   const saveToWordbook = async (rows: Row[]): Promise<{ ok: boolean; wordbookId?: string }> => {
     try {
+      // lv_aid Cookieは複数タブで共有されるため、保存操作を開始したタブ自身の
+      // source/campaignもPOSTへ同梱する。単語データ以外の自由記述やPIIは含めない。
+      const attribution = getCurrentTrafficSourceAttribution();
       const res = await fetch("/api/tools/vocab-test-maker/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ words: rows }),
+        body: JSON.stringify({ words: rows, attribution }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) return { ok: false };
@@ -433,6 +444,16 @@ export function VocabTestMakerClient() {
                 )}
               </div>
             )}
+            <div className="mt-5 pt-4 border-t border-white/10">
+              <p className="text-[11px] text-navy-300 mb-2">このツールが役に立ったら、友だちや同僚にも教えてください</p>
+              <ShareUrlButton
+                url={SHARE_URL}
+                title={SHARE_TITLE}
+                text={SHARE_TEXT}
+                label="🔗 このツールをシェア"
+                onShareInvoked={(method) => trackEvent("vocab_test_maker_share_invoked", { method })}
+              />
+            </div>
           </div>
         )}
 

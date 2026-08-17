@@ -262,6 +262,9 @@ async function main() {
 
     console.log("\n=== 73. 英検2級ガイド 2026形式・検索意図対応 E2E ===");
     results.eiken2kyuGuideContent = runNode("scripts/testing/e2e/eiken-2kyu-guide-content.mjs");
+
+    console.log("\n=== 74. 英単語テスト作成ツール 共有CTA(Issue #98) E2E ===");
+    results.vocabTestMakerShare = runNode("scripts/testing/e2e/vocab-test-maker-share.mjs");
   } finally {
     stopDevServer(dev);
   }
