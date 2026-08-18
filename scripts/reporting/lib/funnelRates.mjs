@@ -23,6 +23,13 @@ import { computeRate, MIN_SAMPLE_SIZE_FOR_RATE } from "./windowMath.mjs";
  *
  * insufficient-data閾値はwindowMath.mjsのMIN_SAMPLE_SIZE_FOR_RATEを共有する
  * (呼び出し側でoverride可能)。
+ *
+ * 重要な入力契約(Codexレビュー指摘対応、PR #102): 各countsは「行数」ではなく
+ * 「distinct visit(visitKey)数」でなければならない。同一visitのリロードや複数回の
+ * テスト生成で同じイベントが複数回発火しても、landingと同じ単位(distinct visit)で
+ * 揃っていないと、rateが100%を超えたりinsufficient-data判定の閾値比較が歪んだり
+ * する。呼び出し元のsocial-acquisition-snapshot.mjs側でこの契約を満たすよう
+ * funnelIdentitiesByEvent/funnelIdentitiesByContentをSetで管理している。
  */
 export function buildFunnelRates(counts, minSample = MIN_SAMPLE_SIZE_FOR_RATE) {
   const {

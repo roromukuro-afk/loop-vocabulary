@@ -323,7 +323,16 @@ function topEntries(map, n = 10) {
 // (windowRangeISO呼び出し)が直接埋め込まれていたものを抽出しただけ(挙動変更なし)。
 // scripts/reporting/vocab-test-maker-24h-check.mjs(投稿の発行時刻+24時間という、
 // JST日付境界に揃わない任意の時刻範囲を扱う必要がある)がこちらを直接importして使う。
-export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, testAccountIds, asOf, sessionIdPrefix) {
+// filterAttr: 省略時は従来どおり全social流入を対象にする。{source, campaign}を渡すと、
+// *content別*breakdown(byContent/funnelCountsByContent/signupCountByContent)だけを
+// その source+campaign に一致する訪問のみへ絞り込む(Codexレビュー指摘対応、PR #102:
+// これらのマップはこれまでcontent単独をキーにしていたため、同じutm_contentが別の
+// source/campaignで再利用された場合に取り違えて合算してしまう可能性があった)。
+// byBucket/byCampaign/byPath/funnelCounts(集計全体)は意図的にフィルタしない —
+// vocab-test-maker-24h-check.mjsのfullWindowSocialBreakdownが「この投稿と同じ窓で
+// 発生した全social流入の参考情報」として使うため、絞り込まない全体像を維持する。
+export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, testAccountIds, asOf, sessionIdPrefix, filterAttr = null) {
+  const matchesFilter = (attr) => !filterAttr || (attr.rawSource === filterAttr.source && attr.campaign === filterAttr.campaign);
   const rawRows = await fetchEventsInWindow(admin, { startISO, endISO, asOf, sessionIdPrefix });
 
   // ウィンドウの日付境界(startISO)をまたぐvisitを取りこぼさないよう、ウィンドウ内に
@@ -680,6 +689,7 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
     const attr = attrByVisitKey.get(key);
     if (!identitiesByCampaign.has(attr.campaign)) identitiesByCampaign.set(attr.campaign, new Set());
     identitiesByCampaign.get(attr.campaign).add(key);
+    if (!matchesFilter(attr)) continue;
     if (!identitiesByContent.has(attr.content)) identitiesByContent.set(attr.content, new Set());
     identitiesByContent.get(attr.content).add(key);
   }
@@ -692,16 +702,22 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
   //    landing→funnel→signupを評価する設計のため、集計全体の合計に加えてcontent別の
   //    内訳も保持する(Codexレビュー指摘対応: 以前はfunnel/signupが1つの合計値に
   //    潰れており、どの投稿がtool操作やsignupを生んだか判別できなかった)。
-  const funnelCounts = {};
-  for (const name of FUNNEL_EVENTS) funnelCounts[name] = 0;
-  const funnelCountsByContent = new Map();
-  function bumpFunnelByContent(content, eventName) {
-    if (!funnelCountsByContent.has(content)) {
+  // funnelは「行数」ではなく「distinct visit(visitKey)数」で数える(Codexレビュー
+  // 指摘対応、PR #102): 同一visitがページ再読み込みや複数回のテスト生成で同じ
+  // イベントを複数回発火させても、landing(socialLandingIdentities/byContent、
+  // 上でSetのsizeとして集計済み)と同じ「distinct visit単位」で揃えないと、
+  // generatedRate等の分母・分子の単位が食い違い100%を超えるレートになったり、
+  // insufficient-data判定の閾値比較が歪んだりする。
+  const funnelIdentitiesByEvent = {};
+  for (const name of FUNNEL_EVENTS) funnelIdentitiesByEvent[name] = new Set();
+  const funnelIdentitiesByContent = new Map();
+  function bumpFunnelByContent(content, eventName, key) {
+    if (!funnelIdentitiesByContent.has(content)) {
       const init = {};
-      for (const name of FUNNEL_EVENTS) init[name] = 0;
-      funnelCountsByContent.set(content, init);
+      for (const name of FUNNEL_EVENTS) init[name] = new Set();
+      funnelIdentitiesByContent.set(content, init);
     }
-    funnelCountsByContent.get(content)[eventName]++;
+    funnelIdentitiesByContent.get(content)[eventName].add(key);
   }
   const socialUserIds = new Set();
   // user_idごとに「最も早いsocial visit」のoccurred_at/contentを覚えておく。
@@ -716,7 +732,12 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
     socialUserIds.add(r.user_id);
     const existing = earliestSocialVisitByUser.get(r.user_id);
     if (!existing || attr.occurred_at < existing.occurred_at) {
-      earliestSocialVisitByUser.set(r.user_id, { occurred_at: attr.occurred_at, content: attr.content });
+      earliestSocialVisitByUser.set(r.user_id, {
+        occurred_at: attr.occurred_at,
+        content: attr.content,
+        rawSource: attr.rawSource,
+        campaign: attr.campaign,
+      });
     }
   }
   for (const r of rows) {
@@ -725,10 +746,19 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
     if (!attr || !attr.bucket) continue;
     if (isTestAccountVisit(r.anonymous_session_id, attr)) continue;
     if (FUNNEL_EVENTS.includes(r.event_name)) {
-      funnelCounts[r.event_name]++;
-      bumpFunnelByContent(attr.content, r.event_name);
+      const key = visitKey(r.anonymous_session_id, attr);
+      funnelIdentitiesByEvent[r.event_name].add(key);
+      if (matchesFilter(attr)) bumpFunnelByContent(attr.content, r.event_name, key);
     }
     registerSocialUser(r);
+  }
+  const funnelCounts = {};
+  for (const name of FUNNEL_EVENTS) funnelCounts[name] = funnelIdentitiesByEvent[name].size;
+  const funnelCountsByContent = new Map();
+  for (const [content, sets] of funnelIdentitiesByContent) {
+    const counts = {};
+    for (const name of FUNNEL_EVENTS) counts[name] = sets[name].size;
+    funnelCountsByContent.set(content, counts);
   }
   // ウィンドウ境界をまたいでendISO直後に記録されたuser_id付き行(例:
   // signup_oauth_completedがOAuthラウンドトリップ/サーバーラウンドトリップの遅延で
@@ -774,7 +804,9 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
       // いた)。
       if (!visit || p.created_at < visit.occurred_at) continue;
       socialSignupCount++;
-      signupCountByContent.set(visit.content, (signupCountByContent.get(visit.content) ?? 0) + 1);
+      if (matchesFilter(visit)) {
+        signupCountByContent.set(visit.content, (signupCountByContent.get(visit.content) ?? 0) + 1);
+      }
     }
   }
 

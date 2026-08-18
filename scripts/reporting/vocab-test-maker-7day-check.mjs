@@ -153,11 +153,21 @@ async function main() {
       )
     : null;
 
+  // byContentだけでなくfunnelCountsByContent/signupCountByContentのキーも含める
+  // (Codexレビュー指摘対応、PR #102): あるcontentの帰属visitがこのウィンドウの
+  // 開始前に発生し、そのウィンドウ内でgenerated/cta_click/saved/signupだけが
+  // 発生した場合、そのcontentはbyContentには現れずfunnelCountsByContent/
+  // signupCountByContentにしか現れない。byContentのキーだけを見ると、そうした
+  // 活動があるcontentがレポートから丸ごと消えてしまう。
   const allContentKeys = [
     ...new Set([
       ...KNOWN_CONTENT_KEYS,
       ...Object.keys(current.byContent),
+      ...Object.keys(current.funnelCountsByContent),
+      ...Object.keys(current.signupCountByContent),
       ...(prior ? Object.keys(prior.byContent) : []),
+      ...(prior ? Object.keys(prior.funnelCountsByContent) : []),
+      ...(prior ? Object.keys(prior.signupCountByContent) : []),
     ]),
   ];
   const allCampaignKeys = [...new Set([...Object.keys(current.byCampaign), ...(prior ? Object.keys(prior.byCampaign) : [])])];

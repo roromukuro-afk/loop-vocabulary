@@ -107,7 +107,13 @@ async function main() {
   const testAccountIds = await fetchTestAccountIds(admin, asOf);
 
   const headerLabel = `24h check: ${content} (source=${source ?? "?"}, campaign=${campaign}) [${startISO} 〜 ${endISO}]`;
-  const result = await summarizeWindowISO(admin, headerLabel, startISO, endISO, testAccountIds, asOf);
+  // source/campaignが分かっている場合はthisPost(content別breakdown)をそこへ絞り込む
+  // (Codexレビュー指摘対応、PR #102: 以前はutm_content単独でしかキーしておらず、
+  // 同じcontent値が別のsource/campaignで再利用された場合に取り違えて合算し得た)。
+  // sourceが不明(--sourceもKNOWN_LAUNCH_SCHEDULEも無い)な場合は絞り込みできないため
+  // フィルタなし(=従来どおりcontent単独キー)にフォールバックする。
+  const filterAttr = source ? { source, campaign } : null;
+  const result = await summarizeWindowISO(admin, headerLabel, startISO, endISO, testAccountIds, asOf, undefined, filterAttr);
 
   const funnelForContent = result.funnelCountsByContent[content] ?? EMPTY_FUNNEL_COUNTS;
   const landingForContent = result.byContent[content] ?? 0;
