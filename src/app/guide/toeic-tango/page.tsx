@@ -268,7 +268,7 @@ export default function ToeicTangoPage() {
           <p className="text-sm text-navy-300 mb-4">忘却曲線に沿ってSRSで自動復習。TOEICに頻出する語彙の学習を続けやすくなります。</p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Link href="/signup" className="px-6 py-3 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">無料で始める →</Link>
-            <Link href="/vocab-check" className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">語彙力チェック</Link>
+            <Link href="/vocab-check/toeic" className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">TOEIC語彙チェック</Link>
           </div>
         </div>
 
@@ -286,9 +286,9 @@ export default function ToeicTangoPage() {
             <div className="text-lg mb-1">📚</div>
             <div className="font-bold text-navy-800 text-sm">学習ガイド一覧</div>
           </Link>
-          <Link href="/vocab-check" className="bg-white rounded-2xl border border-navy-100 p-4 hover:shadow-sm transition-shadow">
+          <Link href="/vocab-check/toeic" className="bg-white rounded-2xl border border-navy-100 p-4 hover:shadow-sm transition-shadow">
             <div className="text-lg mb-1">📋</div>
-            <div className="font-bold text-navy-800 text-sm">語彙力チェック（無料）</div>
+            <div className="font-bold text-navy-800 text-sm">TOEIC語彙チェック（無料）</div>
           </Link>
         </div>
 

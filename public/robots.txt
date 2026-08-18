@@ -13,6 +13,7 @@ Disallow: /plan
 Disallow: /ranking
 Disallow: /referral/
 Disallow: /review
+Allow: /review-date-calculator
 Disallow: /road
 Allow: /roadmap
 Disallow: /settings
@@ -51,6 +52,7 @@ Disallow: /plan
 Disallow: /ranking
 Disallow: /referral/
 Disallow: /review
+Allow: /review-date-calculator
 Disallow: /road
 Allow: /roadmap
 Disallow: /settings
@@ -106,6 +108,7 @@ Disallow: /plan
 Disallow: /ranking
 Disallow: /referral/
 Disallow: /review
+Allow: /review-date-calculator
 Disallow: /road
 Allow: /roadmap
 Disallow: /settings

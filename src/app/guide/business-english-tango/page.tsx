@@ -281,7 +281,7 @@ export default function BusinessEnglishPage() {
         <div className="bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-6 text-white text-center">
           <div className="font-black text-lg mb-1">Loop Vocabulary でビジネス英語を始める</div>
           <p className="text-sm text-navy-300 mb-4">SRS×AI解説×AI抽出。入力して差し支えない英文テキストから単語帳を作れます。</p>
-          <div className="flex gap-3 justify-center">
+          <div className="flex gap-3 justify-center flex-wrap">
             <Link
               href="/signup"
               className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
@@ -293,6 +293,12 @@ export default function BusinessEnglishPage() {
               className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors"
             >
               AI抽出を使う
+            </Link>
+            <Link
+              href="/vocab-check/toeic"
+              className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors"
+            >
+              TOEIC語彙チェック
             </Link>
           </div>
         </div>

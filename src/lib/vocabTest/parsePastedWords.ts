@@ -1,0 +1,112 @@
+import type { Row } from "./types";
+
+// public no-loginツール(/tools/vocab-test-maker)向けの貼り付けテキストparser。
+// 意図的に複雑なCSV parser(引用符・エスケープ対応等)は作らない — タブまたは
+// カンマの「最初の1つ」で区切るだけの単純な方式(意味側に読点・カンマが
+// 含まれていても壊れにくい)。
+export const MAX_WORDS = 100;
+export const MAX_FIELD_LENGTH = 200;
+
+export type ParseWarning =
+  | { type: "missing_field"; line: number; raw: string }
+  | { type: "overlength"; line: number; raw: string }
+  | { type: "duplicate"; line: number; raw: string }
+  | { type: "over_limit"; line: number; raw: string };
+
+export type ParsePastedWordsResult = {
+  rows: Row[];
+  warnings: ParseWarning[];
+  totalNonBlankLines: number;
+};
+
+function splitLine(line: string): [string, string] | null {
+  // タブ区切りを優先(意味側にカンマを含む文章でも安全に分割できるため)。
+  // 無ければカンマ区切り、最初の1つのみで区切る。
+  const delimiter = line.includes("\t") ? "\t" : line.includes(",") ? "," : null;
+  if (!delimiter) return null;
+  const idx = line.indexOf(delimiter);
+  const word = line.slice(0, idx).trim();
+  const meaning = line.slice(idx + 1).trim();
+  return [word, meaning];
+}
+
+/**
+ * ユーザーが貼り付けた「英単語,日本語訳」形式のテキストを行ごとに解析する。
+ * fail-closed: 100語上限・各フィールド200文字上限・欠落行はskip・重複は除去。
+ * クライアント側・サーバー側(保存API)の両方でこの関数を通すこと
+ * (クライアント側validationのみを信用しない)。
+ */
+export function parsePastedWords(raw: string): ParsePastedWordsResult {
+  const lines = raw.split(/\r\n|\r|\n/);
+  const rows: Row[] = [];
+  const warnings: ParseWarning[] = [];
+  const seen = new Set<string>();
+  let totalNonBlankLines = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw_ = lines[i];
+    const line = raw_.trim();
+    if (line === "") continue;
+    totalNonBlankLines++;
+
+    if (rows.length >= MAX_WORDS) {
+      warnings.push({ type: "over_limit", line: i + 1, raw: raw_ });
+      continue;
+    }
+
+    const split = splitLine(line);
+    if (!split) {
+      warnings.push({ type: "missing_field", line: i + 1, raw: raw_ });
+      continue;
+    }
+    const [word, meaning] = split;
+    if (!word || !meaning) {
+      warnings.push({ type: "missing_field", line: i + 1, raw: raw_ });
+      continue;
+    }
+    if (word.length > MAX_FIELD_LENGTH || meaning.length > MAX_FIELD_LENGTH) {
+      warnings.push({ type: "overlength", line: i + 1, raw: raw_ });
+      continue;
+    }
+
+    const key = `${word}\u0000${meaning}`;
+    if (seen.has(key)) {
+      warnings.push({ type: "duplicate", line: i + 1, raw: raw_ });
+      continue;
+    }
+    seen.add(key);
+    rows.push({ word, meaning });
+  }
+
+  return { rows, warnings, totalNonBlankLines };
+}
+
+/**
+ * サーバー側(保存API)専用。クライアントがJSONで送ってきた「パース済みのつもり」の
+ * word/meaning配列を、一切信用せずゼロから再検証する。parsePastedWords()と同じ
+ * 上限(100件・各200文字)・欠落除去・重複除去のルールを、既にオブジェクト配列に
+ * なっているデータへ適用する版。
+ */
+export function sanitizeRows(input: unknown): Row[] {
+  if (!Array.isArray(input)) return [];
+  const rows: Row[] = [];
+  const seen = new Set<string>();
+  for (const entry of input) {
+    if (rows.length >= MAX_WORDS) break;
+    if (!entry || typeof entry !== "object") continue;
+    const word = typeof (entry as Record<string, unknown>).word === "string" ? (entry as Record<string, unknown>).word as string : "";
+    const meaning = typeof (entry as Record<string, unknown>).meaning === "string" ? (entry as Record<string, unknown>).meaning as string : "";
+    const w = word.trim();
+    const m = meaning.trim();
+    if (!w || !m) continue;
+    if (w.length > MAX_FIELD_LENGTH || m.length > MAX_FIELD_LENGTH) continue;
+    // word/meaningの境界を跨いだ衝突を避けるため、parsePastedWords()と同じ
+    // NUL区切りキーにする(空白結合キーだと word="a b"/meaning="c" と
+    // word="a"/meaning="b c" が同一とみなされ、後者が誤ってduplicate扱いになる)。
+    const key = `${w}\u0000${m}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push({ word: w, meaning: m });
+  }
+  return rows;
+}

@@ -249,6 +249,13 @@ export function VocabCheckRunner() {
             </div>
           </div>
 
+          {/* 派生診断・辞書への導線 */}
+          <div className="mt-6 text-center space-y-2">
+            <Link href="/vocab-check/eiken" onClick={() => trackVocabCheckCtaClick("general", "vocab_check_variant")} className="block text-sm text-emerald-600 underline">英検版で診断する →</Link>
+            <Link href="/vocab-check/toeic" onClick={() => trackVocabCheckCtaClick("general", "vocab_check_variant")} className="block text-sm text-sky-600 underline">TOEIC版で診断する →</Link>
+            <Link href="/dictionary" onClick={() => trackVocabCheckCtaClick("general", "dictionary")} className="block text-sm text-navy-500 underline">わからなかった単語を辞書で調べる →</Link>
+          </div>
+
           <div className="mt-6 text-center">
             <Link href="/" className="text-sm text-navy-500 underline">← トップページ</Link>
           </div>

@@ -222,7 +222,7 @@ export default function Eiken1KyuPage() {
         <div className="bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-6 text-white text-center">
           <div className="font-black text-lg mb-1">Loop Vocabulary で1級語彙に挑戦</div>
           <p className="text-sm text-navy-300 mb-4">英字記事からの自動抽出×SRS×AI語源解説。効率的に15,000語レベルへ。</p>
-          <div className="flex gap-3 justify-center">
+          <div className="flex gap-3 justify-center flex-wrap">
             <Link
               href="/signup"
               className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
@@ -234,6 +234,12 @@ export default function Eiken1KyuPage() {
               className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors"
             >
               AI抽出を使う
+            </Link>
+            <Link
+              href="/vocab-check/eiken"
+              className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors"
+            >
+              英検語彙チェック
             </Link>
           </div>
         </div>
