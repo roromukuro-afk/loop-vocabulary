@@ -92,10 +92,27 @@ function extractStaticSitemapPaths(sitemapSrc) {
   return [...paths].sort();
 }
 
-// GUIDE_SLUGSは記事追加のたびに正当に増え続けるため、厳密一致ではなく
-// 「この時点で判明している最小件数を下回っていないか」だけを見る(ガイド記事の
-// 追加が誤って回帰扱いされないように)。件数減少や代表slugの消失は依然として検知する。
-const MIN_GUIDE_SLUG_COUNT = 44;
+// GUIDE_SLUGSは記事追加のたびに正当に増え続けるため、厳密一致(===)や単純な
+// 最小件数チェック(>=)だけでは不十分:件数だけを見ると、追加で件数が44超まで
+// 増えた後に一部のslugが誤って削除されて件数が44に戻ってしまうケースを
+// 見逃してしまう(Codexレビュー指摘、PR #89)。そこで「この時点で判明している
+// 既知の全slug(BASELINE_GUIDE_SLUGS)が、現在のGUIDE_SLUGSに部分集合として
+// 必ず含まれているか」を検証する。新規追加は許可(現在の集合がbaselineの
+// superset であればよい)しつつ、baseline側のどのslugが消えても即座に検知できる。
+const BASELINE_GUIDE_SLUGS = [
+  "vocabulary-quiz-pdf-for-teachers", "english-vocabulary-quiz-maker", "printable-english-vocabulary-test",
+  "juku-vocabulary-test", "high-school-english-vocabulary-test", "spaced-repetition-english-vocabulary",
+  "flashcards-vs-multiple-choice", "eiken-vocabulary-study", "university-exam-vocabulary",
+  "school-test-vocabulary", "listening-and-pronunciation-vocabulary", "ai-vocabulary-learning",
+  "daigaku-juken-tango", "eiken-2kyu-tango", "eiken-jun1-tango", "eiken-1kyu-tango",
+  "chugaku-eigo-tango", "eiken-conversation", "ielts-tango", "toeic-tango",
+  "business-english-tango", "eitango-oboeru-houhou", "eitango-no-oboekata", "eiken-3kyu-tango",
+  "eiken-jun2-tango", "eigo-hatsuon-renshu", "koukou-eigo-tango", "toeic-900ten",
+  "eigo-listening-renshu", "eibunpo-kiso", "eigo-dokkai-houhou", "eitango-oboerarenai",
+  "eitango-ichinichi-nanko", "genzaikanryo-kakokei-chigai", "fukikisoku-doushi-ichiran",
+  "affect-vs-effect", "apply-for-vs-apply-to", "eiken-2kyu-tango-nanko", "tangocho-erabikata",
+  "system-eitango", "target-1900", "systan-vs-target-1900", "leap-eitango", "eitango-cho-hikaku",
+];
 const EXPECTED_SAMPLE_SLUGS = ["eigo-listening-renshu", "toeic-tango", "eiken-1kyu-tango"];
 
 function main() {
@@ -155,11 +172,20 @@ function main() {
 
   console.log("\n=== 5. sitemap.ts のGUIDE_SLUGSが退行していないことの確認 ===");
   const guideSlugsMatch = sitemapSrc.match(/const GUIDE_SLUGS = \[([\s\S]*?)\] as const;/);
-  const guideSlugCount = guideSlugsMatch ? [...guideSlugsMatch[1].matchAll(/"([a-z0-9-]+)"/g)].length : 0;
-  if (guideSlugCount >= MIN_GUIDE_SLUG_COUNT) {
-    ok(`GUIDE_SLUGSの件数が最小件数を下回っていない (${guideSlugCount}件 >= ${MIN_GUIDE_SLUG_COUNT}件)`);
+  const currentGuideSlugs = new Set(
+    guideSlugsMatch ? [...guideSlugsMatch[1].matchAll(/"([a-z0-9-]+)"/g)].map((m) => m[1]) : [],
+  );
+  // 件数(>=)だけでなく、既知の全slugが現在も個別に存在するかを見る。これにより
+  // 「追加でN件増えた後、その一部が誤って削除されて合計だけ44に戻る」ような
+  // ケースも検知できる(件数閾値だけでは見逃す。Codexレビュー指摘、PR #89)。
+  const missingBaselineSlugs = BASELINE_GUIDE_SLUGS.filter((slug) => !currentGuideSlugs.has(slug));
+  if (missingBaselineSlugs.length === 0) {
+    ok(`既知のGUIDE_SLUGS ${BASELINE_GUIDE_SLUGS.length}件が全て現在も存在する(現在の総数: ${currentGuideSlugs.size}件)`);
   } else {
-    fail(`GUIDE_SLUGSの件数が想定より少ない (最小=${MIN_GUIDE_SLUG_COUNT}, 実際=${guideSlugCount}) — sitemap.ts からガイド記事が意図せず削除された可能性`);
+    fail(
+      `sitemap.ts から既知のガイド記事が消えている: ${missingBaselineSlugs.join(", ")} ` +
+        `(既知${BASELINE_GUIDE_SLUGS.length}件中${missingBaselineSlugs.length}件が消失、現在の総数: ${currentGuideSlugs.size}件)`,
+    );
   }
   for (const slug of EXPECTED_SAMPLE_SLUGS) {
     if (staticPaths.includes(`/guide/${slug}`)) {
