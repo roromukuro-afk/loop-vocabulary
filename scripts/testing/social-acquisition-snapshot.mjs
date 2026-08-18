@@ -693,18 +693,29 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
 
   const identitiesByCampaign = new Map();
   const identitiesByContent = new Map();
+  // filterAttrを適用しない、全social流入のcontent別内訳(Codexレビュー指摘対応、
+  // PR #102、4巡目、P2): byBucket/byCampaign/funnelCounts等は意図的にフィルタしない
+  // 「全体像の参考情報」だが、byContentだけはfilterAttr適用済みのため、
+  // vocab-test-maker-24h-check.mjsのfullWindowSocialBreakdown(「この投稿と同じ窓で
+  // 発生した全social流入の参考情報」と明記)がbyContentをそのまま使うと、他のcontentが
+  // 静かに欠落し、他のフィールドと内部矛盾を起こしていた。
+  const identitiesByContentAll = new Map();
   const attrByVisitKey = new Map();
   for (const { attr, key } of socialLandingEntries) attrByVisitKey.set(key, attr);
   for (const key of socialLandingIdentities) {
     const attr = attrByVisitKey.get(key);
     if (!identitiesByCampaign.has(attr.campaign)) identitiesByCampaign.set(attr.campaign, new Set());
     identitiesByCampaign.get(attr.campaign).add(key);
+    if (!identitiesByContentAll.has(attr.content)) identitiesByContentAll.set(attr.content, new Set());
+    identitiesByContentAll.get(attr.content).add(key);
     if (!matchesFilter(attr)) continue;
     if (!identitiesByContent.has(attr.content)) identitiesByContent.set(attr.content, new Set());
     identitiesByContent.get(attr.content).add(key);
   }
   for (const [k, set] of identitiesByCampaign) byCampaign.set(k, set.size);
   for (const [k, set] of identitiesByContent) byContent.set(k, set.size);
+  const byContentAll = new Map();
+  for (const [k, set] of identitiesByContentAll) byContentAll.set(k, set.size);
   // landing段階のvisitKey集合自体もcontent別に保持する(byContentは件数へ潰す前の
   // 生のSet)。呼び出し元(funnelRates.mjs)がstage間のcohort intersection(同一visitが
   // 両方の段階に到達したか)を計算するために、件数だけでなくSet自体が必要
@@ -749,7 +760,12 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
     socialUserIds.add(r.user_id);
     const existing = earliestSocialVisitByUser.get(r.user_id);
     if (!existing || attr.occurred_at < existing.occurred_at) {
+      // sidも保持する(Codexレビュー指摘対応、PR #102、4巡目、P1): signupRateの分子を
+      // 「CTAクリックへ実際に到達したvisitからのsignupのみ」に絞り込むため、この
+      // visit自身のvisitKey(sid + occurred_at)を後段でfunnelIdentitiesByContentの
+      // srs_cta_clicked集合と突き合わせられるようにする。
       earliestSocialVisitByUser.set(r.user_id, {
+        sid: r.anonymous_session_id,
         occurred_at: attr.occurred_at,
         content: attr.content,
         rawSource: attr.rawSource,
@@ -791,6 +807,10 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
   for (const r of followingActivityRowsRaw) registerSocialUser(r);
   let socialSignupCount = 0;
   const signupCountByContent = new Map();
+  // signupのvisitKeyもcontent別に保持する(Codexレビュー指摘対応、PR #102、4巡目、P1):
+  // funnelRates.mjsがsignupRateの分子を「srs_cta_clickedへ実際に到達したvisitからの
+  // signupのみ」に絞り込めるよう、件数に潰す前の生のvisitKeyを渡す。
+  const signupKeysByContent = new Map();
   if (socialUserIds.size > 0) {
     // socialUserIdsが多い場合、.in()を無制限に渡すとPostgRESTの既定レスポンス上限
     // (1000行)で静かに一部だけが返り、URL自体も長大になり得る。他のクエリ
@@ -823,6 +843,8 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
       socialSignupCount++;
       if (matchesFilter(visit)) {
         signupCountByContent.set(visit.content, (signupCountByContent.get(visit.content) ?? 0) + 1);
+        if (!signupKeysByContent.has(visit.content)) signupKeysByContent.set(visit.content, new Set());
+        signupKeysByContent.get(visit.content).add(visitKey(visit.sid, visit));
       }
     }
   }
@@ -857,12 +879,14 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
       Object.fromEntries(FUNNEL_EVENTS.map((name) => [name, [...sets[name]]])),
     ]),
   );
+  const signupKeysByContentOut = Object.fromEntries([...signupKeysByContent].map(([content, set]) => [content, [...set]]));
 
   return {
     socialLandingIdentities: socialLandingIdentities.size,
     byBucket: Object.fromEntries(byBucket),
     byCampaign: Object.fromEntries(byCampaign),
     byContent: Object.fromEntries(byContent),
+    byContentAll: Object.fromEntries(byContentAll),
     byPath: Object.fromEntries(byPath),
     funnelCounts,
     funnelCountsByContent: Object.fromEntries(funnelCountsByContent),
@@ -870,6 +894,7 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
     funnelKeysByContent,
     socialSignupCount,
     signupCountByContent: Object.fromEntries(signupCountByContent),
+    signupKeysByContent: signupKeysByContentOut,
   };
 }
 

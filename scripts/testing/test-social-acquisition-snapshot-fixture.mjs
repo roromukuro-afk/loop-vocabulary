@@ -1145,6 +1145,18 @@ async function main() {
       bad(`signupのvisit先行チェックが想定外: socialSignupCount=${result.socialSignupCount}, signupCountByContent=${JSON.stringify(result.signupCountByContent)}(期待値: 2, post1=1, contentLは無し)`);
     }
 
+    // signupKeysByContentもsignupCountByContentと同じ形(件数に潰す前の生のvisitKey)で
+    // 一致すること(Codexレビュー指摘対応、PR #102、4巡目、P1: funnelRates.mjsが
+    // signupRateの分子をctaKeysとの交差に絞り込むために使う)。
+    if (
+      result.signupKeysByContent?.post1?.length === 1 &&
+      !("contentL" in (result.signupKeysByContent ?? {}))
+    ) {
+      ok("signupKeysByContentの配列長がsignupCountByContentの件数と一致する(post1=1件、contentLは無し)");
+    } else {
+      bad(`signupKeysByContentが想定外: ${JSON.stringify(result.signupKeysByContent)}`);
+    }
+
     // ---- 検証: funnel/signupがcontent単位でも個別に取得できる(Codexレビュー指摘対応:
     // MARKETING_SOCIAL_LAUNCH_PACK_2026-08.mdの投稿別評価に必要)。post1(A)/post2(B)/
     // post3(G)/contentJ(J)/contentN(N、41分目のlastSeenAt基準attribution)/contentP(P、
@@ -1250,6 +1262,17 @@ async function main() {
       ok("content別集計が正しい(post1=1[A], post2=1[B], (none)=1[D], post3=1[G], post4=1[H-visit1], contentJ=1[J], contentK=1[K], contentL=1[L], contentM=2[M-visit1+M-visit2], contentN=1[N], contentO=1[O], contentP=1[P]。contentQは真のlandingがウィンドウ開始前のため含まれない)");
     } else {
       bad(`content別集計が想定外: ${JSON.stringify(result.byContent)}(期待値: post1=1, post2=1, (none)=1, post3=1, post4=1, contentJ=1, contentK=1, contentL=1, contentM=2, contentN=1, contentO=1, contentP=1, contentQ無し)`);
+    }
+
+    // byContentAllはfilterAttrを一切渡していないこのfixture呼び出しでは、常にbyContentと
+    // 完全に一致するはずである(Codexレビュー指摘対応、PR #102、4巡目、P2: filterAttr
+    // 適用時にbyContentAllがbyContentから静かに欠落するcontentを含むかどうかは
+    // vocab-test-maker-24h-check.mjs側のfullWindowSocialBreakdown経由のテストで別途
+    // 確認するが、ここではfilterAttr無し時の基本的な整合性を確認する)。
+    if (JSON.stringify(result.byContentAll) === JSON.stringify(result.byContent)) {
+      ok("filterAttr無しの呼び出しではbyContentAllはbyContentと完全に一致する");
+    } else {
+      bad(`byContentAllがbyContentと不一致: byContentAll=${JSON.stringify(result.byContentAll)}, byContent=${JSON.stringify(result.byContent)}`);
     }
     // landing pathはvisitごとに実際のentry point(最も早いlanding行)の1件だけを数える
     // (Codexレビュー指摘対応)。"/" = A/D/H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/T-visit1/

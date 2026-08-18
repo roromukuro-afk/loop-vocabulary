@@ -21,8 +21,9 @@ function keys(prefix, n) {
   const generatedKeys = pageViewedKeys.slice(0, 4);
   const ctaKeys = generatedKeys.slice(0, 2);
   const savedKeys = ctaKeys.slice(0, 1);
+  const signupKeys = ctaKeys.slice(0, 1); // ctaKeysの部分集合(CTAへ到達したvisitからのsignupのみ)
   const r = buildFunnelRates(
-    { landingKeys, pageViewedKeys, generatedKeys, ctaKeys, savedKeys, signup: 1 },
+    { landingKeys, pageViewedKeys, generatedKeys, ctaKeys, savedKeys, signupKeys },
     1,
   );
   if (r.pageViewedRate.rate === 0.8) ok("buildFunnelRates: 完全ネストcohortではpageViewedRate = pageViewed/landing");
@@ -31,7 +32,7 @@ function keys(prefix, n) {
   else fail(`buildFunnelRates: generatedRate不正 (${r.generatedRate.rate})`);
   if (r.ctaRate.rate === 0.5) ok("buildFunnelRates: 完全ネストcohortではctaRate = ctaClicked/generated");
   else fail(`buildFunnelRates: ctaRate不正 (${r.ctaRate.rate})`);
-  if (r.signupRate.rate === 0.5) ok("buildFunnelRates: signupRate = signup/ctaClicked");
+  if (r.signupRate.rate === 0.5) ok("buildFunnelRates: signupRate = (ctaかつsignupの両方に到達したvisit数)/ctaClicked");
   else fail(`buildFunnelRates: signupRate不正 (${r.signupRate.rate})`);
   if (r.savedRate.rate === 0.5) ok("buildFunnelRates: savedRate = (ctaかつsaved)/ctaClicked");
   else fail(`buildFunnelRates: savedRate不正 (${r.savedRate.rate})`);
@@ -76,6 +77,26 @@ function keys(prefix, n) {
 }
 
 {
+  // 回帰テスト(Codexレビュー指摘対応、PR #102、4巡目、P1): CTAクリックへ実際に
+  // 到達していないvisit由来のsignupが分子へ混入しないことを確認する。ctaKeysが
+  // 10件、signupKeysが「ctaKeysと全く重ならない別の10件」の場合、単純な件数比
+  // (10/10=100%)ではなく、intersectionが0件のためsignupRate=0%になるべき。
+  const ctaKeys = keys("cta-", 10);
+  const unrelatedSignupKeys = keys("unrelated-signup-", 10); // ctaKeysとは無関係な別visit由来のsignup
+  const r = buildFunnelRates({ ctaKeys, signupKeys: unrelatedSignupKeys }, 1);
+  if (r.counts.ctaClicked === 10 && r.counts.signup === 10) {
+    ok("回帰テスト: ctaClicked/signupのcountsはそれぞれ10件(単純な件数比なら100%になってしまう入力)");
+  } else {
+    fail(`回帰テスト: counts前提が崩れている (${JSON.stringify(r.counts)})`);
+  }
+  if (r.signupRate.rate === 0) {
+    ok("回帰テスト: CTAへ到達していないvisit由来のsignupはsignupRateの分子に混入しない(0/10=0%)");
+  } else {
+    fail(`回帰テスト: signupRateがCTA到達visitに絞り込まれていない (${JSON.stringify(r.signupRate)})`);
+  }
+}
+
+{
   // 既定の閾値(MIN_SAMPLE_SIZE_FOR_RATE=10)未満の段階はinsufficientDataになる。
   // 分母はintersectionではなく前段階のsize全体であることに注意。
   const landingKeys = keys("v", 100);
@@ -83,7 +104,8 @@ function keys(prefix, n) {
   const generatedKeys = pageViewedKeys.slice(0, 40);
   const ctaKeys = generatedKeys.slice(0, 5); // 分母(generated=40)は閾値以上なのでctaRateは計算される
   const savedKeys = ctaKeys.slice(0, 1);
-  const r = buildFunnelRates({ landingKeys, pageViewedKeys, generatedKeys, ctaKeys, savedKeys, signup: 2 });
+  const signupKeys = keys("su-", 2);
+  const r = buildFunnelRates({ landingKeys, pageViewedKeys, generatedKeys, ctaKeys, savedKeys, signupKeys });
   if (r.ctaRate.insufficientData === false) ok("buildFunnelRates: 分母(generated=40)が閾値以上ならctaRateは計算される");
   else fail("buildFunnelRates: ctaRateが不必要にinsufficientDataになった");
   if (r.signupRate.insufficientData === true && r.signupRate.rate === null) ok("buildFunnelRates: 分母(ctaClicked=5<10)が閾値未満ならsignupRateはinsufficient dataでnull");

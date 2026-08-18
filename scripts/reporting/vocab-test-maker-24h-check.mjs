@@ -147,7 +147,12 @@ async function main() {
     fullWindowSocialBreakdown: {
       byBucket: result.byBucket,
       byCampaign: result.byCampaign,
-      byContent: result.byContent,
+      // byContentAllはfilterAttr(source/campaign)を適用しない、全content横断の内訳。
+      // byBucket/byCampaign/funnelCounts/socialSignupCountと同じ「フィルタ無しの
+      // 全体像」に揃える(Codexレビュー指摘対応、PR #102、4巡目、P2): 以前は
+      // filterAttr適用後のresult.byContentをそのまま使っており、他のcontentが
+      // ここだけ静かに欠落し、内部矛盾を起こしていた。
+      byContent: result.byContentAll,
       byPath: result.byPath,
       funnelCounts: result.funnelCounts,
       socialSignupCount: result.socialSignupCount,

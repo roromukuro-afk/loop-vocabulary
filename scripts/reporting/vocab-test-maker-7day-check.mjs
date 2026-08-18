@@ -49,12 +49,12 @@ const KNOWN_CONTENT_KEYS = [
   "threads_launch_02",
 ];
 
-function buildRatesByKey(landingKeysByKey, funnelKeysByKey, signupCountByKey, keys, minSample) {
+function buildRatesByKey(landingKeysByKey, funnelKeysByKey, signupKeysByKey, keys, minSample) {
   const out = {};
   for (const key of keys) {
     const landingKeys = landingKeysByKey[key] ?? [];
     const funnelKeys = funnelKeysByKey[key] ?? {};
-    const signup = signupCountByKey[key] ?? 0;
+    const signupKeys = signupKeysByKey[key] ?? [];
     out[key] = buildFunnelRates(
       {
         landingKeys,
@@ -62,7 +62,7 @@ function buildRatesByKey(landingKeysByKey, funnelKeysByKey, signupCountByKey, ke
         generatedKeys: funnelKeys.vocab_test_maker_generated ?? [],
         ctaKeys: funnelKeys.vocab_test_maker_srs_cta_clicked ?? [],
         savedKeys: funnelKeys.vocab_test_maker_saved_to_wordbook ?? [],
-        signup,
+        signupKeys,
       },
       minSample,
     );
@@ -207,7 +207,7 @@ async function main() {
   const currentContentRates = buildRatesByKey(
     current.landingKeysByContent,
     current.funnelKeysByContent,
-    current.signupCountByContent,
+    current.signupKeysByContent,
     allContentKeys,
     MIN_SAMPLE_SIZE_FOR_RATE,
   );
@@ -215,7 +215,7 @@ async function main() {
     ? buildRatesByKey(
         prior.landingKeysByContent,
         prior.funnelKeysByContent,
-        prior.signupCountByContent,
+        prior.signupKeysByContent,
         allContentKeys,
         MIN_SAMPLE_SIZE_FOR_RATE,
       )
