@@ -78,6 +78,19 @@ export function resolvePostConfig(args, knownSchedule = KNOWN_LAUNCH_SCHEDULE) {
   return { content, source: source || null, campaign, publishedAtISO };
 }
 
+/**
+ * summarizeWindowISO()へ渡すfilterAttrを組み立てる純粋関数(DBアクセスなし)。
+ * sourceが不明でもcampaignは既定値(CAMPAIGN)まで含めて必ず解決済みのため、
+ * campaignだけの絞り込みは常に維持する(Codexレビュー指摘対応、PR #102、5巡目、
+ * P2: 以前はsourceが不明な場合にfilterAttr全体をnullにしていたため、既知の
+ * campaign制約まで捨ててフィルタ無しへ完全にフォールバックしていた)。
+ * scripts/testing/test-vocab-test-maker-24h-check-args.mjs から直接importして
+ * テストする。
+ */
+export function buildFilterAttr(source, campaign) {
+  return source ? { source, campaign } : { campaign };
+}
+
 function formatRate(r) {
   if (r.insufficientData) return `insufficient data (n=${r.denominator} < ${r.minSample})`;
   if (r.rate === null) return "n/a (denominator=0)";
@@ -110,9 +123,13 @@ async function main() {
   // source/campaignが分かっている場合はthisPost(content別breakdown)をそこへ絞り込む
   // (Codexレビュー指摘対応、PR #102: 以前はutm_content単独でしかキーしておらず、
   // 同じcontent値が別のsource/campaignで再利用された場合に取り違えて合算し得た)。
-  // sourceが不明(--sourceもKNOWN_LAUNCH_SCHEDULEも無い)な場合は絞り込みできないため
-  // フィルタなし(=従来どおりcontent単独キー)にフォールバックする。
-  const filterAttr = source ? { source, campaign } : null;
+  // sourceが不明(--sourceもKNOWN_LAUNCH_SCHEDULEも無い)場合でも、campaignは
+  // resolvePostConfig()で必ず解決済み(既定値CAMPAIGN)のため、campaignだけの
+  // 絞り込みは維持する(buildFilterAttr()参照。Codexレビュー指摘対応、PR #102、
+  // 5巡目、P2: 以前はsourceが不明な場合にfilterAttr自体をnullにしていたため、
+  // 既知のcampaign制約まで捨てて完全にフィルタ無しへフォールバックしており、
+  // 同じcontent値が別campaignで再利用された場合にthisPostへ混入し得た)。
+  const filterAttr = buildFilterAttr(source, campaign);
   const result = await summarizeWindowISO(admin, headerLabel, startISO, endISO, testAccountIds, asOf, undefined, filterAttr);
 
   const funnelForContent = result.funnelCountsByContent[content] ?? EMPTY_FUNNEL_COUNTS;
@@ -120,6 +137,7 @@ async function main() {
   const landingForContent = result.byContent[content] ?? 0;
   const landingKeysForContent = result.landingKeysByContent[content] ?? [];
   const signupForContent = result.signupCountByContent[content] ?? 0;
+  const signupKeysForContent = result.signupKeysByContent[content] ?? [];
 
   const rates = buildFunnelRates({
     landingKeys: landingKeysForContent,
@@ -127,7 +145,7 @@ async function main() {
     generatedKeys: funnelKeysForContent.vocab_test_maker_generated ?? [],
     ctaKeys: funnelKeysForContent.vocab_test_maker_srs_cta_clicked ?? [],
     savedKeys: funnelKeysForContent.vocab_test_maker_saved_to_wordbook ?? [],
-    signup: signupForContent,
+    signupKeys: signupKeysForContent,
   });
 
   const report = {

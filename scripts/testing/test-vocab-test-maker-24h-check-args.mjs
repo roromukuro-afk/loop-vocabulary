@@ -3,7 +3,7 @@
  * (parseArgs/resolvePostConfig、DBアクセスなし)の単体テスト。
  * 使い方: node scripts/testing/test-vocab-test-maker-24h-check-args.mjs
  */
-import { parseArgs, resolvePostConfig } from "../reporting/vocab-test-maker-24h-check.mjs";
+import { parseArgs, resolvePostConfig, buildFilterAttr } from "../reporting/vocab-test-maker-24h-check.mjs";
 
 let failed = 0;
 function ok(msg) { console.log(`✅ ${msg}`); }
@@ -64,6 +64,26 @@ const knownSchedule = [{ content: "x_launch_01", source: "x", publishedAtISO: "2
   try { resolvePostConfig({ content: "x", "published-at": "not-a-date" }, knownSchedule); } catch { threw = true; }
   if (threw) ok("resolvePostConfig: --published-atが不正な日時なら例外を投げる");
   else fail("resolvePostConfig: 不正なpublished-atでも例外を投げなかった");
+}
+
+// ---- buildFilterAttr(Codexレビュー指摘対応、PR #102、5巡目、P2) ----
+{
+  const attr = buildFilterAttr("x", "vocab_test_maker_launch");
+  if (attr.source === "x" && attr.campaign === "vocab_test_maker_launch") {
+    ok("buildFilterAttr: sourceが分かっていればsource+campaignの両方で絞り込む");
+  } else {
+    fail(`buildFilterAttr: source指定時の結果が不正 (${JSON.stringify(attr)})`);
+  }
+}
+{
+  // sourceが不明(null/undefined)でも、campaignだけの絞り込みは失わない
+  // (以前はfilterAttr全体がnullになり、フィルタ無しへ完全にフォールバックしていた)。
+  const attr = buildFilterAttr(null, "vocab_test_maker_launch");
+  if (!("source" in attr) && attr.campaign === "vocab_test_maker_launch") {
+    ok("buildFilterAttr: sourceが不明でもcampaignだけの絞り込みは維持される(フィルタ無しへ完全フォールバックしない)");
+  } else {
+    fail(`buildFilterAttr: source不明時の結果が不正 (${JSON.stringify(attr)})`);
+  }
 }
 
 console.log(failed ? `\n=== test:vocab-test-maker-24h-check-args: ${failed}件失敗 ===` : "\n=== test:vocab-test-maker-24h-check-args RESULT: all checks passed ===");
