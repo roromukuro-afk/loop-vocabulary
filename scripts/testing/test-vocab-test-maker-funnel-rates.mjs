@@ -159,8 +159,10 @@ function keys(prefix, n) {
 }
 {
   // guideページ向け投稿(threads_launch_02)は、pageViewed=guide_view、
-  // cta=guide_cta_clickを使い、generatedKeysはpageViewedKeysのエイリアス
-  // (guideには「生成」ステップが無いため)、savedKeysは常に空になる。
+  // cta=guide_cta_clickを使い、skipGeneratedStage=trueを返す(guideには「生成」
+  // ステップが無いため。以前はgeneratedKeysをpageViewedKeysのエイリアスにして
+  // いたが、それだとgeneratedRateが実態の無い≒100%を報告してしまっていた
+  // [Codexレビュー指摘対応、PR #102、18巡目、P2])。savedKeysは常に空になる。
   const guideViewKeys = keys("gv-", 4);
   const funnel = {
     vocab_test_maker_page_viewed: keys("pv-", 5), // 万一混入していても無視されるべき
@@ -170,23 +172,30 @@ function keys(prefix, n) {
   const stageKeys = selectFunnelStageKeys("threads_launch_02", funnel);
   if (
     stageKeys.pageViewedKeys === funnel.guide_view &&
-    stageKeys.generatedKeys === funnel.guide_view &&
+    stageKeys.skipGeneratedStage === true &&
+    Array.isArray(stageKeys.generatedKeys) && stageKeys.generatedKeys.length === 0 &&
     stageKeys.ctaKeys === funnel.guide_cta_click &&
     Array.isArray(stageKeys.savedKeys) &&
     stageKeys.savedKeys.length === 0
   ) {
-    ok("selectFunnelStageKeys: guideページ向けdestinationの投稿はguide_view/guide_cta_clickを使い、generatedKeysはpageViewedKeysのエイリアス、savedKeysは常に空になる");
+    ok("selectFunnelStageKeys: guideページ向けdestinationの投稿はguide_view/guide_cta_clickを使い、skipGeneratedStage=trueを返し、savedKeysは常に空になる");
   } else {
     fail(`selectFunnelStageKeys: guideページ向けdestinationのマッピングが不正 (${JSON.stringify(stageKeys)})`);
   }
   // このマッピングをbuildFunnelRates()へ実際に通すと、guide_view→guide_cta_clickの
-  // クリックスルー率がctaRateとして正しく計算される(以前は常にinsufficient dataで
-  // 欠落していた)。
+  // クリックスルー率がctaRateとして正しく計算され、実態の無いgeneratedRate(以前は
+  // 常に≒100%を報告していた)の代わりにnotApplicableマーカーが返る
+  // (以前はctaRate自体が常にinsufficient dataで欠落していた)。
   const rates = buildFunnelRates({ landingKeys: funnel.guide_view, ...stageKeys }, 1);
   if (rates.ctaRate.insufficientData === false && rates.ctaRate.rate === 0.5) {
     ok("selectFunnelStageKeys→buildFunnelRates: guideページ向け投稿のctaRateがguide_view→guide_cta_clickの実際のクリックスルー率(2/4=50%)として計算される(以前は常にinsufficient dataだった)");
   } else {
     fail(`selectFunnelStageKeys→buildFunnelRates: guideページ向け投稿のctaRateが不正 (${JSON.stringify(rates.ctaRate)})`);
+  }
+  if (rates.generatedRate.notApplicable === true && rates.generatedRate.rate === null && rates.generatedRate.insufficientData === false) {
+    ok("selectFunnelStageKeys→buildFunnelRates: guideページ向け投稿のgeneratedRateは実態の無い≒100%ではなく明示的なnotApplicableマーカーになる");
+  } else {
+    fail(`selectFunnelStageKeys→buildFunnelRates: guideページ向け投稿のgeneratedRateが不正 (${JSON.stringify(rates.generatedRate)})`);
   }
 }
 {

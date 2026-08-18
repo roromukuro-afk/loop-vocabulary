@@ -126,6 +126,10 @@ function landingComparisonByKey(currMap, priorMapOrNull, keys) {
 
 function fmtRate(r) {
   if (!r) return "n/a";
+  // guideページ向け投稿等、そもそもこの段階に相当する概念が無いcontent向け
+  // (Codexレビュー指摘対応、PR #102、18巡目、P2)。データ不足のinsufficientDataとは
+  // 区別して明示する。
+  if (r.notApplicable) return "n/a (該当ステップなし)";
   if (r.insufficientData) return `insufficient data (n=${r.denominator})`;
   if (r.rate === null) return "n/a";
   return `${(r.rate * 100).toFixed(1)}%`;

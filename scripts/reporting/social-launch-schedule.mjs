@@ -61,13 +61,12 @@ export const GUIDE_DESTINATION_CONTENT_KEYS = ["threads_launch_02"];
  *
  * guideページ向けの投稿は、vocab-test-makerツールのような「生成(generated)」に
  * 相当する中間ステップを持たない(landing→guide_view→guide_cta_clickの2段階のみ)。
- * generatedKeysをpageViewedKeysのエイリアスにすることで、ctaRate
- * (=generated∩cta/generated、funnelRates.mjs参照)が実質guide_view→
- * guide_cta_clickの直接クリックスルー率になる。このcontentについてgeneratedRate
- * 自体は常にpageViewedとの完全一致(≒100%)になり意味を持たないため、レポートの
- * 読み手はguideページのcontentではgeneratedRateを無視すること。savedKeysは
- * 「単語帳保存」に相当する概念がguideページ側に無いため常に空(insufficient data)
- * のままにする。
+ * skipGeneratedStage: trueを返すことで、funnelRates.mjsのbuildFunnelRates()が
+ * ctaRateをpageViewed基準で直接計算し(=guide_view→guide_cta_clickの実際の
+ * クリックスルー率)、generatedRateには実態の無い値(以前はpageViewedとの完全一致で
+ * 常に≒100%になっていた)を報告する代わりに明示的な「該当なし」マーカーを返す
+ * (Codexレビュー指摘対応、PR #102、18巡目、P2)。savedKeysは「単語帳保存」に
+ * 相当する概念がguideページ側に無いため常に空(insufficient data)のままにする。
  */
 export function selectFunnelStageKeys(content, funnelKeysForContent) {
   const funnel = funnelKeysForContent ?? {};
@@ -75,7 +74,8 @@ export function selectFunnelStageKeys(content, funnelKeysForContent) {
     const pageViewedKeys = funnel.guide_view ?? [];
     return {
       pageViewedKeys,
-      generatedKeys: pageViewedKeys,
+      generatedKeys: [],
+      skipGeneratedStage: true,
       ctaKeys: funnel.guide_cta_click ?? [],
       savedKeys: [],
     };

@@ -27,7 +27,7 @@ import { fetchTestAccountIds, summarizeWindowISO } from "../testing/social-acqui
 import { compute24hWindow } from "./lib/windowMath.mjs";
 import { buildFunnelRates } from "./lib/funnelRates.mjs";
 import { writeReport } from "./lib/reportIO.mjs";
-import { KNOWN_LAUNCH_SCHEDULE, CAMPAIGN, selectFunnelStageKeys } from "./social-launch-schedule.mjs";
+import { KNOWN_LAUNCH_SCHEDULE, CAMPAIGN, selectFunnelStageKeys, GUIDE_DESTINATION_CONTENT_KEYS } from "./social-launch-schedule.mjs";
 import { todayJST } from "../../src/lib/utils/date.ts";
 
 /**
@@ -117,6 +117,10 @@ export function buildFilterAttr(source, campaign) {
 }
 
 function formatRate(r) {
+  // guideページ向け投稿等、そもそもこの段階に相当する概念が無いcontent向け
+  // (Codexレビュー指摘対応、PR #102、18巡目、P2)。データ不足のinsufficientDataとは
+  // 区別して明示する。
+  if (r.notApplicable) return "n/a (該当ステップなし)";
   if (r.insufficientData) return `insufficient data (n=${r.denominator} < ${r.minSample})`;
   if (r.rate === null) return "n/a (denominator=0)";
   return `${(r.rate * 100).toFixed(1)}% (${r.numerator}/${r.denominator})`;
@@ -201,24 +205,50 @@ async function main() {
     },
   };
 
+  // destination(vocab-test-makerツール or guideページ)に応じて、要約に表示する
+  // 生カウンタとrateのラベルを切り替える(Codexレビュー指摘対応、PR #102、18巡目、
+  // P2)。以前はrate側だけをguide向けに直したが、この人間可読な要約はdestinationに
+  // 関わらず常にvocab_test_maker_*の生カウンタだけを出しており、threads_launch_02の
+  // ような投稿では実際のguide CTAクリックがあってもvocab_test_maker_srs_cta_
+  // clicked: 0のまま(すぐ下の非ゼロなcta rateと矛盾する表示)になっていた。
+  const isGuideDestination = GUIDE_DESTINATION_CONTENT_KEYS.includes(content);
+  const funnelCounterLines = isGuideDestination
+    ? [
+        `guide_view: ${funnelForContent.guide_view ?? 0}`,
+        `guide_cta_click: ${funnelForContent.guide_cta_click ?? 0}`,
+      ]
+    : [
+        `vocab_test_maker_page_viewed: ${funnelForContent.vocab_test_maker_page_viewed ?? 0}`,
+        `vocab_test_maker_generated: ${funnelForContent.vocab_test_maker_generated ?? 0}`,
+        `vocab_test_maker_srs_cta_clicked: ${funnelForContent.vocab_test_maker_srs_cta_clicked ?? 0}`,
+      ];
+  const rateLines = isGuideDestination
+    ? [
+        `  guide_view/landing: ${formatRate(rates.pageViewedRate)}`,
+        `  generated/page_viewed: ${formatRate(rates.generatedRate)}`,
+        `  guide_cta_click/guide_view: ${formatRate(rates.ctaRate)}`,
+        `  signup/guide_cta_click: ${formatRate(rates.signupRate)}`,
+      ]
+    : [
+        `  page_viewed/landing: ${formatRate(rates.pageViewedRate)}`,
+        `  generated/page_viewed: ${formatRate(rates.generatedRate)}`,
+        `  cta_clicked/generated: ${formatRate(rates.ctaRate)}`,
+        `  signup/cta_clicked: ${formatRate(rates.signupRate)}`,
+        `  saved/cta_clicked: ${formatRate(rates.savedRate)}`,
+      ];
+
   const summaryLines = [
     `=== vocab_test_maker_launch 24h check: ${content} ===`,
     `post: source=${source ?? "(unknown)"}, campaign=${campaign}, published_at=${publishedAtISO}`,
     `window: ${startISO} 〜 ${endISO}`,
     "",
     `landing identities (this content, /tools/vocab-test-maker等への到達): ${landingForContent}`,
-    `vocab_test_maker_page_viewed: ${funnelForContent.vocab_test_maker_page_viewed ?? 0}`,
-    `vocab_test_maker_generated: ${funnelForContent.vocab_test_maker_generated ?? 0}`,
-    `vocab_test_maker_srs_cta_clicked: ${funnelForContent.vocab_test_maker_srs_cta_clicked ?? 0}`,
+    ...funnelCounterLines,
     `signup(このsource/campaign/content起点、is_test_account=false): ${signupForContent}`,
-    `vocab_test_maker_saved_to_wordbook: ${funnelForContent.vocab_test_maker_saved_to_wordbook ?? 0}`,
+    ...(isGuideDestination ? [] : [`vocab_test_maker_saved_to_wordbook: ${funnelForContent.vocab_test_maker_saved_to_wordbook ?? 0}`]),
     "",
     `rates(insufficient dataの場合は明示、最小サンプル数=${rates.pageViewedRate.minSample}):`,
-    `  page_viewed/landing: ${formatRate(rates.pageViewedRate)}`,
-    `  generated/page_viewed: ${formatRate(rates.generatedRate)}`,
-    `  cta_clicked/generated: ${formatRate(rates.ctaRate)}`,
-    `  signup/cta_clicked: ${formatRate(rates.signupRate)}`,
-    `  saved/cta_clicked: ${formatRate(rates.savedRate)}`,
+    ...rateLines,
     "",
     "(read-only, DELETE/UPDATEは実行していません)",
   ];

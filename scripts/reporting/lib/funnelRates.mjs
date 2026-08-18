@@ -45,6 +45,17 @@ function intersectSize(setA, setB) {
   return n;
 }
 
+// generatedステップに相当する中間段階が存在しないdestination(guideページ等)向けの
+// 明示的な「該当なし」マーカー(Codexレビュー指摘対応、PR #102、18巡目、P2)。以前は
+// generatedKeysをpageViewedKeysのエイリアスにして無理やり計算していたため、
+// intersectionが常に完全一致しgeneratedRateが常に100%という、実態の無い数値を
+// 報告先(JSON/テキストサマリー)にそのまま出してしまっていた。insufficientData
+// (=データ不足でまだ判断できない)とは意味が違うため、専用のnotApplicableフラグで
+// 区別する。
+function notApplicableRate(minSample) {
+  return { rate: null, insufficientData: false, notApplicable: true, numerator: 0, denominator: 0, minSample };
+}
+
 export function buildFunnelRates(stages, minSample = MIN_SAMPLE_SIZE_FOR_RATE) {
   const {
     landingKeys = [],
@@ -53,6 +64,11 @@ export function buildFunnelRates(stages, minSample = MIN_SAMPLE_SIZE_FOR_RATE) {
     ctaKeys = [],
     savedKeys = [],
     signupKeys = [],
+    // trueの場合、generatedステップを飛ばしてctaRateをpageViewed基準で直接計算する
+    // (Codexレビュー指摘対応、PR #102、18巡目、P2: guideページ向け投稿はlanding→
+    // guide_view→guide_cta_clickの2段階のみで、vocab-test-makerツールのような
+    // 「生成」に相当する中間ステップを持たないため)。
+    skipGeneratedStage = false,
   } = stages;
 
   const landing = new Set(landingKeys);
@@ -66,14 +82,18 @@ export function buildFunnelRates(stages, minSample = MIN_SAMPLE_SIZE_FOR_RATE) {
     counts: {
       landing: landing.size,
       pageViewed: pageViewed.size,
-      generated: generated.size,
+      generated: skipGeneratedStage ? null : generated.size,
       ctaClicked: cta.size,
       signup: signup.size,
       saved: saved.size,
     },
     pageViewedRate: computeRate(intersectSize(landing, pageViewed), landing.size, minSample),
-    generatedRate: computeRate(intersectSize(pageViewed, generated), pageViewed.size, minSample),
-    ctaRate: computeRate(intersectSize(generated, cta), generated.size, minSample),
+    generatedRate: skipGeneratedStage
+      ? notApplicableRate(minSample)
+      : computeRate(intersectSize(pageViewed, generated), pageViewed.size, minSample),
+    ctaRate: skipGeneratedStage
+      ? computeRate(intersectSize(pageViewed, cta), pageViewed.size, minSample)
+      : computeRate(intersectSize(generated, cta), generated.size, minSample),
     signupRate: computeRate(intersectSize(cta, signup), cta.size, minSample),
     savedRate: computeRate(intersectSize(cta, saved), cta.size, minSample),
   };
