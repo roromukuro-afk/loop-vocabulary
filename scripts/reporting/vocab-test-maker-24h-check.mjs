@@ -30,6 +30,17 @@ import { writeReport } from "./lib/reportIO.mjs";
 import { KNOWN_LAUNCH_SCHEDULE, CAMPAIGN, selectFunnelStageKeys, GUIDE_DESTINATION_CONTENT_KEYS } from "./social-launch-schedule.mjs";
 import { todayJST } from "../../src/lib/utils/date.ts";
 
+// sanitizeForFilename()が返す「読める部分」の最大文字数(Codexレビュー指摘対応、
+// PR #102、20巡目、P2): 19巡目でbuildReportBaseName()がcontent/source/campaign/
+// startISOを連結したpostIdentity全体をsanitizeForFilename()に通すようになったため、
+// 各値がtrack.ts側の100文字制限(PR #103のnormalizeIdentifier()参照)いっぱいの
+// 場合、丸め込み後も文字数が全く縮まらず(safeは元の長さを保つ)、300文字超の
+// ファイル名(baseName)になり得た。Windowsの単一パス要素は255文字が上限のため、
+// `${baseName}.summary.txt`(12文字の拡張子込み)がこれを超えるとwriteFileSync()が
+// 失敗し、レポートが一切書き出されなくなる。読める部分を短く切り詰め、衝突回避は
+// 引き続きhashサフィックス(元の非切り詰め値から計算)に委ねる。
+const SANITIZED_FILENAME_READABLE_MAX_LENGTH = 60;
+
 /**
  * 任意の--contentをレポートファイル名の一部として安全に使えるよう丸める
  * (Codexレビュー指摘対応、PR #102、8巡目、P2): このスクリプトはカスタム投稿の
@@ -41,7 +52,7 @@ import { todayJST } from "../../src/lib/utils/date.ts";
  * 元contentからの短いhashサフィックスでサニタイズ後衝突を回避)をここでも使う。
  */
 export function sanitizeForFilename(value) {
-  const safe = String(value).replace(/[^A-Za-z0-9_-]/g, "_");
+  const safe = String(value).replace(/[^A-Za-z0-9_-]/g, "_").slice(0, SANITIZED_FILENAME_READABLE_MAX_LENGTH);
   const hash = createHash("sha256").update(String(value)).digest("hex").slice(0, 8);
   return `${safe}-${hash}`;
 }

@@ -129,6 +129,33 @@ const knownSchedule = [{ content: "x_launch_01", source: "x", publishedAtISO: "2
   if (a !== b) ok("sanitizeForFilename: サニタイズ後に衝突する異なるcontentどうしは別のファイル名になる");
   else fail(`sanitizeForFilename: サニタイズ後衝突するcontentが同じファイル名になった (${a})`);
 }
+{
+  // 回帰テスト(Codexレビュー指摘対応、PR #102、20巡目、P2): 長い入力(track.ts側の
+  // 100文字制限いっぱいのcontent/source/campaignを連結したpostIdentity相当)でも、
+  // 「読める部分」が一定長で切り詰められ、結果全体が短く収まること。以前は
+  // safeが元の長さを無制限に保持していたため、buildReportBaseName()が生成する
+  // 最終的なファイル名がWindowsの単一パス要素の上限(255文字)を超え得た。
+  const longValue = "a".repeat(100) + "-" + "b".repeat(100) + "-" + "c".repeat(100) + "-2026-08-19T10:00:00.000Z";
+  const name = sanitizeForFilename(longValue);
+  if (name.length <= 70) {
+    ok(`sanitizeForFilename: 長い入力(${longValue.length}文字)でも結果は短く切り詰められる(${name.length}文字)`);
+  } else {
+    fail(`sanitizeForFilename: 長い入力が切り詰められず結果が長すぎる (${name.length}文字: ${name})`);
+  }
+}
+{
+  // 切り詰め後に読める部分が同じ文字列になる異なる入力どうしも、hashサフィックスが
+  // 元の(切り詰め前の)値から計算されるため別のファイル名になり続ける
+  // (切り詰めによって衝突回避が壊れていないことの確認)。
+  const prefix = "x".repeat(70); // 読める部分の上限(60)を超える共通接頭辞
+  const a = sanitizeForFilename(`${prefix}-suffixA`);
+  const b = sanitizeForFilename(`${prefix}-suffixB`);
+  if (a !== b) {
+    ok("sanitizeForFilename: 切り詰め後の読める部分が同じになる異なる入力どうしも、hashサフィックスにより別のファイル名になる");
+  } else {
+    fail(`sanitizeForFilename: 切り詰め後に衝突する異なる入力が同じファイル名になった (${a})`);
+  }
+}
 
 // ---- buildReportBaseName(Codexレビュー指摘対応、PR #102、19巡目、P2) ----
 {
@@ -160,6 +187,19 @@ const knownSchedule = [{ content: "x_launch_01", source: "x", publishedAtISO: "2
     ok("buildReportBaseName: sourceが不明でも例外にならず安全なbaseNameを返す");
   } else {
     fail(`buildReportBaseName: source不明時の扱いが不正 (${name})`);
+  }
+}
+{
+  // 回帰テスト(Codexレビュー指摘対応、PR #102、20巡目、P2): content/source/campaignが
+  // それぞれtrack.ts側の100文字制限いっぱいの場合でも、baseName + ".summary.txt"
+  // (12文字)がWindowsの単一パス要素の上限(255文字)を大きく下回ること。
+  const long100 = (prefix) => (prefix + "x".repeat(100)).slice(0, 100);
+  const name = buildReportBaseName(long100("content"), long100("source"), long100("campaign"), "2026-08-19T10:00:00.000Z", "2026-08-19");
+  const fullFilename = `${name}.summary.txt`;
+  if (fullFilename.length <= 150) {
+    ok(`buildReportBaseName: content/source/campaignが100文字いっぱいでもファイル名は十分短い(${fullFilename.length}文字、Windows上限255文字に対し大きな余裕)`);
+  } else {
+    fail(`buildReportBaseName: 長い入力でファイル名が長くなりすぎる (${fullFilename.length}文字: ${fullFilename})`);
   }
 }
 
