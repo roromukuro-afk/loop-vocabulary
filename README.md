@@ -24,6 +24,28 @@
 - [HANDOFF.md](HANDOFF.md) — 次セッションへの申し送り・現在ステータス
 - [WORK_HISTORY.md](WORK_HISTORY.md) — 時系列の作業ログ
 
+### vocab_test_maker_launch キャンペーン計測 Scheduled Task
+
+`scripts/reporting/` 配下(24h/7dayチェック、`register-scheduled-tasks.mjs`)が登録する
+Windows Scheduled Task (`LoopVocab-VTM-24hCheck-*` / `LoopVocab-VTM-7dayCheck`) は、
+**`C:\Users\rorom\loop-vocabulary-vtm-measurement`** という専用の安定worktree
+(`feat/vocab-test-maker-launch-reporting`ブランチ)を`WorkingDirectory`として実行される。
+
+このworktreeは **2026-08-25の7日間チェックが完了するまで削除しないこと**。削除すると
+Scheduled Taskがスクリプト不在で失敗する。mainへマージされた後も、このworktreeへの
+依存を変更する必要はない(マージ有無に関係なく動作し続ける設計。詳細は
+`scripts/reporting/register-scheduled-tasks.mjs`のコメント参照)。
+
+### SNS投稿用UTMリンク生成（Issue #97）
+
+```
+npm run growth:social-link -- --source=x --campaign=vocab-test-maker --content=quiz-001 --path=/tools/vocab-test-maker
+```
+
+`utm_source`/`utm_medium`(既定値`social`)/`utm_campaign`/`utm_content` を付与した完成URLを
+表示するだけの内部ヘルパー。外部SNSへの自動投稿・DB書き込みは一切行わない。詳細は
+`scripts/growth/social-link.mjs` のコメントを参照。
+
 ---
 
 ## 1. 機能

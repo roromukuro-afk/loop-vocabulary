@@ -45,7 +45,9 @@ const KNOWN_SOCIAL_SOURCES = ["x", "threads", "instagram", "tiktok", "youtube", 
 const KNOWN_SOCIAL_SOURCE_SET = new Set(KNOWN_SOCIAL_SOURCES);
 const SOCIAL_BUCKETS = [...KNOWN_SOCIAL_SOURCES, "other_social"];
 
-const FUNNEL_EVENTS = [
+// vocab-test-maker-7day-check.mjsがcampaign絞り込み済みのtotals(byContentの合算)を
+// 全イベント名ゼロ埋めで構築する際にも使うためexportする。
+export const FUNNEL_EVENTS = [
   "vocab_test_maker_page_viewed",
   "vocab_test_maker_generated",
   "vocab_test_maker_srs_cta_clicked",
@@ -323,8 +325,31 @@ function topEntries(map, n = 10) {
 // fixture testから直接importして検証するためexportする
 // (scripts/testing/test-social-acquisition-snapshot-fixture.mjs参照)。sessionIdPrefixは
 // fixture testのみが渡すオプション引数(上記fetchEventsInWindow()のコメント参照)。
-export async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive, testAccountIds, asOf, sessionIdPrefix) {
-  const { startISO, endISO } = windowRangeISO(startDateStr, endDateStrInclusive);
+//
+// summarizeWindowISO: JSTの暦日文字列ではなく任意のISO範囲[startISO, endISO)を直接
+// 受け取る下位バージョン。ロジック本体はsummarizeWindow(JST暦日ベース、日次バッチ/
+// 7日間比較向け)と完全に同一で、以前はsummarizeWindow内にstartISO/endISOの計算
+// (windowRangeISO呼び出し)が直接埋め込まれていたものを抽出しただけ(挙動変更なし)。
+// scripts/reporting/vocab-test-maker-24h-check.mjs(投稿の発行時刻+24時間という、
+// JST日付境界に揃わない任意の時刻範囲を扱う必要がある)がこちらを直接importして使う。
+// filterAttr: 省略時は従来どおり全social流入を対象にする。{source, campaign}の
+// どちらか一方だけ、または両方を渡すと、*content別*breakdown(byContent/
+// funnelCountsByContent/signupCountByContent)だけをその条件に一致する訪問のみへ
+// 絞り込む(Codexレビュー指摘対応、PR #102: これらのマップはこれまでcontent単独を
+// キーにしていたため、同じutm_contentが別のsource/campaignで再利用された場合に
+// 取り違えて合算してしまう可能性があった)。source/campaignのどちらかがnull/undefined
+// の場合はそのフィールドでは絞り込まない(例: vocab-test-maker-7day-checkは特定の
+// campaignだけに絞り込み、複数sourceは全て含めたい)。
+// byBucket/byCampaign/byPath/funnelCounts(集計全体)は意図的にフィルタしない —
+// vocab-test-maker-24h-check.mjsのfullWindowSocialBreakdownが「この投稿と同じ窓で
+// 発生した全social流入の参考情報」として使うため、絞り込まない全体像を維持する。
+export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, testAccountIds, asOf, sessionIdPrefix, filterAttr = null) {
+  const matchesFilter = (attr) => {
+    if (!filterAttr) return true;
+    if (filterAttr.source != null && attr.rawSource !== filterAttr.source) return false;
+    if (filterAttr.campaign != null && attr.campaign !== filterAttr.campaign) return false;
+    return true;
+  };
   const rawRows = await fetchEventsInWindow(admin, { startISO, endISO, asOf, sessionIdPrefix });
 
   // ウィンドウの日付境界(startISO)をまたぐvisitを取りこぼさないよう、ウィンドウ内に
@@ -658,11 +683,22 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   // 同じsource/campaign/contentの内訳もidentity(distinct visit)単位で数える
   // (行数の単純加算だと同一visitの複数landing行を二重計上してしまう)。
   const identitiesByBucket = new Map();
+  // filterAttr適用済みのbucket別内訳も別途保持する(Codexレビュー指摘対応、PR #102、
+  // 13巡目、P2): byBucket自体は意図的に全social流入を対象にした「参考情報」だが、
+  // vocab-test-maker-7day-check.mjsのlandingBySourceはcampaignスコープの他フィールド
+  // (totals/byContent)と並べて表示するため、他campaignの流入が混入すると内部矛盾を
+  // 起こす。呼び出し元がcampaignスコープのsource内訳を必要とする場合はこちらを使う。
+  const byBucketFiltered = new Map();
+  const identitiesByBucketFiltered = new Map();
   for (const { attr, key } of socialLandingEntries) {
     if (!identitiesByBucket.has(attr.bucket)) identitiesByBucket.set(attr.bucket, new Set());
     identitiesByBucket.get(attr.bucket).add(key);
+    if (!matchesFilter(attr)) continue;
+    if (!identitiesByBucketFiltered.has(attr.bucket)) identitiesByBucketFiltered.set(attr.bucket, new Set());
+    identitiesByBucketFiltered.get(attr.bucket).add(key);
   }
   for (const bucket of SOCIAL_BUCKETS) byBucket.set(bucket, identitiesByBucket.get(bucket)?.size ?? 0);
+  for (const bucket of SOCIAL_BUCKETS) byBucketFiltered.set(bucket, identitiesByBucketFiltered.get(bucket)?.size ?? 0);
 
   // landing pathはvisit(identity)ごとに、実際に最初に到達したentry pointの1行だけを
   // 数える。socialLandingEntriesは上ですでにvisitKeyごとの最も早いlanding行(かつ
@@ -675,17 +711,36 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
 
   const identitiesByCampaign = new Map();
   const identitiesByContent = new Map();
+  // filterAttrを適用しない、全social流入のcontent別内訳(Codexレビュー指摘対応、
+  // PR #102、4巡目、P2): byBucket/byCampaign/funnelCounts等は意図的にフィルタしない
+  // 「全体像の参考情報」だが、byContentだけはfilterAttr適用済みのため、
+  // vocab-test-maker-24h-check.mjsのfullWindowSocialBreakdown(「この投稿と同じ窓で
+  // 発生した全social流入の参考情報」と明記)がbyContentをそのまま使うと、他のcontentが
+  // 静かに欠落し、他のフィールドと内部矛盾を起こしていた。
+  const identitiesByContentAll = new Map();
   const attrByVisitKey = new Map();
   for (const { attr, key } of socialLandingEntries) attrByVisitKey.set(key, attr);
   for (const key of socialLandingIdentities) {
     const attr = attrByVisitKey.get(key);
     if (!identitiesByCampaign.has(attr.campaign)) identitiesByCampaign.set(attr.campaign, new Set());
     identitiesByCampaign.get(attr.campaign).add(key);
+    if (!identitiesByContentAll.has(attr.content)) identitiesByContentAll.set(attr.content, new Set());
+    identitiesByContentAll.get(attr.content).add(key);
+    if (!matchesFilter(attr)) continue;
     if (!identitiesByContent.has(attr.content)) identitiesByContent.set(attr.content, new Set());
     identitiesByContent.get(attr.content).add(key);
   }
   for (const [k, set] of identitiesByCampaign) byCampaign.set(k, set.size);
   for (const [k, set] of identitiesByContent) byContent.set(k, set.size);
+  const byContentAll = new Map();
+  for (const [k, set] of identitiesByContentAll) byContentAll.set(k, set.size);
+  // landing段階のvisitKey集合自体もcontent別に保持する(byContentは件数へ潰す前の
+  // 生のSet)。呼び出し元(funnelRates.mjs)がstage間のcohort intersection(同一visitが
+  // 両方の段階に到達したか)を計算するために、件数だけでなくSet自体が必要
+  // (Codexレビュー指摘対応、PR #102、3巡目、P1: 各段階を独立集合の件数比で割ると、
+  // 一方の段階のvisitが別のウィンドウでもう一方の段階に到達したケースを取り違えて
+  // rateが100%を超え得る。同一visitKeyが両方の段階に属するかをSetのintersectionで
+  // 判定することで初めて正しい遷移率になる)。
 
   // 3) funnel/signup(可能な範囲で)。行ごとに個別のvisit attributionを判定し、
   //    そのvisitがsocialと判定された行だけを対象にする(landing行の有無とは独立)。
@@ -693,16 +748,39 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   //    landing→funnel→signupを評価する設計のため、集計全体の合計に加えてcontent別の
   //    内訳も保持する(Codexレビュー指摘対応: 以前はfunnel/signupが1つの合計値に
   //    潰れており、どの投稿がtool操作やsignupを生んだか判別できなかった)。
-  const funnelCounts = {};
-  for (const name of FUNNEL_EVENTS) funnelCounts[name] = 0;
-  const funnelCountsByContent = new Map();
-  function bumpFunnelByContent(content, eventName) {
-    if (!funnelCountsByContent.has(content)) {
+  // funnelは「行数」ではなく「distinct visit(visitKey)数」で数える(Codexレビュー
+  // 指摘対応、PR #102): 同一visitがページ再読み込みや複数回のテスト生成で同じ
+  // イベントを複数回発火させても、landing(socialLandingIdentities/byContent、
+  // 上でSetのsizeとして集計済み)と同じ「distinct visit単位」で揃えないと、
+  // generatedRate等の分母・分子の単位が食い違い100%を超えるレートになったり、
+  // insufficient-data判定の閾値比較が歪んだりする。
+  // funnelCounts/funnelCountsByContentは生の行数(event発生回数)のまま保つ
+  // (Codexレビュー指摘対応、PR #102、14巡目、P2): summarizeWindow()はこのPR以前から
+  // 存在する`audit:social-acquisition-snapshot`スクリプトが「シグネチャ・戻り値・
+  // console出力を変えない薄いラッパー」としてPR説明に明記した既存の集計ロジックで、
+  // funnelCounts(件数)はもともと行数ベースだった。distinct visit単位の集合は
+  // funnelRates.mjsのcohort intersection計算(rate計算)にのみ必要なため、
+  // funnelIdentitiesByContent(Set)はfunnelKeysByContent出力専用に残し、件数表示
+  // (funnelCounts/funnelCountsByContent)は別途、生の行数カウンタで独立に集計する。
+  const funnelRawCounts = {};
+  for (const name of FUNNEL_EVENTS) funnelRawCounts[name] = 0;
+  const funnelRawCountsByContent = new Map();
+  function bumpRawFunnelCountByContent(content, eventName) {
+    if (!funnelRawCountsByContent.has(content)) {
       const init = {};
       for (const name of FUNNEL_EVENTS) init[name] = 0;
-      funnelCountsByContent.set(content, init);
+      funnelRawCountsByContent.set(content, init);
     }
-    funnelCountsByContent.get(content)[eventName]++;
+    funnelRawCountsByContent.get(content)[eventName]++;
+  }
+  const funnelIdentitiesByContent = new Map();
+  function bumpFunnelByContent(content, eventName, key) {
+    if (!funnelIdentitiesByContent.has(content)) {
+      const init = {};
+      for (const name of FUNNEL_EVENTS) init[name] = new Set();
+      funnelIdentitiesByContent.set(content, init);
+    }
+    funnelIdentitiesByContent.get(content)[eventName].add(key);
   }
   const socialUserIds = new Set();
   // user_idごとに「最も早いsocial visit」のoccurred_at/contentを覚えておく。
@@ -717,7 +795,17 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     socialUserIds.add(r.user_id);
     const existing = earliestSocialVisitByUser.get(r.user_id);
     if (!existing || attr.occurred_at < existing.occurred_at) {
-      earliestSocialVisitByUser.set(r.user_id, { occurred_at: attr.occurred_at, content: attr.content });
+      // sidも保持する(Codexレビュー指摘対応、PR #102、4巡目、P1): signupRateの分子を
+      // 「CTAクリックへ実際に到達したvisitからのsignupのみ」に絞り込むため、この
+      // visit自身のvisitKey(sid + occurred_at)を後段でfunnelIdentitiesByContentの
+      // srs_cta_clicked集合と突き合わせられるようにする。
+      earliestSocialVisitByUser.set(r.user_id, {
+        sid: r.anonymous_session_id,
+        occurred_at: attr.occurred_at,
+        content: attr.content,
+        rawSource: attr.rawSource,
+        campaign: attr.campaign,
+      });
     }
   }
   for (const r of rows) {
@@ -726,11 +814,17 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     if (!attr || !attr.bucket) continue;
     if (isTestAccountVisit(r.anonymous_session_id, attr)) continue;
     if (FUNNEL_EVENTS.includes(r.event_name)) {
-      funnelCounts[r.event_name]++;
-      bumpFunnelByContent(attr.content, r.event_name);
+      const key = visitKey(r.anonymous_session_id, attr);
+      funnelRawCounts[r.event_name]++;
+      if (matchesFilter(attr)) {
+        bumpFunnelByContent(attr.content, r.event_name, key);
+        bumpRawFunnelCountByContent(attr.content, r.event_name);
+      }
     }
     registerSocialUser(r);
   }
+  const funnelCounts = funnelRawCounts;
+  const funnelCountsByContent = funnelRawCountsByContent;
   // ウィンドウ境界をまたいでendISO直後に記録されたuser_id付き行(例:
   // signup_oauth_completedがOAuthラウンドトリップ/サーバーラウンドトリップの遅延で
   // endISOのわずか後に記録される)も、socialUserIds/earliestSocialVisitByUserの対象に
@@ -745,6 +839,10 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   for (const r of followingActivityRowsRaw) registerSocialUser(r);
   let socialSignupCount = 0;
   const signupCountByContent = new Map();
+  // signupのvisitKeyもcontent別に保持する(Codexレビュー指摘対応、PR #102、4巡目、P1):
+  // funnelRates.mjsがsignupRateの分子を「srs_cta_clickedへ実際に到達したvisitからの
+  // signupのみ」に絞り込めるよう、件数に潰す前の生のvisitKeyを渡す。
+  const signupKeysByContent = new Map();
   if (socialUserIds.size > 0) {
     // socialUserIdsが多い場合、.in()を無制限に渡すとPostgRESTの既定レスポンス上限
     // (1000行)で静かに一部だけが返り、URL自体も長大になり得る。他のクエリ
@@ -775,11 +873,15 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
       // いた)。
       if (!visit || p.created_at < visit.occurred_at) continue;
       socialSignupCount++;
-      signupCountByContent.set(visit.content, (signupCountByContent.get(visit.content) ?? 0) + 1);
+      if (matchesFilter(visit)) {
+        signupCountByContent.set(visit.content, (signupCountByContent.get(visit.content) ?? 0) + 1);
+        if (!signupKeysByContent.has(visit.content)) signupKeysByContent.set(visit.content, new Set());
+        signupKeysByContent.get(visit.content).add(visitKey(visit.sid, visit));
+      }
     }
   }
 
-  console.log(`\n=== ${label} (${startDateStr} 〜 ${endDateStrInclusive}, JST) ===`);
+  console.log(`\n=== ${headerLabel} ===`);
   console.log(`social landing identities total: ${socialLandingIdentities.size}`);
   console.log("source別:");
   for (const bucket of SOCIAL_BUCKETS) console.log(`  ${bucket}: ${byBucket.get(bucket)}`);
@@ -799,17 +901,43 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
   console.log("signup数 content別 (上位10):");
   for (const [k, c] of topEntries(signupCountByContent)) console.log(`  ${k}: ${c}`);
 
+  // funnelRates.mjsがcontentごとにstage間のcohort intersectionを計算できるよう、
+  // 件数に潰す前のvisitKey自体をcontent別に配列化して返す(Codexレビュー指摘対応、
+  // PR #102、3巡目、P1)。JSON化のためSetではなく配列で返す。
+  const landingKeysByContent = Object.fromEntries([...identitiesByContent].map(([content, set]) => [content, [...set]]));
+  const funnelKeysByContent = Object.fromEntries(
+    [...funnelIdentitiesByContent].map(([content, sets]) => [
+      content,
+      Object.fromEntries(FUNNEL_EVENTS.map((name) => [name, [...sets[name]]])),
+    ]),
+  );
+  const signupKeysByContentOut = Object.fromEntries([...signupKeysByContent].map(([content, set]) => [content, [...set]]));
+
   return {
     socialLandingIdentities: socialLandingIdentities.size,
     byBucket: Object.fromEntries(byBucket),
+    byBucketFiltered: Object.fromEntries(byBucketFiltered),
     byCampaign: Object.fromEntries(byCampaign),
     byContent: Object.fromEntries(byContent),
+    byContentAll: Object.fromEntries(byContentAll),
     byPath: Object.fromEntries(byPath),
     funnelCounts,
     funnelCountsByContent: Object.fromEntries(funnelCountsByContent),
+    landingKeysByContent,
+    funnelKeysByContent,
     socialSignupCount,
     signupCountByContent: Object.fromEntries(signupCountByContent),
+    signupKeysByContent: signupKeysByContentOut,
   };
+}
+
+// fixture testおよび既存呼び出し元(main()、audit:social-acquisition-snapshot)向けの
+// JST暦日文字列ベースの薄いラッパー。ロジック本体はsummarizeWindowISO()に委譲する
+// だけで、シグネチャ・戻り値・console出力の文言は元の実装と完全に同一(挙動変更なし)。
+export async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive, testAccountIds, asOf, sessionIdPrefix, filterAttr = null) {
+  const { startISO, endISO } = windowRangeISO(startDateStr, endDateStrInclusive);
+  const headerLabel = `${label} (${startDateStr} 〜 ${endDateStrInclusive}, JST)`;
+  return summarizeWindowISO(admin, headerLabel, startISO, endISO, testAccountIds, asOf, sessionIdPrefix, filterAttr);
 }
 
 async function main() {
