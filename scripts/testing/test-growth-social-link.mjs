@@ -23,26 +23,31 @@ function test(name, fn) {
 test("buildSocialLink: 正しいUTMパラメータでURLを組み立てる", () => {
   const result = buildSocialLink({
     source: "x",
-    campaign: "vocab-test-maker",
-    content: "quiz-001",
+    campaign: "vocab_test_maker",
+    content: "quiz_001",
     path: "/tools/vocab-test-maker",
   });
   assert.equal(
     result.fullUrl,
-    "https://loop-vocabulary.app/tools/vocab-test-maker?utm_source=x&utm_medium=social&utm_campaign=vocab-test-maker&utm_content=quiz-001",
+    "https://loop-vocabulary.app/tools/vocab-test-maker?utm_source=x&utm_medium=social&utm_campaign=vocab_test_maker&utm_content=quiz_001",
   );
   assert.equal(result.medium, "social");
 });
 
-test("buildSocialLink: --medium を明示的に指定すると上書きされる", () => {
+test("buildSocialLink: mediumは常に社会的流入(social)へ固定され、呼び出し側からの上書きは無視される(Codexレビュー指摘対応、2巡目)", () => {
+  // classifySocialBucket()はmedium==="social"の厳密一致でしかsocial流入と判定しない
+  // ため、このヘルパーが生成するリンクは常にmedium=socialでなければならない。
+  // 呼び出し側が--medium的な値を渡そうとしても(意図しない誤用を防ぐため)無視される。
   const result = buildSocialLink({
     source: "instagram",
     campaign: "vocab_test_maker_launch",
-    content: "ig_feed_launch",
+    content: "ig_story_launch",
     path: "/tools/vocab-test-maker",
     medium: "story",
   });
-  assert.match(result.fullUrl, /utm_medium=story/);
+  assert.equal(result.medium, "social");
+  assert.match(result.fullUrl, /utm_medium=social/);
+  assert.doesNotMatch(result.fullUrl, /utm_medium=story/);
 });
 
 test("buildSocialLink: source欠落は分かりやすいエラーを投げる", () => {
@@ -79,21 +84,37 @@ test("buildSocialLink: バックスラッシュによるorigin書き換え(WHATW
   );
 });
 
-test("buildSocialLink: source/campaign/content/mediumの大文字小文字は自動的に統一される(表記ゆれ防止、Codexレビュー指摘対応)", () => {
+test("buildSocialLink: source/campaign/contentの大文字小文字は自動的に統一される(表記ゆれ防止、Codexレビュー指摘対応)", () => {
   const result = buildSocialLink({
     source: "X",
-    campaign: "Vocab_Test-Maker",
-    content: "Quiz-001",
+    campaign: "Vocab_Test_Maker",
+    content: "Quiz_001",
     path: "/tools/vocab-test-maker",
-    medium: "Social",
   });
   assert.equal(result.source, "x");
-  assert.equal(result.campaign, "vocab_test-maker");
-  assert.equal(result.content, "quiz-001");
-  assert.equal(result.medium, "social");
+  assert.equal(result.campaign, "vocab_test_maker");
+  assert.equal(result.content, "quiz_001");
   const url = new URL(result.fullUrl);
   assert.equal(url.searchParams.get("utm_source"), "x");
   assert.equal(url.searchParams.get("utm_medium"), "social");
+});
+
+test("buildSocialLink: ハイフンとアンダースコアは同一の識別子として正規化される(区切り文字違いによる集計分裂の防止、Codexレビュー指摘対応、2巡目)", () => {
+  const withHyphens = buildSocialLink({
+    source: "x",
+    campaign: "vocab-test-maker",
+    content: "quiz-001",
+    path: "/tools/vocab-test-maker",
+  });
+  const withUnderscores = buildSocialLink({
+    source: "x",
+    campaign: "vocab_test_maker",
+    content: "quiz_001",
+    path: "/tools/vocab-test-maker",
+  });
+  assert.equal(withHyphens.campaign, withUnderscores.campaign);
+  assert.equal(withHyphens.content, withUnderscores.content);
+  assert.equal(withHyphens.fullUrl, withUnderscores.fullUrl);
 });
 
 test("buildSocialLink: campaign/contentに空白等の非許容文字が含まれると拒否される(表記ゆれ防止、Codexレビュー指摘対応)", () => {

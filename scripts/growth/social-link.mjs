@@ -6,11 +6,19 @@
  * URLを生成して表示するだけで、外部SNSへの自動投稿・DB書き込みは一切行わない。
  *
  * 使い方:
- *   npm run growth:social-link -- --source=x --campaign=vocab-test-maker --content=quiz-001 --path=/tools/vocab-test-maker
- *   npm run growth:social-link -- --source=instagram --campaign=vocab_test_maker_launch --content=ig_feed_launch --path=/tools/vocab-test-maker --medium=social
+ *   npm run growth:social-link -- --source=x --campaign=vocab_test_maker --content=quiz_001 --path=/tools/vocab-test-maker
+ *   npm run growth:social-link -- --source=instagram --campaign=vocab_test_maker_launch --content=ig_feed_launch --path=/tools/vocab-test-maker
  *
- * --medium は省略可(デフォルト "social")。--path は "/" から始まる相対パスのみ受け付ける
- * (外部ドメインへのオープンリダイレクト生成を防ぐため、絶対URLは拒否する)。
+ * utm_mediumは常に"social"に固定する(--medium指定は受け付けない。Codexレビュー
+ * 指摘対応): このスクリプトはSNS投稿用リンクの生成専用であり、
+ * scripts/testing/social-acquisition-snapshot.mjsのclassifySocialBucket()は
+ * medium==="social"を厳密一致で要求する(Instagramストーリー等の区別はmediumではなく
+ * utm_content側で行う設計、例: ig_feed_launch vs ig_story_launch)。--mediumを
+ * 呼び出し側の自由入力にすると、"story"等のsocial以外の値を指定できてしまい、
+ * 生成したリンク経由の流入が集計から丸ごと消えてしまっていた。
+ *
+ * --path は "/" から始まる相対パスのみ受け付ける
+ * (外部ドメインへのオープンリダイレクトを防ぐため、絶対URLは拒否する)。
  *
  * pathの検証はstartsWith("/")の文字列パターンだけでなく、実際にnew URL()で解決した
  * 結果のoriginをbaseUrlのoriginと突き合わせて確認する(Codexレビュー指摘対応:
@@ -20,34 +28,34 @@
  * `https://evil.example/x` に解決されてしまい、文字列パターンチェックだけでは
  * すり抜ける。originを直接比較する方が、個々のバイパス手口を後追いで塞ぐより堅牢)。
  *
- * source/campaign/content/mediumは英数字・ハイフン・アンダースコアのみへ強制する
- * (Codexレビュー指摘対応): このスクリプトの目的はまさに「表記ゆれ(大文字小文字・
- * アンダースコア/ハイフン混在等)の防止」だが、値を無検証のまま素通ししていたため、
- * 例えば--source=Xと--source=xが別のsocialバケットとして扱われてしまう
- * (scripts/testing/social-acquisition-snapshot.mjsのclassifySocialBucket()は
- * 既知sourceを小文字の完全一致でしか認識せず、Xはother_socialへ丸められてしまう)、
- * またcampaign別レポートで大文字小文字違いの表記ゆれが別campaignとして分裂して
- * 集計される、という不具合が起き得た。空白等を含む値やアルファベット以外の文字は
- * 自動変換せず明示的に拒否する(自動小文字化だけだと、意図しない値をそのまま
- * 通してしまう余地が残るため)。
+ * source/campaign/contentは英数字・アンダースコアのみへ強制する(Codexレビュー
+ * 指摘対応、2巡目): このスクリプトの目的はまさに「表記ゆれ(大文字小文字・
+ * アンダースコア/ハイフン混在等)の防止」だが、当初はハイフンとアンダースコアの
+ * 両方をそのまま許容していたため、同じ論理的な識別子を"vocab_test_maker"と
+ * "vocab-test-maker"のように別表記で入力すると、集計側では別のcampaign/content
+ * として分裂してしまっていた。ハイフンはアンダースコアへ正規化した上で、
+ * 英数字・アンダースコアのみへ強制する(大文字は自動で小文字化)。
  */
 import { pathToFileURL } from "node:url";
 
 const SITE_URL = "https://loop-vocabulary.app";
+const FIXED_MEDIUM = "social";
 
-// source/campaign/content/mediumの許容パターン(小文字英数字・ハイフン・
-// アンダースコアのみ)。既に小文字化・trim済みの値に対して適用する。
-const IDENTIFIER_PATTERN = /^[a-z0-9_-]+$/;
+// source/campaign/contentの許容パターン(小文字英数字・アンダースコアのみ)。
+// 既に小文字化・ハイフン→アンダースコア正規化・trim済みの値に対して適用する。
+const IDENTIFIER_PATTERN = /^[a-z0-9_]+$/;
 
 function normalizeIdentifier(paramName, rawValue) {
-  // 大文字小文字はここで自動的に統一する(--source=Xと--source=xを同一視するため)。
-  // それでもなお許容パターンに一致しない場合(空白・記号・非ASCII文字等)は、
+  // 大文字小文字はここで自動的に統一し(--source=Xと--source=xを同一視)、
+  // ハイフンもアンダースコアへ正規化する(vocab-test-makerとvocab_test_makerを
+  // 同一視し、区切り文字違いによる集計分裂を防ぐ。Codexレビュー指摘対応、2巡目)。
+  // それでもなお許容パターンに一致しない場合(空白・その他の記号・非ASCII文字等)は、
   // 自動変換で表記ゆれを吸収できないため明示的に拒否する。
-  const normalized = rawValue.trim().toLowerCase();
+  const normalized = rawValue.trim().toLowerCase().replace(/-/g, "_");
   if (!IDENTIFIER_PATTERN.test(normalized)) {
     throw new Error(
-      `--${paramName} は英数字・ハイフン・アンダースコアのみ使用できます(大文字小文字は自動で統一しますが、` +
-        `空白・記号・非ASCII文字等は使用できません): ${rawValue}`,
+      `--${paramName} は英数字・アンダースコア(またはハイフン、自動でアンダースコアへ変換されます)のみ` +
+        `使用できます(空白・その他の記号・非ASCII文字等は使用できません): ${rawValue}`,
     );
   }
   return normalized;
@@ -67,7 +75,7 @@ export function parseArgs(argv) {
  * source/campaign/content/path は必須(欠けていれば分かりやすいエラーで例外を投げる)。
  * pathは"/"始まりの相対パスのみ許可(絶対URL・プロトコル相対URLは拒否)。
  */
-export function buildSocialLink({ source, campaign, content, path, medium = "social", baseUrl = SITE_URL }) {
+export function buildSocialLink({ source, campaign, content, path, baseUrl = SITE_URL }) {
   const missing = ["source", "campaign", "content", "path"].filter(
     (k) => !{ source, campaign, content, path }[k],
   );
@@ -81,7 +89,6 @@ export function buildSocialLink({ source, campaign, content, path, medium = "soc
   const normalizedSource = normalizeIdentifier("source", source);
   const normalizedCampaign = normalizeIdentifier("campaign", campaign);
   const normalizedContent = normalizeIdentifier("content", content);
-  const normalizedMedium = normalizeIdentifier("medium", medium);
 
   const url = new URL(path, baseUrl);
   const expectedOrigin = new URL(baseUrl).origin;
@@ -92,14 +99,14 @@ export function buildSocialLink({ source, campaign, content, path, medium = "soc
     );
   }
   url.searchParams.set("utm_source", normalizedSource);
-  url.searchParams.set("utm_medium", normalizedMedium);
+  url.searchParams.set("utm_medium", FIXED_MEDIUM);
   url.searchParams.set("utm_campaign", normalizedCampaign);
   url.searchParams.set("utm_content", normalizedContent);
 
   return {
     fullUrl: url.toString(),
     source: normalizedSource,
-    medium: normalizedMedium,
+    medium: FIXED_MEDIUM,
     campaign: normalizedCampaign,
     content: normalizedContent,
     path,
@@ -114,7 +121,7 @@ function main() {
   } catch (err) {
     console.error(`[growth:social-link] ${err.message}`);
     console.error(
-      "使い方: npm run growth:social-link -- --source=<x/instagram/threads/...> --campaign=<name> --content=<id> --path=/tools/vocab-test-maker [--medium=social]",
+      "使い方: npm run growth:social-link -- --source=<x/instagram/threads/...> --campaign=<name> --content=<id> --path=/tools/vocab-test-maker",
     );
     process.exitCode = 1;
     return;
