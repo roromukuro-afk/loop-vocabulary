@@ -1,0 +1,234 @@
+/**
+ * vocab_test_maker_launch キャンペーンの読み取り専用チェックを実行するWindows
+ * Scheduled Taskを、冪等に(既に存在するタスク名は再作成せずスキップして)登録する。
+ *
+ *  - 24hチェック: social-launch-schedule.mjs の KNOWN_LAUNCH_SCHEDULE に載っている
+ *    各投稿について、"投稿時刻+24時間" に1回だけ実行する使い捨て(ONCE)タスクを
+ *    1つずつ登録する。新しい投稿が判明してKNOWN_LAUNCH_SCHEDULEに追記された場合、
+ *    このスクリプトを再実行すればその投稿分だけ追加登録される(既存タスクは
+ *    スキップ)。
+ *  - 7dayチェック: CAMPAIGN_WINDOW_ANCHOR_JST(2026-08-25)と同じ曜日に毎週繰り返し
+ *    実行するタスクを1つ登録する。実行のたびに computeReportWindows() が「今
+ *    レポートしてよい最新の完全な7日間ウィンドウ」を計算するため、まだ1つも
+ *    完全なウィンドウが無い間は自動的にno-opになる(レポートを書き出さず終了)。
+ *
+ * すべて非管理者権限(LogonType=InteractiveToken, RunLevel=LeastPrivilege)、
+ * StartWhenAvailable=trueで登録する(マシンの電源が落ちていて実行時刻を逃した場合も、
+ * 次回このユーザーがログオンした時点で自動的に実行される)。
+ *
+ * 冪等性: schtasks /Query /TN <name> で既存タスクの有無を確認し、既に存在する
+ * タスク名は再作成しない(scheduled task重複登録の防止)。
+ *
+ * 使い方:
+ *   node scripts/reporting/register-scheduled-tasks.mjs [--working-dir=<絶対パス>]
+ *
+ * --working-dir を省略した場合、このスクリプト自身が置かれているチェックアウトの
+ * リポジトリルート(REPO_ROOT)を使う。Scheduled Taskは実行時にそのディレクトリを
+ * カレントディレクトリとして起動するため、そこに scripts/reporting/*.mjs が実際に
+ * 存在している必要がある。
+ *
+ * 重要: 指定するパスは「このPRの内容が実際に存在し続ける、削除されないチェックアウト」
+ * でなければならない。以下のどちらかであること:
+ *   (a) このブランチがmainへマージ済みで、mainを指す永続的なチェックアウト、または
+ *   (b) `git worktree add <安定パス> <このブランチ>` で作成した、専用の・自動削除
+ *       されない安定worktree(例: C:\Users\rorom\loop-vocabulary-<name> のような
+ *       他の長期運用worktreeと同じ命名パターンの兄弟ディレクトリ)。
+ *
+ * `.claude/worktrees/agent-*` のようなエージェント一時worktree配下は、エージェント
+ * セッション終了時にクリーンアップされる可能性があるため絶対に指定しないこと
+ * (2026-08-18: 実際にこれが原因でタスクがmainの古いチェックアウトを指すよう誤登録
+ * された事例があり、`git worktree move` で安定パスへ退避して修正した)。
+ */
+import { fileURLToPath } from "node:url";
+import { REPO_ROOT } from "../testing/lib/env.mjs";
+import { KNOWN_LAUNCH_SCHEDULE, CAMPAIGN } from "./social-launch-schedule.mjs";
+import { CAMPAIGN_WINDOW_ANCHOR_JST } from "./vocab-test-maker-7day-check.mjs";
+import { compute24hWindow } from "./lib/windowMath.mjs";
+import {
+  scheduledTaskExists,
+  build24hCheckTaskName,
+  legacyBuild24hCheckTaskName,
+  SEVEN_DAY_CHECK_TASK_NAME,
+  buildOnceTaskXml,
+  buildWeeklyTaskXml,
+  createScheduledTaskFromXml,
+  updateScheduledTaskFromXml,
+} from "./lib/schtasksClient.mjs";
+
+// 投稿の24時間経過時刻(endISO)ちょうどに24hチェックタスクを実行すると、
+// summarizeWindowISO()のfetchFollowingActivityRows()が相関判定に使うendISO
+// 以降の行(OAuth/サーバーラウンドトリップ遅延によるsignup完了行、endISO
+// 直前のtest account認証等)が、スクリプト実行時点(asOf=まさにendISO)では
+// まだ1件も実際には発生し得ない(未来の時刻の行を「今」問い合わせても
+// 存在しないため)。この結果、signupが記録から漏れたり、test account紐付けが
+// 素通りしたりし得る(Codexレビュー指摘対応、PR #102、12巡目、P2)。
+// endISOから一定の猶予期間を空けてから実行することで、この種の遅延イベントが
+// 実際に発生・記録される時間を確保する。
+const CORRELATION_GRACE_PERIOD_MS = 60 * 60 * 1000; // 1時間
+
+const TWENTY_FOUR_H_CHECK_SCRIPT = "scripts/reporting/vocab-test-maker-24h-check.mjs";
+const SEVEN_DAY_CHECK_SCRIPT = "scripts/reporting/vocab-test-maker-7day-check.mjs";
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+// hashサフィックス導入前(6巡目より前)に実際にlegacy命名で登録されたことが判明している
+// contentの明示allowlist(実機ではx_launch_01のみ)。legacyBuild24hCheckTaskName()は
+// sanitizeForTaskName()の丸め込みしか行わずhashを含まないため、無制限にlegacy名一致を
+// 「この投稿の旧タスクだ」と信じると、たまたまsanitize後に同じ文字列へ丸まる別の
+// content(例: "ig feed/launch:1"と"ig_feed_launch_1")が後から登録された際、既存の
+// 別投稿のlegacyタスクを誤って上書きし得る(Codexレビュー指摘対応、PR #102、16巡目、
+// P2)。legacy名一致による移行は、実際にlegacy命名で登録されたと判明しているこの
+// allowlistのcontentに限定する。
+const KNOWN_LEGACY_NAMED_CONTENTS = ["x_launch_01"];
+
+export function parseArgs(argv) {
+  const out = {};
+  for (const arg of argv) {
+    const m = /^--([^=]+)=(.*)$/.exec(arg);
+    if (m) out[m[1]] = m[2];
+  }
+  return out;
+}
+
+/**
+ * KNOWN_LAUNCH_SCHEDULEの各投稿について、無ければ24hチェックの一回限りタスクを
+ * 登録する。existsFn/createFnは実際のschtasks呼び出しをDIで差し替えられるように
+ * するための引数(scripts/testing/test-scheduled-task-registration.mjs参照)。
+ */
+export function register24hCheckTasks(
+  workingDirectory,
+  nodeCommand,
+  existsFn = scheduledTaskExists,
+  createFn = createScheduledTaskFromXml,
+  schedule = KNOWN_LAUNCH_SCHEDULE,
+  updateFn = updateScheduledTaskFromXml,
+) {
+  const results = [];
+  for (const post of schedule) {
+    // taskNameはcontentだけでなくsource/campaign/publishedAtISOも含めた完全な
+    // 投稿識別子から決まる(Codexレビュー指摘対応、PR #102、21巡目、P2): 同じ
+    // utm_contentを異なるsourceや発行時刻で複数回スケジュールする場合に、後から
+    // 処理された投稿が前の投稿のタスクを「既存タスク」として誤って上書きしない
+    // ようにする。
+    const taskName = build24hCheckTaskName(post.content, post.source, CAMPAIGN, post.publishedAtISO);
+    // hashサフィックス導入前の旧命名で既に登録済みの投稿(実機ではx_launch_01が
+    // 該当)を二重登録しないよう、旧名も既存チェックの対象に含める(Codexレビュー
+    // 指摘対応、PR #102、10巡目、P2)。legacy名一致の当てはめは、実際にlegacy命名で
+    // 登録されたと判明しているKNOWN_LEGACY_NAMED_CONTENTSのcontentに限定する
+    // (16巡目、P2: 制限しないとsanitize後衝突する無関係な別contentを誤って
+    // 「この投稿の旧タスクだ」と信じてしまう)。
+    const legacyTaskName = legacyBuild24hCheckTaskName(post.content);
+    const legacyEligible = KNOWN_LEGACY_NAMED_CONTENTS.includes(post.content);
+
+    const { endISO } = compute24hWindow(post.publishedAtISO);
+    const startBoundaryDate = new Date(new Date(endISO).getTime() + CORRELATION_GRACE_PERIOD_MS);
+    const args = [
+      TWENTY_FOUR_H_CHECK_SCRIPT,
+      `--content=${post.content}`,
+      `--published-at=${post.publishedAtISO}`,
+      `--source=${post.source}`,
+      `--campaign=${CAMPAIGN}`,
+    ];
+    const description = `Loop Vocabulary: vocab_test_maker_launch 24h check for ${post.content} (read-only, no DB writes)`;
+    const xml = buildOnceTaskXml({ description, startBoundaryDate, command: nodeCommand, args, workingDirectory });
+
+    if (existsFn(taskName)) {
+      // 新命名(hash付き)で既に登録済みのタスクも、トリガーを相関猶予期間込みの
+      // 正しい値へ上書きする(Codexレビュー指摘対応、PR #102、15巡目、P2)。この
+      // 登録スクリプトは何度でも安全に再実行できる設計のため、CORRELATION_GRACE_
+      // PERIOD_MSを導入した12巡目より前のリビジョンでhash付き名前のタスクが既に
+      // 作成されていた場合、再実行しても「既に存在するのでスキップ」のままだと
+      // 猶予期間無しの古いトリガーが残り続けてしまう(13巡目で旧命名のみ同種の
+      // 修正を行い、新命名側の同じ穴を見落としていた)。
+      updateFn(taskName, xml);
+      let disabledLegacyDuplicate = false;
+      if (legacyEligible && existsFn(legacyTaskName)) {
+        // hash付き新名と旧名の両方が実在する場合(hash導入後・legacy検出追加前の
+        // 期間に再実行された等、過去の移行過程の名残)、旧名タスクを削除せず
+        // Enabled=falseへ無効化し、hash付きタスクだけが実行されるようにする
+        // (Codexレビュー指摘対応、PR #102、16巡目、P2)。無効化せずhash付き側だけ
+        // 更新して終えると、旧名タスクが二重に実行され続け、同じレポートファイルへ
+        // 競合して書き込み得る。
+        const disabledXml = buildOnceTaskXml({ description, startBoundaryDate, command: nodeCommand, args, workingDirectory, disabled: true });
+        updateFn(legacyTaskName, disabledXml);
+        disabledLegacyDuplicate = true;
+      }
+      results.push({ taskName, content: post.content, action: "rescheduled_exists", runAt: startBoundaryDate.toISOString(), disabledLegacyDuplicate });
+      continue;
+    }
+
+    if (legacyEligible && existsFn(legacyTaskName)) {
+      // 旧命名で見つかった既存タスクは、削除もリネームもせず(タスク名は
+      // legacyTaskNameのまま)、トリガー(実行時刻)だけを相関猶予期間込みの正しい値へ
+      // 上書きする(Codexレビュー指摘対応、PR #102、13巡目、P1)。以前は「既存タスク
+      // として認識するだけ」で終わっており、CORRELATION_GRACE_PERIOD_MSが新規作成分
+      // にしか適用されず、実機で既に登録済みのx_launch_01が旧来どおりendISOちょうど
+      // (猶予期間無し)に実行され続け、遅延signup/test account紐付けの取りこぼしが
+      // 解消されないままだった。
+      updateFn(legacyTaskName, xml);
+      results.push({ taskName: legacyTaskName, content: post.content, action: "rescheduled_legacy_name", runAt: startBoundaryDate.toISOString() });
+      continue;
+    }
+
+    createFn(taskName, xml);
+    results.push({ taskName, content: post.content, action: "created", runAt: startBoundaryDate.toISOString() });
+  }
+  return results;
+}
+
+/** 7dayチェックの週次タスクを、無ければ登録する。 */
+export function register7dayCheckTask(
+  workingDirectory,
+  nodeCommand,
+  existsFn = scheduledTaskExists,
+  createFn = createScheduledTaskFromXml,
+  anchorDateStr = CAMPAIGN_WINDOW_ANCHOR_JST,
+) {
+  const taskName = SEVEN_DAY_CHECK_TASK_NAME;
+  if (existsFn(taskName)) {
+    return { taskName, action: "skipped_exists" };
+  }
+  // 起点(anchor)と同じ曜日の朝9:00(ローカル時刻=JST想定)を毎週のキックオフ時刻に
+  // する。初回実行時点でまだ完全なウィンドウが無ければ7day-check.mjs自体がno-opで
+  // 終了するため、anchor当日に登録しても害はない。
+  const anchor = new Date(`${anchorDateStr}T09:00:00+09:00`);
+  const dayOfWeek = DAY_NAMES[anchor.getDay()];
+  const xml = buildWeeklyTaskXml({
+    description: `Loop Vocabulary: vocab_test_maker_launch 7-day check (read-only, no-op until a full window since ${anchorDateStr} has elapsed)`,
+    startBoundaryDate: anchor,
+    daysOfWeek: [dayOfWeek],
+    command: nodeCommand,
+    args: [SEVEN_DAY_CHECK_SCRIPT],
+    workingDirectory,
+  });
+  createFn(taskName, xml);
+  return { taskName, action: "created", dayOfWeek, firstRunAt: anchor.toISOString() };
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const workingDirectory = args["working-dir"] || REPO_ROOT;
+  const nodeCommand = process.execPath; // 実行中node.exeの絶対パス(PATH解決に依存しない)
+
+  console.log(`[register-scheduled-tasks] working directory: ${workingDirectory}`);
+  console.log(`[register-scheduled-tasks] node command: ${nodeCommand}`);
+
+  const oneOffResults = register24hCheckTasks(workingDirectory, nodeCommand);
+  for (const r of oneOffResults) {
+    console.log(`  24h check [${r.content}] -> ${r.taskName}: ${r.action}${r.runAt ? ` (runs at ${r.runAt})` : ""}`);
+  }
+
+  const weeklyResult = register7dayCheckTask(workingDirectory, nodeCommand);
+  console.log(
+    `  7day check -> ${weeklyResult.taskName}: ${weeklyResult.action}` +
+      `${weeklyResult.firstRunAt ? ` (first run ${weeklyResult.firstRunAt}, weekly on ${weeklyResult.dayOfWeek})` : ""}`,
+  );
+
+  console.log("\n=== 完了(read-only Scheduled Task登録のみ、DB操作なし) ===");
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main().catch((e) => {
+    console.error("register-scheduled-tasks crashed:", e);
+    process.exit(1);
+  });
+}
