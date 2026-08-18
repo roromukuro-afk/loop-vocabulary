@@ -100,20 +100,27 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
   }
 }
 
-// ---- 冪等登録: 既存タスクはスキップされ、createFnが呼ばれない(重複登録防止) ----
+// ---- 冪等登録: 既存タスクはcreateFnを呼ばず(重複登録防止)、代わりにupdateFnで
+// トリガーを相関猶予期間込みの正しい値へ再登録する(Codexレビュー指摘対応、
+// PR #102、15巡目、P2: 新命名(hash付き)で既に存在するタスクも、12巡目より前の
+// リビジョンで作成されていた場合は古い[猶予期間無しの]トリガーのまま残り得るため) ----
 {
   const schedule = [
     { content: "x_launch_01", source: "x", publishedAtISO: "2026-08-18T10:00:00.000Z" },
     { content: "ig_feed_launch", source: "instagram", publishedAtISO: "2026-08-25T00:00:00.000Z" },
   ];
   let createCalls = 0;
+  let updateCalls = 0;
   const alwaysExists = () => true;
   const spyCreate = () => { createCalls++; };
-  const results = register24hCheckTasks("C:\\repo", "C:\\node.exe", alwaysExists, spyCreate, schedule);
+  const spyUpdate = () => { updateCalls++; };
+  const results = register24hCheckTasks("C:\\repo", "C:\\node.exe", alwaysExists, spyCreate, schedule, spyUpdate);
   if (createCalls === 0) ok("register24hCheckTasks: 全タスクが既存の場合、createFnは一度も呼ばれない(重複登録なし)");
   else fail(`register24hCheckTasks: 既存タスクなのにcreateFnが${createCalls}回呼ばれた`);
-  if (results.every((r) => r.action === "skipped_exists")) ok("register24hCheckTasks: 既存タスクはaction=skipped_existsを返す");
-  else fail(`register24hCheckTasks: skipped_exists以外のactionが返った (${JSON.stringify(results)})`);
+  if (updateCalls === schedule.length) ok("register24hCheckTasks: 全タスクが既存の場合、updateFnがスケジュール件数分呼ばれる(トリガー再登録)");
+  else fail(`register24hCheckTasks: updateFnの呼び出し回数が不正 (${updateCalls})`);
+  if (results.every((r) => r.action === "rescheduled_exists")) ok("register24hCheckTasks: 新命名で既に存在するタスクはaction=rescheduled_existsを返す");
+  else fail(`register24hCheckTasks: rescheduled_exists以外のactionが返った (${JSON.stringify(results)})`);
 }
 {
   const schedule = [
@@ -152,20 +159,34 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
   }
 }
 {
-  // 混在ケース: 一部だけ既存の場合、既存分はスキップ・未登録分だけ作成される(冪等性の核心)
+  // 混在ケース: 一部だけ既存の場合、既存分はupdateFnで再登録・未登録分だけcreateFnで
+  // 作成される(冪等性の核心)
   const schedule = [
     { content: "already_registered", source: "x", publishedAtISO: "2026-08-18T10:00:00.000Z" },
     { content: "new_post", source: "x", publishedAtISO: "2026-08-20T10:00:00.000Z" },
   ];
   const existsFn = (name) => name === build24hCheckTaskName("already_registered");
   let created = [];
-  const results = register24hCheckTasks("C:\\repo", "C:\\node.exe", existsFn, (name) => created.push(name), schedule);
+  let updated = [];
+  const results = register24hCheckTasks(
+    "C:\\repo",
+    "C:\\node.exe",
+    existsFn,
+    (name) => created.push(name),
+    schedule,
+    (name) => updated.push(name),
+  );
   if (created.length === 1 && created[0] === build24hCheckTaskName("new_post")) {
     ok("register24hCheckTasks: 既存タスクと未登録タスクが混在していても、未登録分だけ正しく作成される");
   } else {
     fail(`register24hCheckTasks: 混在ケースの結果が不正 (${JSON.stringify(created)})`);
   }
-  if (results[0].action === "skipped_exists" && results[1].action === "created") {
+  if (updated.length === 1 && updated[0] === build24hCheckTaskName("already_registered")) {
+    ok("register24hCheckTasks: 既存タスク分はcreateFnではなくupdateFnで再登録される(重複登録されない)");
+  } else {
+    fail(`register24hCheckTasks: 既存タスク分のupdateFn呼び出しが不正 (${JSON.stringify(updated)})`);
+  }
+  if (results[0].action === "rescheduled_exists" && results[1].action === "created") {
     ok("register24hCheckTasks: 結果配列のaction順序と内容が入力スケジュール順に対応する");
   } else {
     fail(`register24hCheckTasks: 結果配列のaction不一致 (${JSON.stringify(results)})`);

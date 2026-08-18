@@ -99,10 +99,6 @@ export function register24hCheckTasks(
     // 該当)を二重登録しないよう、旧名も既存チェックの対象に含める(Codexレビュー
     // 指摘対応、PR #102、10巡目、P2)。
     const legacyTaskName = legacyBuild24hCheckTaskName(post.content);
-    if (existsFn(taskName)) {
-      results.push({ taskName, content: post.content, action: "skipped_exists" });
-      continue;
-    }
 
     const { endISO } = compute24hWindow(post.publishedAtISO);
     const startBoundaryDate = new Date(new Date(endISO).getTime() + CORRELATION_GRACE_PERIOD_MS);
@@ -120,6 +116,19 @@ export function register24hCheckTasks(
       args,
       workingDirectory,
     });
+
+    if (existsFn(taskName)) {
+      // 新命名(hash付き)で既に登録済みのタスクも、トリガーを相関猶予期間込みの
+      // 正しい値へ上書きする(Codexレビュー指摘対応、PR #102、15巡目、P2)。この
+      // 登録スクリプトは何度でも安全に再実行できる設計のため、CORRELATION_GRACE_
+      // PERIOD_MSを導入した12巡目より前のリビジョンでhash付き名前のタスクが既に
+      // 作成されていた場合、再実行しても「既に存在するのでスキップ」のままだと
+      // 猶予期間無しの古いトリガーが残り続けてしまう(13巡目で旧命名のみ同種の
+      // 修正を行い、新命名側の同じ穴を見落としていた)。
+      updateFn(taskName, xml);
+      results.push({ taskName, content: post.content, action: "rescheduled_exists", runAt: startBoundaryDate.toISOString() });
+      continue;
+    }
 
     if (existsFn(legacyTaskName)) {
       // 旧命名で見つかった既存タスクは、削除もリネームもせず(タスク名は
