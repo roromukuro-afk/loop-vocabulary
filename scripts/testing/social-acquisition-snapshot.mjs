@@ -747,8 +747,25 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
   // 上でSetのsizeとして集計済み)と同じ「distinct visit単位」で揃えないと、
   // generatedRate等の分母・分子の単位が食い違い100%を超えるレートになったり、
   // insufficient-data判定の閾値比較が歪んだりする。
-  const funnelIdentitiesByEvent = {};
-  for (const name of FUNNEL_EVENTS) funnelIdentitiesByEvent[name] = new Set();
+  // funnelCounts/funnelCountsByContentは生の行数(event発生回数)のまま保つ
+  // (Codexレビュー指摘対応、PR #102、14巡目、P2): summarizeWindow()はこのPR以前から
+  // 存在する`audit:social-acquisition-snapshot`スクリプトが「シグネチャ・戻り値・
+  // console出力を変えない薄いラッパー」としてPR説明に明記した既存の集計ロジックで、
+  // funnelCounts(件数)はもともと行数ベースだった。distinct visit単位の集合は
+  // funnelRates.mjsのcohort intersection計算(rate計算)にのみ必要なため、
+  // funnelIdentitiesByContent(Set)はfunnelKeysByContent出力専用に残し、件数表示
+  // (funnelCounts/funnelCountsByContent)は別途、生の行数カウンタで独立に集計する。
+  const funnelRawCounts = {};
+  for (const name of FUNNEL_EVENTS) funnelRawCounts[name] = 0;
+  const funnelRawCountsByContent = new Map();
+  function bumpRawFunnelCountByContent(content, eventName) {
+    if (!funnelRawCountsByContent.has(content)) {
+      const init = {};
+      for (const name of FUNNEL_EVENTS) init[name] = 0;
+      funnelRawCountsByContent.set(content, init);
+    }
+    funnelRawCountsByContent.get(content)[eventName]++;
+  }
   const funnelIdentitiesByContent = new Map();
   function bumpFunnelByContent(content, eventName, key) {
     if (!funnelIdentitiesByContent.has(content)) {
@@ -791,19 +808,16 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
     if (isTestAccountVisit(r.anonymous_session_id, attr)) continue;
     if (FUNNEL_EVENTS.includes(r.event_name)) {
       const key = visitKey(r.anonymous_session_id, attr);
-      funnelIdentitiesByEvent[r.event_name].add(key);
-      if (matchesFilter(attr)) bumpFunnelByContent(attr.content, r.event_name, key);
+      funnelRawCounts[r.event_name]++;
+      if (matchesFilter(attr)) {
+        bumpFunnelByContent(attr.content, r.event_name, key);
+        bumpRawFunnelCountByContent(attr.content, r.event_name);
+      }
     }
     registerSocialUser(r);
   }
-  const funnelCounts = {};
-  for (const name of FUNNEL_EVENTS) funnelCounts[name] = funnelIdentitiesByEvent[name].size;
-  const funnelCountsByContent = new Map();
-  for (const [content, sets] of funnelIdentitiesByContent) {
-    const counts = {};
-    for (const name of FUNNEL_EVENTS) counts[name] = sets[name].size;
-    funnelCountsByContent.set(content, counts);
-  }
+  const funnelCounts = funnelRawCounts;
+  const funnelCountsByContent = funnelRawCountsByContent;
   // ウィンドウ境界をまたいでendISO直後に記録されたuser_id付き行(例:
   // signup_oauth_completedがOAuthラウンドトリップ/サーバーラウンドトリップの遅延で
   // endISOのわずか後に記録される)も、socialUserIds/earliestSocialVisitByUserの対象に
