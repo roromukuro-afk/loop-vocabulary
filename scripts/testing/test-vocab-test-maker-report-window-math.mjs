@@ -3,6 +3,7 @@
  * 使い方: node scripts/testing/test-vocab-test-maker-report-window-math.mjs
  */
 import { compute24hWindow, computeReportWindows, computeRate, addDaysToDateStr } from "../reporting/lib/windowMath.mjs";
+import { CAMPAIGN_WINDOW_ANCHOR_JST } from "../reporting/vocab-test-maker-7day-check.mjs";
 
 let failed = 0;
 function ok(msg) { console.log(`✅ ${msg}`); }
@@ -74,6 +75,25 @@ const ANCHOR = "2026-08-25";
       prior: { index: 0, startDateStr: "2026-08-25", endDateStrInclusive: "2026-08-31" },
     },
     "computeReportWindows: 2つ目の完全なウィンドウではpriorに1つ目のウィンドウが入る(period-over-period比較可能)",
+  );
+}
+
+// ---- CAMPAIGN_WINDOW_ANCHOR_JST(実際にvocab-test-maker-7day-check.mjsが使う値) ----
+// 回帰テスト(Codexレビュー指摘対応、PR #102、12巡目、P1): 起点をロールアウト終盤
+// (Instagram投稿予定日)ではなく、実際にX①が投稿されるキャンペーン開始日に
+// 揃え、ローンチ週([起点, 起点+7))が最初の完全なウィンドウとして必ず含まれる
+// ことを確認する。以前の起点(2026-08-25)だと最初の完全なウィンドウは
+// [2026-08-25, 2026-09-01)になり、実際に投稿が行われるローンチ週が
+// どのウィンドウにも一切含まれなかった。
+{
+  eq(CAMPAIGN_WINDOW_ANCHOR_JST, "2026-08-18", "CAMPAIGN_WINDOW_ANCHOR_JST: X①投稿日(キャンペーン開始日)が起点になっている");
+}
+{
+  const r = computeReportWindows(CAMPAIGN_WINDOW_ANCHOR_JST, "2026-08-25");
+  eq(
+    r,
+    { hasCompleteWindow: true, current: { index: 0, startDateStr: "2026-08-18", endDateStrInclusive: "2026-08-24" }, prior: null },
+    "CAMPAIGN_WINDOW_ANCHOR_JST: today=2026-08-25(週次タスクの初回実行日)で、実際にX①〜X③が投稿されるローンチ週[08-18,08-24]が最初の完全なウィンドウとして報告される",
   );
 }
 

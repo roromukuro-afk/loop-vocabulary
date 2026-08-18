@@ -28,11 +28,18 @@ import { writeReport } from "./lib/reportIO.mjs";
 import { CAMPAIGN, KNOWN_LAUNCH_CONTENT_KEYS } from "./social-launch-schedule.mjs";
 import { todayJST } from "../../src/lib/utils/date.ts";
 
-// キャンペーンの7日間ウィンドウ起点(JST暦日)。タスク指示に「2026-08-18から少なく
-// とも2026-08-25(Instagram投稿)まで投稿が続く」とあるため、ロールアウトの終盤に
-// 当たる2026-08-25を起点に採用する。起点をずらす必要が生じた場合はここだけを
-// 変更すればよい(下流はすべてこのanchorからの純粋な日数計算、windowMath.mjs参照)。
-export const CAMPAIGN_WINDOW_ANCHOR_JST = "2026-08-25";
+// キャンペーンの7日間ウィンドウ起点(JST暦日)。X①投稿日である2026-08-18
+// (キャンペーン開始日)を起点に採用する(Codexレビュー指摘対応、PR #102、
+// 12巡目、P1): 以前はロールアウト終盤の2026-08-25(Instagram投稿予定日)を
+// 起点にしていたが、その場合最初の完全な7日間ウィンドウは[2026-08-25,
+// 2026-09-01)となり、実際にX①〜X③が投稿されるローンチ週([2026-08-18,
+// 2026-08-25))が永久にどのウィンドウにも含まれなくなってしまっていた
+// (2026-08-25にタスクが初回実行されてもcomputeReportWindows()は
+// hasCompleteWindow=falseでno-opし、README.mdが述べる「2026-08-25の
+// 7日間チェックが完了する」という前提とも矛盾する)。起点をずらす必要が
+// 生じた場合はここだけを変更すればよい(下流はすべてこのanchorからの
+// 純粋な日数計算、windowMath.mjs参照)。
+export const CAMPAIGN_WINDOW_ANCHOR_JST = "2026-08-18";
 
 // レポートで明示的にゼロ埋め表示する既知のutm_content一覧。social-launch-schedule.mjs
 // のKNOWN_LAUNCH_CONTENT_KEYS(MARKETING_SOCIAL_LAUNCH_PACK_2026-08.mdで文書化済みの

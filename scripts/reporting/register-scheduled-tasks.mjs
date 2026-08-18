@@ -54,6 +54,17 @@ import {
   createScheduledTaskFromXml,
 } from "./lib/schtasksClient.mjs";
 
+// 投稿の24時間経過時刻(endISO)ちょうどに24hチェックタスクを実行すると、
+// summarizeWindowISO()のfetchFollowingActivityRows()が相関判定に使うendISO
+// 以降の行(OAuth/サーバーラウンドトリップ遅延によるsignup完了行、endISO
+// 直前のtest account認証等)が、スクリプト実行時点(asOf=まさにendISO)では
+// まだ1件も実際には発生し得ない(未来の時刻の行を「今」問い合わせても
+// 存在しないため)。この結果、signupが記録から漏れたり、test account紐付けが
+// 素通りしたりし得る(Codexレビュー指摘対応、PR #102、12巡目、P2)。
+// endISOから一定の猶予期間を空けてから実行することで、この種の遅延イベントが
+// 実際に発生・記録される時間を確保する。
+const CORRELATION_GRACE_PERIOD_MS = 60 * 60 * 1000; // 1時間
+
 const TWENTY_FOUR_H_CHECK_SCRIPT = "scripts/reporting/vocab-test-maker-24h-check.mjs";
 const SEVEN_DAY_CHECK_SCRIPT = "scripts/reporting/vocab-test-maker-7day-check.mjs";
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -97,7 +108,7 @@ export function register24hCheckTasks(
       continue;
     }
     const { endISO } = compute24hWindow(post.publishedAtISO);
-    const startBoundaryDate = new Date(endISO);
+    const startBoundaryDate = new Date(new Date(endISO).getTime() + CORRELATION_GRACE_PERIOD_MS);
     const args = [
       TWENTY_FOUR_H_CHECK_SCRIPT,
       `--content=${post.content}`,

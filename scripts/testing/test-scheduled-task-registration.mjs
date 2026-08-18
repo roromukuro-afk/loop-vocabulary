@@ -141,6 +141,15 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
   }
   if (results.every((r) => r.action === "created")) ok("register24hCheckTasks: 新規作成分はaction=createdを返す");
   else fail(`register24hCheckTasks: created以外のactionが返った (${JSON.stringify(results)})`);
+  // 回帰テスト(Codexレビュー指摘対応、PR #102、12巡目、P2): 実行時刻が投稿24時間後
+  // (endISO)ちょうどではなく、そこから1時間の相関猶予期間を空けた時刻になっている
+  // こと。publishedAtISO="2026-08-18T10:00:00.000Z"の24時間後はendISO=
+  // "2026-08-19T10:00:00.000Z"、さらに1時間後が期待されるrunAt。
+  if (results[0].runAt === "2026-08-19T11:00:00.000Z") {
+    ok("register24hCheckTasks: 実行時刻はendISOちょうどではなく1時間の相関猶予期間を空けている(遅延signup/test account紐付けの取りこぼし防止)");
+  } else {
+    fail(`register24hCheckTasks: 相関猶予期間が適用されていない (runAt=${results[0].runAt}, 期待値=2026-08-19T11:00:00.000Z)`);
+  }
 }
 {
   // 混在ケース: 一部だけ既存の場合、既存分はスキップ・未登録分だけ作成される(冪等性の核心)
