@@ -27,7 +27,8 @@
  *
  * 集計内容(直近7日 vs 前7日、JST基準・いずれも当日を含まず昨日までの完全な7日間同士を比較):
  *  - social landing識別数(distinct visit、LANDING_EVENT_NAMES基準:
- *    landing_view/vocab_test_maker_page_viewed/guide_viewのいずれか)の合計
+ *    landing_view/vocab_test_maker_page_viewed/guide_view/exam_countdown_page_viewedの
+ *    いずれか)の合計
  *  - source別(x/threads/instagram/tiktok/youtube/pinterest/facebook/line/other_social)
  *  - campaign別 / content別 / landing path別
  *  - social visitについて、以下のfunnel件数(可能な範囲で。行ごとに個別のvisit
@@ -68,8 +69,17 @@ export const FUNNEL_EVENTS = [
 // これだけを基準にすると、このIssue #98でまさに促進している/tools/vocab-test-maker
 // (vocab_test_maker_page_viewed)や/guide/*(guide_view)へ直接リンクしたSNS投稿の
 // landingがすべて0件に近くなり、集計そのものが実質トップページ限定になってしまう。
-// 3イベントいずれかを「このセッションのentry pointに到達した」証跡として扱う。
-const LANDING_EVENT_NAMES = ["landing_view", "vocab_test_maker_page_viewed", "guide_view"];
+// exam_countdown_page_viewedも同様の理由で追加(Codexレビュー指摘対応、PR #101):
+// /exam-countdown-plannerへSNSから直接ランディングした場合、このイベントは
+// FUNNEL_EVENTSには含まれていてもLANDING_EVENT_NAMESになければlanding識別数
+// (分母)に一切計上されず、funnel件数(分子)だけが積み上がる不整合になる。
+// これらのイベントいずれかを「このセッションのentry pointに到達した」証跡として扱う。
+const LANDING_EVENT_NAMES = [
+  "landing_view",
+  "vocab_test_maker_page_viewed",
+  "guide_view",
+  "exam_countdown_page_viewed",
+];
 
 // 同一visit内でのreload(track.tsのtrafficSourceDetectedFiredがハード再読み込みで
 // リセットされることによる、同一attributionのtraffic_source_detected再送)を1visitへ
