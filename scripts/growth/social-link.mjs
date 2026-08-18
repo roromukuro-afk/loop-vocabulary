@@ -41,6 +41,14 @@
  * をそれぞれ100文字で.slice()して記録するため、101文字目以降で初めて区別される
  * ような識別子を生成すると、実際に記録される値(切り詰め後)と生成したリンクの
  * 見た目上の値が食い違い、集計側で意図しない識別子どうしが同一視されてしまう。
+ *
+ * 区切り文字(ハイフン/アンダースコア)の連続・先頭・末尾も正規化する(Codexレビュー
+ * 指摘対応、4巡目): ハイフン→アンダースコア変換だけでは、"vocab--test-maker"
+ * (連続する区切り文字)・"vocab-test-maker"・"vocab__test_maker"がそれぞれ別の
+ * 正規化結果("vocab__test_maker" / "vocab_test_maker" / "vocab__test_maker")に
+ * なってしまい、依然として同じ論理的な識別子が別のcampaign/contentとして分裂して
+ * しまっていた。連続するアンダースコアは1つへ畳み込み、先頭・末尾のアンダースコアは
+ * 除去することで、区切り文字の書き方に関わらず単一の正規表現に収束させる。
  */
 import { pathToFileURL } from "node:url";
 
@@ -59,9 +67,17 @@ function normalizeIdentifier(paramName, rawValue) {
   // 大文字小文字はここで自動的に統一し(--source=Xと--source=xを同一視)、
   // ハイフンもアンダースコアへ正規化する(vocab-test-makerとvocab_test_makerを
   // 同一視し、区切り文字違いによる集計分裂を防ぐ。Codexレビュー指摘対応、2巡目)。
+  // さらに、連続するアンダースコアを1つへ畳み込み、先頭・末尾のアンダースコアを
+  // 除去することで、"vocab--test-maker"/"vocab-test-maker"/"vocab__test_maker"の
+  // ような表記ゆれも単一の正規化結果へ収束させる(Codexレビュー指摘対応、4巡目)。
   // それでもなお許容パターンに一致しない場合(空白・その他の記号・非ASCII文字等)は、
   // 自動変換で表記ゆれを吸収できないため明示的に拒否する。
-  const normalized = rawValue.trim().toLowerCase().replace(/-/g, "_");
+  const normalized = rawValue
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
   if (!IDENTIFIER_PATTERN.test(normalized)) {
     throw new Error(
       `--${paramName} は英数字・アンダースコア(またはハイフン、自動でアンダースコアへ変換されます)のみ` +

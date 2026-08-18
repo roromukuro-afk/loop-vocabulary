@@ -117,6 +117,36 @@ test("buildSocialLink: ハイフンとアンダースコアは同一の識別子
   assert.equal(withHyphens.fullUrl, withUnderscores.fullUrl);
 });
 
+test("buildSocialLink: 連続する区切り文字も1つへ畳み込まれ、同じ論理的な識別子に収束する(Codexレビュー指摘対応、4巡目)", () => {
+  // "vocab--test-maker"(連続ハイフン)・"vocab-test-maker"(単一ハイフン)・
+  // "vocab__test_maker"(連続アンダースコア)はいずれも同じ論理的な識別子だが、
+  // 単純なハイフン→アンダースコア置換だけでは"vocab__test_maker" /
+  // "vocab_test_maker" / "vocab__test_maker"という異なる結果になり、
+  // campaign/contentが分裂してしまっていた。
+  const doubleHyphen = buildSocialLink({ source: "x", campaign: "vocab--test-maker", content: "c", path: "/tools/vocab-test-maker" });
+  const singleHyphen = buildSocialLink({ source: "x", campaign: "vocab-test-maker", content: "c", path: "/tools/vocab-test-maker" });
+  const doubleUnderscore = buildSocialLink({ source: "x", campaign: "vocab__test_maker", content: "c", path: "/tools/vocab-test-maker" });
+  assert.equal(doubleHyphen.campaign, "vocab_test_maker");
+  assert.equal(singleHyphen.campaign, "vocab_test_maker");
+  assert.equal(doubleUnderscore.campaign, "vocab_test_maker");
+});
+
+test("buildSocialLink: 先頭・末尾の区切り文字は除去される(Codexレビュー指摘対応、4巡目)", () => {
+  const leading = buildSocialLink({ source: "x", campaign: "-vocab_test", content: "c", path: "/tools/vocab-test-maker" });
+  const trailing = buildSocialLink({ source: "x", campaign: "vocab_test-", content: "c", path: "/tools/vocab-test-maker" });
+  const both = buildSocialLink({ source: "x", campaign: "_vocab_test_", content: "c", path: "/tools/vocab-test-maker" });
+  assert.equal(leading.campaign, "vocab_test");
+  assert.equal(trailing.campaign, "vocab_test");
+  assert.equal(both.campaign, "vocab_test");
+});
+
+test("buildSocialLink: 区切り文字だけで構成される識別子(正規化後に空になる)は拒否される(Codexレビュー指摘対応、4巡目)", () => {
+  assert.throws(
+    () => buildSocialLink({ source: "x", campaign: "---", content: "c", path: "/tools/vocab-test-maker" }),
+    /campaign/,
+  );
+});
+
 test("buildSocialLink: 正規化後100文字を超える識別子は拒否される(track.tsの記録時切り詰めとの不一致防止、Codexレビュー指摘対応、3巡目)", () => {
   const ok100 = "a".repeat(100);
   const tooLong101 = "a".repeat(101);
