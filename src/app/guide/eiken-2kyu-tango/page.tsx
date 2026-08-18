@@ -237,6 +237,21 @@ export default function Eiken2KyuPage() {
           </div>
         </div>
 
+        {/* 学習計画ツール導線(8週間プランを自分の試験日に合わせて調整する) */}
+        <div className="bg-white rounded-2xl border border-sky-200 p-5">
+          <div className="text-[10px] font-bold text-sky-700 uppercase tracking-wider mb-1">Loop Vocabulary ツール</div>
+          <div className="text-sm font-bold text-navy-800 mb-2">自分の試験日から逆算して学習ペースを計算する</div>
+          <p className="text-xs text-navy-600 leading-relaxed mb-3">
+            上の8週間プランはあくまで一例です。試験日と覚えたい単語数を入力すると、今日から試験日までの1日あたりの学習語数を無料で自動計算できます。
+          </p>
+          <Link
+            href="/exam-countdown-planner"
+            className="inline-block bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors"
+          >
+            学習計画を立てる →
+          </Link>
+        </div>
+
         {/* 語彙攻略のコツ */}
         <div className="bg-white rounded-2xl border border-navy-100 p-5">
           <h2 className="font-black text-navy-800 mb-4">語彙問題を攻略する4つのコツ</h2>
@@ -314,6 +329,10 @@ export default function Eiken2KyuPage() {
           <Link href="/vocab-check/eiken" className="bg-white rounded-2xl border border-navy-100 p-4 hover:shadow-sm transition-shadow">
             <div className="text-lg mb-1">📋</div>
             <div className="font-bold text-navy-800 text-sm">英検語彙チェック（無料）</div>
+          </Link>
+          <Link href="/exam-countdown-planner" className="bg-white rounded-2xl border border-navy-100 p-4 hover:shadow-sm transition-shadow">
+            <div className="text-lg mb-1">🗓️</div>
+            <div className="font-bold text-navy-800 text-sm">試験日から逆算する学習計画メーカー</div>
           </Link>
         </div>
       </div>

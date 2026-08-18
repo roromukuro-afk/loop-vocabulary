@@ -185,6 +185,21 @@ export default function EikenJun1Page() {
           </div>
         </div>
 
+        {/* 学習計画ツール導線(10週間プランを自分の試験日に合わせて調整する) */}
+        <div className="bg-white rounded-2xl border border-violet-200 p-5">
+          <div className="text-[10px] font-bold text-violet-700 uppercase tracking-wider mb-1">Loop Vocabulary ツール</div>
+          <div className="text-sm font-bold text-navy-800 mb-2">自分の試験日から逆算して学習ペースを計算する</div>
+          <p className="text-xs text-navy-600 leading-relaxed mb-3">
+            上の10週間プランはあくまで一例です。試験日と覚えたい単語数を入力すると、今日から試験日までの1日あたりの学習語数を無料で自動計算できます。
+          </p>
+          <Link
+            href="/exam-countdown-planner"
+            className="inline-block bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors"
+          >
+            学習計画を立てる →
+          </Link>
+        </div>
+
         {/* SRS × AI 活用法 */}
         <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-2xl p-5">
           <h2 className="font-black text-navy-800 mb-3">Loop Vocabulary で準1級語彙を攻略する</h2>
@@ -242,6 +257,7 @@ export default function EikenJun1Page() {
               { href: "/guide/eiken-2kyu-tango", tag: "英検", title: "英検2級 単語対策【頻出テーマ別】" },
               { href: "/guide/eiken-jun2-tango", tag: "英検", title: "英検準2級 単語対策【合格への最短ルート】" },
               { href: "/guide/toeic-tango", tag: "TOEIC", title: "TOEIC頻出単語・語彙対策【スコア別必須リスト】" },
+              { href: "/exam-countdown-planner", tag: "学習計画", title: "試験日から逆算する学習計画メーカー（無料ツール）" },
             ].map((r) => (
               <Link key={r.href} href={r.href} className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
                 <div className="text-[11px] text-sky-600 font-semibold mb-0.5">{r.tag}</div>

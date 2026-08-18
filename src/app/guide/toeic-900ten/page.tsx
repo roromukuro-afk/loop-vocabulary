@@ -173,6 +173,21 @@ export default function Toeic900TenPage() {
           </div>
         ))}
 
+        {/* 学習計画ツール導線 */}
+        <div className="bg-white rounded-2xl border border-amber-200 p-5">
+          <div className="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-1">Loop Vocabulary ツール</div>
+          <div className="text-sm font-bold text-navy-800 mb-2">自分の試験日から逆算して学習ペースを計算する</div>
+          <p className="text-xs text-navy-600 leading-relaxed mb-3">
+            上のロードマップは目安期間の一例です。実際の受験日と覚えたい単語数を入力すると、今日から受験日までの1日あたりの学習語数を無料で自動計算できます。
+          </p>
+          <Link
+            href="/exam-countdown-planner"
+            className="inline-block bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors"
+          >
+            学習計画を立てる →
+          </Link>
+        </div>
+
         {/* パート別攻略 */}
         <h2 className="font-black text-navy-800 text-lg px-1">パート別 900点攻略ポイント</h2>
         <ExamInfoDisclaimer kind="toeic" />
@@ -264,6 +279,10 @@ export default function Toeic900TenPage() {
           <Link href="/guide" className="bg-white rounded-2xl border border-navy-100 p-4 hover:shadow-sm transition-shadow">
             <div className="text-lg mb-1">📚</div>
             <div className="font-bold text-navy-800 text-sm">学習ガイド一覧</div>
+          </Link>
+          <Link href="/exam-countdown-planner" className="bg-white rounded-2xl border border-navy-100 p-4 hover:shadow-sm transition-shadow">
+            <div className="text-lg mb-1">🗓️</div>
+            <div className="font-bold text-navy-800 text-sm">試験日から逆算する学習計画メーカー</div>
           </Link>
         </div>
 

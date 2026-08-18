@@ -82,6 +82,17 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   // という事実のみを表す名前・propertiesにする(methodはweb_share/copy_linkのみ)。
   vocab_test_maker_share_invoked: { category: "acquisition", properties: { method: "string" } },
 
+  // ── 試験日から逆算する学習計画メーカー(/exam-countdown-planner、no-login公開ツール) ──
+  // ExamCountdownPlanner.tsxのGA4専用trackToolStarted/trackToolCompleted(tool_key固定)
+  // とは別に、first-party Growth OS側でもファネルを追跡するために追加する。
+  exam_countdown_page_viewed: { category: "acquisition", properties: {} },
+  // exam_countdown_generated: 試験日・単語数の両方が有効な値になり、plan(useMemo)が
+  // 実際に計算された最初の1回だけ発火する(vocab_test_maker_generatedと同じ、
+  // 入力し直すたびの再発火は避ける方針)。days_remainingは自由記述ではなく
+  // daysUntil()が返す非負整数のみのため、個人情報を含まない集計向け値として許可する。
+  exam_countdown_generated: { category: "acquisition", properties: { days_remaining: "number" } },
+  exam_countdown_srs_cta_clicked: { category: "acquisition", properties: {} },
+
   // ── 語彙力チェック ─────────────────────────────────────
   // vocab_check_page_viewed: GA4側のvocab_check_view(トップ表示)に対応。診断を開始せず
   // 離脱したユーザーもGrowth OS側で捕捉できるようにする(以前はstartedのみで欠落していた)。
