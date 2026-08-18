@@ -25,8 +25,19 @@
  * --working-dir を省略した場合、このスクリプト自身が置かれているチェックアウトの
  * リポジトリルート(REPO_ROOT)を使う。Scheduled Taskは実行時にそのディレクトリを
  * カレントディレクトリとして起動するため、そこに scripts/reporting/*.mjs が実際に
- * 存在している必要がある(= gitでpush/pullが完了した後の永続的なチェックアウトの
- * パスを指定すること。一時的なworktreeを指定しないこと)。
+ * 存在している必要がある。
+ *
+ * 重要: 指定するパスは「このPRの内容が実際に存在し続ける、削除されないチェックアウト」
+ * でなければならない。以下のどちらかであること:
+ *   (a) このブランチがmainへマージ済みで、mainを指す永続的なチェックアウト、または
+ *   (b) `git worktree add <安定パス> <このブランチ>` で作成した、専用の・自動削除
+ *       されない安定worktree(例: C:\Users\rorom\loop-vocabulary-<name> のような
+ *       他の長期運用worktreeと同じ命名パターンの兄弟ディレクトリ)。
+ *
+ * `.claude/worktrees/agent-*` のようなエージェント一時worktree配下は、エージェント
+ * セッション終了時にクリーンアップされる可能性があるため絶対に指定しないこと
+ * (2026-08-18: 実際にこれが原因でタスクがmainの古いチェックアウトを指すよう誤登録
+ * された事例があり、`git worktree move` で安定パスへ退避して修正した)。
  */
 import { fileURLToPath } from "node:url";
 import { REPO_ROOT } from "../testing/lib/env.mjs";
