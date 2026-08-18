@@ -25,7 +25,7 @@ import { fetchTestAccountIds, summarizeWindow, FUNNEL_EVENTS } from "../testing/
 import { computeReportWindows, MIN_SAMPLE_SIZE_FOR_RATE } from "./lib/windowMath.mjs";
 import { buildFunnelRates } from "./lib/funnelRates.mjs";
 import { writeReport } from "./lib/reportIO.mjs";
-import { CAMPAIGN } from "./social-launch-schedule.mjs";
+import { CAMPAIGN, KNOWN_LAUNCH_CONTENT_KEYS } from "./social-launch-schedule.mjs";
 import { todayJST } from "../../src/lib/utils/date.ts";
 
 // キャンペーンの7日間ウィンドウ起点(JST暦日)。タスク指示に「2026-08-18から少なく
@@ -34,20 +34,16 @@ import { todayJST } from "../../src/lib/utils/date.ts";
 // 変更すればよい(下流はすべてこのanchorからの純粋な日数計算、windowMath.mjs参照)。
 export const CAMPAIGN_WINDOW_ANCHOR_JST = "2026-08-25";
 
-// レポートで明示的にゼロ埋め表示する既知のutm_content一覧(このキャンペーンの
-// 7投稿)。実際にlandingが無いcontentはそのままrateがinsufficient dataとして
+// レポートで明示的にゼロ埋め表示する既知のutm_content一覧。social-launch-schedule.mjs
+// のKNOWN_LAUNCH_CONTENT_KEYS(MARKETING_SOCIAL_LAUNCH_PACK_2026-08.mdで文書化済みの
+// 8本)を単一の正として再利用する(Codexレビュー指摘対応、PR #102、8巡目、P2: 以前は
+// このファイル独自に7件の一覧を持っており、文書化されていないutm_contentを含む一方で
+// 文書化済みの3本(tiktok_launch_01/youtube_launch_01/instagram_launch_01)を
+// 欠落させていた)。実際にlandingが無いcontentはそのままrateがinsufficient dataとして
 // 表示される。summarizeWindow() が返すbyContent/funnelCountsByContentには無い
 // 未知のcontentキー(この一覧に無いもの)も、集計結果に含まれていれば
 // 別途マージして表示する(下記allContentKeys参照)。
-const KNOWN_CONTENT_KEYS = [
-  "x_launch_01",
-  "x_launch_02",
-  "x_launch_03",
-  "ig_feed_launch",
-  "ig_story_launch",
-  "threads_launch_01",
-  "threads_launch_02",
-];
+const KNOWN_CONTENT_KEYS = KNOWN_LAUNCH_CONTENT_KEYS;
 
 function buildRatesByKey(landingKeysByKey, funnelKeysByKey, signupKeysByKey, keys, minSample) {
   const out = {};

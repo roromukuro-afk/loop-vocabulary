@@ -20,6 +20,7 @@
  *     --content=ig_feed_launch --published-at=2026-08-25T00:00:00.000Z --source=instagram
  */
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 import { loadEnv, requireEnv } from "../testing/lib/env.mjs";
 import { getAdminClient } from "../testing/lib/supabaseAdmin.mjs";
 import { fetchTestAccountIds, summarizeWindowISO } from "../testing/social-acquisition-snapshot.mjs";
@@ -28,6 +29,22 @@ import { buildFunnelRates } from "./lib/funnelRates.mjs";
 import { writeReport } from "./lib/reportIO.mjs";
 import { KNOWN_LAUNCH_SCHEDULE, CAMPAIGN } from "./social-launch-schedule.mjs";
 import { todayJST } from "../../src/lib/utils/date.ts";
+
+/**
+ * 任意の--contentをレポートファイル名の一部として安全に使えるよう丸める
+ * (Codexレビュー指摘対応、PR #102、8巡目、P2): このスクリプトはカスタム投稿の
+ * --contentをコマンドライン引数からそのまま受け取る設計のため、"ig feed/launch:1"
+ * のような値だとbaseNameへの生埋め込みが"/"で意図しないサブディレクトリを作り、
+ * ":"はWindowsで不正なパス文字になる。".."を含む値はreports/vocab-test-maker-launch/
+ * の外へ書き出し先を移動させ得る(パストラバーサル)。schtasksClient.mjsの
+ * sanitizeForTaskName()/contentHashSuffix()と同じ設計(安全な文字集合への丸め+
+ * 元contentからの短いhashサフィックスでサニタイズ後衝突を回避)をここでも使う。
+ */
+export function sanitizeForFilename(value) {
+  const safe = String(value).replace(/[^A-Za-z0-9_-]/g, "_");
+  const hash = createHash("sha256").update(String(value)).digest("hex").slice(0, 8);
+  return `${safe}-${hash}`;
+}
 
 const EMPTY_FUNNEL_COUNTS = {
   vocab_test_maker_page_viewed: 0,
@@ -199,7 +216,7 @@ async function main() {
     "(read-only, DELETE/UPDATEは実行していません)",
   ];
 
-  const baseName = `vocab-test-maker-24h-check-${content}-${todayJST()}`;
+  const baseName = `vocab-test-maker-24h-check-${sanitizeForFilename(content)}-${todayJST()}`;
   const { jsonPath, summaryPath } = writeReport(baseName, report, `${summaryLines.join("\n")}\n`);
 
   console.log(summaryLines.join("\n"));

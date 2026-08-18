@@ -3,7 +3,7 @@
  * (parseArgs/resolvePostConfig、DBアクセスなし)の単体テスト。
  * 使い方: node scripts/testing/test-vocab-test-maker-24h-check-args.mjs
  */
-import { parseArgs, resolvePostConfig, buildFilterAttr } from "../reporting/vocab-test-maker-24h-check.mjs";
+import { parseArgs, resolvePostConfig, buildFilterAttr, sanitizeForFilename } from "../reporting/vocab-test-maker-24h-check.mjs";
 
 let failed = 0;
 function ok(msg) { console.log(`✅ ${msg}`); }
@@ -84,6 +84,34 @@ const knownSchedule = [{ content: "x_launch_01", source: "x", publishedAtISO: "2
   } else {
     fail(`buildFilterAttr: source不明時の結果が不正 (${JSON.stringify(attr)})`);
   }
+}
+
+// ---- sanitizeForFilename(Codexレビュー指摘対応、PR #102、8巡目、P2) ----
+{
+  const name = sanitizeForFilename("ig feed/launch:1");
+  if (/^[A-Za-z0-9_-]+$/.test(name)) {
+    ok("sanitizeForFilename: 記号(スペース・スラッシュ・コロン)を含むcontentも安全な文字集合へ丸められる");
+  } else {
+    fail(`sanitizeForFilename: サニタイズが不十分 (${name})`);
+  }
+}
+{
+  // パストラバーサル対策: ".."を含む値がreports/vocab-test-maker-launch/の外を
+  // 指す文字列にならないこと(スラッシュ・ドットが安全な文字集合から除外される)。
+  const name = sanitizeForFilename("../../etc/passwd");
+  if (!name.includes("..") && !name.includes("/")) {
+    ok("sanitizeForFilename: パストラバーサル文字列(../..)が安全な文字列へ丸められる");
+  } else {
+    fail(`sanitizeForFilename: パストラバーサル対策が不十分 (${name})`);
+  }
+}
+{
+  // サニタイズ後に衝突する異なるcontentどうしも、hashサフィックスにより
+  // 別のファイル名になる(schtasksClient.mjsのcontentHashSuffix()と同じ設計)。
+  const a = sanitizeForFilename("ig feed/launch:1");
+  const b = sanitizeForFilename("ig_feed_launch_1");
+  if (a !== b) ok("sanitizeForFilename: サニタイズ後に衝突する異なるcontentどうしは別のファイル名になる");
+  else fail(`sanitizeForFilename: サニタイズ後衝突するcontentが同じファイル名になった (${a})`);
 }
 
 console.log(failed ? `\n=== test:vocab-test-maker-24h-check-args: ${failed}件失敗 ===` : "\n=== test:vocab-test-maker-24h-check-args RESULT: all checks passed ===");
