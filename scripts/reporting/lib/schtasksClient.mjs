@@ -47,6 +47,19 @@ export function build24hCheckTaskName(content) {
   return `${TASK_NAME_PREFIX}-24hCheck-${sanitizeForTaskName(content)}-${contentHashSuffix(content)}`;
 }
 
+/**
+ * hashサフィックス導入前(6巡目より前)の命名規則。Windows実機に
+ * "LoopVocab-VTM-24hCheck-x_launch_01"(hashサフィックス無し)が既に登録済みの
+ * ため、build24hCheckTaskName()だけでscheduledTaskExists()を判定すると、
+ * 新しいhash付き名前は「存在しない」と判定されて二重登録してしまう
+ * (Codexレビュー指摘対応、PR #102、10巡目、P2): 二重登録されると新旧2つの
+ * タスクが同じ投稿の24hチェックを実行し、同じレポートファイルへ競合して
+ * 書き込み得る。register24hCheckTasks()はこの旧名も既存チェックの対象に含める。
+ */
+export function legacyBuild24hCheckTaskName(content) {
+  return `${TASK_NAME_PREFIX}-24hCheck-${sanitizeForTaskName(content)}`;
+}
+
 export const SEVEN_DAY_CHECK_TASK_NAME = `${TASK_NAME_PREFIX}-7dayCheck`;
 
 /** 指定タスク名がWindows Scheduled Taskとして既に存在するかを確認する(read-only)。 */

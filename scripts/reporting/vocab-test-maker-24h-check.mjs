@@ -78,8 +78,14 @@ export function resolvePostConfig(args, knownSchedule = KNOWN_LAUNCH_SCHEDULE) {
   let source = args.source;
   const campaign = args.campaign || CAMPAIGN;
 
+  // KNOWN_LAUNCH_SCHEDULEの検索は、--published-atが明示されているかどうかに
+  // 関わらず常に行う(Codexレビュー指摘対応、PR #102、10巡目、P2): 以前は
+  // --published-atが省略された場合にしか検索しておらず、既知の投稿(例:
+  // x_launch_01)の発行時刻を訂正するために--published-atだけを明示して
+  // --sourceを省略すると、既知のsource("x")まで丸ごと失われ、campaignのみで
+  // 絞り込む挙動になっていた。
+  const known = knownSchedule.find((e) => e.content === content);
   if (!publishedAtISO) {
-    const known = knownSchedule.find((e) => e.content === content);
     if (!known) {
       throw new Error(
         `--published-at が指定されておらず、"${content}" は social-launch-schedule.mjs の ` +
@@ -87,7 +93,9 @@ export function resolvePostConfig(args, knownSchedule = KNOWN_LAUNCH_SCHEDULE) {
       );
     }
     publishedAtISO = known.publishedAtISO;
-    source = source || known.source;
+  }
+  if (!source && known) {
+    source = known.source;
   }
   if (Number.isNaN(Date.parse(publishedAtISO))) {
     throw new Error(`--published-at の値が不正なISO8601日時ではありません: ${publishedAtISO}`);

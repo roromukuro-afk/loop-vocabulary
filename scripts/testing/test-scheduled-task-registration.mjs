@@ -4,7 +4,7 @@
  * 実際のschtasks.exeは一切呼ばない(existsFn/createFnをDIで差し替える)。
  * 使い方: node scripts/testing/test-scheduled-task-registration.mjs
  */
-import { build24hCheckTaskName, SEVEN_DAY_CHECK_TASK_NAME, buildOnceTaskXml, buildWeeklyTaskXml } from "../reporting/lib/schtasksClient.mjs";
+import { build24hCheckTaskName, legacyBuild24hCheckTaskName, SEVEN_DAY_CHECK_TASK_NAME, buildOnceTaskXml, buildWeeklyTaskXml } from "../reporting/lib/schtasksClient.mjs";
 import { register24hCheckTasks, register7dayCheckTask } from "../reporting/register-scheduled-tasks.mjs";
 
 let failed = 0;
@@ -160,6 +160,28 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
     ok("register24hCheckTasks: 結果配列のaction順序と内容が入力スケジュール順に対応する");
   } else {
     fail(`register24hCheckTasks: 結果配列のaction不一致 (${JSON.stringify(results)})`);
+  }
+}
+{
+  // 回帰テスト(Codexレビュー指摘対応、PR #102、10巡目、P2): hashサフィックス
+  // 導入前の旧命名(legacyBuild24hCheckTaskName、実機ではx_launch_01がこれで
+  // 既に登録済み)で既に存在するタスクを、新しいhash付き名前で二重登録しない
+  // こと。existsFnは新名(hash付き)では"存在しない"を返すが、旧名では
+  // "存在する"を返すよう設定する。
+  const schedule = [{ content: "x_launch_01", source: "x", publishedAtISO: "2026-08-18T10:00:00.000Z" }];
+  const legacyName = legacyBuild24hCheckTaskName("x_launch_01");
+  const existsFn = (name) => name === legacyName;
+  let createCalls = 0;
+  const results = register24hCheckTasks("C:\\repo", "C:\\node.exe", existsFn, () => { createCalls++; }, schedule);
+  if (createCalls === 0) {
+    ok("register24hCheckTasks: 旧命名(hashサフィックス無し)で既に登録済みのタスクは、新しいhash付き名前で二重登録されない");
+  } else {
+    fail(`register24hCheckTasks: 旧命名の既存タスクを見逃して二重登録した (createCalls=${createCalls})`);
+  }
+  if (results[0].action === "skipped_exists_legacy_name" && results[0].taskName === legacyName) {
+    ok("register24hCheckTasks: 旧命名で見つかった場合はaction=skipped_exists_legacy_nameとその旧タスク名を返す");
+  } else {
+    fail(`register24hCheckTasks: 旧命名検出時の結果が不正 (${JSON.stringify(results)})`);
   }
 }
 {

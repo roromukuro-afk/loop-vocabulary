@@ -47,6 +47,22 @@ const knownSchedule = [{ content: "x_launch_01", source: "x", publishedAtISO: "2
   }
 }
 {
+  // 回帰テスト(Codexレビュー指摘対応、PR #102、10巡目、P2): 既知の投稿の
+  // 発行時刻だけを--published-atで訂正し、--sourceを省略した場合でも、
+  // KNOWN_LAUNCH_SCHEDULEの既知sourceが失われず引き継がれること。以前は
+  // --published-atが明示されるとKNOWN_LAUNCH_SCHEDULEの検索自体が丸ごと
+  // スキップされ、sourceがnullになっていた。
+  const cfg = resolvePostConfig(
+    { content: "x_launch_01", "published-at": "2026-08-18T11:00:00.000Z" },
+    knownSchedule,
+  );
+  if (cfg.publishedAtISO === "2026-08-18T11:00:00.000Z" && cfg.source === "x") {
+    ok("resolvePostConfig: --published-atだけを訂正しても既知のsourceは引き継がれる(丸ごとフィルタ無しへ劣化しない)");
+  } else {
+    fail(`resolvePostConfig: --published-at訂正時のsource引き継ぎが不正 (${JSON.stringify(cfg)})`);
+  }
+}
+{
   let threw = false;
   try { resolvePostConfig({}, knownSchedule); } catch { threw = true; }
   if (threw) ok("resolvePostConfig: --contentが無ければ例外を投げる");

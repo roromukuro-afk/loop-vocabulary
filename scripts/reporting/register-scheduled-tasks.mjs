@@ -47,6 +47,7 @@ import { compute24hWindow } from "./lib/windowMath.mjs";
 import {
   scheduledTaskExists,
   build24hCheckTaskName,
+  legacyBuild24hCheckTaskName,
   SEVEN_DAY_CHECK_TASK_NAME,
   buildOnceTaskXml,
   buildWeeklyTaskXml,
@@ -81,8 +82,18 @@ export function register24hCheckTasks(
   const results = [];
   for (const post of schedule) {
     const taskName = build24hCheckTaskName(post.content);
+    // hashサフィックス導入前の旧命名で既に登録済みの投稿(実機ではx_launch_01が
+    // 該当)を二重登録しないよう、旧名も既存チェックの対象に含める(Codexレビュー
+    // 指摘対応、PR #102、10巡目、P2)。旧名で見つかった場合はその旧名をそのまま
+    // 「既存タスク」として報告する(新しいhash付き名前へ移行(rename)はしない —
+    // このスクリプトは既存タスクの削除・変更を一切行わない設計のため)。
+    const legacyTaskName = legacyBuild24hCheckTaskName(post.content);
     if (existsFn(taskName)) {
       results.push({ taskName, content: post.content, action: "skipped_exists" });
+      continue;
+    }
+    if (existsFn(legacyTaskName)) {
+      results.push({ taskName: legacyTaskName, content: post.content, action: "skipped_exists_legacy_name" });
       continue;
     }
     const { endISO } = compute24hWindow(post.publishedAtISO);
