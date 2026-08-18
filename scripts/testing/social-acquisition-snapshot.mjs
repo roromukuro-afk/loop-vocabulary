@@ -52,6 +52,13 @@ const FUNNEL_EVENTS = [
   "vocab_test_maker_saved_to_wordbook",
   "guide_view",
   "guide_cta_click",
+  // exam-countdown-planner(Issue #100)のfunnel。eventSchema.tsには元々登録済み
+  // だったが、この集計スクリプトのFUNNEL_EVENTSに含まれていなかったため、
+  // social起点の本番visitがraw rowとしては記録されてもここでは可視化されなかった
+  // (Codexレビュー指摘対応、PR #101)。
+  "exam_countdown_page_viewed",
+  "exam_countdown_generated",
+  "exam_countdown_srs_cta_clicked",
 ];
 
 // "landing"とみなすイベント名の集合(Codexレビュー指摘対応)。landing_viewは

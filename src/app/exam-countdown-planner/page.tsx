@@ -9,7 +9,11 @@ const PAGE_URL = `${SITE_URL}/exam-countdown-planner`;
 
 // 「試験日から逆算」という文脈と相性が良い、明確な試験区分を持つ教材カテゴリのみに絞る
 // (ビジネス英語・一般語彙のように「試験日」が存在しないカテゴリは対象外)。
-const EXAM_TYPES_FOR_SELECTOR = ["英検", "TOEIC", "大学受験", "高校入試"];
+// 共通テストもsupabase/seed_ctest.sqlで公開・承認済み教材として3件提供されており、
+// src/app/materials/page.tsxでも大学受験系カテゴリとして扱われているため含める
+// (Codexレビュー指摘対応: 以前はここに含まれておらず、共通テスト向け教材を使う
+// ユーザーがこのセレクタで自分の教材を選べなかった)。
+const EXAM_TYPES_FOR_SELECTOR = ["英検", "TOEIC", "大学受験", "高校入試", "共通テスト"];
 
 export const metadata: Metadata = {
   title: "試験日から逆算する学習計画メーカー【無料】1日の単語数を自動計算 | Loop Vocabulary",
