@@ -35,6 +35,12 @@
  * "vocab-test-maker"のように別表記で入力すると、集計側では別のcampaign/content
  * として分裂してしまっていた。ハイフンはアンダースコアへ正規化した上で、
  * 英数字・アンダースコアのみへ強制する(大文字は自動で小文字化)。
+ *
+ * 正規化後の値が100文字を超える場合は拒否する(Codexレビュー指摘対応、3巡目):
+ * src/lib/analytics/track.tsのdetectTrafficSource()がutm_source/campaign/content
+ * をそれぞれ100文字で.slice()して記録するため、101文字目以降で初めて区別される
+ * ような識別子を生成すると、実際に記録される値(切り詰め後)と生成したリンクの
+ * 見た目上の値が食い違い、集計側で意図しない識別子どうしが同一視されてしまう。
  */
 import { pathToFileURL } from "node:url";
 
@@ -44,6 +50,10 @@ const FIXED_MEDIUM = "social";
 // source/campaign/contentの許容パターン(小文字英数字・アンダースコアのみ)。
 // 既に小文字化・ハイフン→アンダースコア正規化・trim済みの値に対して適用する。
 const IDENTIFIER_PATTERN = /^[a-z0-9_]+$/;
+
+// src/lib/analytics/track.tsのdetectTrafficSource()が実際に記録時に適用する
+// 切り詰め長と一致させる(そちらを変更した場合はここも合わせて変更すること)。
+const MAX_IDENTIFIER_LENGTH = 100;
 
 function normalizeIdentifier(paramName, rawValue) {
   // 大文字小文字はここで自動的に統一し(--source=Xと--source=xを同一視)、
@@ -56,6 +66,12 @@ function normalizeIdentifier(paramName, rawValue) {
     throw new Error(
       `--${paramName} は英数字・アンダースコア(またはハイフン、自動でアンダースコアへ変換されます)のみ` +
         `使用できます(空白・その他の記号・非ASCII文字等は使用できません): ${rawValue}`,
+    );
+  }
+  if (normalized.length > MAX_IDENTIFIER_LENGTH) {
+    throw new Error(
+      `--${paramName} は正規化後${MAX_IDENTIFIER_LENGTH}文字以内である必要があります(track.tsの記録時` +
+        `切り詰めと不一致になるため): ${normalized.length}文字 "${normalized}"`,
     );
   }
   return normalized;

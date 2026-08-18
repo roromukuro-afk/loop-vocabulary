@@ -117,6 +117,18 @@ test("buildSocialLink: ハイフンとアンダースコアは同一の識別子
   assert.equal(withHyphens.fullUrl, withUnderscores.fullUrl);
 });
 
+test("buildSocialLink: 正規化後100文字を超える識別子は拒否される(track.tsの記録時切り詰めとの不一致防止、Codexレビュー指摘対応、3巡目)", () => {
+  const ok100 = "a".repeat(100);
+  const tooLong101 = "a".repeat(101);
+  // ちょうど100文字は許可される(track.tsの.slice(0, 100)と一致する境界)。
+  const result = buildSocialLink({ source: "x", campaign: ok100, content: "c", path: "/tools/vocab-test-maker" });
+  assert.equal(result.campaign, ok100);
+  assert.throws(
+    () => buildSocialLink({ source: "x", campaign: tooLong101, content: "c", path: "/tools/vocab-test-maker" }),
+    /100文字以内/,
+  );
+});
+
 test("buildSocialLink: campaign/contentに空白等の非許容文字が含まれると拒否される(表記ゆれ防止、Codexレビュー指摘対応)", () => {
   assert.throws(
     () => buildSocialLink({ source: "x", campaign: "c a mp", content: "id1", path: "/tools/vocab-test-maker" }),
