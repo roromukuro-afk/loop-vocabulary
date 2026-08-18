@@ -24,6 +24,16 @@
 - [HANDOFF.md](HANDOFF.md) — 次セッションへの申し送り・現在ステータス
 - [WORK_HISTORY.md](WORK_HISTORY.md) — 時系列の作業ログ
 
+### SNS投稿用UTMリンク生成（Issue #97）
+
+```
+npm run growth:social-link -- --source=x --campaign=vocab-test-maker --content=quiz-001 --path=/tools/vocab-test-maker
+```
+
+`utm_source`/`utm_medium`(既定値`social`)/`utm_campaign`/`utm_content` を付与した完成URLを
+表示するだけの内部ヘルパー。外部SNSへの自動投稿・DB書き込みは一切行わない。詳細は
+`scripts/growth/social-link.mjs` のコメントを参照。
+
 ---
 
 ## 1. 機能
