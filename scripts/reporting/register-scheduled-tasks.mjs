@@ -70,6 +70,16 @@ const TWENTY_FOUR_H_CHECK_SCRIPT = "scripts/reporting/vocab-test-maker-24h-check
 const SEVEN_DAY_CHECK_SCRIPT = "scripts/reporting/vocab-test-maker-7day-check.mjs";
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+// hashサフィックス導入前(6巡目より前)に実際にlegacy命名で登録されたことが判明している
+// contentの明示allowlist(実機ではx_launch_01のみ)。legacyBuild24hCheckTaskName()は
+// sanitizeForTaskName()の丸め込みしか行わずhashを含まないため、無制限にlegacy名一致を
+// 「この投稿の旧タスクだ」と信じると、たまたまsanitize後に同じ文字列へ丸まる別の
+// content(例: "ig feed/launch:1"と"ig_feed_launch_1")が後から登録された際、既存の
+// 別投稿のlegacyタスクを誤って上書きし得る(Codexレビュー指摘対応、PR #102、16巡目、
+// P2)。legacy名一致による移行は、実際にlegacy命名で登録されたと判明しているこの
+// allowlistのcontentに限定する。
+const KNOWN_LEGACY_NAMED_CONTENTS = ["x_launch_01"];
+
 export function parseArgs(argv) {
   const out = {};
   for (const arg of argv) {
@@ -97,8 +107,12 @@ export function register24hCheckTasks(
     const taskName = build24hCheckTaskName(post.content);
     // hashサフィックス導入前の旧命名で既に登録済みの投稿(実機ではx_launch_01が
     // 該当)を二重登録しないよう、旧名も既存チェックの対象に含める(Codexレビュー
-    // 指摘対応、PR #102、10巡目、P2)。
+    // 指摘対応、PR #102、10巡目、P2)。legacy名一致の当てはめは、実際にlegacy命名で
+    // 登録されたと判明しているKNOWN_LEGACY_NAMED_CONTENTSのcontentに限定する
+    // (16巡目、P2: 制限しないとsanitize後衝突する無関係な別contentを誤って
+    // 「この投稿の旧タスクだ」と信じてしまう)。
     const legacyTaskName = legacyBuild24hCheckTaskName(post.content);
+    const legacyEligible = KNOWN_LEGACY_NAMED_CONTENTS.includes(post.content);
 
     const { endISO } = compute24hWindow(post.publishedAtISO);
     const startBoundaryDate = new Date(new Date(endISO).getTime() + CORRELATION_GRACE_PERIOD_MS);
@@ -109,13 +123,8 @@ export function register24hCheckTasks(
       `--source=${post.source}`,
       `--campaign=${CAMPAIGN}`,
     ];
-    const xml = buildOnceTaskXml({
-      description: `Loop Vocabulary: vocab_test_maker_launch 24h check for ${post.content} (read-only, no DB writes)`,
-      startBoundaryDate,
-      command: nodeCommand,
-      args,
-      workingDirectory,
-    });
+    const description = `Loop Vocabulary: vocab_test_maker_launch 24h check for ${post.content} (read-only, no DB writes)`;
+    const xml = buildOnceTaskXml({ description, startBoundaryDate, command: nodeCommand, args, workingDirectory });
 
     if (existsFn(taskName)) {
       // 新命名(hash付き)で既に登録済みのタスクも、トリガーを相関猶予期間込みの
@@ -126,11 +135,23 @@ export function register24hCheckTasks(
       // 猶予期間無しの古いトリガーが残り続けてしまう(13巡目で旧命名のみ同種の
       // 修正を行い、新命名側の同じ穴を見落としていた)。
       updateFn(taskName, xml);
-      results.push({ taskName, content: post.content, action: "rescheduled_exists", runAt: startBoundaryDate.toISOString() });
+      let disabledLegacyDuplicate = false;
+      if (legacyEligible && existsFn(legacyTaskName)) {
+        // hash付き新名と旧名の両方が実在する場合(hash導入後・legacy検出追加前の
+        // 期間に再実行された等、過去の移行過程の名残)、旧名タスクを削除せず
+        // Enabled=falseへ無効化し、hash付きタスクだけが実行されるようにする
+        // (Codexレビュー指摘対応、PR #102、16巡目、P2)。無効化せずhash付き側だけ
+        // 更新して終えると、旧名タスクが二重に実行され続け、同じレポートファイルへ
+        // 競合して書き込み得る。
+        const disabledXml = buildOnceTaskXml({ description, startBoundaryDate, command: nodeCommand, args, workingDirectory, disabled: true });
+        updateFn(legacyTaskName, disabledXml);
+        disabledLegacyDuplicate = true;
+      }
+      results.push({ taskName, content: post.content, action: "rescheduled_exists", runAt: startBoundaryDate.toISOString(), disabledLegacyDuplicate });
       continue;
     }
 
-    if (existsFn(legacyTaskName)) {
+    if (legacyEligible && existsFn(legacyTaskName)) {
       // 旧命名で見つかった既存タスクは、削除もリネームもせず(タスク名は
       // legacyTaskNameのまま)、トリガー(実行時刻)だけを相関猶予期間込みの正しい値へ
       // 上書きする(Codexレビュー指摘対応、PR #102、13巡目、P1)。以前は「既存タスク

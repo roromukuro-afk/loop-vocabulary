@@ -66,6 +66,23 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
   }
   if (xml.includes("2026-08-19T19:00:00")) ok("buildOnceTaskXml: StartBoundaryが指定したローカル日時になっている");
   else fail("buildOnceTaskXml: StartBoundaryの日時が不正");
+  if (/<Settings>[\s\S]*?<Enabled>true<\/Enabled>/.test(xml)) ok("buildOnceTaskXml: disabled省略時はSettings/Enabled=true(既定で有効)になる");
+  else fail("buildOnceTaskXml: disabled省略時にSettings/Enabledがtrueになっていない");
+}
+{
+  // disabled=true(Codexレビュー指摘対応、PR #102、16巡目、P2): hash付き新名と旧名の
+  // 両方が実在してしまっている重複を解消する際、旧名タスクを削除せず無効化するために
+  // 使う。Settings/Enabledがfalseになり、タスク自体が二度と実行されなくなる。
+  const xml = buildOnceTaskXml({
+    description: "desc",
+    startBoundaryDate: new Date(2026, 7, 19, 19, 0, 0),
+    command: "C:\\node.exe",
+    args: ["scripts/reporting/vocab-test-maker-24h-check.mjs", "--content=x_launch_01"],
+    workingDirectory: "C:\\Users\\rorom\\loop_vocabulary",
+    disabled: true,
+  });
+  if (/<Settings>[\s\S]*?<Enabled>false<\/Enabled>/.test(xml)) ok("buildOnceTaskXml: disabled=trueでSettings/Enabledがfalseになる(削除せず無効化するため)");
+  else fail("buildOnceTaskXml: disabled=trueでもSettings/Enabledがfalseにならない");
 }
 {
   // XMLエスケープ: workingDirectoryやargsに`&`や`"`が含まれても不正なXMLにならない
@@ -105,8 +122,10 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
 // PR #102、15巡目、P2: 新命名(hash付き)で既に存在するタスクも、12巡目より前の
 // リビジョンで作成されていた場合は古い[猶予期間無しの]トリガーのまま残り得るため) ----
 {
+  // x_launch_02/ig_feed_launchはKNOWN_LEGACY_NAMED_CONTENTSに含まれないため、legacy名の
+  // 二重存在チェックは発動しない(その挙動は専用のテストブロックで別途検証する)。
   const schedule = [
-    { content: "x_launch_01", source: "x", publishedAtISO: "2026-08-18T10:00:00.000Z" },
+    { content: "x_launch_02", source: "x", publishedAtISO: "2026-08-18T10:00:00.000Z" },
     { content: "ig_feed_launch", source: "instagram", publishedAtISO: "2026-08-25T00:00:00.000Z" },
   ];
   let createCalls = 0;
@@ -236,6 +255,76 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
     ok("register24hCheckTasks: 旧名タスクの再登録でも相関猶予期間込みの実行時刻(runAt)が反映される");
   } else {
     fail(`register24hCheckTasks: 旧名タスク再登録時の実行時刻が不正 (runAt=${results[0].runAt})`);
+  }
+}
+{
+  // 回帰テスト(Codexレビュー指摘対応、PR #102、16巡目、P2): hash付き新名と旧名の
+  // 両方が実在してしまっている場合(hash導入後・legacy検出追加前の期間に再実行
+  // された等、過去の移行過程の名残)、hash付き側は通常どおり再登録し、旧名側は
+  // 削除せずEnabled=falseへ無効化して二重実行を止める。existsFnは新名・旧名
+  // どちらも"存在する"を返すよう設定する。
+  const schedule = [{ content: "x_launch_01", source: "x", publishedAtISO: "2026-08-18T10:00:00.000Z" }];
+  const hashedName = build24hCheckTaskName("x_launch_01");
+  const legacyName = legacyBuild24hCheckTaskName("x_launch_01");
+  const existsFn = (name) => name === hashedName || name === legacyName;
+  let createCalls = 0;
+  let updateCalls = [];
+  const results = register24hCheckTasks(
+    "C:\\repo",
+    "C:\\node.exe",
+    existsFn,
+    () => { createCalls++; },
+    schedule,
+    (name, xml) => { updateCalls.push({ name, xml }); },
+  );
+  if (createCalls === 0) ok("register24hCheckTasks: 新名・旧名の両方が既存の場合もcreateFnは呼ばれない");
+  else fail(`register24hCheckTasks: 新名・旧名両存在ケースでcreateFnが${createCalls}回呼ばれた`);
+  if (updateCalls.length === 2 && updateCalls[0].name === hashedName && updateCalls[1].name === legacyName) {
+    ok("register24hCheckTasks: 新名・旧名の両方が既存の場合、新名を先に再登録し旧名も続けて更新する(updateFnが2回、新名→旧名の順)");
+  } else {
+    fail(`register24hCheckTasks: 新名・旧名両存在ケースのupdateFn呼び出しが不正 (${JSON.stringify(updateCalls.map((c) => c.name))})`);
+  }
+  if (/<Settings>[\s\S]*?<Enabled>false<\/Enabled>/.test(updateCalls[1]?.xml ?? "")) {
+    ok("register24hCheckTasks: 旧名側は削除ではなくEnabled=falseへ無効化される(二重実行防止)");
+  } else {
+    fail(`register24hCheckTasks: 旧名側のXMLがEnabled=falseになっていない (${updateCalls[1]?.xml})`);
+  }
+  if (results[0].action === "rescheduled_exists" && results[0].disabledLegacyDuplicate === true) {
+    ok("register24hCheckTasks: 新名・旧名両存在ケースの結果はaction=rescheduled_exists・disabledLegacyDuplicate=trueを返す");
+  } else {
+    fail(`register24hCheckTasks: 新名・旧名両存在ケースの結果が不正 (${JSON.stringify(results)})`);
+  }
+}
+{
+  // 回帰テスト(Codexレビュー指摘対応、PR #102、16巡目、P2): 実際にはlegacy命名で
+  // 登録されたことのないcontent(KNOWN_LEGACY_NAMED_CONTENTSに無い)が、たまたま
+  // sanitize後に別の(既存の)legacyタスク名と衝突しても、その既存タスクを
+  // 誤って「自分の旧タスクだ」と信じて上書きしないこと。existsFnは
+  // legacyBuild24hCheckTaskName("ig_feed_launch_1")と同じ文字列に対してのみ
+  // "存在する"を返すよう設定する(=「ig feed/launch:1」という別投稿の旧タスクが
+  // 既に存在している状況を模す)。
+  const collidingLegacyName = legacyBuild24hCheckTaskName("ig_feed_launch_1");
+  const schedule = [{ content: "ig_feed_launch_1", source: "instagram", publishedAtISO: "2026-08-18T10:00:00.000Z" }];
+  const existsFn = (name) => name === collidingLegacyName;
+  let createCalls = [];
+  let updateCalls = [];
+  const results = register24hCheckTasks(
+    "C:\\repo",
+    "C:\\node.exe",
+    existsFn,
+    (name) => createCalls.push(name),
+    schedule,
+    (name) => updateCalls.push(name),
+  );
+  if (updateCalls.length === 0) {
+    ok("register24hCheckTasks: legacy命名の実績が無いcontentは、sanitize後に衝突する既存legacyタスクを誤って上書きしない(updateFnは呼ばれない)");
+  } else {
+    fail(`register24hCheckTasks: allowlist外のcontentがlegacyタスクを誤って上書きした (${JSON.stringify(updateCalls)})`);
+  }
+  if (createCalls.length === 1 && createCalls[0] === build24hCheckTaskName("ig_feed_launch_1") && results[0].action === "created") {
+    ok("register24hCheckTasks: allowlist外のcontentは、衝突するlegacy名を無視して自分のhash付き名前で新規作成される");
+  } else {
+    fail(`register24hCheckTasks: allowlist外content向けの新規作成が不正 (${JSON.stringify(createCalls)}, ${JSON.stringify(results)})`);
   }
 }
 {

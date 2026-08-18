@@ -108,17 +108,24 @@ function formatArgs(args) {
     .join(" ");
 }
 
-const COMMON_SETTINGS_XML = `
+// Settings/Enabled(タスク全体の有効/無効)をパラメータ化する(Codexレビュー指摘対応、
+// PR #102、16巡目、P2): hash付き新名タスクと旧名タスクの両方が実在してしまっている
+// 過去の移行過程の名残を検出した際、旧名タスク側を「削除」ではなく「無効化」
+// (Enabled=false)することで、削除禁止の設計を保ったまま二重実行(同じレポート
+// ファイルへの競合書き込み)を止められるようにする。
+function settingsXml(disabled) {
+  return `
     <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
     <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
     <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
     <AllowHardTerminate>true</AllowHardTerminate>
     <StartWhenAvailable>true</StartWhenAvailable>
     <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
-    <Enabled>true</Enabled>
+    <Enabled>${disabled ? "false" : "true"}</Enabled>
     <Hidden>false</Hidden>
     <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
     <Priority>7</Priority>`;
+}
 
 const COMMON_PRINCIPALS_XML = `
   <Principals>
@@ -147,13 +154,13 @@ function actionsXml({ command, args, workingDirectory }) {
 // 「タスク XML の形式が正しくありません」で/Create自体が失敗する。
 
 /** 1回だけ実行するタスク(24h check用)のXML定義を組み立てる。 */
-export function buildOnceTaskXml({ description, startBoundaryDate, command, args, workingDirectory }) {
+export function buildOnceTaskXml({ description, startBoundaryDate, command, args, workingDirectory, disabled = false }) {
   return `<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
     <Description>${xmlEscape(description)}</Description>
   </RegistrationInfo>${COMMON_PRINCIPALS_XML}
-  <Settings>${COMMON_SETTINGS_XML}
+  <Settings>${settingsXml(disabled)}
   </Settings>
   <Triggers>
     <TimeTrigger>
@@ -172,7 +179,7 @@ export function buildWeeklyTaskXml({ description, startBoundaryDate, daysOfWeek,
   <RegistrationInfo>
     <Description>${xmlEscape(description)}</Description>
   </RegistrationInfo>${COMMON_PRINCIPALS_XML}
-  <Settings>${COMMON_SETTINGS_XML}
+  <Settings>${settingsXml(false)}
   </Settings>
   <Triggers>
     <CalendarTrigger>
