@@ -316,8 +316,14 @@ function topEntries(map, n = 10) {
 // fixture testから直接importして検証するためexportする
 // (scripts/testing/test-social-acquisition-snapshot-fixture.mjs参照)。sessionIdPrefixは
 // fixture testのみが渡すオプション引数(上記fetchEventsInWindow()のコメント参照)。
-export async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive, testAccountIds, asOf, sessionIdPrefix) {
-  const { startISO, endISO } = windowRangeISO(startDateStr, endDateStrInclusive);
+//
+// summarizeWindowISO: JSTの暦日文字列ではなく任意のISO範囲[startISO, endISO)を直接
+// 受け取る下位バージョン。ロジック本体はsummarizeWindow(JST暦日ベース、日次バッチ/
+// 7日間比較向け)と完全に同一で、以前はsummarizeWindow内にstartISO/endISOの計算
+// (windowRangeISO呼び出し)が直接埋め込まれていたものを抽出しただけ(挙動変更なし)。
+// scripts/reporting/vocab-test-maker-24h-check.mjs(投稿の発行時刻+24時間という、
+// JST日付境界に揃わない任意の時刻範囲を扱う必要がある)がこちらを直接importして使う。
+export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, testAccountIds, asOf, sessionIdPrefix) {
   const rawRows = await fetchEventsInWindow(admin, { startISO, endISO, asOf, sessionIdPrefix });
 
   // ウィンドウの日付境界(startISO)をまたぐvisitを取りこぼさないよう、ウィンドウ内に
@@ -772,7 +778,7 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     }
   }
 
-  console.log(`\n=== ${label} (${startDateStr} 〜 ${endDateStrInclusive}, JST) ===`);
+  console.log(`\n=== ${headerLabel} ===`);
   console.log(`social landing identities total: ${socialLandingIdentities.size}`);
   console.log("source別:");
   for (const bucket of SOCIAL_BUCKETS) console.log(`  ${bucket}: ${byBucket.get(bucket)}`);
@@ -803,6 +809,15 @@ export async function summarizeWindow(admin, label, startDateStr, endDateStrIncl
     socialSignupCount,
     signupCountByContent: Object.fromEntries(signupCountByContent),
   };
+}
+
+// fixture testおよび既存呼び出し元(main()、audit:social-acquisition-snapshot)向けの
+// JST暦日文字列ベースの薄いラッパー。ロジック本体はsummarizeWindowISO()に委譲する
+// だけで、シグネチャ・戻り値・console出力の文言は元の実装と完全に同一(挙動変更なし)。
+export async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive, testAccountIds, asOf, sessionIdPrefix) {
+  const { startISO, endISO } = windowRangeISO(startDateStr, endDateStrInclusive);
+  const headerLabel = `${label} (${startDateStr} 〜 ${endDateStrInclusive}, JST)`;
+  return summarizeWindowISO(admin, headerLabel, startISO, endISO, testAccountIds, asOf, sessionIdPrefix);
 }
 
 async function main() {

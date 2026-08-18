@@ -1,0 +1,244 @@
+/**
+ * vocab_test_maker_launch キャンペーンの7日間ウィンドウ集計。DELETE/UPDATEは一切行わない。
+ *
+ * CAMPAIGN_WINDOW_ANCHOR_JST(2026-08-25)を起点に、7日ごとの完全なウィンドウ
+ * ([anchor, anchor+7)、[anchor+7, anchor+14)、...)を区切り、「終了日が既に過ぎている」
+ * 直近の完全なウィンドウを、その直前の完全なウィンドウと比較する(period-over-period)。
+ * まだ完了していないウィンドウ(進行中)は絶対にレポートしない
+ * (lib/windowMath.mjs の computeReportWindows() が担保する。純粋関数として
+ * scripts/testing/test-vocab-test-maker-report-window-math.mjs でテスト済み)。
+ *
+ * source/campaign/content別のfunnel rateを、insufficient dataの場合は明示しつつ
+ * (誤解を招く%を絶対に出さない。閾値はlib/windowMath.mjsのMIN_SAMPLE_SIZE_FOR_RATE
+ * 参照)、直近ウィンドウ・前ウィンドウそれぞれについて計算し、差分も出す。
+ *
+ * 集計本体(visit attribution・test account除外)は
+ * scripts/testing/social-acquisition-snapshot.mjs の summarizeWindow()
+ * (JST暦日ベース)をそのまま再利用する。
+ *
+ * 使い方: node scripts/reporting/vocab-test-maker-7day-check.mjs
+ */
+import { fileURLToPath } from "node:url";
+import { loadEnv, requireEnv } from "../testing/lib/env.mjs";
+import { getAdminClient } from "../testing/lib/supabaseAdmin.mjs";
+import { fetchTestAccountIds, summarizeWindow } from "../testing/social-acquisition-snapshot.mjs";
+import { computeReportWindows, MIN_SAMPLE_SIZE_FOR_RATE } from "./lib/windowMath.mjs";
+import { buildFunnelRates } from "./lib/funnelRates.mjs";
+import { writeReport } from "./lib/reportIO.mjs";
+import { todayJST } from "../../src/lib/utils/date.ts";
+
+// キャンペーンの7日間ウィンドウ起点(JST暦日)。タスク指示に「2026-08-18から少なく
+// とも2026-08-25(Instagram投稿)まで投稿が続く」とあるため、ロールアウトの終盤に
+// 当たる2026-08-25を起点に採用する。起点をずらす必要が生じた場合はここだけを
+// 変更すればよい(下流はすべてこのanchorからの純粋な日数計算、windowMath.mjs参照)。
+export const CAMPAIGN_WINDOW_ANCHOR_JST = "2026-08-25";
+
+// レポートで明示的にゼロ埋め表示する既知のutm_content一覧(このキャンペーンの
+// 7投稿)。実際にlandingが無いcontentはそのままrateがinsufficient dataとして
+// 表示される。summarizeWindow() が返すbyContent/funnelCountsByContentには無い
+// 未知のcontentキー(この一覧に無いもの)も、集計結果に含まれていれば
+// 別途マージして表示する(下記allContentKeys参照)。
+const KNOWN_CONTENT_KEYS = [
+  "x_launch_01",
+  "x_launch_02",
+  "x_launch_03",
+  "ig_feed_launch",
+  "ig_story_launch",
+  "threads_launch_01",
+  "threads_launch_02",
+];
+
+function buildRatesByKey(landingByKey, funnelCountsByKey, signupCountByKey, keys, minSample) {
+  const out = {};
+  for (const key of keys) {
+    const landing = landingByKey[key] ?? 0;
+    const funnel = funnelCountsByKey[key] ?? {};
+    const signup = signupCountByKey[key] ?? 0;
+    out[key] = buildFunnelRates(
+      {
+        landing,
+        pageViewed: funnel.vocab_test_maker_page_viewed ?? 0,
+        generated: funnel.vocab_test_maker_generated ?? 0,
+        ctaClicked: funnel.vocab_test_maker_srs_cta_clicked ?? 0,
+        signup,
+        saved: funnel.vocab_test_maker_saved_to_wordbook ?? 0,
+      },
+      minSample,
+    );
+  }
+  return out;
+}
+
+function diffRate(curr, prior) {
+  if (!curr || !prior) return null;
+  if (curr.insufficientData || prior.insufficientData || curr.rate === null || prior.rate === null) return null;
+  return curr.rate - prior.rate;
+}
+
+function buildContentComparison(currentRatesByKey, priorRatesByKey, keys) {
+  const out = {};
+  for (const key of keys) {
+    const curr = currentRatesByKey[key];
+    const prior = priorRatesByKey?.[key] ?? null;
+    out[key] = {
+      current: curr,
+      prior,
+      deltaPct: prior
+        ? {
+            pageViewedRate: diffRate(curr.pageViewedRate, prior.pageViewedRate),
+            generatedRate: diffRate(curr.generatedRate, prior.generatedRate),
+            ctaRate: diffRate(curr.ctaRate, prior.ctaRate),
+            signupRate: diffRate(curr.signupRate, prior.signupRate),
+            savedRate: diffRate(curr.savedRate, prior.savedRate),
+          }
+        : null,
+    };
+  }
+  return out;
+}
+
+function landingComparisonByKey(currMap, priorMapOrNull, keys) {
+  const out = {};
+  for (const key of keys) {
+    const c = currMap[key] ?? 0;
+    const p = priorMapOrNull ? (priorMapOrNull[key] ?? 0) : null;
+    out[key] = { current: c, prior: p, delta: p === null ? null : c - p };
+  }
+  return out;
+}
+
+function fmtRate(r) {
+  if (!r) return "n/a";
+  if (r.insufficientData) return `insufficient data (n=${r.denominator})`;
+  if (r.rate === null) return "n/a";
+  return `${(r.rate * 100).toFixed(1)}%`;
+}
+
+async function main() {
+  loadEnv();
+  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
+
+  const today = todayJST();
+  const windows = computeReportWindows(CAMPAIGN_WINDOW_ANCHOR_JST, today);
+
+  if (!windows.hasCompleteWindow) {
+    console.log(
+      `[vocab-test-maker-7day-check] anchor=${CAMPAIGN_WINDOW_ANCHOR_JST} からの最初の完全な` +
+        `7日間ウィンドウがまだ終わっていません(today=${today})。レポートは書き出さず終了します` +
+        `(read-only, no-op)。`,
+    );
+    return;
+  }
+
+  const admin = getAdminClient();
+  const asOf = new Date().toISOString();
+  const testAccountIds = await fetchTestAccountIds(admin, asOf);
+
+  const current = await summarizeWindow(
+    admin,
+    "current 7-day window",
+    windows.current.startDateStr,
+    windows.current.endDateStrInclusive,
+    testAccountIds,
+    asOf,
+  );
+  const prior = windows.prior
+    ? await summarizeWindow(
+        admin,
+        "prior 7-day window",
+        windows.prior.startDateStr,
+        windows.prior.endDateStrInclusive,
+        testAccountIds,
+        asOf,
+      )
+    : null;
+
+  const allContentKeys = [
+    ...new Set([
+      ...KNOWN_CONTENT_KEYS,
+      ...Object.keys(current.byContent),
+      ...(prior ? Object.keys(prior.byContent) : []),
+    ]),
+  ];
+  const allCampaignKeys = [...new Set([...Object.keys(current.byCampaign), ...(prior ? Object.keys(prior.byCampaign) : [])])];
+  const bucketKeys = Object.keys(current.byBucket);
+
+  const currentContentRates = buildRatesByKey(
+    current.byContent,
+    current.funnelCountsByContent,
+    current.signupCountByContent,
+    allContentKeys,
+    MIN_SAMPLE_SIZE_FOR_RATE,
+  );
+  const priorContentRates = prior
+    ? buildRatesByKey(prior.byContent, prior.funnelCountsByContent, prior.signupCountByContent, allContentKeys, MIN_SAMPLE_SIZE_FOR_RATE)
+    : {};
+  const contentComparison = buildContentComparison(currentContentRates, priorContentRates, allContentKeys);
+
+  const report = {
+    kind: "vocab_test_maker_7day_check",
+    generatedAt: asOf,
+    anchor: CAMPAIGN_WINDOW_ANCHOR_JST,
+    minSampleSizeForRate: MIN_SAMPLE_SIZE_FOR_RATE,
+    currentWindow: windows.current,
+    priorWindow: windows.prior,
+    // bucket(source)/campaign別はsummarizeWindow()がfunnelをcontent単位でしか
+    // 割っていないため、landing識別数の内訳(期間比較込み)のみをレポートし、
+    // bucket/campaign単位のfunnel rateを実データ無しで捏造しない。
+    landingBySource: landingComparisonByKey(current.byBucket, prior?.byBucket ?? null, bucketKeys),
+    landingByCampaign: landingComparisonByKey(current.byCampaign, prior?.byCampaign ?? null, allCampaignKeys),
+    byContent: contentComparison,
+    totals: {
+      current: {
+        socialLandingIdentities: current.socialLandingIdentities,
+        socialSignupCount: current.socialSignupCount,
+        funnelCounts: current.funnelCounts,
+      },
+      prior: prior
+        ? {
+            socialLandingIdentities: prior.socialLandingIdentities,
+            socialSignupCount: prior.socialSignupCount,
+            funnelCounts: prior.funnelCounts,
+          }
+        : null,
+    },
+  };
+
+  const summaryLines = [
+    "=== vocab_test_maker_launch 7-day check ===",
+    `current window: ${windows.current.startDateStr} 〜 ${windows.current.endDateStrInclusive} (JST)`,
+    prior
+      ? `prior window: ${windows.prior.startDateStr} 〜 ${windows.prior.endDateStrInclusive} (JST)`
+      : "prior window: none (this is the first complete window; no period-over-period comparison yet)",
+    "",
+    `social landing identities: ${prior ? `${prior.socialLandingIdentities} -> ` : ""}${current.socialLandingIdentities}`,
+    `social起点signup: ${prior ? `${prior.socialSignupCount} -> ` : ""}${current.socialSignupCount}`,
+    "",
+    `content別 rate(insufficient dataの場合は明示、最小サンプル数=${MIN_SAMPLE_SIZE_FOR_RATE}):`,
+    ...allContentKeys
+      .filter((key) => (contentComparison[key].current?.counts.landing ?? 0) > 0)
+      .map((key) => {
+        const c = contentComparison[key].current;
+        return (
+          `  ${key}: landing=${c.counts.landing}, generated=${fmtRate(c.generatedRate)}, ` +
+          `cta=${fmtRate(c.ctaRate)}, signup=${fmtRate(c.signupRate)}, saved=${fmtRate(c.savedRate)}`
+        );
+      }),
+    "",
+    "(read-only, DELETE/UPDATEは実行していません)",
+  ];
+
+  const baseName = `vocab-test-maker-7day-check-${windows.current.startDateStr}_to_${windows.current.endDateStrInclusive}`;
+  const { jsonPath, summaryPath } = writeReport(baseName, report, `${summaryLines.join("\n")}\n`);
+
+  console.log(summaryLines.join("\n"));
+  console.log(`\nreport written: ${jsonPath}`);
+  console.log(`summary written: ${summaryPath}`);
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main().catch((e) => {
+    console.error("vocab-test-maker-7day-check crashed:", e);
+    process.exit(1);
+  });
+}
