@@ -30,21 +30,33 @@ function sanitizeForTaskName(value) {
 }
 
 /**
- * 元のcontent文字列から短い決定論的なhashサフィックスを作る(Codexレビュー指摘対応、
+ * 元の識別子文字列から短い決定論的なhashサフィックスを作る(Codexレビュー指摘対応、
  * PR #102、6巡目、P2): sanitizeForTaskName()は禁止文字を"_"へ丸めるだけのため、
  * 例えば"ig feed/launch:1"と"ig_feed_launch_1"のように元は別々のutm_contentでも
  * 同じサニタイズ結果になり得る。この場合、後から登録しようとした投稿が
  * scheduledTaskExists()で「既に存在する」と誤判定されskipped_existsとなり、
  * その投稿の24hチェックが永久に登録されない。sanitize後の文字列だけでなく
- * 元のcontentから計算したhashも名前へ含めることで、サニタイズ後に衝突する
- * 異なるcontentどうしを区別する。
+ * 元の識別子から計算したhashも名前へ含めることで、サニタイズ後に衝突する
+ * 異なる識別子どうしを区別する。
  */
-function contentHashSuffix(content) {
-  return createHash("sha256").update(String(content)).digest("hex").slice(0, 8);
+function identityHashSuffix(identity) {
+  return createHash("sha256").update(String(identity)).digest("hex").slice(0, 8);
 }
 
-export function build24hCheckTaskName(content) {
-  return `${TASK_NAME_PREFIX}-24hCheck-${sanitizeForTaskName(content)}-${contentHashSuffix(content)}`;
+/**
+ * contentだけでなくsource/campaign/publishedAtISOも含めた投稿の完全な識別子から
+ * hashサフィックスを計算する(Codexレビュー指摘対応、PR #102、21巡目、P2): 以前は
+ * hashがcontent単独から計算されており、同じutm_contentを異なるsourceや発行時刻で
+ * 複数回スケジュールする場合(例: 同じcontentを別アカウントから投稿、または
+ * published-atを訂正しての再登録)に同じタスク名になっていた。その場合、後から
+ * 処理された投稿が「既に存在するタスク」としてupdateFn経由で前の投稿のXMLを
+ * 上書きしてしまい、片方の投稿の24hチェックが実質的に消えていた
+ * (buildReportBaseName()で19巡目に導入した完全識別子と同じ設計)。読める部分は
+ * 引き続きcontentだけのサニタイズ結果を使う(Task SchedulerのUI上での可読性のため)。
+ */
+export function build24hCheckTaskName(content, source, campaign, publishedAtISO) {
+  const identity = `${content}-${source ?? "unknown"}-${campaign}-${publishedAtISO}`;
+  return `${TASK_NAME_PREFIX}-24hCheck-${sanitizeForTaskName(content)}-${identityHashSuffix(identity)}`;
 }
 
 /**

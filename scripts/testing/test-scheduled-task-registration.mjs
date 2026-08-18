@@ -12,10 +12,13 @@ function ok(msg) { console.log(`✅ ${msg}`); }
 function fail(msg) { console.error(`❌ FAIL: ${msg}`); failed++; }
 
 // ---- タスク名の決定性・サニタイズ ----
+const TEST_SOURCE = "x";
+const TEST_CAMPAIGN = "vocab_test_maker_launch";
+const TEST_PUBLISHED_AT = "2026-08-18T10:00:00.000Z";
 {
-  const a = build24hCheckTaskName("x_launch_01");
-  const b = build24hCheckTaskName("x_launch_01");
-  if (a === b) ok("build24hCheckTaskName: 同じcontentに対して常に同じタスク名を返す(決定論的)");
+  const a = build24hCheckTaskName("x_launch_01", TEST_SOURCE, TEST_CAMPAIGN, TEST_PUBLISHED_AT);
+  const b = build24hCheckTaskName("x_launch_01", TEST_SOURCE, TEST_CAMPAIGN, TEST_PUBLISHED_AT);
+  if (a === b) ok("build24hCheckTaskName: 同じ入力に対して常に同じタスク名を返す(決定論的)");
   else fail(`build24hCheckTaskName: 非決定論的 (${a} !== ${b})`);
   if (/^LoopVocab-VTM-24hCheck-x_launch_01-[0-9a-f]{8}$/.test(a)) ok("build24hCheckTaskName: 期待される命名規則(サニタイズ済みcontent+8桁hashサフィックス)になっている");
   else fail(`build24hCheckTaskName: 命名規則不一致 (${a})`);
@@ -23,7 +26,7 @@ function fail(msg) { console.error(`❌ FAIL: ${msg}`); failed++; }
 {
   // Windowsタスク名に使えない可能性のある文字(スペース・スラッシュ等)を含む値でも
   // 安全な文字だけの名前になる(冪等チェックの前提=有効なタスク名であること)。
-  const name = build24hCheckTaskName("ig feed/launch:1");
+  const name = build24hCheckTaskName("ig feed/launch:1", TEST_SOURCE, TEST_CAMPAIGN, TEST_PUBLISHED_AT);
   if (/^[A-Za-z0-9_-]+$/.test(name.replace("LoopVocab-VTM-24hCheck-", ""))) {
     ok("build24hCheckTaskName: 記号を含むcontentも安全な文字集合へサニタイズされる");
   } else {
@@ -37,12 +40,29 @@ function fail(msg) { console.error(`❌ FAIL: ${msg}`); failed++; }
   // 例えば"ig feed/launch:1"と"ig_feed_launch_1"はどちらも"ig_feed_launch_1"へ
   // サニタイズされ、同じタスク名になって片方の登録がskipped_existsとして
   // 永久にスキップされてしまっていた。
-  const nameA = build24hCheckTaskName("ig feed/launch:1");
-  const nameB = build24hCheckTaskName("ig_feed_launch_1");
+  const nameA = build24hCheckTaskName("ig feed/launch:1", TEST_SOURCE, TEST_CAMPAIGN, TEST_PUBLISHED_AT);
+  const nameB = build24hCheckTaskName("ig_feed_launch_1", TEST_SOURCE, TEST_CAMPAIGN, TEST_PUBLISHED_AT);
   if (nameA !== nameB) {
     ok("build24hCheckTaskName: サニタイズ後に衝突する異なるcontentどうしは、hashサフィックスにより別のタスク名になる");
   } else {
     fail(`build24hCheckTaskName: サニタイズ後衝突するcontentが同じタスク名になった (${nameA})`);
+  }
+}
+{
+  // 回帰テスト(Codexレビュー指摘対応、PR #102、21巡目、P2): 同じcontentでも
+  // source/campaign/publishedAtISOが異なれば別のタスク名になる(buildReportBaseName()
+  // で19巡目に導入した完全識別子と同じ設計)。以前はcontent単独からhashを計算して
+  // いたため、同じutm_contentを異なるsourceや発行時刻で複数回スケジュールすると
+  // 同じタスク名になり、後から処理された投稿がupdateFn経由で前の投稿のタスクを
+  // 誤って上書きしていた(2つの24hチェックのうち片方しか実行されなくなる)。
+  const a = build24hCheckTaskName("x_launch_01", "x", TEST_CAMPAIGN, TEST_PUBLISHED_AT);
+  const b = build24hCheckTaskName("x_launch_01", "twitter", TEST_CAMPAIGN, TEST_PUBLISHED_AT);
+  const c = build24hCheckTaskName("x_launch_01", "x", "another_campaign", TEST_PUBLISHED_AT);
+  const d = build24hCheckTaskName("x_launch_01", "x", TEST_CAMPAIGN, "2026-08-20T10:00:00.000Z");
+  if (new Set([a, b, c, d]).size === 4) {
+    ok("build24hCheckTaskName: 同じcontentでもsource/campaign/publishedAtISOが異なればタスク名が衝突しない");
+  } else {
+    fail(`build24hCheckTaskName: source/campaign/publishedAtISO違いでタスク名が衝突した (${JSON.stringify([a, b, c, d])})`);
   }
 }
 if (SEVEN_DAY_CHECK_TASK_NAME === "LoopVocab-VTM-7dayCheck") ok("SEVEN_DAY_CHECK_TASK_NAME: 期待される固定タスク名");
@@ -153,8 +173,8 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
   if (createCalls.length === 2) ok("register24hCheckTasks: 未登録のタスクはKNOWN_LAUNCH_SCHEDULEの件数分createFnが呼ばれる");
   else fail(`register24hCheckTasks: createFnの呼び出し回数が不正 (${createCalls.length})`);
   if (
-    createCalls[0].name === build24hCheckTaskName("x_launch_01") &&
-    createCalls[1].name === build24hCheckTaskName("x_launch_02")
+    createCalls[0].name === build24hCheckTaskName("x_launch_01", "x", TEST_CAMPAIGN, "2026-08-18T10:00:00.000Z") &&
+    createCalls[1].name === build24hCheckTaskName("x_launch_02", "x", TEST_CAMPAIGN, "2026-08-20T10:00:00.000Z")
   ) {
     ok("register24hCheckTasks: 各投稿ごとに正しいタスク名で作成される");
   } else {
@@ -184,7 +204,7 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
     { content: "already_registered", source: "x", publishedAtISO: "2026-08-18T10:00:00.000Z" },
     { content: "new_post", source: "x", publishedAtISO: "2026-08-20T10:00:00.000Z" },
   ];
-  const existsFn = (name) => name === build24hCheckTaskName("already_registered");
+  const existsFn = (name) => name === build24hCheckTaskName("already_registered", "x", TEST_CAMPAIGN, "2026-08-18T10:00:00.000Z");
   let created = [];
   let updated = [];
   const results = register24hCheckTasks(
@@ -195,12 +215,12 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
     schedule,
     (name) => updated.push(name),
   );
-  if (created.length === 1 && created[0] === build24hCheckTaskName("new_post")) {
+  if (created.length === 1 && created[0] === build24hCheckTaskName("new_post", "x", TEST_CAMPAIGN, "2026-08-20T10:00:00.000Z")) {
     ok("register24hCheckTasks: 既存タスクと未登録タスクが混在していても、未登録分だけ正しく作成される");
   } else {
     fail(`register24hCheckTasks: 混在ケースの結果が不正 (${JSON.stringify(created)})`);
   }
-  if (updated.length === 1 && updated[0] === build24hCheckTaskName("already_registered")) {
+  if (updated.length === 1 && updated[0] === build24hCheckTaskName("already_registered", "x", TEST_CAMPAIGN, "2026-08-18T10:00:00.000Z")) {
     ok("register24hCheckTasks: 既存タスク分はcreateFnではなくupdateFnで再登録される(重複登録されない)");
   } else {
     fail(`register24hCheckTasks: 既存タスク分のupdateFn呼び出しが不正 (${JSON.stringify(updated)})`);
@@ -264,7 +284,7 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
   // 削除せずEnabled=falseへ無効化して二重実行を止める。existsFnは新名・旧名
   // どちらも"存在する"を返すよう設定する。
   const schedule = [{ content: "x_launch_01", source: "x", publishedAtISO: "2026-08-18T10:00:00.000Z" }];
-  const hashedName = build24hCheckTaskName("x_launch_01");
+  const hashedName = build24hCheckTaskName("x_launch_01", "x", TEST_CAMPAIGN, "2026-08-18T10:00:00.000Z");
   const legacyName = legacyBuild24hCheckTaskName("x_launch_01");
   const existsFn = (name) => name === hashedName || name === legacyName;
   let createCalls = 0;
@@ -321,7 +341,7 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
   } else {
     fail(`register24hCheckTasks: allowlist外のcontentがlegacyタスクを誤って上書きした (${JSON.stringify(updateCalls)})`);
   }
-  if (createCalls.length === 1 && createCalls[0] === build24hCheckTaskName("ig_feed_launch_1") && results[0].action === "created") {
+  if (createCalls.length === 1 && createCalls[0] === build24hCheckTaskName("ig_feed_launch_1", "instagram", TEST_CAMPAIGN, "2026-08-18T10:00:00.000Z") && results[0].action === "created") {
     ok("register24hCheckTasks: allowlist外のcontentは、衝突するlegacy名を無視して自分のhash付き名前で新規作成される");
   } else {
     fail(`register24hCheckTasks: allowlist外content向けの新規作成が不正 (${JSON.stringify(createCalls)}, ${JSON.stringify(results)})`);

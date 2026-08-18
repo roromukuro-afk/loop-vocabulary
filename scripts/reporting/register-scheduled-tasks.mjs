@@ -104,7 +104,12 @@ export function register24hCheckTasks(
 ) {
   const results = [];
   for (const post of schedule) {
-    const taskName = build24hCheckTaskName(post.content);
+    // taskNameはcontentだけでなくsource/campaign/publishedAtISOも含めた完全な
+    // 投稿識別子から決まる(Codexレビュー指摘対応、PR #102、21巡目、P2): 同じ
+    // utm_contentを異なるsourceや発行時刻で複数回スケジュールする場合に、後から
+    // 処理された投稿が前の投稿のタスクを「既存タスク」として誤って上書きしない
+    // ようにする。
+    const taskName = build24hCheckTaskName(post.content, post.source, CAMPAIGN, post.publishedAtISO);
     // hashサフィックス導入前の旧命名で既に登録済みの投稿(実機ではx_launch_01が
     // 該当)を二重登録しないよう、旧名も既存チェックの対象に含める(Codexレビュー
     // 指摘対応、PR #102、10巡目、P2)。legacy名一致の当てはめは、実際にlegacy命名で
