@@ -36,6 +36,16 @@ Scheduled Taskがスクリプト不在で失敗する。mainへマージされ�
 依存を変更する必要はない(マージ有無に関係なく動作し続ける設計。詳細は
 `scripts/reporting/register-scheduled-tasks.mjs`のコメント参照)。
 
+### SNS投稿用UTMリンク生成（Issue #97）
+
+```
+npm run growth:social-link -- --source=x --campaign=vocab-test-maker --content=quiz-001 --path=/tools/vocab-test-maker
+```
+
+`utm_source`/`utm_medium`(既定値`social`)/`utm_campaign`/`utm_content` を付与した完成URLを
+表示するだけの内部ヘルパー。外部SNSへの自動投稿・DB書き込みは一切行わない。詳細は
+`scripts/growth/social-link.mjs` のコメントを参照。
+
 ---
 
 ## 1. 機能
