@@ -1,0 +1,107 @@
+/**
+ * vocab_test_maker_launch キャンペーンのfunnel(landing→page_viewed→generated→
+ * srs_cta_clicked→signup/saved)を、段階間コンバージョン率(直前の段階に対する遷移率)
+ * として計算する純粋関数。DBアクセスなし。
+ * scripts/testing/test-vocab-test-maker-funnel-rates.mjs から直接importしてテストする。
+ */
+import { computeRate, MIN_SAMPLE_SIZE_FOR_RATE } from "./windowMath.mjs";
+
+/**
+ * 各rateの分母の設計判断:
+ *  - landing: このsource/campaign/content識別数そのもの(funnel全体の母数)
+ *  - pageViewedRate = (landingかつpage_viewedの両方に到達したvisit数) / landing
+ *  - generatedRate  = (page_viewedかつgeneratedの両方に到達したvisit数) / page_viewed
+ *  - ctaRate        = (generatedかつsrs_cta_clickedの両方に到達したvisit数) / generated
+ *  - signupRate     = (srs_cta_clickedかつsignupの両方に到達したvisit数) / srs_cta_clicked
+ *    (CTAクリックが未認証ユーザーの新規登録につながったという近似。既存ユーザーの
+ *    再訪問によるCTAクリックも分母に含まれるため、この値は「新規獲得効率」の上限では
+ *    なく下限寄りの近似値として扱うこと。signupのvisitKeyは、そのユーザーの
+ *    「earliest social visit」自身のsid+occurred_atから構築される[social-acquisition-
+ *    snapshot.mjsのregisterSocialUser()参照]。分子をctaKeysとの交差に絞ることで、
+ *    CTAクリックへ実際に到達していないvisit由来のsignup(例: 同じsource/campaignの
+ *    別visitや、CTA以外の経路でsignupした無関係なユーザー)が分子へ混入して
+ *    signupRateが100%を超える、または実態と無関係に水増しされることを防ぐ
+ *    (Codexレビュー指摘対応、PR #102、4巡目、P1))
+ *  - savedRate      = (srs_cta_clickedかつsaved_to_wordbookの両方に到達したvisit数) / srs_cta_clicked
+ *
+ * insufficient-data閾値はwindowMath.mjsのMIN_SAMPLE_SIZE_FOR_RATEを共有する
+ * (呼び出し側でoverride可能)。
+ *
+ * 重要な入力契約(Codexレビュー指摘対応、PR #102、3巡目、P1): landing/pageViewed/
+ * generated/ctaClicked/savedの各段階は、単なる件数ではなく「その段階に到達した
+ * distinct visitのvisitKey配列」で渡さなければならない。以前は各段階を独立集合の
+ * 件数比(size比)で割っていたため、例えばあるvisitが前のウィンドウでpage_viewedに
+ * 到達し、今回のウィンドウでgeneratedに到達した場合、そのvisitは今回のgenerated件数
+ * には含まれるがpage_viewed件数には含まれず、無関係な別visitがpage_viewed件数を
+ * 供給することでgeneratedRateが100%を超えてしまう不具合があった。同一visitKeyが
+ * 隣接する両方の段階に(このウィンドウ内で)属しているかをSet intersectionで判定
+ * することで、rateは常に[0, 1]に収まる「このウィンドウ内で両方の段階に到達した
+ * cohort」の遷移率になる(=前後のウィンドウにまたがるvisitの遷移は、意図的に
+ * カウントしない。保守的だが誤った100%超えより安全)。
+ */
+function intersectSize(setA, setB) {
+  let n = 0;
+  for (const key of setA) if (setB.has(key)) n++;
+  return n;
+}
+
+// generatedステップに相当する中間段階が存在しないdestination(guideページ等)向けの
+// 明示的な「該当なし」マーカー(Codexレビュー指摘対応、PR #102、18巡目、P2)。以前は
+// generatedKeysをpageViewedKeysのエイリアスにして無理やり計算していたため、
+// intersectionが常に完全一致しgeneratedRateが常に100%という、実態の無い数値を
+// 報告先(JSON/テキストサマリー)にそのまま出してしまっていた。insufficientData
+// (=データ不足でまだ判断できない)とは意味が違うため、専用のnotApplicableフラグで
+// 区別する。
+function notApplicableRate(minSample) {
+  return { rate: null, insufficientData: false, notApplicable: true, numerator: 0, denominator: 0, minSample };
+}
+
+export function buildFunnelRates(stages, minSample = MIN_SAMPLE_SIZE_FOR_RATE) {
+  const {
+    landingKeys = [],
+    pageViewedKeys = [],
+    generatedKeys = [],
+    ctaKeys = [],
+    savedKeys = [],
+    signupKeys = [],
+    // trueの場合、generatedステップを飛ばしてctaRateをpageViewed基準で直接計算する
+    // (Codexレビュー指摘対応、PR #102、18巡目、P2: guideページ向け投稿はlanding→
+    // guide_view→guide_cta_clickの2段階のみで、vocab-test-makerツールのような
+    // 「生成」に相当する中間ステップを持たないため)。
+    skipGeneratedStage = false,
+    // trueの場合、savedRateもnotApplicableマーカーにする(Codexレビュー指摘対応、
+    // PR #102、19巡目、P2): guideページには「単語帳保存」に相当する概念自体が無い。
+    // savedKeysを単に空配列で渡すだけだと、ctaKeysの件数がminSample以上になった
+    // 時点でcomputeRate(0, ctaKeys.size, minSample)が「有効な0%」を返してしまい、
+    // 実際には計測不能な指標があたかも実測されたかのように報告先(JSON/テキスト
+    // サマリー)へ出てしまう。
+    skipSavedStage = false,
+  } = stages;
+
+  const landing = new Set(landingKeys);
+  const pageViewed = new Set(pageViewedKeys);
+  const generated = new Set(generatedKeys);
+  const cta = new Set(ctaKeys);
+  const saved = new Set(savedKeys);
+  const signup = new Set(signupKeys);
+
+  return {
+    counts: {
+      landing: landing.size,
+      pageViewed: pageViewed.size,
+      generated: skipGeneratedStage ? null : generated.size,
+      ctaClicked: cta.size,
+      signup: signup.size,
+      saved: saved.size,
+    },
+    pageViewedRate: computeRate(intersectSize(landing, pageViewed), landing.size, minSample),
+    generatedRate: skipGeneratedStage
+      ? notApplicableRate(minSample)
+      : computeRate(intersectSize(pageViewed, generated), pageViewed.size, minSample),
+    ctaRate: skipGeneratedStage
+      ? computeRate(intersectSize(pageViewed, cta), pageViewed.size, minSample)
+      : computeRate(intersectSize(generated, cta), generated.size, minSample),
+    signupRate: computeRate(intersectSize(cta, signup), cta.size, minSample),
+    savedRate: skipSavedStage ? notApplicableRate(minSample) : computeRate(intersectSize(cta, saved), cta.size, minSample),
+  };
+}

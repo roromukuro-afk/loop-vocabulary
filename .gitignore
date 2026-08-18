@@ -33,3 +33,10 @@ ios/App/App.xcodeproj/xcuserdata/
 ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 
 .vercel
+
+# 注意: reports/ 直下(reports/*.json 等)は scripts/audit/ 等の既存監査スクリプトが
+# 出力する成果物で、意図的にgit管理下にコミットされている。そのため reports/ 全体は
+# ここでignoreしない。scripts/reporting/(vocab_test_maker_launch等のSNS計測スクリプト)
+# が書き出すレポートだけは、運用状況の生データでありコミット対象ではないため、
+# 専用のサブディレクトリに限定してignoreする。
+reports/vocab-test-maker-launch/
