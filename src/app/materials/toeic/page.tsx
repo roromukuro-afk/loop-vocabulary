@@ -225,6 +225,12 @@ export default async function ToeicMaterialsLandingPage() {
           💼 ビジネス英語教材を見る
         </Link>
         <Link
+          href="/exam-countdown-planner"
+          className="px-3 py-2 rounded-xl border border-navy-200 text-navy-600 hover:bg-navy-50 transition-colors"
+        >
+          🗓️ 試験日から逆算する学習計画を立てる
+        </Link>
+        <Link
           href="/guide"
           className="px-3 py-2 rounded-xl border border-navy-200 text-navy-600 hover:bg-navy-50 transition-colors"
         >

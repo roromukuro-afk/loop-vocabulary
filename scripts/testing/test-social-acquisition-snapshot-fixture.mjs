@@ -665,6 +665,14 @@ async function main() {
       { event_name: "landing_view", anonymous_session_id: `${prefix}gg`, source: "x", campaign: "campGG", path: "/", user_id: null, properties: {}, occurred_at: offset(100), is_test_event: false, schema_version: 1 },
       { event_name: "vocab_test_maker_generated", anonymous_session_id: `${prefix}gg`, source: "x", campaign: "campGG", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: offset(200), is_test_event: false, schema_version: 1 },
       { event_name: "vocab_test_maker_generated", anonymous_session_id: `${prefix}gg`, source: "x", campaign: "campGG", path: "/tools/vocab-test-maker", user_id: null, properties: {}, occurred_at: offset(300), is_test_event: false, schema_version: 1 },
+
+      // HH: pinterest / social / campHH / content=post4 → landing_view自体が一度も無く、
+      // SNS投稿が/exam-countdown-plannerへ直接リンクするケース(Codexレビュー指摘対応、
+      // PR #101: 「Count countdown page views as social landings」)。Gと同じ理由で、
+      // exam_countdown_page_viewedがLANDING_EVENT_NAMESに含まれていないと、この
+      // セッションのlandingが0件になってしまっていた。
+      { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}hh`, source: "pinterest", campaign: "campHH", path: null, user_id: null, properties: { source: "pinterest", medium: "social", content: "postHH" }, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
+      { event_name: "exam_countdown_page_viewed", anonymous_session_id: `${prefix}hh`, source: "pinterest", campaign: "campHH", path: "/exam-countdown-planner", user_id: null, properties: {}, occurred_at: offset(100), is_test_event: false, schema_version: 1 },
     ];
     const { error: insertErr } = await admin.from("analytics_events").insert(rows);
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
@@ -723,17 +731,17 @@ async function main() {
     // 並行運用するlaunch pack構成で2タブが並行visitするケースで、page_viewed行自身は
     // どちらのタブのcontentか判別できないため"(ambiguous)"として1件計上されるべき
     // (Codexレビュー指摘対応、15巡目、最重要)。 ----
-    if (result.socialLandingIdentities === 25) {
-      ok('social landing identities合計が25(A/B/D/G/H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/T-visit1/U-visit1/U-visit2/W-visit1/X-visitA/Y/Z/AA/BB/CC/EE/GG。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み、Mの40分間隔は2visitのまま、Nの0/20/40分3連続reloadは1visitに畳み込み、Oの日付境界またぎvisitも正しく計上。Qは真のlandingがウィンドウ開始前、T-visit2はtest account紐付け、Vはウィンドウ終了直後のtest account認証紐付け、W-visit2はmedium違いによる非social判定、X-visitBはそのvisit自身のlanding行が無いため計上されない。Yは同一source+campaignで複数content並行visitのため"(ambiguous)"のcontentで1件計上される。ZはcontentZAが非active化した後のcontentZBのみが正しく計上される。AAはタブA自身のlastSeenAt延長により40分目のconversionが正しくattributionされる。BBはウィンドウ内のlandingが1件計上される(user_id付き行自体はウィンドウ外)。CCはXの15分目のハードリロードが正しく既存visitへ畳み込まれ、15.5分目の後続ページが重複landingとして水増しされない。EEは20分目の行が両方のactive候補を延長するため40分目の行も引き続き"(ambiguous)"のまま1件計上される。GGはlanding自体は1visitのまま(=vocab_test_maker_generatedを2回発火しても水増しされない)');
+    if (result.socialLandingIdentities === 26) {
+      ok('social landing identities合計が26(A/B/D/G/H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/T-visit1/U-visit1/U-visit2/W-visit1/X-visitA/Y/Z/AA/BB/CC/EE/GG/HH。C=非social/E=test account/F=test event/H-visit2=非social/I=medium違いは除外、Jのreloadは1visitに畳み込み、Mの40分間隔は2visitのまま、Nの0/20/40分3連続reloadは1visitに畳み込み、Oの日付境界またぎvisitも正しく計上。Qは真のlandingがウィンドウ開始前、T-visit2はtest account紐付け、Vはウィンドウ終了直後のtest account認証紐付け、W-visit2はmedium違いによる非social判定、X-visitBはそのvisit自身のlanding行が無いため計上されない。Yは同一source+campaignで複数content並行visitのため"(ambiguous)"のcontentで1件計上される。ZはcontentZAが非active化した後のcontentZBのみが正しく計上される。AAはタブA自身のlastSeenAt延長により40分目のconversionが正しくattributionされる。BBはウィンドウ内のlandingが1件計上される(user_id付き行自体はウィンドウ外)。CCはXの15分目のハードリロードが正しく既存visitへ畳み込まれ、15.5分目の後続ページが重複landingとして水増しされない。EEは20分目の行が両方のactive候補を延長するため40分目の行も引き続き"(ambiguous)"のまま1件計上される。GGはlanding自体は1visitのまま(=vocab_test_maker_generatedを2回発火しても水増しされない)。HHはexam_countdown_page_viewedのみ(landing_viewが一度も無い)のセッションで、これもlandingとして正しく数えられる');
     } else {
-      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 25)`);
+      bad(`social landing identities合計が想定外: ${result.socialLandingIdentities}(期待値: 26)`);
     }
 
     // ---- 検証: source別バケット(H-visit1/J/K/L/M-visit1/M-visit2/N/O/P/T-visit1/W-visit1/
     // X-visitA/Y/Z/AA/BB/CC/EE/GGがxへ加算され、facebookはmedium=cpcのため0のまま。U-visit1/U-visit2は
     // どちらもother_socialへ加算される。Qは真のlandingがウィンドウ開始前、T-visit2/V
     // はtest account紐付け、W-visit2(cpc)はbucket=nullのため加算されない) ----
-    const expectedBuckets = { x: 20, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 0, facebook: 0, line: 0, other_social: 3 };
+    const expectedBuckets = { x: 20, threads: 0, instagram: 1, tiktok: 0, youtube: 1, pinterest: 1, facebook: 0, line: 0, other_social: 3 };
     let bucketsOk = true;
     for (const [bucket, expected] of Object.entries(expectedBuckets)) {
       if (result.byBucket[bucket] !== expected) {
@@ -742,7 +750,7 @@ async function main() {
       }
     }
     if (bucketsOk) {
-      ok("source別バケット(x=19[A,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P,T-visit1,W-visit1,X-visitA,Y,Z,AA,BB,CC,EE], instagram=1, youtube=1, other_social=3[D,U-visit1,U-visit2], facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodon/linkedinはother_socialへ、test account/test eventのxは含まれない。Qは真のlandingがウィンドウ開始前、T-visit2/Vはtest account紐付け、W-visit2はmedium違いによる非social判定、X-visitBはlanding行が無いため含まれない)");
+      ok("source別バケット(x=19[A,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P,T-visit1,W-visit1,X-visitA,Y,Z,AA,BB,CC,EE], instagram=1, youtube=1, pinterest=1[HH], other_social=3[D,U-visit1,U-visit2], facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodon/linkedinはother_socialへ、test account/test eventのxは含まれない。Qは真のlandingがウィンドウ開始前、T-visit2/Vはtest account紐付け、W-visit2はmedium違いによる非social判定、X-visitBはlanding行が無いため含まれない)");
     }
 
     // byBucketFiltered(Codexレビュー指摘対応、PR #102、13巡目、P2): このfixture呼び出しは
@@ -1224,9 +1232,13 @@ async function main() {
       // 指摘対応、PR #102、14巡目、P2)。funnelCountsByContentは生の行数のため2を
       // 報告する(distinct visit単位のSetへ潰していれば1になっていたはず)。
       fc?.contentGG?.vocab_test_maker_generated === 2 &&
-      Object.keys(fc ?? {}).length === 14
+      // HH: exam_countdown_page_viewedのみのセッション(Codexレビュー指摘対応、PR #101)。
+      // exam_countdown_page_viewedがFUNNEL_EVENTSに含まれているため、他のfunnel
+      // イベント同様にcontent別集計へ正しく計上される。
+      fc?.postHH?.exam_countdown_page_viewed === 1 &&
+      Object.keys(fc ?? {}).length === 15
     ) {
-      ok('funnel件数のcontent別内訳が正しい(post1={page_viewed:1,generated:1}, post2={guide_view:1}, post3={page_viewed:1}, contentJ={page_viewed:1}, contentN={page_viewed:1}, contentP={page_viewed:1}, contentQ={page_viewed:1}, contentU={page_viewed:1}, contentXA={page_viewed:1}, "(ambiguous)"={page_viewed:2[Y+EE],generated:1[EE]}, contentZB={page_viewed:1}, contentAA1={page_viewed:1,generated:1}, contentCC={page_viewed:1}, contentGG={generated:2[生の行数、distinct visitなら1のはず]}の14件のみ。contentXB/contentYA/contentYB/contentZA/contentAAThreads/contentBB/contentCCThreads/contentEEA/contentEEBは無し)');
+      ok('funnel件数のcontent別内訳が正しい(post1={page_viewed:1,generated:1}, post2={guide_view:1}, post3={page_viewed:1}, contentJ={page_viewed:1}, contentN={page_viewed:1}, contentP={page_viewed:1}, contentQ={page_viewed:1}, contentU={page_viewed:1}, contentXA={page_viewed:1}, "(ambiguous)"={page_viewed:2[Y+EE],generated:1[EE]}, contentZB={page_viewed:1}, contentAA1={page_viewed:1,generated:1}, contentCC={page_viewed:1}, contentGG={generated:2[生の行数、distinct visitなら1のはず]}, postHH={exam_countdown_page_viewed:1}の15件のみ。contentXB/contentYA/contentYB/contentZA/contentAAThreads/contentBB/contentCCThreads/contentEEA/contentEEBは無し)');
     } else {
       bad(`funnelCountsByContentが想定外: ${JSON.stringify(fc)}`);
     }

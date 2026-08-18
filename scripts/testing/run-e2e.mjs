@@ -265,6 +265,12 @@ async function main() {
 
     console.log("\n=== 74. 英単語テスト作成ツール 共有CTA(Issue #98) E2E ===");
     results.vocabTestMakerShare = runNode("scripts/testing/e2e/vocab-test-maker-share.mjs");
+
+    console.log("\n=== 75. 試験日から逆算する学習計画メーカー 拡充(教材連携/FAQ/計測) E2E ===");
+    results.examCountdownPlanner = runNode("scripts/testing/e2e/exam-countdown-planner.mjs");
+
+    console.log("\n=== 76. 試験日から逆算する学習計画メーカー 教材選択ロジック ユニットテスト ===");
+    results.examCountdownMaterialSelection = runNode("scripts/testing/test-exam-countdown-material-selection.mjs");
   } finally {
     stopDevServer(dev);
   }

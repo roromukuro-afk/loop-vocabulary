@@ -2,8 +2,16 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { trackToolStarted, trackToolCompleted } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
+import {
+  groupMaterialsByExamType,
+  resolveWordCountFromMaterial,
+  type ExamCountdownMaterialOption,
+} from "@/lib/utils/examCountdownMaterials";
 
 const TOOL_KEY = "exam-countdown-planner";
+
+export type MaterialOption = ExamCountdownMaterialOption;
 
 // 復習専用期間として試験直前に確保することを推奨する日数。
 // 「新しい単語を詰め込むより、直前は既習単語の復習に充てる方が定着しやすい」という
@@ -81,11 +89,29 @@ function buildPlan(daysRemaining: number, wordCount: number): PlanResult {
   };
 }
 
-export function ExamCountdownPlanner() {
+export function ExamCountdownPlanner({ materials }: { materials: MaterialOption[] }) {
   const [examDateInput, setExamDateInput] = useState<string>("");
   const [wordCountInput, setWordCountInput] = useState<string>("");
+  const [selectedMaterialId, setSelectedMaterialId] = useState<string>("");
   const [hasTrackedStart, setHasTrackedStart] = useState(false);
   const [hasTrackedCompletion, setHasTrackedCompletion] = useState(false);
+
+  // 教材選択肢を試験区分ごとにグループ化する(<optgroup>表示用)。
+  const materialGroups = useMemo(() => groupMaterialsByExamType(materials), [materials]);
+
+  const selectedMaterial = useMemo(
+    () => materials.find((m) => m.id === selectedMaterialId) ?? null,
+    [materials, selectedMaterialId],
+  );
+
+  function handleMaterialSelect(id: string) {
+    setSelectedMaterialId(id);
+    if (!id) return;
+    const resolvedWordCount = resolveWordCountFromMaterial(materials, id);
+    // 手入力欄への「代替」であり「置き換え」ではないため、選択後もこの数値入力欄は
+    // 引き続き編集可能なままにする(要件どおり、上書きするだけで無効化はしない)。
+    if (resolvedWordCount != null) setWordCountInput(String(resolvedWordCount));
+  }
 
   const examDate = useMemo(
     () => (examDateInput ? parseDateInputValue(examDateInput) : null),
@@ -106,6 +132,9 @@ export function ExamCountdownPlanner() {
   useEffect(() => {
     if (!hasTrackedStart) {
       trackToolStarted(TOOL_KEY);
+      // GA4専用のtrackToolStartedとは別に、first-party Growth OS側でもページ表示を
+      // 1回だけ記録する(vocab_test_maker_page_viewedと同じパターン)。
+      trackEvent("exam_countdown_page_viewed", {});
       setHasTrackedStart(true);
     }
   }, [hasTrackedStart]);
@@ -115,6 +144,7 @@ export function ExamCountdownPlanner() {
     // 値を入力し直すたびに発火させると、送信ボタンがないこのツールではGA4ファネルの意味が崩れる。
     if (!hasTrackedCompletion && plan) {
       trackToolCompleted(TOOL_KEY);
+      trackEvent("exam_countdown_generated", { days_remaining: plan.daysRemaining });
       setHasTrackedCompletion(true);
     }
   }, [plan, hasTrackedCompletion]);
@@ -183,6 +213,38 @@ export function ExamCountdownPlanner() {
             自分の単語帳の未学習語数や、目標とする単語帳の総収録語数を入力してください。
           </p>
         </div>
+
+        {materialGroups.length > 0 && (
+          <div>
+            <label htmlFor="material-select" className="block text-xs font-bold text-navy-600 mb-1.5">
+              または、Loop Vocabularyの教材から単語数を入力（任意）
+            </label>
+            <select
+              id="material-select"
+              data-testid="exam-countdown-material-select"
+              aria-label="教材から単語数を入力"
+              value={selectedMaterialId}
+              onChange={(e) => handleMaterialSelect(e.target.value)}
+              className="w-full border border-navy-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white"
+            >
+              <option value="">教材を選択してください</option>
+              {materialGroups.map(([examType, list]) => (
+                <optgroup key={examType} label={examType}>
+                  {list.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.title}（{m.wordCount.toLocaleString()}語）
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            {selectedMaterial && (
+              <p className="text-[11px] text-navy-500 mt-1.5">
+                「{selectedMaterial.title}」の総収録語数（{selectedMaterial.wordCount.toLocaleString()}語）を上の「覚えたい単語数」に入力しました。この数字には既に覚えている単語も含まれるため、実際に覚えたい範囲に合わせて調整してください。
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── 結果 ── */}
@@ -246,6 +308,7 @@ export function ExamCountdownPlanner() {
         </p>
         <Link
           href="/signup"
+          onClick={() => trackEvent("exam_countdown_srs_cta_clicked", {})}
           className="inline-block px-6 py-3 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
         >
           無料で始める →

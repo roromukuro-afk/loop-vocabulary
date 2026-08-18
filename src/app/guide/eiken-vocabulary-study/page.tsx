@@ -197,6 +197,7 @@ export default function EikenVocabularyStudyPage() {
               { href: "/guide/eiken-2kyu-tango", tag: "英検2級", title: "英検2級 単語対策と無料単語一覧" },
               { href: "/guide/listening-and-pronunciation-vocabulary", tag: "リスニング", title: "単語を音で覚える【音声ファースト学習法】" },
               { href: "/guide/ai-vocabulary-learning", tag: "AI活用", title: "AIを使った英単語学習法" },
+              { href: "/exam-countdown-planner", tag: "学習計画", title: "試験日から逆算する学習計画メーカー（無料ツール）" },
             ].map((r) => (
               <Link key={r.href} href={r.href} className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
                 <div className="text-[11px] text-sky-600 font-semibold mb-0.5">{r.tag}</div>

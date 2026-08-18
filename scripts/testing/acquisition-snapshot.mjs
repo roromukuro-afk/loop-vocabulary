@@ -14,7 +14,8 @@
  *  - landing path別内訳
  *  - signup数(profiles.created_atベース、is_test_account=false)
  *  - guide_view / guide_cta_click / vocab_test_maker_page_viewed/_generated/
- *    _srs_cta_clicked/_saved_to_wordbook の件数
+ *    _srs_cta_clicked/_saved_to_wordbook / exam_countdown_page_viewed/_generated/
+ *    _srs_cta_clicked の件数
  *
  * 使い方: node scripts/testing/acquisition-snapshot.mjs
  */
@@ -29,6 +30,13 @@ const FUNNEL_EVENTS = [
   "vocab_test_maker_generated",
   "vocab_test_maker_srs_cta_clicked",
   "vocab_test_maker_saved_to_wordbook",
+  // exam-countdown-planner(Issue #100)のfunnel。eventSchema.tsには元々登録済み
+  // だったが、この集計スクリプトのFUNNEL_EVENTSに含まれていなかったため、
+  // 本番visitがraw rowとしては記録されてもここでは可視化されなかった
+  // (Codexレビュー指摘対応、PR #101)。
+  "exam_countdown_page_viewed",
+  "exam_countdown_generated",
+  "exam_countdown_srs_cta_clicked",
 ];
 
 function windowRangeISO(startDateStr, endDateStrInclusive) {

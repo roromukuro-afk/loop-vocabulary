@@ -1518,7 +1518,7 @@ Loop Vocabulary では、こうした前置詞つきの熟語・フレーズも�
 
 ### ステップ2：2級頻出語1,500語を集中学習
 
-英検2級用の単語帳（旺文社「でる順パス単」など）で、頻出上位語を **SRS（忘却曲線復習）** で回します。1日20語×復習を続ければ、2〜3ヶ月で主要語彙を押さえられます。
+英検2級用の単語帳（旺文社「でる順パス単」など）で、頻出上位語を **SRS（忘却曲線復習）** で回します。1日20語×復習を続ければ、2〜3ヶ月で主要語彙を押さえられます。試験日が決まっている場合は、[試験日から逆算する学習計画メーカー](/exam-countdown-planner)で1日あたりに必要な語数の目安を確認してから逆算して計画を立てると、ペース配分がしやすくなります。
 
 ### ステップ3：過去問で出会った未知語を回収
 
@@ -2193,13 +2193,23 @@ function renderContent(content: string) {
 }
 
 function renderInline(text: string): React.ReactNode {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  // `[表示テキスト](/path)` 形式のリンクも(太字・インラインコードと同様に)最小限サポートする。
+  // 内部リンク(試験日から逆算する学習計画メーカー等)を本文中に自然な文として埋め込むための拡張。
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
   return parts.map((p, i) => {
     if (p.startsWith("**") && p.endsWith("**")) {
       return <strong key={i} className="font-bold text-navy-900">{p.slice(2, -2)}</strong>;
     }
     if (p.startsWith("`") && p.endsWith("`")) {
       return <code key={i} className="bg-navy-50 border border-navy-200 rounded px-1 font-mono text-[12px]">{p.slice(1, -1)}</code>;
+    }
+    const linkMatch = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(p);
+    if (linkMatch) {
+      return (
+        <Link key={i} href={linkMatch[2]} className="text-sky-600 underline font-semibold">
+          {linkMatch[1]}
+        </Link>
+      );
     }
     return p;
   });
