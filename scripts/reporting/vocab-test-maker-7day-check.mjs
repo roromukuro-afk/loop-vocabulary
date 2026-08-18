@@ -21,7 +21,7 @@
 import { fileURLToPath } from "node:url";
 import { loadEnv, requireEnv } from "../testing/lib/env.mjs";
 import { getAdminClient } from "../testing/lib/supabaseAdmin.mjs";
-import { fetchTestAccountIds, summarizeWindow } from "../testing/social-acquisition-snapshot.mjs";
+import { fetchTestAccountIds, summarizeWindow, FUNNEL_EVENTS } from "../testing/social-acquisition-snapshot.mjs";
 import { computeReportWindows, MIN_SAMPLE_SIZE_FOR_RATE } from "./lib/windowMath.mjs";
 import { buildFunnelRates } from "./lib/funnelRates.mjs";
 import { writeReport } from "./lib/reportIO.mjs";
@@ -49,25 +49,45 @@ const KNOWN_CONTENT_KEYS = [
   "threads_launch_02",
 ];
 
-function buildRatesByKey(landingByKey, funnelCountsByKey, signupCountByKey, keys, minSample) {
+function buildRatesByKey(landingKeysByKey, funnelKeysByKey, signupCountByKey, keys, minSample) {
   const out = {};
   for (const key of keys) {
-    const landing = landingByKey[key] ?? 0;
-    const funnel = funnelCountsByKey[key] ?? {};
+    const landingKeys = landingKeysByKey[key] ?? [];
+    const funnelKeys = funnelKeysByKey[key] ?? {};
     const signup = signupCountByKey[key] ?? 0;
     out[key] = buildFunnelRates(
       {
-        landing,
-        pageViewed: funnel.vocab_test_maker_page_viewed ?? 0,
-        generated: funnel.vocab_test_maker_generated ?? 0,
-        ctaClicked: funnel.vocab_test_maker_srs_cta_clicked ?? 0,
+        landingKeys,
+        pageViewedKeys: funnelKeys.vocab_test_maker_page_viewed ?? [],
+        generatedKeys: funnelKeys.vocab_test_maker_generated ?? [],
+        ctaKeys: funnelKeys.vocab_test_maker_srs_cta_clicked ?? [],
+        savedKeys: funnelKeys.vocab_test_maker_saved_to_wordbook ?? [],
         signup,
-        saved: funnel.vocab_test_maker_saved_to_wordbook ?? 0,
       },
       minSample,
     );
   }
   return out;
+}
+
+// current.socialLandingIdentities/funnelCounts/socialSignupCountはfilterAttrを適用して
+// いない全体像(このウィンドウの全SNSチャネル横断の参考値)であり、headline totalsとして
+// そのまま出すと他campaignの活動が混入し得る(Codexレビュー指摘対応、PR #102、3巡目、
+// P1)。byContent/funnelCountsByContent/signupCountByContentはfilterAttr(campaign)で
+// 既に絞り込み済みのため、このcampaignに属するcontentキーだけを合算してcampaign
+// スコープのtotalsを再構築する。
+function sumCampaignTotals(byContent, funnelCountsByContent, signupCountByContent, keys) {
+  let socialLandingIdentities = 0;
+  let socialSignupCount = 0;
+  const funnelCounts = Object.fromEntries(FUNNEL_EVENTS.map((name) => [name, 0]));
+  for (const key of keys) {
+    socialLandingIdentities += byContent[key] ?? 0;
+    socialSignupCount += signupCountByContent[key] ?? 0;
+    const funnel = funnelCountsByContent[key];
+    if (!funnel) continue;
+    for (const name of FUNNEL_EVENTS) funnelCounts[name] += funnel[name] ?? 0;
+  }
+  return { socialLandingIdentities, socialSignupCount, funnelCounts };
 }
 
 function diffRate(curr, prior) {
@@ -185,16 +205,27 @@ async function main() {
   const bucketKeys = Object.keys(current.byBucket);
 
   const currentContentRates = buildRatesByKey(
-    current.byContent,
-    current.funnelCountsByContent,
+    current.landingKeysByContent,
+    current.funnelKeysByContent,
     current.signupCountByContent,
     allContentKeys,
     MIN_SAMPLE_SIZE_FOR_RATE,
   );
   const priorContentRates = prior
-    ? buildRatesByKey(prior.byContent, prior.funnelCountsByContent, prior.signupCountByContent, allContentKeys, MIN_SAMPLE_SIZE_FOR_RATE)
+    ? buildRatesByKey(
+        prior.landingKeysByContent,
+        prior.funnelKeysByContent,
+        prior.signupCountByContent,
+        allContentKeys,
+        MIN_SAMPLE_SIZE_FOR_RATE,
+      )
     : {};
   const contentComparison = buildContentComparison(currentContentRates, priorContentRates, allContentKeys);
+
+  const currentTotals = sumCampaignTotals(current.byContent, current.funnelCountsByContent, current.signupCountByContent, allContentKeys);
+  const priorTotals = prior
+    ? sumCampaignTotals(prior.byContent, prior.funnelCountsByContent, prior.signupCountByContent, allContentKeys)
+    : null;
 
   const report = {
     kind: "vocab_test_maker_7day_check",
@@ -209,7 +240,14 @@ async function main() {
     landingBySource: landingComparisonByKey(current.byBucket, prior?.byBucket ?? null, bucketKeys),
     landingByCampaign: landingComparisonByKey(current.byCampaign, prior?.byCampaign ?? null, allCampaignKeys),
     byContent: contentComparison,
+    // このcampaignのcontentキーだけを合算したtotals(campaignスコープ)。
+    // fullWindowSocialAllChannels側は参考情報として、絞り込み無しの全SNSチャネル
+    // 横断の値も別途保持する(他campaignの活動有無を把握できるようにするため)。
     totals: {
+      current: currentTotals,
+      prior: priorTotals,
+    },
+    fullWindowSocialAllChannels: {
       current: {
         socialLandingIdentities: current.socialLandingIdentities,
         socialSignupCount: current.socialSignupCount,
@@ -232,8 +270,8 @@ async function main() {
       ? `prior window: ${windows.prior.startDateStr} 〜 ${windows.prior.endDateStrInclusive} (JST)`
       : "prior window: none (this is the first complete window; no period-over-period comparison yet)",
     "",
-    `social landing identities: ${prior ? `${prior.socialLandingIdentities} -> ` : ""}${current.socialLandingIdentities}`,
-    `social起点signup: ${prior ? `${prior.socialSignupCount} -> ` : ""}${current.socialSignupCount}`,
+    `social landing identities(${CAMPAIGN}のみ): ${priorTotals ? `${priorTotals.socialLandingIdentities} -> ` : ""}${currentTotals.socialLandingIdentities}`,
+    `social起点signup(${CAMPAIGN}のみ): ${priorTotals ? `${priorTotals.socialSignupCount} -> ` : ""}${currentTotals.socialSignupCount}`,
     "",
     `content別 rate(insufficient dataの場合は明示、最小サンプル数=${MIN_SAMPLE_SIZE_FOR_RATE}):`,
     // landingだけでなくfunnel/signupにも活動があれば表示する(Codexレビュー指摘対応、

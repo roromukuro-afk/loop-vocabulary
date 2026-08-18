@@ -116,16 +116,18 @@ async function main() {
   const result = await summarizeWindowISO(admin, headerLabel, startISO, endISO, testAccountIds, asOf, undefined, filterAttr);
 
   const funnelForContent = result.funnelCountsByContent[content] ?? EMPTY_FUNNEL_COUNTS;
+  const funnelKeysForContent = result.funnelKeysByContent[content] ?? {};
   const landingForContent = result.byContent[content] ?? 0;
+  const landingKeysForContent = result.landingKeysByContent[content] ?? [];
   const signupForContent = result.signupCountByContent[content] ?? 0;
 
   const rates = buildFunnelRates({
-    landing: landingForContent,
-    pageViewed: funnelForContent.vocab_test_maker_page_viewed ?? 0,
-    generated: funnelForContent.vocab_test_maker_generated ?? 0,
-    ctaClicked: funnelForContent.vocab_test_maker_srs_cta_clicked ?? 0,
+    landingKeys: landingKeysForContent,
+    pageViewedKeys: funnelKeysForContent.vocab_test_maker_page_viewed ?? [],
+    generatedKeys: funnelKeysForContent.vocab_test_maker_generated ?? [],
+    ctaKeys: funnelKeysForContent.vocab_test_maker_srs_cta_clicked ?? [],
+    savedKeys: funnelKeysForContent.vocab_test_maker_saved_to_wordbook ?? [],
     signup: signupForContent,
-    saved: funnelForContent.vocab_test_maker_saved_to_wordbook ?? 0,
   });
 
   const report = {

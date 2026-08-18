@@ -1188,6 +1188,29 @@ async function main() {
       bad(`funnelCountsByContentが想定外: ${JSON.stringify(fc)}`);
     }
 
+    // ---- 検証: landingKeysByContent/funnelKeysByContent(件数に潰す前の生のvisitKey配列。
+    // funnelRates.mjsのcohort intersection計算がこれを直接使う。Codexレビュー指摘対応、
+    // PR #102、3巡目、P1)が、対応するbyContent/funnelCountsByContentの件数と
+    // 一致すること ----
+    const lkbc = result.landingKeysByContent;
+    const fkbc = result.funnelKeysByContent;
+    if (
+      lkbc?.post1?.length === result.byContent["post1"] &&
+      lkbc?.contentM?.length === result.byContent["contentM"] &&
+      lkbc?.["(ambiguous)"]?.length === result.byContent["(ambiguous)"] &&
+      fkbc?.post1?.vocab_test_maker_page_viewed?.length === fc?.post1?.vocab_test_maker_page_viewed &&
+      fkbc?.post1?.vocab_test_maker_generated?.length === fc?.post1?.vocab_test_maker_generated &&
+      fkbc?.["(ambiguous)"]?.vocab_test_maker_page_viewed?.length === fc?.["(ambiguous)"]?.vocab_test_maker_page_viewed &&
+      new Set(lkbc?.post1).size === lkbc?.post1?.length
+    ) {
+      ok("landingKeysByContent/funnelKeysByContentの配列長がbyContent/funnelCountsByContentの件数と一致する(post1/contentM/(ambiguous)で確認、重複visitKeyも無い)");
+    } else {
+      bad(
+        `landingKeysByContent/funnelKeysByContentが想定外: lkbc.post1=${JSON.stringify(lkbc?.post1)}, ` +
+          `lkbc.contentM=${JSON.stringify(lkbc?.contentM)}, fkbc.post1=${JSON.stringify(fkbc?.post1)}`,
+      );
+    }
+
     // ---- 検証: campaign/content/path(identity単位、同一visitの複数行を二重計上しない) ----
     // campQ/contentQは含まれない(Qの真のlandingはウィンドウ開始前のため。Codexレビュー
     // 指摘対応、9巡目)。

@@ -45,7 +45,9 @@ const KNOWN_SOCIAL_SOURCES = ["x", "threads", "instagram", "tiktok", "youtube", 
 const KNOWN_SOCIAL_SOURCE_SET = new Set(KNOWN_SOCIAL_SOURCES);
 const SOCIAL_BUCKETS = [...KNOWN_SOCIAL_SOURCES, "other_social"];
 
-const FUNNEL_EVENTS = [
+// vocab-test-maker-7day-check.mjsがcampaign絞り込み済みのtotals(byContentの合算)を
+// 全イベント名ゼロ埋めで構築する際にも使うためexportする。
+export const FUNNEL_EVENTS = [
   "vocab_test_maker_page_viewed",
   "vocab_test_maker_generated",
   "vocab_test_maker_srs_cta_clicked",
@@ -703,6 +705,13 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
   }
   for (const [k, set] of identitiesByCampaign) byCampaign.set(k, set.size);
   for (const [k, set] of identitiesByContent) byContent.set(k, set.size);
+  // landing段階のvisitKey集合自体もcontent別に保持する(byContentは件数へ潰す前の
+  // 生のSet)。呼び出し元(funnelRates.mjs)がstage間のcohort intersection(同一visitが
+  // 両方の段階に到達したか)を計算するために、件数だけでなくSet自体が必要
+  // (Codexレビュー指摘対応、PR #102、3巡目、P1: 各段階を独立集合の件数比で割ると、
+  // 一方の段階のvisitが別のウィンドウでもう一方の段階に到達したケースを取り違えて
+  // rateが100%を超え得る。同一visitKeyが両方の段階に属するかをSetのintersectionで
+  // 判定することで初めて正しい遷移率になる)。
 
   // 3) funnel/signup(可能な範囲で)。行ごとに個別のvisit attributionを判定し、
   //    そのvisitがsocialと判定された行だけを対象にする(landing行の有無とは独立)。
@@ -838,6 +847,17 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
   console.log("signup数 content別 (上位10):");
   for (const [k, c] of topEntries(signupCountByContent)) console.log(`  ${k}: ${c}`);
 
+  // funnelRates.mjsがcontentごとにstage間のcohort intersectionを計算できるよう、
+  // 件数に潰す前のvisitKey自体をcontent別に配列化して返す(Codexレビュー指摘対応、
+  // PR #102、3巡目、P1)。JSON化のためSetではなく配列で返す。
+  const landingKeysByContent = Object.fromEntries([...identitiesByContent].map(([content, set]) => [content, [...set]]));
+  const funnelKeysByContent = Object.fromEntries(
+    [...funnelIdentitiesByContent].map(([content, sets]) => [
+      content,
+      Object.fromEntries(FUNNEL_EVENTS.map((name) => [name, [...sets[name]]])),
+    ]),
+  );
+
   return {
     socialLandingIdentities: socialLandingIdentities.size,
     byBucket: Object.fromEntries(byBucket),
@@ -846,6 +866,8 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
     byPath: Object.fromEntries(byPath),
     funnelCounts,
     funnelCountsByContent: Object.fromEntries(funnelCountsByContent),
+    landingKeysByContent,
+    funnelKeysByContent,
     socialSignupCount,
     signupCountByContent: Object.fromEntries(signupCountByContent),
   };
