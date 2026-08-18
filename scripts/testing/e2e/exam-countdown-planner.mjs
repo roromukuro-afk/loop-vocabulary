@@ -107,8 +107,13 @@ async function main() {
   }
 
   // ---- 3〜5: ブラウザでの計算・教材選択・計測イベント検証 ----
-  const browser = await chromium.launch();
+  // chromium.launch()自体をtryの外側で呼ぶと、起動失敗時(Playwrightのブラウザ
+  // バイナリ未インストール等)にfinallyのstopDevServer(dev)が実行されず、
+  // ensureDevServer()が起動したdetachedなプロダクションサーバがport 3799に
+  // 残留してしまう(Codexレビュー指摘、PR #101)。launch()自体をtry内に含める。
+  let browser;
   try {
+    browser = await chromium.launch();
     const context = await browser.newContext();
     const page = await context.newPage();
     await page.addInitScript(() => {
@@ -222,7 +227,7 @@ async function main() {
   } catch (e) {
     fail(`ブラウザ検証中に例外: ${e.message}`);
   } finally {
-    await browser.close();
+    if (browser) await browser.close();
     stopDevServer(dev);
   }
 
