@@ -11,6 +11,14 @@
  *
  * --medium は省略可(デフォルト "social")。--path は "/" から始まる相対パスのみ受け付ける
  * (外部ドメインへのオープンリダイレクト生成を防ぐため、絶対URLは拒否する)。
+ *
+ * pathの検証はstartsWith("/")の文字列パターンだけでなく、実際にnew URL()で解決した
+ * 結果のoriginをbaseUrlのoriginと突き合わせて確認する(Codexレビュー指摘対応:
+ * "/\evil.example/x" のような、先頭1文字は"/"だが2文字目がバックスラッシュのパスは、
+ * WHATWG URLパーサがhttps等のspecialスキームでバックスラッシュを"/"と同等に扱うため
+ * `new URL("/\\evil.example/x", "https://loop-vocabulary.app")` が
+ * `https://evil.example/x` に解決されてしまい、文字列パターンチェックだけでは
+ * すり抜ける。originを直接比較する方が、個々のバイパス手口を後追いで塞ぐより堅牢)。
  */
 import { pathToFileURL } from "node:url";
 
@@ -42,6 +50,13 @@ export function buildSocialLink({ source, campaign, content, path, medium = "soc
   }
 
   const url = new URL(path, baseUrl);
+  const expectedOrigin = new URL(baseUrl).origin;
+  if (url.origin !== expectedOrigin) {
+    throw new Error(
+      `--path の解決結果が想定外のoriginになりました(オープンリダイレクト対策で拒否): ` +
+        `path=${path} -> resolved origin=${url.origin} (期待値: ${expectedOrigin})`,
+    );
+  }
   url.searchParams.set("utm_source", source);
   url.searchParams.set("utm_medium", medium);
   url.searchParams.set("utm_campaign", campaign);

@@ -70,6 +70,15 @@ test("buildSocialLink: プロトコル相対URL(//host)も拒否される", () =
   );
 });
 
+test("buildSocialLink: バックスラッシュによるorigin書き換え(WHATWG URLパーサのバイパス)も拒否される", () => {
+  // "/\evil.example/x" は先頭1文字は"/"だが、new URL()がバックスラッシュを"/"と
+  // 同等に扱うため https://evil.example/x に解決されてしまう(Codexレビュー指摘)。
+  assert.throws(
+    () => buildSocialLink({ source: "x", campaign: "c", content: "x", path: "/\\evil.example/x" }),
+    /origin/,
+  );
+});
+
 test("buildSocialLink: パス中のクエリ/特殊文字は正しくエンコードされる", () => {
   const result = buildSocialLink({
     source: "x",
