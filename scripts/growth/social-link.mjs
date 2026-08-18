@@ -19,10 +19,39 @@
  * `new URL("/\\evil.example/x", "https://loop-vocabulary.app")` が
  * `https://evil.example/x` に解決されてしまい、文字列パターンチェックだけでは
  * すり抜ける。originを直接比較する方が、個々のバイパス手口を後追いで塞ぐより堅牢)。
+ *
+ * source/campaign/content/mediumは英数字・ハイフン・アンダースコアのみへ強制する
+ * (Codexレビュー指摘対応): このスクリプトの目的はまさに「表記ゆれ(大文字小文字・
+ * アンダースコア/ハイフン混在等)の防止」だが、値を無検証のまま素通ししていたため、
+ * 例えば--source=Xと--source=xが別のsocialバケットとして扱われてしまう
+ * (scripts/testing/social-acquisition-snapshot.mjsのclassifySocialBucket()は
+ * 既知sourceを小文字の完全一致でしか認識せず、Xはother_socialへ丸められてしまう)、
+ * またcampaign別レポートで大文字小文字違いの表記ゆれが別campaignとして分裂して
+ * 集計される、という不具合が起き得た。空白等を含む値やアルファベット以外の文字は
+ * 自動変換せず明示的に拒否する(自動小文字化だけだと、意図しない値をそのまま
+ * 通してしまう余地が残るため)。
  */
 import { pathToFileURL } from "node:url";
 
 const SITE_URL = "https://loop-vocabulary.app";
+
+// source/campaign/content/mediumの許容パターン(小文字英数字・ハイフン・
+// アンダースコアのみ)。既に小文字化・trim済みの値に対して適用する。
+const IDENTIFIER_PATTERN = /^[a-z0-9_-]+$/;
+
+function normalizeIdentifier(paramName, rawValue) {
+  // 大文字小文字はここで自動的に統一する(--source=Xと--source=xを同一視するため)。
+  // それでもなお許容パターンに一致しない場合(空白・記号・非ASCII文字等)は、
+  // 自動変換で表記ゆれを吸収できないため明示的に拒否する。
+  const normalized = rawValue.trim().toLowerCase();
+  if (!IDENTIFIER_PATTERN.test(normalized)) {
+    throw new Error(
+      `--${paramName} は英数字・ハイフン・アンダースコアのみ使用できます(大文字小文字は自動で統一しますが、` +
+        `空白・記号・非ASCII文字等は使用できません): ${rawValue}`,
+    );
+  }
+  return normalized;
+}
 
 export function parseArgs(argv) {
   const out = {};
@@ -49,6 +78,11 @@ export function buildSocialLink({ source, campaign, content, path, medium = "soc
     throw new Error(`--path は "/" で始まる相対パスのみ指定できます(絶対URL・プロトコル相対URLは不可): ${path}`);
   }
 
+  const normalizedSource = normalizeIdentifier("source", source);
+  const normalizedCampaign = normalizeIdentifier("campaign", campaign);
+  const normalizedContent = normalizeIdentifier("content", content);
+  const normalizedMedium = normalizeIdentifier("medium", medium);
+
   const url = new URL(path, baseUrl);
   const expectedOrigin = new URL(baseUrl).origin;
   if (url.origin !== expectedOrigin) {
@@ -57,12 +91,19 @@ export function buildSocialLink({ source, campaign, content, path, medium = "soc
         `path=${path} -> resolved origin=${url.origin} (期待値: ${expectedOrigin})`,
     );
   }
-  url.searchParams.set("utm_source", source);
-  url.searchParams.set("utm_medium", medium);
-  url.searchParams.set("utm_campaign", campaign);
-  url.searchParams.set("utm_content", content);
+  url.searchParams.set("utm_source", normalizedSource);
+  url.searchParams.set("utm_medium", normalizedMedium);
+  url.searchParams.set("utm_campaign", normalizedCampaign);
+  url.searchParams.set("utm_content", normalizedContent);
 
-  return { fullUrl: url.toString(), source, medium, campaign, content, path };
+  return {
+    fullUrl: url.toString(),
+    source: normalizedSource,
+    medium: normalizedMedium,
+    campaign: normalizedCampaign,
+    content: normalizedContent,
+    path,
+  };
 }
 
 function main() {

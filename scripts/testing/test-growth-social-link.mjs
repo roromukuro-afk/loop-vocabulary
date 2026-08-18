@@ -79,16 +79,32 @@ test("buildSocialLink: バックスラッシュによるorigin書き換え(WHATW
   );
 });
 
-test("buildSocialLink: パス中のクエリ/特殊文字は正しくエンコードされる", () => {
+test("buildSocialLink: source/campaign/content/mediumの大文字小文字は自動的に統一される(表記ゆれ防止、Codexレビュー指摘対応)", () => {
   const result = buildSocialLink({
-    source: "x",
-    campaign: "c a mp",
-    content: "id&1",
+    source: "X",
+    campaign: "Vocab_Test-Maker",
+    content: "Quiz-001",
     path: "/tools/vocab-test-maker",
+    medium: "Social",
   });
+  assert.equal(result.source, "x");
+  assert.equal(result.campaign, "vocab_test-maker");
+  assert.equal(result.content, "quiz-001");
+  assert.equal(result.medium, "social");
   const url = new URL(result.fullUrl);
-  assert.equal(url.searchParams.get("utm_campaign"), "c a mp");
-  assert.equal(url.searchParams.get("utm_content"), "id&1");
+  assert.equal(url.searchParams.get("utm_source"), "x");
+  assert.equal(url.searchParams.get("utm_medium"), "social");
+});
+
+test("buildSocialLink: campaign/contentに空白等の非許容文字が含まれると拒否される(表記ゆれ防止、Codexレビュー指摘対応)", () => {
+  assert.throws(
+    () => buildSocialLink({ source: "x", campaign: "c a mp", content: "id1", path: "/tools/vocab-test-maker" }),
+    /campaign/,
+  );
+  assert.throws(
+    () => buildSocialLink({ source: "x", campaign: "camp", content: "id&1", path: "/tools/vocab-test-maker" }),
+    /content/,
+  );
 });
 
 test("parseArgs: --key=value形式を正しくパースする", () => {
