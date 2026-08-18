@@ -17,7 +17,7 @@ function fail(msg) { console.error(`❌ FAIL: ${msg}`); failed++; }
   const b = build24hCheckTaskName("x_launch_01");
   if (a === b) ok("build24hCheckTaskName: 同じcontentに対して常に同じタスク名を返す(決定論的)");
   else fail(`build24hCheckTaskName: 非決定論的 (${a} !== ${b})`);
-  if (a === "LoopVocab-VTM-24hCheck-x_launch_01") ok("build24hCheckTaskName: 期待される命名規則になっている");
+  if (/^LoopVocab-VTM-24hCheck-x_launch_01-[0-9a-f]{8}$/.test(a)) ok("build24hCheckTaskName: 期待される命名規則(サニタイズ済みcontent+8桁hashサフィックス)になっている");
   else fail(`build24hCheckTaskName: 命名規則不一致 (${a})`);
 }
 {
@@ -28,6 +28,21 @@ function fail(msg) { console.error(`❌ FAIL: ${msg}`); failed++; }
     ok("build24hCheckTaskName: 記号を含むcontentも安全な文字集合へサニタイズされる");
   } else {
     fail(`build24hCheckTaskName: サニタイズが不十分 (${name})`);
+  }
+}
+{
+  // 回帰テスト(Codexレビュー指摘対応、PR #102、6巡目、P2): サニタイズ後は同じ文字列に
+  // なるが元のcontentは異なる2つの値が、別々のタスク名になること(hashサフィックスに
+  // よる衝突回避)。以前はsanitizeForTaskName()の結果だけで名前を作っていたため、
+  // 例えば"ig feed/launch:1"と"ig_feed_launch_1"はどちらも"ig_feed_launch_1"へ
+  // サニタイズされ、同じタスク名になって片方の登録がskipped_existsとして
+  // 永久にスキップされてしまっていた。
+  const nameA = build24hCheckTaskName("ig feed/launch:1");
+  const nameB = build24hCheckTaskName("ig_feed_launch_1");
+  if (nameA !== nameB) {
+    ok("build24hCheckTaskName: サニタイズ後に衝突する異なるcontentどうしは、hashサフィックスにより別のタスク名になる");
+  } else {
+    fail(`build24hCheckTaskName: サニタイズ後衝突するcontentが同じタスク名になった (${nameA})`);
   }
 }
 if (SEVEN_DAY_CHECK_TASK_NAME === "LoopVocab-VTM-7dayCheck") ok("SEVEN_DAY_CHECK_TASK_NAME: 期待される固定タスク名");
@@ -111,7 +126,10 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
   const results = register24hCheckTasks("C:\\repo", "C:\\node.exe", neverExists, spyCreate, schedule);
   if (createCalls.length === 2) ok("register24hCheckTasks: 未登録のタスクはKNOWN_LAUNCH_SCHEDULEの件数分createFnが呼ばれる");
   else fail(`register24hCheckTasks: createFnの呼び出し回数が不正 (${createCalls.length})`);
-  if (createCalls[0].name === "LoopVocab-VTM-24hCheck-x_launch_01" && createCalls[1].name === "LoopVocab-VTM-24hCheck-x_launch_02") {
+  if (
+    createCalls[0].name === build24hCheckTaskName("x_launch_01") &&
+    createCalls[1].name === build24hCheckTaskName("x_launch_02")
+  ) {
     ok("register24hCheckTasks: 各投稿ごとに正しいタスク名で作成される");
   } else {
     fail(`register24hCheckTasks: タスク名が不正 (${JSON.stringify(createCalls.map((c) => c.name))})`);
@@ -130,10 +148,10 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
     { content: "already_registered", source: "x", publishedAtISO: "2026-08-18T10:00:00.000Z" },
     { content: "new_post", source: "x", publishedAtISO: "2026-08-20T10:00:00.000Z" },
   ];
-  const existsFn = (name) => name === "LoopVocab-VTM-24hCheck-already_registered";
+  const existsFn = (name) => name === build24hCheckTaskName("already_registered");
   let created = [];
   const results = register24hCheckTasks("C:\\repo", "C:\\node.exe", existsFn, (name) => created.push(name), schedule);
-  if (created.length === 1 && created[0] === "LoopVocab-VTM-24hCheck-new_post") {
+  if (created.length === 1 && created[0] === build24hCheckTaskName("new_post")) {
     ok("register24hCheckTasks: 既存タスクと未登録タスクが混在していても、未登録分だけ正しく作成される");
   } else {
     fail(`register24hCheckTasks: 混在ケースの結果が不正 (${JSON.stringify(created)})`);

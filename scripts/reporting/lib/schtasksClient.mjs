@@ -20,6 +20,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 
 export const TASK_NAME_PREFIX = "LoopVocab-VTM";
 
@@ -28,8 +29,22 @@ function sanitizeForTaskName(value) {
   return String(value).replace(/[^A-Za-z0-9_-]/g, "_");
 }
 
+/**
+ * 元のcontent文字列から短い決定論的なhashサフィックスを作る(Codexレビュー指摘対応、
+ * PR #102、6巡目、P2): sanitizeForTaskName()は禁止文字を"_"へ丸めるだけのため、
+ * 例えば"ig feed/launch:1"と"ig_feed_launch_1"のように元は別々のutm_contentでも
+ * 同じサニタイズ結果になり得る。この場合、後から登録しようとした投稿が
+ * scheduledTaskExists()で「既に存在する」と誤判定されskipped_existsとなり、
+ * その投稿の24hチェックが永久に登録されない。sanitize後の文字列だけでなく
+ * 元のcontentから計算したhashも名前へ含めることで、サニタイズ後に衝突する
+ * 異なるcontentどうしを区別する。
+ */
+function contentHashSuffix(content) {
+  return createHash("sha256").update(String(content)).digest("hex").slice(0, 8);
+}
+
 export function build24hCheckTaskName(content) {
-  return `${TASK_NAME_PREFIX}-24hCheck-${sanitizeForTaskName(content)}`;
+  return `${TASK_NAME_PREFIX}-24hCheck-${sanitizeForTaskName(content)}-${contentHashSuffix(content)}`;
 }
 
 export const SEVEN_DAY_CHECK_TASK_NAME = `${TASK_NAME_PREFIX}-7dayCheck`;
