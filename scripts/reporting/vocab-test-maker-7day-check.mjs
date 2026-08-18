@@ -25,7 +25,7 @@ import { fetchTestAccountIds, summarizeWindow, FUNNEL_EVENTS } from "../testing/
 import { computeReportWindows, MIN_SAMPLE_SIZE_FOR_RATE } from "./lib/windowMath.mjs";
 import { buildFunnelRates } from "./lib/funnelRates.mjs";
 import { writeReport } from "./lib/reportIO.mjs";
-import { CAMPAIGN, KNOWN_LAUNCH_CONTENT_KEYS } from "./social-launch-schedule.mjs";
+import { CAMPAIGN, KNOWN_LAUNCH_CONTENT_KEYS, selectFunnelStageKeys } from "./social-launch-schedule.mjs";
 import { todayJST } from "../../src/lib/utils/date.ts";
 
 // キャンペーンの7日間ウィンドウ起点(JST暦日)。X①投稿日である2026-08-18
@@ -58,17 +58,10 @@ function buildRatesByKey(landingKeysByKey, funnelKeysByKey, signupKeysByKey, key
     const landingKeys = landingKeysByKey[key] ?? [];
     const funnelKeys = funnelKeysByKey[key] ?? {};
     const signupKeys = signupKeysByKey[key] ?? [];
-    out[key] = buildFunnelRates(
-      {
-        landingKeys,
-        pageViewedKeys: funnelKeys.vocab_test_maker_page_viewed ?? [],
-        generatedKeys: funnelKeys.vocab_test_maker_generated ?? [],
-        ctaKeys: funnelKeys.vocab_test_maker_srs_cta_clicked ?? [],
-        savedKeys: funnelKeys.vocab_test_maker_saved_to_wordbook ?? [],
-        signupKeys,
-      },
-      minSample,
-    );
+    // destination(vocab-test-makerツール or guideページ)に応じて適切なfunnel段階を
+    // 選ぶ(Codexレビュー指摘対応、PR #102、17巡目、P2: selectFunnelStageKeys()参照)。
+    const stageKeys = selectFunnelStageKeys(key, funnelKeys);
+    out[key] = buildFunnelRates({ landingKeys, ...stageKeys, signupKeys }, minSample);
   }
   return out;
 }

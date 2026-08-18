@@ -44,3 +44,46 @@ export const KNOWN_LAUNCH_SCHEDULE = [
   // X①: 2026-08-18 19:00 JST = 2026-08-18T10:00:00.000Z (JST = UTC+9)
   { content: "x_launch_01", source: "x", publishedAtISO: "2026-08-18T10:00:00.000Z" },
 ];
+
+// MARKETING_SOCIAL_LAUNCH_PACK_2026-08.mdで文書化済みの8本のうち、destinationが
+// /tools/vocab-test-makerではなく/guide/eiken-2kyu-tangoになっている投稿
+// (threads_launch_02のみ、MARKETING_SOCIAL_LAUNCH_PACK_2026-08.md:114-126参照)。
+export const GUIDE_DESTINATION_CONTENT_KEYS = ["threads_launch_02"];
+
+/**
+ * content別のfunnel段階(pageViewed/generated/cta/saved)を、その投稿の実際の
+ * destinationに応じて選び分ける(Codexレビュー指摘対応、PR #102、17巡目、P2)。
+ * 以前はvocab-test-maker-24h-check.mjs/vocab-test-maker-7day-check.mjsのどちらも
+ * vocab_test_maker_*イベント名だけを無条件にマッピングしていたため、
+ * destination=/guide/...の投稿(guide_view/guide_cta_clickイベントを発火する)の
+ * per-content rateが常にinsufficient data(分母0)になり、CTAクリック等の実際の
+ * 反応が集計から欠落していた。
+ *
+ * guideページ向けの投稿は、vocab-test-makerツールのような「生成(generated)」に
+ * 相当する中間ステップを持たない(landing→guide_view→guide_cta_clickの2段階のみ)。
+ * generatedKeysをpageViewedKeysのエイリアスにすることで、ctaRate
+ * (=generated∩cta/generated、funnelRates.mjs参照)が実質guide_view→
+ * guide_cta_clickの直接クリックスルー率になる。このcontentについてgeneratedRate
+ * 自体は常にpageViewedとの完全一致(≒100%)になり意味を持たないため、レポートの
+ * 読み手はguideページのcontentではgeneratedRateを無視すること。savedKeysは
+ * 「単語帳保存」に相当する概念がguideページ側に無いため常に空(insufficient data)
+ * のままにする。
+ */
+export function selectFunnelStageKeys(content, funnelKeysForContent) {
+  const funnel = funnelKeysForContent ?? {};
+  if (GUIDE_DESTINATION_CONTENT_KEYS.includes(content)) {
+    const pageViewedKeys = funnel.guide_view ?? [];
+    return {
+      pageViewedKeys,
+      generatedKeys: pageViewedKeys,
+      ctaKeys: funnel.guide_cta_click ?? [],
+      savedKeys: [],
+    };
+  }
+  return {
+    pageViewedKeys: funnel.vocab_test_maker_page_viewed ?? [],
+    generatedKeys: funnel.vocab_test_maker_generated ?? [],
+    ctaKeys: funnel.vocab_test_maker_srs_cta_clicked ?? [],
+    savedKeys: funnel.vocab_test_maker_saved_to_wordbook ?? [],
+  };
+}

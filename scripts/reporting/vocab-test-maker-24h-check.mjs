@@ -27,7 +27,7 @@ import { fetchTestAccountIds, summarizeWindowISO } from "../testing/social-acqui
 import { compute24hWindow } from "./lib/windowMath.mjs";
 import { buildFunnelRates } from "./lib/funnelRates.mjs";
 import { writeReport } from "./lib/reportIO.mjs";
-import { KNOWN_LAUNCH_SCHEDULE, CAMPAIGN } from "./social-launch-schedule.mjs";
+import { KNOWN_LAUNCH_SCHEDULE, CAMPAIGN, selectFunnelStageKeys } from "./social-launch-schedule.mjs";
 import { todayJST } from "../../src/lib/utils/date.ts";
 
 /**
@@ -164,12 +164,11 @@ async function main() {
   const signupForContent = result.signupCountByContent[content] ?? 0;
   const signupKeysForContent = result.signupKeysByContent[content] ?? [];
 
+  // destination(vocab-test-makerツール or guideページ)に応じて適切なfunnel段階を
+  // 選ぶ(Codexレビュー指摘対応、PR #102、17巡目、P2: selectFunnelStageKeys()参照)。
   const rates = buildFunnelRates({
     landingKeys: landingKeysForContent,
-    pageViewedKeys: funnelKeysForContent.vocab_test_maker_page_viewed ?? [],
-    generatedKeys: funnelKeysForContent.vocab_test_maker_generated ?? [],
-    ctaKeys: funnelKeysForContent.vocab_test_maker_srs_cta_clicked ?? [],
-    savedKeys: funnelKeysForContent.vocab_test_maker_saved_to_wordbook ?? [],
+    ...selectFunnelStageKeys(content, funnelKeysForContent),
     signupKeys: signupKeysForContent,
   });
 

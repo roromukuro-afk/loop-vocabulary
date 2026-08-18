@@ -3,6 +3,7 @@
  * 使い方: node scripts/testing/test-vocab-test-maker-funnel-rates.mjs
  */
 import { buildFunnelRates } from "../reporting/lib/funnelRates.mjs";
+import { selectFunnelStageKeys, GUIDE_DESTINATION_CONTENT_KEYS } from "../reporting/social-launch-schedule.mjs";
 
 let failed = 0;
 function ok(msg) { console.log(`✅ ${msg}`); }
@@ -120,6 +121,86 @@ function keys(prefix, n) {
   const allInsufficient = [r.pageViewedRate, r.generatedRate, r.ctaRate, r.signupRate, r.savedRate].every((x) => x.insufficientData && x.rate === null);
   if (allInsufficient) ok("buildFunnelRates: 全段階省略(0件)でも例外にならず、全rateがinsufficient dataとして安全側に倒れる");
   else fail("buildFunnelRates: ゼロ件ケースの扱いが不正");
+}
+
+// ---- selectFunnelStageKeys(Codexレビュー指摘対応、PR #102、17巡目、P2) ----
+// destinationがvocab-test-makerツールかguideページかでfunnel段階の選び方が
+// 変わることを確認する(ツール向けvocab_test_maker_*イベントだけを見ていると、
+// guideページ向けの投稿[threads_launch_02等]のCTAクリックがper-content rateから
+// 常に欠落していた)。
+{
+  if (GUIDE_DESTINATION_CONTENT_KEYS.includes("threads_launch_02")) {
+    ok("GUIDE_DESTINATION_CONTENT_KEYS: threads_launch_02(destination=/guide/eiken-2kyu-tango)が含まれる");
+  } else {
+    fail(`GUIDE_DESTINATION_CONTENT_KEYS: threads_launch_02が含まれていない (${JSON.stringify(GUIDE_DESTINATION_CONTENT_KEYS)})`);
+  }
+}
+{
+  // ツール向け投稿(x_launch_01等)は従来どおりvocab_test_maker_*イベントをそのまま使う。
+  const funnel = {
+    vocab_test_maker_page_viewed: keys("pv-", 3),
+    vocab_test_maker_generated: keys("gen-", 2),
+    vocab_test_maker_srs_cta_clicked: keys("cta-", 1),
+    vocab_test_maker_saved_to_wordbook: keys("sv-", 1),
+    guide_view: keys("gv-", 5), // 万一混入していても無視されるべき
+    guide_cta_click: keys("gcc-", 5),
+  };
+  const stageKeys = selectFunnelStageKeys("x_launch_01", funnel);
+  if (
+    stageKeys.pageViewedKeys === funnel.vocab_test_maker_page_viewed &&
+    stageKeys.generatedKeys === funnel.vocab_test_maker_generated &&
+    stageKeys.ctaKeys === funnel.vocab_test_maker_srs_cta_clicked &&
+    stageKeys.savedKeys === funnel.vocab_test_maker_saved_to_wordbook
+  ) {
+    ok("selectFunnelStageKeys: ツール向けdestinationの投稿はvocab_test_maker_*イベントをそのまま使う(guide_view/guide_cta_clickは無視される)");
+  } else {
+    fail(`selectFunnelStageKeys: ツール向けdestinationのマッピングが不正 (${JSON.stringify(stageKeys)})`);
+  }
+}
+{
+  // guideページ向け投稿(threads_launch_02)は、pageViewed=guide_view、
+  // cta=guide_cta_clickを使い、generatedKeysはpageViewedKeysのエイリアス
+  // (guideには「生成」ステップが無いため)、savedKeysは常に空になる。
+  const guideViewKeys = keys("gv-", 4);
+  const funnel = {
+    vocab_test_maker_page_viewed: keys("pv-", 5), // 万一混入していても無視されるべき
+    guide_view: guideViewKeys,
+    guide_cta_click: guideViewKeys.slice(0, 2), // guide_viewした4visitのうち2visitが実際にCTAをクリック
+  };
+  const stageKeys = selectFunnelStageKeys("threads_launch_02", funnel);
+  if (
+    stageKeys.pageViewedKeys === funnel.guide_view &&
+    stageKeys.generatedKeys === funnel.guide_view &&
+    stageKeys.ctaKeys === funnel.guide_cta_click &&
+    Array.isArray(stageKeys.savedKeys) &&
+    stageKeys.savedKeys.length === 0
+  ) {
+    ok("selectFunnelStageKeys: guideページ向けdestinationの投稿はguide_view/guide_cta_clickを使い、generatedKeysはpageViewedKeysのエイリアス、savedKeysは常に空になる");
+  } else {
+    fail(`selectFunnelStageKeys: guideページ向けdestinationのマッピングが不正 (${JSON.stringify(stageKeys)})`);
+  }
+  // このマッピングをbuildFunnelRates()へ実際に通すと、guide_view→guide_cta_clickの
+  // クリックスルー率がctaRateとして正しく計算される(以前は常にinsufficient dataで
+  // 欠落していた)。
+  const rates = buildFunnelRates({ landingKeys: funnel.guide_view, ...stageKeys }, 1);
+  if (rates.ctaRate.insufficientData === false && rates.ctaRate.rate === 0.5) {
+    ok("selectFunnelStageKeys→buildFunnelRates: guideページ向け投稿のctaRateがguide_view→guide_cta_clickの実際のクリックスルー率(2/4=50%)として計算される(以前は常にinsufficient dataだった)");
+  } else {
+    fail(`selectFunnelStageKeys→buildFunnelRates: guideページ向け投稿のctaRateが不正 (${JSON.stringify(rates.ctaRate)})`);
+  }
+}
+{
+  // funnelKeysForContentが無い(このcontentのfunnel行が一切無い)場合でも例外を
+  // 投げず、空配列を返す(安全側)。
+  const stageKeys = selectFunnelStageKeys("threads_launch_02", undefined);
+  if (
+    Array.isArray(stageKeys.pageViewedKeys) && stageKeys.pageViewedKeys.length === 0 &&
+    Array.isArray(stageKeys.ctaKeys) && stageKeys.ctaKeys.length === 0
+  ) {
+    ok("selectFunnelStageKeys: funnelKeysForContent省略時は例外を投げず空配列を返す");
+  } else {
+    fail(`selectFunnelStageKeys: funnelKeysForContent省略時の扱いが不正 (${JSON.stringify(stageKeys)})`);
+  }
 }
 
 console.log(failed ? `\n=== test:vocab-test-maker-funnel-rates: ${failed}件失敗 ===` : "\n=== test:vocab-test-maker-funnel-rates RESULT: all checks passed ===");
