@@ -224,3 +224,26 @@ export function createScheduledTaskFromXml(taskName, xml) {
 export function deleteScheduledTask(taskName) {
   execFileSync("schtasks", ["/Delete", "/TN", taskName, "/F"], { stdio: ["ignore", "pipe", "pipe"] });
 }
+
+/**
+ * 既存タスクのトリガー(実行時刻)を、新しいXML定義で上書き登録し直す
+ * (Codexレビュー指摘対応、PR #102、13巡目、P1)。`schtasks /Create ... /F`は
+ * 同名タスクが既に存在する場合、それを上書きする(タスク名自体は変わらない)。
+ * register24hCheckTasks()が旧命名(hashサフィックス無し)の既存タスクを検出した際、
+ * 相関猶予期間(CORRELATION_GRACE_PERIOD_MS)を反映した正しい実行時刻で再登録する
+ * ためだけに使う。createScheduledTaskFromXml()とはXMLファイルの一時書き出し・
+ * 後始末の実装を共有するが、`/F`を付けて明示的に上書きを許可する点だけが異なる。
+ */
+export function updateScheduledTaskFromXml(taskName, xml) {
+  const tmpDir = mkdtempSync(join(tmpdir(), "lv-schtasks-"));
+  const xmlPath = join(tmpDir, "task.xml");
+  try {
+    const UTF16LE_BOM = "﻿";
+    writeFileSync(xmlPath, UTF16LE_BOM + xml, "utf16le");
+    execFileSync("schtasks", ["/Create", "/TN", taskName, "/XML", xmlPath, "/F"], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+}

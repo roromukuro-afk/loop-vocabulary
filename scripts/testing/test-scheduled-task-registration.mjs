@@ -172,25 +172,49 @@ else fail(`SEVEN_DAY_CHECK_TASK_NAME不一致: ${SEVEN_DAY_CHECK_TASK_NAME}`);
   }
 }
 {
-  // 回帰テスト(Codexレビュー指摘対応、PR #102、10巡目、P2): hashサフィックス
+  // 回帰テスト(Codexレビュー指摘対応、PR #102、10巡目→13巡目、P2→P1): hashサフィックス
   // 導入前の旧命名(legacyBuild24hCheckTaskName、実機ではx_launch_01がこれで
-  // 既に登録済み)で既に存在するタスクを、新しいhash付き名前で二重登録しない
-  // こと。existsFnは新名(hash付き)では"存在しない"を返すが、旧名では
-  // "存在する"を返すよう設定する。
+  // 既に登録済み)で既に存在するタスクを、新しいhash付き名前で二重登録しないこと
+  // (createFnは呼ばれない)。かつ、13巡目のP1修正により、旧名の既存タスクは
+  // 「認識するだけ」ではなく、相関猶予期間(CORRELATION_GRACE_PERIOD_MS)込みの
+  // 正しい実行時刻へupdateFn経由でトリガーを上書きする(タスク名自体は
+  // legacyTaskNameのまま変えない)。existsFnは新名(hash付き)では"存在しない"を
+  // 返すが、旧名では"存在する"を返すよう設定する。
   const schedule = [{ content: "x_launch_01", source: "x", publishedAtISO: "2026-08-18T10:00:00.000Z" }];
   const legacyName = legacyBuild24hCheckTaskName("x_launch_01");
   const existsFn = (name) => name === legacyName;
   let createCalls = 0;
-  const results = register24hCheckTasks("C:\\repo", "C:\\node.exe", existsFn, () => { createCalls++; }, schedule);
+  let updateCalls = [];
+  const results = register24hCheckTasks(
+    "C:\\repo",
+    "C:\\node.exe",
+    existsFn,
+    () => { createCalls++; },
+    schedule,
+    (name, xml) => { updateCalls.push({ name, xml }); },
+  );
   if (createCalls === 0) {
-    ok("register24hCheckTasks: 旧命名(hashサフィックス無し)で既に登録済みのタスクは、新しいhash付き名前で二重登録されない");
+    ok("register24hCheckTasks: 旧命名(hashサフィックス無し)で既に登録済みのタスクは、新しいhash付き名前で二重登録されない(createFnは呼ばれない)");
   } else {
     fail(`register24hCheckTasks: 旧命名の既存タスクを見逃して二重登録した (createCalls=${createCalls})`);
   }
-  if (results[0].action === "skipped_exists_legacy_name" && results[0].taskName === legacyName) {
-    ok("register24hCheckTasks: 旧命名で見つかった場合はaction=skipped_exists_legacy_nameとその旧タスク名を返す");
+  if (results[0].action === "rescheduled_legacy_name" && results[0].taskName === legacyName) {
+    ok("register24hCheckTasks: 旧命名で見つかった場合はaction=rescheduled_legacy_nameとその旧タスク名を返す");
   } else {
     fail(`register24hCheckTasks: 旧命名検出時の結果が不正 (${JSON.stringify(results)})`);
+  }
+  if (updateCalls.length === 1 && updateCalls[0].name === legacyName) {
+    ok("register24hCheckTasks: 旧名の既存タスクに対してupdateFnが(taskNameを変えずに)1回だけ呼ばれる");
+  } else {
+    fail(`register24hCheckTasks: updateFnの呼び出しが不正 (${JSON.stringify(updateCalls.map((c) => c.name))})`);
+  }
+  // publishedAtISO="2026-08-18T10:00:00.000Z"のendISO=2026-08-19T10:00:00.000Zに
+  // 1時間の猶予を加えた時刻がrunAtに反映されていること(XML内のStartBoundaryは
+  // ローカルタイムゾーン表記のため、実行環境のタイムゾーンに依存しないrunAt側で確認する)。
+  if (results[0].runAt === "2026-08-19T11:00:00.000Z" && updateCalls[0].xml.includes("<StartBoundary>")) {
+    ok("register24hCheckTasks: 旧名タスクの再登録でも相関猶予期間込みの実行時刻(runAt)が反映される");
+  } else {
+    fail(`register24hCheckTasks: 旧名タスク再登録時の実行時刻が不正 (runAt=${results[0].runAt})`);
   }
 }
 {

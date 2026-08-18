@@ -205,7 +205,7 @@ async function main() {
     ]),
   ];
   const allCampaignKeys = [...new Set([...Object.keys(current.byCampaign), ...(prior ? Object.keys(prior.byCampaign) : [])])];
-  const bucketKeys = Object.keys(current.byBucket);
+  const bucketKeys = Object.keys(current.byBucketFiltered);
 
   const currentContentRates = buildRatesByKey(
     current.landingKeysByContent,
@@ -240,7 +240,10 @@ async function main() {
     // bucket(source)/campaign別はsummarizeWindow()がfunnelをcontent単位でしか
     // 割っていないため、landing識別数の内訳(期間比較込み)のみをレポートし、
     // bucket/campaign単位のfunnel rateを実データ無しで捏造しない。
-    landingBySource: landingComparisonByKey(current.byBucket, prior?.byBucket ?? null, bucketKeys),
+    // byBucketFiltered(campaignスコープ)を使う(Codexレビュー指摘対応、PR #102、
+    // 13巡目、P2): 素のbyBucketは他campaignの流入も含む全体参考値のため、これを
+    // totals/byContent(いずれもcampaignスコープ)と並べて表示すると内部矛盾する。
+    landingBySource: landingComparisonByKey(current.byBucketFiltered, prior?.byBucketFiltered ?? null, bucketKeys),
     landingByCampaign: landingComparisonByKey(current.byCampaign, prior?.byCampaign ?? null, allCampaignKeys),
     byContent: contentComparison,
     // このcampaignのcontentキーだけを合算したtotals(campaignスコープ)。

@@ -729,6 +729,16 @@ async function main() {
       ok("source別バケット(x=19[A,H-visit1,J,K,L,M-visit1,M-visit2,N,O,P,T-visit1,W-visit1,X-visitA,Y,Z,AA,BB,CC,EE], instagram=1, youtube=1, other_social=3[D,U-visit1,U-visit2], facebook=0[medium=cpcのため除外]、他=0)が正しい(未知source=mastodon/linkedinはother_socialへ、test account/test eventのxは含まれない。Qは真のlandingがウィンドウ開始前、T-visit2/Vはtest account紐付け、W-visit2はmedium違いによる非social判定、X-visitBはlanding行が無いため含まれない)");
     }
 
+    // byBucketFiltered(Codexレビュー指摘対応、PR #102、13巡目、P2): このfixture呼び出しは
+    // filterAttrを渡していないため、matchesFilter()は常にtrueを返しbyBucketFilteredは
+    // byBucketと完全に一致するはず(byContentAll/byContentの関係と同じく、フィルタ無し
+    // 呼び出しでは「全体」と「絞り込み後」が一致することを確認する回帰テスト)。
+    if (JSON.stringify(result.byBucketFiltered) === JSON.stringify(result.byBucket)) {
+      ok("filterAttr無しの呼び出しではbyBucketFilteredはbyBucketと完全に一致する");
+    } else {
+      bad(`byBucketFilteredがbyBucketと不一致: byBucketFiltered=${JSON.stringify(result.byBucketFiltered)}, byBucket=${JSON.stringify(result.byBucket)}`);
+    }
+
     // ---- 検証: ウィンドウ境界をまたぐ活動連鎖の再構築が、マーカーだけでなく通常の
     // attributed行も含めてlookbackする(Codexレビュー指摘対応、7巡目、最重要)。
     // Qのマーカーは境界の40分前、attributedなlanding_viewは境界の15分前、conversion

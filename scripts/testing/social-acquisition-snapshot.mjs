@@ -676,11 +676,22 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
   // 同じsource/campaign/contentの内訳もidentity(distinct visit)単位で数える
   // (行数の単純加算だと同一visitの複数landing行を二重計上してしまう)。
   const identitiesByBucket = new Map();
+  // filterAttr適用済みのbucket別内訳も別途保持する(Codexレビュー指摘対応、PR #102、
+  // 13巡目、P2): byBucket自体は意図的に全social流入を対象にした「参考情報」だが、
+  // vocab-test-maker-7day-check.mjsのlandingBySourceはcampaignスコープの他フィールド
+  // (totals/byContent)と並べて表示するため、他campaignの流入が混入すると内部矛盾を
+  // 起こす。呼び出し元がcampaignスコープのsource内訳を必要とする場合はこちらを使う。
+  const byBucketFiltered = new Map();
+  const identitiesByBucketFiltered = new Map();
   for (const { attr, key } of socialLandingEntries) {
     if (!identitiesByBucket.has(attr.bucket)) identitiesByBucket.set(attr.bucket, new Set());
     identitiesByBucket.get(attr.bucket).add(key);
+    if (!matchesFilter(attr)) continue;
+    if (!identitiesByBucketFiltered.has(attr.bucket)) identitiesByBucketFiltered.set(attr.bucket, new Set());
+    identitiesByBucketFiltered.get(attr.bucket).add(key);
   }
   for (const bucket of SOCIAL_BUCKETS) byBucket.set(bucket, identitiesByBucket.get(bucket)?.size ?? 0);
+  for (const bucket of SOCIAL_BUCKETS) byBucketFiltered.set(bucket, identitiesByBucketFiltered.get(bucket)?.size ?? 0);
 
   // landing pathはvisit(identity)ごとに、実際に最初に到達したentry pointの1行だけを
   // 数える。socialLandingEntriesは上ですでにvisitKeyごとの最も早いlanding行(かつ
@@ -884,6 +895,7 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
   return {
     socialLandingIdentities: socialLandingIdentities.size,
     byBucket: Object.fromEntries(byBucket),
+    byBucketFiltered: Object.fromEntries(byBucketFiltered),
     byCampaign: Object.fromEntries(byCampaign),
     byContent: Object.fromEntries(byContent),
     byContentAll: Object.fromEntries(byContentAll),

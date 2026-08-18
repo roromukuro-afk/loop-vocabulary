@@ -52,6 +52,7 @@ import {
   buildOnceTaskXml,
   buildWeeklyTaskXml,
   createScheduledTaskFromXml,
+  updateScheduledTaskFromXml,
 } from "./lib/schtasksClient.mjs";
 
 // 投稿の24時間経過時刻(endISO)ちょうどに24hチェックタスクを実行すると、
@@ -89,24 +90,20 @@ export function register24hCheckTasks(
   existsFn = scheduledTaskExists,
   createFn = createScheduledTaskFromXml,
   schedule = KNOWN_LAUNCH_SCHEDULE,
+  updateFn = updateScheduledTaskFromXml,
 ) {
   const results = [];
   for (const post of schedule) {
     const taskName = build24hCheckTaskName(post.content);
     // hashサフィックス導入前の旧命名で既に登録済みの投稿(実機ではx_launch_01が
     // 該当)を二重登録しないよう、旧名も既存チェックの対象に含める(Codexレビュー
-    // 指摘対応、PR #102、10巡目、P2)。旧名で見つかった場合はその旧名をそのまま
-    // 「既存タスク」として報告する(新しいhash付き名前へ移行(rename)はしない —
-    // このスクリプトは既存タスクの削除・変更を一切行わない設計のため)。
+    // 指摘対応、PR #102、10巡目、P2)。
     const legacyTaskName = legacyBuild24hCheckTaskName(post.content);
     if (existsFn(taskName)) {
       results.push({ taskName, content: post.content, action: "skipped_exists" });
       continue;
     }
-    if (existsFn(legacyTaskName)) {
-      results.push({ taskName: legacyTaskName, content: post.content, action: "skipped_exists_legacy_name" });
-      continue;
-    }
+
     const { endISO } = compute24hWindow(post.publishedAtISO);
     const startBoundaryDate = new Date(new Date(endISO).getTime() + CORRELATION_GRACE_PERIOD_MS);
     const args = [
@@ -123,6 +120,20 @@ export function register24hCheckTasks(
       args,
       workingDirectory,
     });
+
+    if (existsFn(legacyTaskName)) {
+      // 旧命名で見つかった既存タスクは、削除もリネームもせず(タスク名は
+      // legacyTaskNameのまま)、トリガー(実行時刻)だけを相関猶予期間込みの正しい値へ
+      // 上書きする(Codexレビュー指摘対応、PR #102、13巡目、P1)。以前は「既存タスク
+      // として認識するだけ」で終わっており、CORRELATION_GRACE_PERIOD_MSが新規作成分
+      // にしか適用されず、実機で既に登録済みのx_launch_01が旧来どおりendISOちょうど
+      // (猶予期間無し)に実行され続け、遅延signup/test account紐付けの取りこぼしが
+      // 解消されないままだった。
+      updateFn(legacyTaskName, xml);
+      results.push({ taskName: legacyTaskName, content: post.content, action: "rescheduled_legacy_name", runAt: startBoundaryDate.toISOString() });
+      continue;
+    }
+
     createFn(taskName, xml);
     results.push({ taskName, content: post.content, action: "created", runAt: startBoundaryDate.toISOString() });
   }
