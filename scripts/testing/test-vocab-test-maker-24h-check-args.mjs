@@ -3,7 +3,7 @@
  * (parseArgs/resolvePostConfig、DBアクセスなし)の単体テスト。
  * 使い方: node scripts/testing/test-vocab-test-maker-24h-check-args.mjs
  */
-import { parseArgs, resolvePostConfig, buildFilterAttr, sanitizeForFilename } from "../reporting/vocab-test-maker-24h-check.mjs";
+import { parseArgs, resolvePostConfig, buildFilterAttr, sanitizeForFilename, buildReportBaseName } from "../reporting/vocab-test-maker-24h-check.mjs";
 
 let failed = 0;
 function ok(msg) { console.log(`✅ ${msg}`); }
@@ -128,6 +128,39 @@ const knownSchedule = [{ content: "x_launch_01", source: "x", publishedAtISO: "2
   const b = sanitizeForFilename("ig_feed_launch_1");
   if (a !== b) ok("sanitizeForFilename: サニタイズ後に衝突する異なるcontentどうしは別のファイル名になる");
   else fail(`sanitizeForFilename: サニタイズ後衝突するcontentが同じファイル名になった (${a})`);
+}
+
+// ---- buildReportBaseName(Codexレビュー指摘対応、PR #102、19巡目、P2) ----
+{
+  // 同じcontentでもsource/campaign/startISOが異なれば別のbaseNameになる
+  // (以前はcontentと日付だけだったため、同じcontentを別のsource/campaignや
+  // 訂正後のpublished-atで同日に再実行すると、先の結果を静かに上書きしていた)。
+  const a = buildReportBaseName("x_launch_01", "x", "vocab_test_maker_launch", "2026-08-19T10:00:00.000Z", "2026-08-19");
+  const b = buildReportBaseName("x_launch_01", "twitter", "vocab_test_maker_launch", "2026-08-19T10:00:00.000Z", "2026-08-19");
+  const c = buildReportBaseName("x_launch_01", "x", "another_campaign", "2026-08-19T10:00:00.000Z", "2026-08-19");
+  const d = buildReportBaseName("x_launch_01", "x", "vocab_test_maker_launch", "2026-08-19T11:00:00.000Z", "2026-08-19");
+  if (new Set([a, b, c, d]).size === 4) {
+    ok("buildReportBaseName: 同じcontentでもsource/campaign/startISOが異なればbaseNameが衝突しない");
+  } else {
+    fail(`buildReportBaseName: source/campaign/startISO違いでbaseNameが衝突した (${JSON.stringify([a, b, c, d])})`);
+  }
+}
+{
+  // 同一の全パラメータなら常に同じbaseNameになる(決定論的、冪等な再実行で同じ
+  // ファイルを上書きできる)。
+  const a = buildReportBaseName("x_launch_01", "x", "vocab_test_maker_launch", "2026-08-19T10:00:00.000Z", "2026-08-19");
+  const b = buildReportBaseName("x_launch_01", "x", "vocab_test_maker_launch", "2026-08-19T10:00:00.000Z", "2026-08-19");
+  if (a === b) ok("buildReportBaseName: 同じ入力なら常に同じbaseNameを返す(決定論的)");
+  else fail(`buildReportBaseName: 非決定論的 (${a} !== ${b})`);
+}
+{
+  // sourceが不明(null/undefined)でも例外にならず"unknown"扱いで安定したbaseNameになる。
+  const name = buildReportBaseName("custom_post", null, "vocab_test_maker_launch", "2026-08-19T10:00:00.000Z", "2026-08-19");
+  if (/^vocab-test-maker-24h-check-[A-Za-z0-9_-]+-2026-08-19$/.test(name)) {
+    ok("buildReportBaseName: sourceが不明でも例外にならず安全なbaseNameを返す");
+  } else {
+    fail(`buildReportBaseName: source不明時の扱いが不正 (${name})`);
+  }
 }
 
 console.log(failed ? `\n=== test:vocab-test-maker-24h-check-args: ${failed}件失敗 ===` : "\n=== test:vocab-test-maker-24h-check-args RESULT: all checks passed ===");

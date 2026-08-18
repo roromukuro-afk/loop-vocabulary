@@ -176,9 +176,10 @@ function keys(prefix, n) {
     Array.isArray(stageKeys.generatedKeys) && stageKeys.generatedKeys.length === 0 &&
     stageKeys.ctaKeys === funnel.guide_cta_click &&
     Array.isArray(stageKeys.savedKeys) &&
-    stageKeys.savedKeys.length === 0
+    stageKeys.savedKeys.length === 0 &&
+    stageKeys.skipSavedStage === true
   ) {
-    ok("selectFunnelStageKeys: guideページ向けdestinationの投稿はguide_view/guide_cta_clickを使い、skipGeneratedStage=trueを返し、savedKeysは常に空になる");
+    ok("selectFunnelStageKeys: guideページ向けdestinationの投稿はguide_view/guide_cta_clickを使い、skipGeneratedStage/skipSavedStage=trueを返す");
   } else {
     fail(`selectFunnelStageKeys: guideページ向けdestinationのマッピングが不正 (${JSON.stringify(stageKeys)})`);
   }
@@ -196,6 +197,16 @@ function keys(prefix, n) {
     ok("selectFunnelStageKeys→buildFunnelRates: guideページ向け投稿のgeneratedRateは実態の無い≒100%ではなく明示的なnotApplicableマーカーになる");
   } else {
     fail(`selectFunnelStageKeys→buildFunnelRates: guideページ向け投稿のgeneratedRateが不正 (${JSON.stringify(rates.generatedRate)})`);
+  }
+  // 回帰テスト(Codexレビュー指摘対応、PR #102、19巡目、P2): ctaKeys(guide_cta_click)が
+  // minSample以上あってもsavedRateは「有効な0%」ではなく明示的なnotApplicableに
+  // なる。ここではminSample=1、guide_cta_click=2件のため、修正前なら
+  // computeRate(0, 2, 1)がinsufficientData=false・rate=0という「有効な0%」を
+  // 返してしまっていた。
+  if (rates.savedRate.notApplicable === true && rates.savedRate.rate === null && rates.savedRate.insufficientData === false) {
+    ok("selectFunnelStageKeys→buildFunnelRates: guideページ向け投稿のsavedRateはCTA件数が閾値以上でも「有効な0%」ではなく明示的なnotApplicableマーカーになる");
+  } else {
+    fail(`selectFunnelStageKeys→buildFunnelRates: guideページ向け投稿のsavedRateが不正 (${JSON.stringify(rates.savedRate)})`);
   }
 }
 {

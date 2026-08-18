@@ -65,8 +65,11 @@ export const GUIDE_DESTINATION_CONTENT_KEYS = ["threads_launch_02"];
  * ctaRateをpageViewed基準で直接計算し(=guide_view→guide_cta_clickの実際の
  * クリックスルー率)、generatedRateには実態の無い値(以前はpageViewedとの完全一致で
  * 常に≒100%になっていた)を報告する代わりに明示的な「該当なし」マーカーを返す
- * (Codexレビュー指摘対応、PR #102、18巡目、P2)。savedKeysは「単語帳保存」に
- * 相当する概念がguideページ側に無いため常に空(insufficient data)のままにする。
+ * (Codexレビュー指摘対応、PR #102、18巡目、P2)。savedKeysも同様に、「単語帳保存」に
+ * 相当する概念がguideページ側に無いため常に空にした上でskipSavedStage: trueを返し、
+ * savedRateも明示的な「該当なし」マーカーにする(Codexレビュー指摘対応、PR #102、
+ * 19巡目、P2: savedKeysを空のままskipSavedStageを渡さないと、CTAクリック数が
+ * 閾値以上になった時点で「有効な0%」という、実態の無い数値が報告されてしまう)。
  */
 export function selectFunnelStageKeys(content, funnelKeysForContent) {
   const funnel = funnelKeysForContent ?? {};
@@ -78,6 +81,7 @@ export function selectFunnelStageKeys(content, funnelKeysForContent) {
       skipGeneratedStage: true,
       ctaKeys: funnel.guide_cta_click ?? [],
       savedKeys: [],
+      skipSavedStage: true,
     };
   }
   return {

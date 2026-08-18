@@ -46,6 +46,20 @@ export function sanitizeForFilename(value) {
   return `${safe}-${hash}`;
 }
 
+/**
+ * レポートのbaseName(JSON/テキストサマリー両方のファイル名の元)を組み立てる。
+ * content単独ではなくsource/campaign/startISOも識別子に含める(Codexレビュー
+ * 指摘対応、PR #102、19巡目、P2): このスクリプトはKNOWN_LAUNCH_SCHEDULE以外の
+ * 任意のCLI引数(--source/--campaign/--published-at)でも駆動できる設計のため、
+ * 同じutm_contentが別のsource/campaign/publishedAtで同じJST日付に複数回実行
+ * されると(例: 発行時刻を訂正しての再実行)、以前はcontentと日付だけの
+ * ファイル名が衝突し、後から実行した方が先の結果を静かに上書きしていた。
+ */
+export function buildReportBaseName(content, source, campaign, startISO, dateStr) {
+  const postIdentity = `${content}-${source ?? "unknown"}-${campaign}-${startISO}`;
+  return `vocab-test-maker-24h-check-${sanitizeForFilename(postIdentity)}-${dateStr}`;
+}
+
 const EMPTY_FUNNEL_COUNTS = {
   vocab_test_maker_page_viewed: 0,
   vocab_test_maker_generated: 0,
@@ -228,6 +242,7 @@ async function main() {
         `  generated/page_viewed: ${formatRate(rates.generatedRate)}`,
         `  guide_cta_click/guide_view: ${formatRate(rates.ctaRate)}`,
         `  signup/guide_cta_click: ${formatRate(rates.signupRate)}`,
+        `  saved/guide_cta_click: ${formatRate(rates.savedRate)}`,
       ]
     : [
         `  page_viewed/landing: ${formatRate(rates.pageViewedRate)}`,
@@ -253,7 +268,7 @@ async function main() {
     "(read-only, DELETE/UPDATEは実行していません)",
   ];
 
-  const baseName = `vocab-test-maker-24h-check-${sanitizeForFilename(content)}-${todayJST()}`;
+  const baseName = buildReportBaseName(content, source, campaign, startISO, todayJST());
   const { jsonPath, summaryPath } = writeReport(baseName, report, `${summaryLines.join("\n")}\n`);
 
   console.log(summaryLines.join("\n"));

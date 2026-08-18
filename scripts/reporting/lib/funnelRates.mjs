@@ -69,6 +69,13 @@ export function buildFunnelRates(stages, minSample = MIN_SAMPLE_SIZE_FOR_RATE) {
     // guide_view→guide_cta_clickの2段階のみで、vocab-test-makerツールのような
     // 「生成」に相当する中間ステップを持たないため)。
     skipGeneratedStage = false,
+    // trueの場合、savedRateもnotApplicableマーカーにする(Codexレビュー指摘対応、
+    // PR #102、19巡目、P2): guideページには「単語帳保存」に相当する概念自体が無い。
+    // savedKeysを単に空配列で渡すだけだと、ctaKeysの件数がminSample以上になった
+    // 時点でcomputeRate(0, ctaKeys.size, minSample)が「有効な0%」を返してしまい、
+    // 実際には計測不能な指標があたかも実測されたかのように報告先(JSON/テキスト
+    // サマリー)へ出てしまう。
+    skipSavedStage = false,
   } = stages;
 
   const landing = new Set(landingKeys);
@@ -95,6 +102,6 @@ export function buildFunnelRates(stages, minSample = MIN_SAMPLE_SIZE_FOR_RATE) {
       ? computeRate(intersectSize(pageViewed, cta), pageViewed.size, minSample)
       : computeRate(intersectSize(generated, cta), generated.size, minSample),
     signupRate: computeRate(intersectSize(cta, signup), cta.size, minSample),
-    savedRate: computeRate(intersectSize(cta, saved), cta.size, minSample),
+    savedRate: skipSavedStage ? notApplicableRate(minSample) : computeRate(intersectSize(cta, saved), cta.size, minSample),
   };
 }
