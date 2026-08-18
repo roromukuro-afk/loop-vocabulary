@@ -40,6 +40,7 @@
  * 使い方: node scripts/testing/e2e/robots-sitemap-collision.mjs
  */
 import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { resolve, dirname } from "node:path";
 import { parseRobotsTxt, isPathBlocked } from "../lib/robotsMatch.mjs";
@@ -93,13 +94,17 @@ function extractStaticSitemapPaths(sitemapSrc) {
 }
 
 // GUIDE_SLUGSは記事追加のたびに正当に増え続けるため、厳密一致(===)や単純な
-// 最小件数チェック(>=)だけでは不十分:件数だけを見ると、追加で件数が44超まで
-// 増えた後に一部のslugが誤って削除されて件数が44に戻ってしまうケースを
-// 見逃してしまう(Codexレビュー指摘、PR #89)。そこで「この時点で判明している
-// 既知の全slug(BASELINE_GUIDE_SLUGS)が、現在のGUIDE_SLUGSに部分集合として
-// 必ず含まれているか」を検証する。新規追加は許可(現在の集合がbaselineの
-// superset であればよい)しつつ、baseline側のどのslugが消えても即座に検知できる。
-const BASELINE_GUIDE_SLUGS = [
+// 最小件数チェック(>=)だけでは不十分。さらに、単発の静的baseline配列(このファイル
+// にハードコードした既知slug一覧)だけでは、このPR以降に新たに追加されたslugが
+// 後で削除される回帰を検知できない(baselineを手動更新し忘れると検知漏れになる。
+// Codexレビュー指摘、PR #89、2巡目)。
+//
+// そこで、baselineを「origin/mainの現在のsitemap.ts」から動的に取得する。これにより
+// baselineは各PRのbase更新のたびに自動的に最新へ追従し、手動メンテナンスなしで
+// 「このPRで新たに追加したslug以外は、mainに存在するものが全て残っている」ことを
+// 常に検証できる(originが参照できない環境向けに、既知の44件への静的フォールバックも
+// 用意する)。
+const FALLBACK_BASELINE_GUIDE_SLUGS = [
   "vocabulary-quiz-pdf-for-teachers", "english-vocabulary-quiz-maker", "printable-english-vocabulary-test",
   "juku-vocabulary-test", "high-school-english-vocabulary-test", "spaced-repetition-english-vocabulary",
   "flashcards-vs-multiple-choice", "eiken-vocabulary-study", "university-exam-vocabulary",
@@ -113,6 +118,45 @@ const BASELINE_GUIDE_SLUGS = [
   "affect-vs-effect", "apply-for-vs-apply-to", "eiken-2kyu-tango-nanko", "tangocho-erabikata",
   "system-eitango", "target-1900", "systan-vs-target-1900", "leap-eitango", "eitango-cho-hikaku",
 ];
+
+function extractGuideSlugs(sitemapSrc) {
+  const m = sitemapSrc.match(/const GUIDE_SLUGS = \[([\s\S]*?)\] as const;/);
+  if (!m) return null;
+  return [...m[1].matchAll(/"([a-z0-9-]+)"/g)].map((x) => x[1]);
+}
+
+/**
+ * baselineを取得する。まず `git show origin/main:src/app/sitemap.ts` を試み、成功すれば
+ * そこから抽出したGUIDE_SLUGSをbaselineとして使う(自動追従、メンテナンス不要)。
+ * originが参照できない・抽出できない等の環境では、既知の静的フォールバックを使い、
+ * その旨をコンソールへ明示する(検知漏れの可能性を静かに握りつぶさない)。
+ */
+function getBaselineGuideSlugs() {
+  let mainSitemapSrc;
+  try {
+    mainSitemapSrc = execFileSync("git", ["show", "origin/main:src/app/sitemap.ts"], {
+      cwd: REPO_ROOT,
+      encoding: "utf-8",
+    });
+  } catch (e) {
+    console.warn(
+      `⚠ origin/main:src/app/sitemap.ts を取得できませんでした(${e.message})。` +
+        `既知の${FALLBACK_BASELINE_GUIDE_SLUGS.length}件の静的baselineへフォールバックします` +
+        `(このフォールバック中はPR単位の新規追加分の削除退行を検知できません)。`,
+    );
+    return FALLBACK_BASELINE_GUIDE_SLUGS;
+  }
+  const slugs = extractGuideSlugs(mainSitemapSrc);
+  if (!slugs) {
+    console.warn(
+      `⚠ origin/main:src/app/sitemap.ts からGUIDE_SLUGSを抽出できませんでした。` +
+        `既知の${FALLBACK_BASELINE_GUIDE_SLUGS.length}件の静的baselineへフォールバックします。`,
+    );
+    return FALLBACK_BASELINE_GUIDE_SLUGS;
+  }
+  return slugs;
+}
+
 const EXPECTED_SAMPLE_SLUGS = ["eigo-listening-renshu", "toeic-tango", "eiken-1kyu-tango"];
 
 function main() {
@@ -171,20 +215,23 @@ function main() {
   }
 
   console.log("\n=== 5. sitemap.ts のGUIDE_SLUGSが退行していないことの確認 ===");
-  const guideSlugsMatch = sitemapSrc.match(/const GUIDE_SLUGS = \[([\s\S]*?)\] as const;/);
-  const currentGuideSlugs = new Set(
-    guideSlugsMatch ? [...guideSlugsMatch[1].matchAll(/"([a-z0-9-]+)"/g)].map((m) => m[1]) : [],
-  );
-  // 件数(>=)だけでなく、既知の全slugが現在も個別に存在するかを見る。これにより
-  // 「追加でN件増えた後、その一部が誤って削除されて合計だけ44に戻る」ような
-  // ケースも検知できる(件数閾値だけでは見逃す。Codexレビュー指摘、PR #89)。
-  const missingBaselineSlugs = BASELINE_GUIDE_SLUGS.filter((slug) => !currentGuideSlugs.has(slug));
+  const currentGuideSlugs = new Set(extractGuideSlugs(sitemapSrc) ?? []);
+  const baselineGuideSlugs = getBaselineGuideSlugs();
+  // 件数(>=)だけでなく、baseline(=origin/mainの現在のsitemap.ts、フォールバック時は
+  // 既知の静的リスト)の全slugが現在も個別に存在するかを見る。これにより「追加でN件
+  // 増えた後、その一部が誤って削除されて合計だけ元の件数に戻る」ようなケースも検知
+  // できる(件数閾値だけでは見逃す。Codexレビュー指摘、PR #89)。baselineをorigin/main
+  // から動的取得することで、このPR以降に追加されたslugについても、次のPRの時点で
+  // baselineへ自動的に組み込まれ、手動更新なしで削除退行を検知し続けられる
+  // (Codexレビュー指摘、PR #89、2巡目: 静的ハードコードのみだと追加分は永遠に
+  // 未保護のままだった)。
+  const missingBaselineSlugs = baselineGuideSlugs.filter((slug) => !currentGuideSlugs.has(slug));
   if (missingBaselineSlugs.length === 0) {
-    ok(`既知のGUIDE_SLUGS ${BASELINE_GUIDE_SLUGS.length}件が全て現在も存在する(現在の総数: ${currentGuideSlugs.size}件)`);
+    ok(`baselineのGUIDE_SLUGS ${baselineGuideSlugs.length}件が全て現在も存在する(現在の総数: ${currentGuideSlugs.size}件)`);
   } else {
     fail(
       `sitemap.ts から既知のガイド記事が消えている: ${missingBaselineSlugs.join(", ")} ` +
-        `(既知${BASELINE_GUIDE_SLUGS.length}件中${missingBaselineSlugs.length}件が消失、現在の総数: ${currentGuideSlugs.size}件)`,
+        `(baseline${baselineGuideSlugs.length}件中${missingBaselineSlugs.length}件が消失、現在の総数: ${currentGuideSlugs.size}件)`,
     );
   }
   for (const slug of EXPECTED_SAMPLE_SLUGS) {
