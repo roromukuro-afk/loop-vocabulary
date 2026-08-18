@@ -25,6 +25,7 @@ import { fetchTestAccountIds, summarizeWindow } from "../testing/social-acquisit
 import { computeReportWindows, MIN_SAMPLE_SIZE_FOR_RATE } from "./lib/windowMath.mjs";
 import { buildFunnelRates } from "./lib/funnelRates.mjs";
 import { writeReport } from "./lib/reportIO.mjs";
+import { CAMPAIGN } from "./social-launch-schedule.mjs";
 import { todayJST } from "../../src/lib/utils/date.ts";
 
 // キャンペーンの7日間ウィンドウ起点(JST暦日)。タスク指示に「2026-08-18から少なく
@@ -134,6 +135,12 @@ async function main() {
   const asOf = new Date().toISOString();
   const testAccountIds = await fetchTestAccountIds(admin, asOf);
 
+  // campaignだけを絞り込み条件にする(sourceは限定しない=このキャンペーンの全SNS
+  // チャネルをまとめて見るのが7day-checkの目的のため)。以前はsummarizeWindow()を
+  // フィルタ無しで呼んでおり、同じutm_contentが別campaignで再利用された場合に
+  // byContent/rates/totalsへ他campaignのsocial流入が混入し得た(Codexレビュー
+  // 指摘対応、PR #102: 24hチェック側の修正だけでは7dayチェック側は直っていなかった)。
+  const filterAttr = { campaign: CAMPAIGN };
   const current = await summarizeWindow(
     admin,
     "current 7-day window",
@@ -141,6 +148,8 @@ async function main() {
     windows.current.endDateStrInclusive,
     testAccountIds,
     asOf,
+    undefined,
+    filterAttr,
   );
   const prior = windows.prior
     ? await summarizeWindow(
@@ -150,6 +159,8 @@ async function main() {
         windows.prior.endDateStrInclusive,
         testAccountIds,
         asOf,
+        undefined,
+        filterAttr,
       )
     : null;
 
@@ -225,8 +236,16 @@ async function main() {
     `social起点signup: ${prior ? `${prior.socialSignupCount} -> ` : ""}${current.socialSignupCount}`,
     "",
     `content別 rate(insufficient dataの場合は明示、最小サンプル数=${MIN_SAMPLE_SIZE_FOR_RATE}):`,
+    // landingだけでなくfunnel/signupにも活動があれば表示する(Codexレビュー指摘対応、
+    // PR #102: byContent側のキー欠落は直したが、この表示側のフィルタがlanding>0の
+    // ままだと、landingがウィンドウ開始前で0のまま(=allContentKeysのunion修正で
+    // 初めて出現するcontent)がテキストサマリーからは引き続き見えなくなっていた)。
     ...allContentKeys
-      .filter((key) => (contentComparison[key].current?.counts.landing ?? 0) > 0)
+      .filter((key) => {
+        const counts = contentComparison[key].current?.counts;
+        if (!counts) return false;
+        return Object.values(counts).some((n) => (n ?? 0) > 0);
+      })
       .map((key) => {
         const c = contentComparison[key].current;
         return (

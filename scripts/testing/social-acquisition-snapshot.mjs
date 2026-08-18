@@ -323,16 +323,24 @@ function topEntries(map, n = 10) {
 // (windowRangeISO呼び出し)が直接埋め込まれていたものを抽出しただけ(挙動変更なし)。
 // scripts/reporting/vocab-test-maker-24h-check.mjs(投稿の発行時刻+24時間という、
 // JST日付境界に揃わない任意の時刻範囲を扱う必要がある)がこちらを直接importして使う。
-// filterAttr: 省略時は従来どおり全social流入を対象にする。{source, campaign}を渡すと、
-// *content別*breakdown(byContent/funnelCountsByContent/signupCountByContent)だけを
-// その source+campaign に一致する訪問のみへ絞り込む(Codexレビュー指摘対応、PR #102:
-// これらのマップはこれまでcontent単独をキーにしていたため、同じutm_contentが別の
-// source/campaignで再利用された場合に取り違えて合算してしまう可能性があった)。
+// filterAttr: 省略時は従来どおり全social流入を対象にする。{source, campaign}の
+// どちらか一方だけ、または両方を渡すと、*content別*breakdown(byContent/
+// funnelCountsByContent/signupCountByContent)だけをその条件に一致する訪問のみへ
+// 絞り込む(Codexレビュー指摘対応、PR #102: これらのマップはこれまでcontent単独を
+// キーにしていたため、同じutm_contentが別のsource/campaignで再利用された場合に
+// 取り違えて合算してしまう可能性があった)。source/campaignのどちらかがnull/undefined
+// の場合はそのフィールドでは絞り込まない(例: vocab-test-maker-7day-checkは特定の
+// campaignだけに絞り込み、複数sourceは全て含めたい)。
 // byBucket/byCampaign/byPath/funnelCounts(集計全体)は意図的にフィルタしない —
 // vocab-test-maker-24h-check.mjsのfullWindowSocialBreakdownが「この投稿と同じ窓で
 // 発生した全social流入の参考情報」として使うため、絞り込まない全体像を維持する。
 export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, testAccountIds, asOf, sessionIdPrefix, filterAttr = null) {
-  const matchesFilter = (attr) => !filterAttr || (attr.rawSource === filterAttr.source && attr.campaign === filterAttr.campaign);
+  const matchesFilter = (attr) => {
+    if (!filterAttr) return true;
+    if (filterAttr.source != null && attr.rawSource !== filterAttr.source) return false;
+    if (filterAttr.campaign != null && attr.campaign !== filterAttr.campaign) return false;
+    return true;
+  };
   const rawRows = await fetchEventsInWindow(admin, { startISO, endISO, asOf, sessionIdPrefix });
 
   // ウィンドウの日付境界(startISO)をまたぐvisitを取りこぼさないよう、ウィンドウ内に
@@ -846,10 +854,10 @@ export async function summarizeWindowISO(admin, headerLabel, startISO, endISO, t
 // fixture testおよび既存呼び出し元(main()、audit:social-acquisition-snapshot)向けの
 // JST暦日文字列ベースの薄いラッパー。ロジック本体はsummarizeWindowISO()に委譲する
 // だけで、シグネチャ・戻り値・console出力の文言は元の実装と完全に同一(挙動変更なし)。
-export async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive, testAccountIds, asOf, sessionIdPrefix) {
+export async function summarizeWindow(admin, label, startDateStr, endDateStrInclusive, testAccountIds, asOf, sessionIdPrefix, filterAttr = null) {
   const { startISO, endISO } = windowRangeISO(startDateStr, endDateStrInclusive);
   const headerLabel = `${label} (${startDateStr} 〜 ${endDateStrInclusive}, JST)`;
-  return summarizeWindowISO(admin, headerLabel, startISO, endISO, testAccountIds, asOf, sessionIdPrefix);
+  return summarizeWindowISO(admin, headerLabel, startISO, endISO, testAccountIds, asOf, sessionIdPrefix, filterAttr);
 }
 
 async function main() {
