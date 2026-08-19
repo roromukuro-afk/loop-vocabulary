@@ -5,6 +5,7 @@
  * 使い方: node scripts/testing/test-word-list-cleaner-parser.mjs
  */
 import { parseWordListLine, parseWordList, toWordbookCsv, csvWithBom } from "../../src/lib/utils/wordListCleaner.ts";
+import { parseCsv } from "../../src/lib/utils/csvImportParsing.ts";
 
 let pass = 0, fail = 0;
 function ok(msg) { console.log(`✅ ${msg}`); pass++; }
@@ -337,6 +338,42 @@ function main() {
       ok('meaning側の部分一致("reasoning"が"meaning"を含む)でもヘッダとして誤検出しない');
     } else {
       bad(`meaning側の部分一致誤検出防止が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、3巡目、P2): meaning側にカンマを含む
+  // 空白区切りの行で、ラテン→日本語境界がカンマより右側にあると誤ってカンマが
+  // 優先されていた問題(word/meaningの本来の境界より後ろの区切り文字が勝つと、
+  // "run 走る"がwordとして切り詰められる) ----
+  {
+    const result = parseWordListLine("run 走る, 経営する");
+    if (result?.word === "run" && result?.meaning === "走る, 経営する") {
+      ok('ラテン→日本語境界が、より右側にある明示的区切り文字(カンマ)より優先される("run 走る, 経営する")');
+    } else {
+      bad(`ラテン→日本語境界の優先順位が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、3巡目、P2): formula injection対策で
+  // 先頭に'を付与したCSVを、実際のインポート先(CsvImportPanel.tsx)で読み直しても
+  // 元の値どおりに復元できる(先頭の'が単語の一部として永続的に残らない) ----
+  {
+    const entries = [
+      { word: "-ing", meaning: "〜している(現在分詞)" },
+      { word: "sum", meaning: "+44の国番号のように使う" },
+    ];
+    const { csv } = toWordbookCsv(entries);
+    const reimported = parseCsv(csv);
+    if (
+      reimported.length === 2 &&
+      reimported[0].word === "-ing" &&
+      reimported[0].meaning === "〜している(現在分詞)" &&
+      reimported[1].word === "sum" &&
+      reimported[1].meaning === "+44の国番号のように使う"
+    ) {
+      ok("formula injection対策で先頭に'が付与された値も、CsvImportPanel.parseCsv()で読み直すと元の値どおりに復元される(往復確認)");
+    } else {
+      bad(`無害化された値の往復確認が想定外: ${JSON.stringify(reimported)}`);
     }
   }
 

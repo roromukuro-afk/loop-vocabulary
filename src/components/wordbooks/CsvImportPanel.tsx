@@ -3,72 +3,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { UpsellModal } from "@/components/premium/UpsellModal";
-
-type ParsedWord = {
-  word: string;
-  meaning: string;
-  phonetic?: string;
-  example?: string;
-  example_ja?: string;
-};
-
-function parseLine(line: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-      else inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
-      result.push(current); current = "";
-    } else {
-      current += char;
-    }
-  }
-  result.push(current);
-  return result;
-}
-
-function parseCsv(text: string): ParsedWord[] {
-  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
-  if (lines.length === 0) return [];
-
-  const firstLower = lines[0].toLowerCase();
-  const hasHeaders = firstLower.includes("word") || firstLower.includes("meaning") ||
-    firstLower.includes("単語") || firstLower.includes("英単語");
-
-  const headerMap: Record<string, number> = { word: 0, meaning: 1 };
-  let startLine = 0;
-
-  if (hasHeaders) {
-    startLine = 1;
-    const headers = parseLine(lines[0]);
-    headers.forEach((h, i) => {
-      const lh = h.toLowerCase().trim();
-      if (["word", "英単語", "単語", "english"].includes(lh)) headerMap.word = i;
-      else if (["meaning", "意味", "日本語", "japanese"].includes(lh)) headerMap.meaning = i;
-      else if (["phonetic", "発音", "読み方", "pronunciation"].includes(lh)) headerMap.phonetic = i;
-      else if (["example", "例文", "英語例文"].includes(lh)) headerMap.example = i;
-      else if (["example_ja", "例文日本語", "日本語例文"].includes(lh)) headerMap.example_ja = i;
-    });
-  }
-
-  return lines.slice(startLine).flatMap((line) => {
-    const cols = parseLine(line);
-    const word = cols[headerMap.word ?? 0]?.trim();
-    const meaning = cols[headerMap.meaning ?? 1]?.trim();
-    if (!word || !meaning) return [];
-    return [{
-      word,
-      meaning,
-      phonetic: headerMap.phonetic !== undefined ? cols[headerMap.phonetic]?.trim() || undefined : undefined,
-      example: headerMap.example !== undefined ? cols[headerMap.example]?.trim() || undefined : undefined,
-      example_ja: headerMap.example_ja !== undefined ? cols[headerMap.example_ja]?.trim() || undefined : undefined,
-    }];
-  });
-}
+import { parseCsv, type ParsedWord } from "@/lib/utils/csvImportParsing";
 
 export function CsvImportPanel({ wordbookId, isPremium }: { wordbookId: string; isPremium: boolean }) {
   const router = useRouter();
