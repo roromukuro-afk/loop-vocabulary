@@ -227,6 +227,26 @@ const PII_AND_UNKNOWN_PROBE = {
   assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "guide_cta_click: sanitize後にemail/user_id/password/未許可キーが残らない");
 }
 
+// ── guide_cta_click: destination_path/tool/placement(Issue #106)も許可され、
+// PII probeは依然として除外される ──
+{
+  const raw = {
+    guide_slug: "eiken-1kyu-tango",
+    target: "tools",
+    destination_path: "/exam-countdown-planner",
+    tool: "exam_countdown_planner",
+    placement: "after_12month_strategy",
+    ...PII_AND_UNKNOWN_PROBE,
+  };
+  const sanitized = sanitizeProperties("guide_cta_click", raw);
+  assertEqual(
+    sanitized,
+    { guide_slug: "eiken-1kyu-tango", target: "tools", destination_path: "/exam-countdown-planner", tool: "exam_countdown_planner", placement: "after_12month_strategy" },
+    "guide_cta_click: destination_path/tool/placementも許可され、値がそのまま残る(Issue #106)"
+  );
+  assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "guide_cta_click: destination_path/tool/placement追加後もemail/user_id/password/未許可キーが残らない");
+}
+
 // ── signup_oauth_completed: methodのみが残る(Issue #98。src/app/auth/callback/route.tsから
 // サーバー側で発火する新規OAuth signup完了イベント) ──
 {

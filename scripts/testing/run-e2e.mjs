@@ -271,6 +271,9 @@ async function main() {
 
     console.log("\n=== 76. 試験日から逆算する学習計画メーカー 教材選択ロジック ユニットテスト ===");
     results.examCountdownMaterialSelection = runNode("scripts/testing/test-exam-countdown-material-selection.mjs");
+
+    console.log("\n=== 77. 関連ガイドから無料ツールへの内部導線(Issue #106) E2E ===");
+    results.guideToolCrossLinks = runNode("scripts/testing/e2e/guide-tool-cross-links.mjs");
   } finally {
     stopDevServer(dev);
   }

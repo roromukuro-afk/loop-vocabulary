@@ -130,6 +130,21 @@ export default function SpacedRepetitionPage() {
           </div>
         </div>
 
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-2">自分の学習開始日から復習日を計算する</h2>
+          <p className="text-sm text-navy-700 leading-relaxed mb-3">
+            上記の間隔反復の考え方をもとに、学習を始めた日付を入力するだけで、次回以降の復習日をその場で計算できる無料ツールです。単語帳に追加する前に、まず復習スケジュールのイメージをつかみたいときにお使いください。登録不要です。
+          </p>
+          <Link
+            href="/review-date-calculator"
+            data-tool="review_date_calculator"
+            data-placement="after_srs_mechanism"
+            className="inline-block px-5 py-2.5 rounded-xl bg-navy-800 text-white font-bold text-sm hover:bg-navy-900 transition-colors"
+          >
+            復習日を計算する →
+          </Link>
+        </div>
+
         <div className="bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-200 rounded-2xl p-5">
           <h2 className="font-black text-navy-800 mb-3">毎日何をすればいいか迷わないために</h2>
           <p className="text-sm text-navy-700 leading-relaxed">

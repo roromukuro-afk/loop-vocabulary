@@ -223,6 +223,22 @@ export default function EikenJun2Page() {
           </div>
         </div>
 
+        {/* 受験日からの逆算 */}
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-2">6週間プランを自分の試験日に合わせて調整する</h2>
+          <p className="text-sm text-navy-700 leading-relaxed mb-3">
+            上記の6週間プランは一例です。実際の受験日を入力すると、今日から試験日までの残り日数と、1日あたりに必要な新規学習語数を無料で計算できます。登録不要です。
+          </p>
+          <Link
+            href="/exam-countdown-planner"
+            data-tool="exam_countdown_planner"
+            data-placement="after_6week_plan"
+            className="inline-block px-5 py-2.5 rounded-xl bg-navy-800 text-white font-bold text-sm hover:bg-navy-900 transition-colors"
+          >
+            受験日から学習ペースを計算する →
+          </Link>
+        </div>
+
         {/* 語彙問題のコツ */}
         <div className="bg-white rounded-2xl border border-navy-100 p-5">
           <h2 className="font-black text-navy-800 mb-4">語彙問題を攻略する4つのコツ</h2>
