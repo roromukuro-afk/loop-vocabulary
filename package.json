@@ -104,6 +104,7 @@
     "test:shared-word-import-payload": "node scripts/testing/test-shared-word-import-payload.mjs",
     "test:vocab-test-maker-parser": "node scripts/testing/test-vocab-test-maker-parser.mjs",
     "test:safe-next-path": "node scripts/testing/test-safe-next-path.mjs",
+    "test:devserver-ci-build-reuse": "node scripts/testing/test-devserver-ci-build-reuse.mjs",
     "test:vocab-test-maker-anonymous": "node scripts/testing/e2e/vocab-test-maker-anonymous.mjs",
     "test:vocab-test-maker-authenticated": "node scripts/testing/e2e/vocab-test-maker-authenticated.mjs",
     "test:vocab-test-maker-share": "node scripts/testing/e2e/vocab-test-maker-share.mjs",
