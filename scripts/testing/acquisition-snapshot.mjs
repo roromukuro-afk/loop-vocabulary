@@ -15,7 +15,8 @@
  *  - signup数(profiles.created_atベース、is_test_account=false)
  *  - guide_view / guide_cta_click / vocab_test_maker_page_viewed/_generated/
  *    _srs_cta_clicked/_saved_to_wordbook / exam_countdown_page_viewed/_generated/
- *    _srs_cta_clicked の件数
+ *    _srs_cta_clicked / word_list_cleaner_page_viewed/_formatted/_signup_cta_clicked
+ *    の件数
  *
  * 使い方: node scripts/testing/acquisition-snapshot.mjs
  */
@@ -37,6 +38,11 @@ const FUNNEL_EVENTS = [
   "exam_countdown_page_viewed",
   "exam_countdown_generated",
   "exam_countdown_srs_cta_clicked",
+  // word-list-cleaner(Issue #104)のfunnel。exam_countdown_page_viewedと同じ見落とし
+  // を繰り返さないよう、実装と同じPR(#105)のセルフ監査で最初から追加する。
+  "word_list_cleaner_page_viewed",
+  "word_list_cleaner_formatted",
+  "word_list_cleaner_signup_cta_clicked",
 ];
 
 function windowRangeISO(startDateStr, endDateStrInclusive) {

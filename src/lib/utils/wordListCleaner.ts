@@ -33,6 +33,17 @@ function splitOnFirstMatch(line: string, delimiter: string): [string, string] | 
   return [line.slice(0, idx), line.slice(idx + delimiter.length)];
 }
 
+// 手打ちで区切ったリストだけでなく、既にCSV化されたテキスト("word","meaning" のような
+// ダブルクォート包囲フィールド)がそのまま貼り付けられるケースにも対応する。包囲quoteが
+// 両端に揃っている場合のみ剥がし、内部の""(doubled quote)は"へ戻す。片側だけにquoteが
+// ある場合(意図的な引用符付き単語等)は誤って壊さないよう何もしない。
+function unwrapCsvQuotes(field: string): string {
+  if (field.length >= 2 && field.startsWith('"') && field.endsWith('"')) {
+    return field.slice(1, -1).replace(/""/g, '"');
+  }
+  return field;
+}
+
 /**
  * 1行を word/meaning のペアに分解する。区切り文字が全く見つからない行(意味を
  * 書き忘れている、単語だけの行等)は null を返す(呼び出し側でスキップ扱いにする)。
@@ -68,8 +79,8 @@ export function parseWordListLine(rawLine: string): WordListEntry | null {
   }
 
   if (!parts) return null;
-  const word = parts[0].trim();
-  const meaning = parts[1].trim();
+  const word = unwrapCsvQuotes(parts[0].trim());
+  const meaning = unwrapCsvQuotes(parts[1].trim());
   if (!word || !meaning) return null;
   return { word, meaning };
 }
@@ -96,14 +107,57 @@ function csvField(value: string): string {
   return value;
 }
 
+// CSV Injection(Formula Injection)対策: セル先頭が = + - @ だと、Excel等の
+// 表計算ソフトで開いた際に数式として実行されてしまう(OWASPが挙げる代表的な4文字)。
+// カンマ・引用符のCSVエスケープ(csvField)だけでは防げない(quoteされていても
+// 数式解釈は行われるため)。対象セルの先頭に、数式として解釈されない ' を追加して
+// 無害化する。
+//
+// この変換は「ダウンロード/コピーされるCSVの中身」にのみ適用し、画面のプレビュー表
+// (parseWordListの結果、entries)は元の値のまま表示する。無断でユーザーの元データを
+// 書き換えないよう、UI側は必ず「CSV出力時に対象セルの先頭に'を追加する」旨を明示し、
+// 実際に何件変換したかをneutralizedCountとして返す(出力仕様と画面説明を一致させる)。
+const FORMULA_INJECTION_LEAD_CHARS = ["=", "+", "-", "@"];
+
+function neutralizeFormulaInjection(value: string): { value: string; neutralized: boolean } {
+  if (FORMULA_INJECTION_LEAD_CHARS.some((c) => value.startsWith(c))) {
+    return { value: `'${value}`, neutralized: true };
+  }
+  return { value, neutralized: false };
+}
+
+export type WordbookCsvResult = {
+  csv: string;
+  /** = + - @ で始まっていたため先頭に ' を追加(無害化)したセルの数。 */
+  neutralizedCount: number;
+};
+
 /**
  * CsvImportPanel.tsx のヘッダ検出(word/meaning等)がそのまま機能する形式で出力する。
  * ヘッダ行を含めることで、貼り付け直後にヘッダなしCSVとして誤読されるリスクを避ける。
  */
-export function toWordbookCsv(entries: WordListEntry[]): string {
+export function toWordbookCsv(entries: WordListEntry[]): WordbookCsvResult {
   const lines = ["word,meaning"];
+  let neutralizedCount = 0;
   for (const e of entries) {
-    lines.push(`${csvField(e.word)},${csvField(e.meaning)}`);
+    const word = neutralizeFormulaInjection(e.word);
+    const meaning = neutralizeFormulaInjection(e.meaning);
+    if (word.neutralized) neutralizedCount++;
+    if (meaning.neutralized) neutralizedCount++;
+    lines.push(`${csvField(word.value)},${csvField(meaning.value)}`);
   }
-  return lines.join("\r\n");
+  return { csv: lines.join("\r\n"), neutralizedCount };
+}
+
+// ダウンロードファイルにのみ付与するUTF-8 BOM。BOM無しのUTF-8 CSVをExcel(特に
+// 日本語Windows既定ロケール)で直接開くと、ANSI/Shift-JISとして誤認識され日本語が
+// 文字化けする。BOMを付けることでUTF-8として正しく認識される。
+// FileReader.readAsText(file, "utf-8")はBOMを自動的に読み飛ばす仕様のため、
+// このBOM付きファイルをCsvImportPanel.tsxで再アップロードしても影響しない
+// (「コピー」で渡すクリップボードのテキストはOS側で常にUnicodeとして扱われるため
+// BOMは不要 = ダウンロードのBlobだけに適用する)。
+const UTF8_BOM = "﻿";
+
+export function csvWithBom(csv: string): string {
+  return UTF8_BOM + csv;
 }

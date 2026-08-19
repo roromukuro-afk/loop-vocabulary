@@ -4,7 +4,7 @@
  *
  * 使い方: node scripts/testing/test-word-list-cleaner-parser.mjs
  */
-import { parseWordListLine, parseWordList, toWordbookCsv } from "../../src/lib/utils/wordListCleaner.ts";
+import { parseWordListLine, parseWordList, toWordbookCsv, csvWithBom } from "../../src/lib/utils/wordListCleaner.ts";
 
 let pass = 0, fail = 0;
 function ok(msg) { console.log(`✅ ${msg}`); pass++; }
@@ -87,18 +87,148 @@ function main() {
 
   // ---- toWordbookCsv: ヘッダ行 + 基本行 ----
   {
-    const csv = toWordbookCsv([{ word: "apple", meaning: "りんご" }, { word: "banana", meaning: "バナナ" }]);
+    const { csv, neutralizedCount } = toWordbookCsv([{ word: "apple", meaning: "りんご" }, { word: "banana", meaning: "バナナ" }]);
     const expected = "word,meaning\r\napple,りんご\r\nbanana,バナナ";
-    if (csv === expected) ok("toWordbookCsv: ヘッダ行+基本行を正しく出力する");
-    else bad(`toWordbookCsv基本ケースが想定外: ${JSON.stringify(csv)}`);
+    if (csv === expected && neutralizedCount === 0) ok("toWordbookCsv: ヘッダ行+基本行を正しく出力する");
+    else bad(`toWordbookCsv基本ケースが想定外: ${JSON.stringify(csv)}, neutralizedCount=${neutralizedCount}`);
   }
 
   // ---- toWordbookCsv: カンマ・ダブルクォート・改行を含む値は正しくクォートされる ----
   {
-    const csv = toWordbookCsv([{ word: "run", meaning: '走る, "急ぐ"' }]);
+    const { csv } = toWordbookCsv([{ word: "run", meaning: '走る, "急ぐ"' }]);
     const expected = 'word,meaning\r\nrun,"走る, ""急ぐ"""';
     if (csv === expected) ok('toWordbookCsv: カンマ・ダブルクォートを含む値がRFC4180準拠でクォート/エスケープされる');
     else bad(`toWordbookCsvのクォート処理が想定外: ${JSON.stringify(csv)}(期待値: ${JSON.stringify(expected)})`);
+  }
+
+  // ---- toWordbookCsv: 改行を含む値もCRLF出力の中で正しくクォートされる(CRLF/LF両対応) ----
+  {
+    const { csv } = toWordbookCsv([{ word: "note", meaning: "1行目\n2行目" }]);
+    const expected = 'word,meaning\r\nnote,"1行目\n2行目"';
+    if (csv === expected) ok("toWordbookCsv: meaning内の改行(LF)を含む値もクォートされ、出力全体はCRLF区切りを維持する");
+    else bad(`改行を含む値の処理が想定外: ${JSON.stringify(csv)}`);
+  }
+
+  // ---- CSV Formula Injection対策: = + - @ で始まるセルの先頭に ' が追加される ----
+  {
+    const cases = [
+      { word: "=cmd|'/c calc'!A1", meaning: "危険な数式" },
+      { word: "+1", meaning: "プラス記号で始まる語" },
+      { word: "-tion", meaning: "接尾辞(名詞化)" },
+      { word: "@mention", meaning: "メンション記号" },
+    ];
+    const { csv, neutralizedCount } = toWordbookCsv(cases);
+    const lines = csv.split("\r\n").slice(1);
+    const allPrefixed = lines.every((l) => l.startsWith("'"));
+    if (allPrefixed && neutralizedCount === 4) {
+      ok("formula injection対策: = + - @ で始まる単語の先頭に ' が追加され、neutralizedCountが正しく報告される");
+    } else {
+      bad(`formula injection対策が想定外: csv=${JSON.stringify(csv)}, neutralizedCount=${neutralizedCount}(期待値: 4件とも'付き、neutralizedCount=4)`);
+    }
+  }
+
+  // ---- CSV Formula Injection対策: meaning側が該当文字で始まる場合も同様に無害化される ----
+  {
+    const { csv, neutralizedCount } = toWordbookCsv([{ word: "total", meaning: "=SUM(A1:A10)" }]);
+    const expected = "word,meaning\r\ntotal,'=SUM(A1:A10)";
+    if (csv === expected && neutralizedCount === 1) {
+      ok("formula injection対策: meaning側が=で始まる場合も無害化される(word側は対象外なのでneutralizedCount=1)");
+    } else {
+      bad(`meaning側のformula injection対策が想定外: ${JSON.stringify(csv)}, neutralizedCount=${neutralizedCount}`);
+    }
+  }
+
+  // ---- CSV Formula Injection対策: 通常の単語(該当しない)はneutralizedCount=0のまま ----
+  {
+    const { neutralizedCount } = toWordbookCsv([{ word: "apple", meaning: "りんご" }, { word: "well-being", meaning: "幸福(ハイフンは先頭ではない)" }]);
+    if (neutralizedCount === 0) ok("formula injection対策: 先頭以外にハイフン等を含む通常の単語は無害化対象にならない");
+    else bad(`通常の単語が誤って無害化対象になった: neutralizedCount=${neutralizedCount}`);
+  }
+
+  // ---- csvWithBom: UTF-8 BOM(U+FEFF)がCSV本文の先頭に付与される ----
+  {
+    const withBom = csvWithBom("word,meaning\r\napple,りんご");
+    if (withBom.codePointAt(0) === 0xfeff && withBom.slice(1) === "word,meaning\r\napple,りんご") {
+      ok("csvWithBom: ダウンロード用にUTF-8 BOM(U+FEFF)がCSV本文の先頭に付与される");
+    } else {
+      bad(`csvWithBomの出力が想定外: codePoint=${withBom.codePointAt(0)?.toString(16)}`);
+    }
+  }
+
+  // ---- parseWordListLine: 既にCSV化された "word","meaning" 形式の貼り付けにも対応する ----
+  {
+    const result = parseWordListLine('"apple","りんご"');
+    if (result?.word === "apple" && result?.meaning === "りんご") {
+      ok('quoted CSV: "word","meaning" 形式で貼り付けても、ダブルクォートを剥がして正しく解析する');
+    } else {
+      bad(`quoted CSVの解析が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- parseWordListLine: quoted CSVのmeaning側にカンマが含まれていても正しく解析する ----
+  {
+    const result = parseWordListLine('apple,"an edible fruit, red or green"');
+    if (result?.word === "apple" && result?.meaning === "an edible fruit, red or green") {
+      ok("quoted CSV: meaning側がダブルクォートで囲まれ内部にカンマを含む場合も正しく分割・復元される");
+    } else {
+      bad(`quoted CSV(内部カンマ)の解析が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- parseWordListLine: 絵文字を含む行でも例外を投げず、安全に処理する ----
+  {
+    const r1 = parseWordListLine("🍎apple: りんご🍎");
+    const r2 = parseWordListLine("🍎🍏🍊"); // 区切り文字が無い絵文字だけの行
+    const noException = r1 !== undefined && r2 === null;
+    if (noException && r1?.word === "🍎apple" && r1?.meaning === "りんご🍎") {
+      ok("絵文字を含む行でも例外を投げず、通常の区切り文字判定がそのまま機能する");
+    } else {
+      bad(`絵文字を含む行の処理が想定外: r1=${JSON.stringify(r1)}, r2=${JSON.stringify(r2)}`);
+    }
+  }
+
+  // ---- parseWordListLine: 意味だけの行(区切り文字が行頭にある) -> null ----
+  {
+    const r1 = parseWordListLine(",りんご");
+    const r2 = parseWordListLine("\tりんご");
+    if (r1 === null && r2 === null) ok("意味だけの行(区切り文字が行頭にありwordが空になる)はnullを返す");
+    else bad(`意味だけの行の処理が想定外: r1=${JSON.stringify(r1)}, r2=${JSON.stringify(r2)}`);
+  }
+
+  // ---- parseWordList: 前後の空白は行全体・word・meaningのそれぞれでtrimされる ----
+  {
+    const result = parseWordList("   apple  :   りんご   ");
+    if (result.entries.length === 1 && result.entries[0].word === "apple" && result.entries[0].meaning === "りんご") {
+      ok("前後の空白(行全体・word・meaningそれぞれ)が正しくtrimされる");
+    } else {
+      bad(`空白trimの処理が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- parseWordList: 重複行はそのまま両方とも整形結果に含まれる(意図的な仕様。
+  // 「整形ツール」であり「重複排除ツール」ではないため、同じ単語を意図的に複数回
+  // 書いたリストを黙って間引かない) ----
+  {
+    const result = parseWordList("apple: りんご\napple: りんご");
+    if (result.entries.length === 2 && result.entries[0].word === "apple" && result.entries[1].word === "apple") {
+      ok("重複行は削除せずそのまま両方とも整形結果に含まれる(意図的な仕様)");
+    } else {
+      bad(`重複行の処理が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- parseWordList: 非常に長い入力(5000行)でも例外を投げず、全行を正しく処理する ----
+  {
+    const lines = [];
+    for (let i = 0; i < 5000; i++) lines.push(`word${i}: 意味${i}`);
+    const start = Date.now();
+    const result = parseWordList(lines.join("\n"));
+    const elapsedMs = Date.now() - start;
+    if (result.entries.length === 5000 && result.skippedLineNumbers.length === 0 && elapsedMs < 5000) {
+      ok(`非常に長い入力(5000行)でも例外を投げず全行を正しく処理する(${elapsedMs}ms)`);
+    } else {
+      bad(`長い入力の処理が想定外: entries=${result.entries.length}, skipped=${result.skippedLineNumbers.length}, elapsedMs=${elapsedMs}`);
+    }
   }
 
   // ---- 往復確認: toWordbookCsv の出力を CsvImportPanel.tsx と同じロジックで
@@ -109,7 +239,7 @@ function main() {
     // ヘッダ行の存在とクォート往復性のみを直接検証する(実際のparseCsvの
     // ヘッダ検出ロジック自体は既存のCsvImportPanel.tsx側でテスト済み)。
     const entries = [{ word: "don't", meaning: '"ない" という意味' }];
-    const csv = toWordbookCsv(entries);
+    const { csv } = toWordbookCsv(entries);
     const dataLine = csv.split("\r\n")[1];
     // 素朴なCSV分割(ダブルクォートの中のカンマは無視する)で復元できるか確認
     const m = /^([^,]*),"(.*)"$/.exec(dataLine) ?? /^([^,]*),(.*)$/.exec(dataLine);

@@ -13,6 +13,7 @@
  *
  * 使い方: node scripts/testing/e2e/word-list-cleaner.mjs
  */
+import { readFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { collectErrors } from "./lib/login.mjs";
@@ -20,6 +21,9 @@ import { gotoReady } from "./lib/nav.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 const PAGE_PATH = "/tools/word-list-cleaner";
+// 区切り文字がバラバラな入力(タブ・コロン・ハイフン・空行・解析不能行を含む)。
+// メインフローとクリップボード失敗フォールバック検証の両方で使う。
+const SAMPLE_INPUT = "apple: りんご\nbanana - バナナ\ncherry\tさくらんぼ\n\nこの行は解析できない";
 
 function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; }
 function ok(msg) { console.log(`✅ ${msg}`); }
@@ -100,6 +104,12 @@ async function main() {
     const sitemapXml = await sitemapRes.text();
     if (new RegExp(`<loc>[^<]*${PAGE_PATH}</loc>`).test(sitemapXml)) ok(`sitemap.xmlに${PAGE_PATH}が含まれる`);
     else fail(`sitemap.xmlに${PAGE_PATH}が含まれていない`);
+
+    if (/<noscript>[\s\S]*JavaScript[\s\S]*<\/noscript>/.test(html)) {
+      ok("JavaScript無効環境向けの<noscript>案内がSSR HTMLに含まれる(誤解を招く無反応なボタンにならない)");
+    } else {
+      fail("<noscript>案内が見つからない");
+    }
   } catch (e) {
     fail(`SSR/メタデータ検証中に例外: ${e.message}`);
   }
@@ -108,7 +118,7 @@ async function main() {
   let browser;
   try {
     browser = await chromium.launch();
-    const context = await browser.newContext();
+    const context = await browser.newContext({ acceptDownloads: true });
     const page = await context.newPage();
     const errors = collectErrors(page);
     const analyticsEvents = await interceptAnalyticsEvents(page);
@@ -135,8 +145,7 @@ async function main() {
     if (await textarea.count() === 1) ok("単語リスト入力用のtextareaが存在する");
     else fail("単語リスト入力用のtextareaが見つからない");
 
-    // 区切り文字がバラバラな入力(タブ・コロン・ハイフン・空行・解析不能行を含む)
-    const input = "apple: りんご\nbanana - バナナ\ncherry\tさくらんぼ\n\nこの行は解析できない";
+    const input = SAMPLE_INPUT;
     await textarea.fill(input);
     await page.locator('button:has-text("CSVに整形する")').click();
     await page.waitForTimeout(300);
@@ -181,6 +190,40 @@ async function main() {
       fail(`クリップボードの内容が想定外: ${JSON.stringify(clipboardText)}`);
     }
 
+    // ---- CSV Formula Injection対策: =で始まる単語を含むリストを整形すると、
+    // 画面上に無害化件数の案内が表示され、ダウンロードされるCSVの先頭に'が付く ----
+    const injectionInput = "=cmd|'/c calc'!A1: 危険な数式\nsafe: 安全な単語";
+    await textarea.fill(injectionInput);
+    await page.locator('button:has-text("CSVに整形する")').click();
+    await page.waitForTimeout(300);
+    const injectionBodyText = await page.locator("body").innerText();
+    if (/1件[\s\S]*'/.test(injectionBodyText) || /'[\s\S]*1件/.test(injectionBodyText)) {
+      ok("formula injection対策: 無害化した件数(1件)が画面に案内表示される");
+    } else {
+      fail(`formula injection無害化の案内表示が見つからない。本文: ${injectionBodyText.slice(0, 800)}`);
+    }
+
+    // ---- ダウンロードされるCSVファイルの先頭にUTF-8 BOM(EF BB BF)が付与され、
+    // 無害化されたセルの先頭に'が付いていることを実ファイルのバイト列で確認する ----
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.locator('button:has-text("CSVをダウンロード")').click(),
+    ]);
+    const downloadPath = await download.path();
+    const fileBuffer = await readFile(downloadPath);
+    const hasBom = fileBuffer[0] === 0xef && fileBuffer[1] === 0xbb && fileBuffer[2] === 0xbf;
+    const fileText = fileBuffer.toString("utf-8");
+    if (hasBom && fileText.includes("'=cmd|'/c calc'!A1,危険な数式")) {
+      ok("ダウンロードされたCSVファイルの先頭にUTF-8 BOMが付与され、無害化対象セルの先頭に'が付いている");
+    } else {
+      fail(`ダウンロードファイルの内容が想定外: hasBom=${hasBom}, 先頭200バイト=${JSON.stringify(fileText.slice(0, 200))}`);
+    }
+
+    // 次のチェックのために元の3件入力へ戻す
+    await textarea.fill(input);
+    await page.locator('button:has-text("CSVに整形する")').click();
+    await page.waitForTimeout(300);
+
     // ---- word_list_cleaner_signup_cta_clicked がCTAクリックで発火する ----
     const ctaLink = page.locator('a[href="/signup"]:has-text("無料で始める")');
     if (await ctaLink.count() === 1) {
@@ -196,6 +239,25 @@ async function main() {
       fail("「無料で始める」CTAリンクが見つからない");
     }
 
+    // ---- プライバシー: これまでに送信された全analyticsイベントのペイロードに、
+    // 実際に入力した単語・意味の本文が一切含まれないことを確認する(件数等の
+    // メタ情報のみ送信可、本文送信は禁止)。イベント名自体にwordが含まれるのは
+    // 仕様どおり(event_name: "word_list_cleaner_..."）なので、propertiesの値のみを
+    // 対象にする。 ----
+    const forbiddenContentStrings = ["apple", "banana", "cherry", "りんご", "バナナ", "さくらんぼ", "safe", "危険な数式", "安全な単語", "cmd", "calc"];
+    const leakedContent = [];
+    for (const event of analyticsEvents) {
+      const propertiesJson = JSON.stringify(event.properties ?? {});
+      for (const needle of forbiddenContentStrings) {
+        if (propertiesJson.includes(needle)) leakedContent.push(`${event.event_name}.properties contains "${needle}"`);
+      }
+    }
+    if (leakedContent.length === 0) {
+      ok("送信された全analyticsイベントのproperties(件数等は含む)に、入力した単語・意味の本文が一切含まれない");
+    } else {
+      fail(`analyticsイベントに単語・意味の本文が漏洩している: ${leakedContent.join(", ")}`);
+    }
+
     if (unexpectedWriteRequests.length === 0) {
       ok("整形処理・コピー操作を通じて、/api/analytics/events以外への書き込みリクエストが一切発生しない");
     } else {
@@ -208,10 +270,62 @@ async function main() {
     await context.close();
   } catch (e) {
     fail(`ブラウザ検証中に例外: ${e.message}`);
-  } finally {
-    if (browser) await browser.close();
-    stopDevServer(dev);
   }
+
+  // ---- クリップボードAPI失敗時のフォールバック: navigator.clipboard.writeTextを
+  // 強制的に失敗させ、読み取り専用テキストエリアによる手動コピー案内が表示されることを
+  // 確認する(権限拒否・非対応ブラウザでも「何も起きない」ままにしない) ----
+  try {
+    const clipboardFailContext = await browser.newContext();
+    const clipboardFailPage = await clipboardFailContext.newPage();
+    await clipboardFailPage.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText: () => Promise.reject(new Error("denied")) },
+        configurable: true,
+      });
+    });
+    await gotoReady(clipboardFailPage, `${baseUrl}${PAGE_PATH}`);
+    await clipboardFailPage.locator("#word-list-input").fill(SAMPLE_INPUT);
+    await clipboardFailPage.locator('button:has-text("CSVに整形する")').click();
+    await clipboardFailPage.waitForTimeout(300);
+    await clipboardFailPage.locator('button:has-text("CSVをコピー")').click();
+    await clipboardFailPage.waitForTimeout(300);
+    const fallbackTextarea = clipboardFailPage.locator('textarea[aria-label="整形されたCSV(手動コピー用)"]');
+    const fallbackValue = await fallbackTextarea.inputValue().catch(() => null);
+    if (await fallbackTextarea.count() === 1 && fallbackValue?.startsWith("word,meaning")) {
+      ok("クリップボードAPI失敗時、読み取り専用テキストエリアによる手動コピーのフォールバックが表示される");
+    } else {
+      fail(`クリップボード失敗時のフォールバックが見つからない(count=${await fallbackTextarea.count()}, value=${JSON.stringify(fallbackValue)})`);
+    }
+    await clipboardFailContext.close();
+  } catch (e) {
+    fail(`クリップボード失敗フォールバック検証中に例外: ${e.message}`);
+  }
+
+  // ---- モバイルviewportでもtextarea/ボタンが操作可能であることを確認する ----
+  try {
+    const mobileContext = await browser.newContext({ viewport: { width: 375, height: 812 } });
+    const mobilePage = await mobileContext.newPage();
+    await gotoReady(mobilePage, `${baseUrl}${PAGE_PATH}`);
+    const mobileTextarea = mobilePage.locator("#word-list-input");
+    await mobileTextarea.fill("apple: りんご");
+    const mobileButton = mobilePage.locator('button:has-text("CSVに整形する")');
+    await mobileButton.click();
+    await mobilePage.waitForTimeout(300);
+    const mobileBodyText = await mobilePage.locator("body").innerText();
+    const hasHorizontalOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+    if (mobileBodyText.includes("整形結果(1件)") && !hasHorizontalOverflow) {
+      ok("モバイルviewport(375x812)でもtextarea入力・整形ボタン操作が機能し、横スクロールも発生しない");
+    } else {
+      fail(`モバイルviewportでの操作が想定外(整形結果表示=${mobileBodyText.includes("整形結果(1件)")}, 横スクロール=${hasHorizontalOverflow})`);
+    }
+    await mobileContext.close();
+  } catch (e) {
+    fail(`モバイルviewport検証中に例外: ${e.message}`);
+  }
+
+  if (browser) await browser.close();
+  stopDevServer(dev);
 
   console.log(process.exitCode ? "\n=== test:word-list-cleaner: FAILED ===" : "\n=== test:word-list-cleaner RESULT: all checks passed ===");
 }
