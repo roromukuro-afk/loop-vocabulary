@@ -271,6 +271,12 @@ async function main() {
 
     console.log("\n=== 76. 試験日から逆算する学習計画メーカー 教材選択ロジック ユニットテスト ===");
     results.examCountdownMaterialSelection = runNode("scripts/testing/test-exam-countdown-material-selection.mjs");
+
+    console.log("\n=== 77. 英単語リスト整形・CSV変換ツール E2E ===");
+    results.wordListCleaner = runNode("scripts/testing/e2e/word-list-cleaner.mjs");
+
+    console.log("\n=== 78. 英単語リスト整形・CSV変換ツール 整形ロジック ユニットテスト ===");
+    results.wordListCleanerParser = runNode("scripts/testing/test-word-list-cleaner-parser.mjs");
   } finally {
     stopDevServer(dev);
   }
