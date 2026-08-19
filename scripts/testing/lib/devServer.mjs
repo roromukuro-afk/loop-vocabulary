@@ -128,6 +128,18 @@ export async function ensureServer(port, opts = {}) {
           `Free this port (or pick a different dedicated port) before running this test.`,
       );
     }
+    if (opts.forceRebuild) {
+      // opts.envと同じ理由: このポートが既に別プロセスで使用中の場合、その中身を確認せず
+      // 黙って再利用すると、opts.forceRebuildで要求した「必ずこのビルドを検証する」という
+      // 前提が静かに破られる(古い.next成果物のサーバーをそのまま使ってしまう)
+      // (Codexレビュー指摘対応、PR #110、2巡目)。
+      throw new Error(
+        `port ${port} is already occupied by another process, but ensureServer() was called with ` +
+          `opts.forceRebuild:true. Reusing an already-running server here would silently test whatever ` +
+          `build that process was started with, defeating the forced rebuild. Free this port (or pick a ` +
+          `different dedicated port) before running this test.`,
+      );
+    }
     return { url, proc: null, startedByUs: false };
   }
 

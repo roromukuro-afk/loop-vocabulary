@@ -10,13 +10,14 @@
  *
  * 使い方: node scripts/testing/test-devserver-ci-build-reuse.mjs
  */
-import { shouldSkipBuildForCI } from "./lib/devServer.mjs";
+import { createServer } from "node:http";
+import { shouldSkipBuildForCI, ensureServer } from "./lib/devServer.mjs";
 
 let pass = 0, fail = 0;
 function ok(msg) { console.log(`✅ ${msg}`); pass++; }
 function bad(msg) { console.error(`❌ FAIL: ${msg}`); fail++; }
 
-function main() {
+async function main() {
   // ---- CI環境 + .next/BUILD_IDが既に存在 -> ビルドを省略する ----
   {
     const result = shouldSkipBuildForCI({ explicitSkipBuild: undefined, isCI: true, nextBuildIdExists: true });
@@ -91,6 +92,32 @@ function main() {
     }
   }
 
+  // ---- ensureServer(): 指定ポートが既に別プロセスで占有されている場合、
+  // opts.forceRebuild:trueを渡すと(opts.envと同じ理由で)例外を投げ、古いビルドの
+  // サーバーを黙って再利用しない(Codexレビュー指摘対応、PR #110、2巡目: 修正前は
+  // 占有ポートの早期returnがビルド判定より先に評価されるため、forceRebuild:trueが
+  // 静かに無視されていた) ----
+  {
+    const port = 41932 + Math.floor(Math.random() * 1000);
+    const occupier = createServer((_req, res) => res.end("ok")).listen(port);
+    await new Promise((resolve) => occupier.once("listening", resolve));
+    try {
+      let threw = null;
+      try {
+        await ensureServer(port, { forceRebuild: true });
+      } catch (e) {
+        threw = e;
+      }
+      if (threw && /forceRebuild/.test(threw.message) && /occupied/.test(threw.message)) {
+        ok("ensureServer(): ポートが既に占有されている場合、opts.forceRebuild:trueは例外を投げて古いビルドの黙った再利用を防ぐ");
+      } else {
+        bad(`ensureServer()のforceRebuild+占有ポートでの挙動が想定外: ${threw ? threw.message : "例外が投げられなかった"}`);
+      }
+    } finally {
+      await new Promise((resolve) => occupier.close(resolve));
+    }
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;
@@ -99,4 +126,7 @@ function main() {
   }
 }
 
-main();
+main().catch((e) => {
+  console.error(`❌ 予期しない例外: ${e.message}`);
+  process.exitCode = 1;
+});
