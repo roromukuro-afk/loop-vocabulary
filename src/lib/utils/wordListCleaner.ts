@@ -20,18 +20,21 @@ export type WordListParseResult = {
 // 明示的な区切り文字。行内でどれか複数一致する場合、この配列の並び順を優先度として
 // 「最も左側で最初に一致したもの」を採用する(タブ区切りのコピペが最も構造化されている
 // ため最優先、全角/半角コロンやハイフンは辞書形式の慣習に合わせて次点)。
-const EXPLICIT_DELIMITERS = ["\t", "：", " : ", ":", " - ", "-", ","];
+// 素のハイフン"-"は意図的にここへ含めない — "well-known"・"mother-in-law"のような
+// 複合語の内部ハイフンと、"apple-りんご"のような単語/意味の区切りハイフンを区別できない
+// ため、後述のBARE_HYPHEN_BEFORE_JAPANESEで「直後が日本語のときだけ」に限定して扱う
+// (Codexレビュー指摘対応、PR #105、P1: 複合語のハイフンで先頭語が切り詰められる問題)。
+const EXPLICIT_DELIMITERS = ["\t", "：", " : ", ":", " - ", ","];
+
+// 素のハイフンは、直後が日本語(ひらがな・カタカナ・漢字)のときだけ区切りとみなす
+// ("apple-りんご")。直後が英字の場合("well-known"の内部ハイフン等)は複合語の一部として
+// 保持し、区切りとして扱わない。
+const BARE_HYPHEN_BEFORE_JAPANESE = /-(?=[぀-ヿ一-鿿])/;
 
 // 英字(ラテン文字)から日本語(ひらがな・カタカナ・漢字)への切り替わり位置を区切りとみなす
 // フォールバック用の正規表現。"apple りんご" のように、区切り文字を一切使わず単語と
 // 意味をスペースだけで並べた行(辞書帳の手書きメモに多い形式)に対応するため。
 const LATIN_TO_JAPANESE_BOUNDARY = /[A-Za-z][ 　]*(?=[぀-ヿ一-鿿])/;
-
-function splitOnFirstMatch(line: string, delimiter: string): [string, string] | null {
-  const idx = line.indexOf(delimiter);
-  if (idx === -1) return null;
-  return [line.slice(0, idx), line.slice(idx + delimiter.length)];
-}
 
 // 手打ちで区切ったリストだけでなく、既にCSV化されたテキスト("word","meaning" のような
 // ダブルクォート包囲フィールド)がそのまま貼り付けられるケースにも対応する。包囲quoteが
@@ -44,6 +47,31 @@ function unwrapCsvQuotes(field: string): string {
   return field;
 }
 
+// 行がダブルクォートで始まる場合、その最初のフィールドを閉じる(doubled ""を
+// エスケープとして読み飛ばす)実クォートの直後のインデックスを返す。クォートで
+// 始まらない行、または閉じクォートが無い行(壊れたCSV)は0を返す — 区切り文字の
+// 探索を先頭から行う従来どおりの挙動にフォールバックする。
+//
+// これが無いと、`"Hello, world","こんにちは世界"` のような1つ目のフィールド自体に
+// カンマを含むquoted CSVで、区切り文字の探索がクォート内側のカンマを本来の
+// フィールド区切りだと誤認識し、先頭語が途中で切り詰められる
+// (Codexレビュー指摘対応、PR #105、P2)。
+function quotedPrefixEnd(line: string): number {
+  if (line[0] !== '"') return 0;
+  let i = 1;
+  while (i < line.length) {
+    if (line[i] === '"') {
+      if (line[i + 1] === '"') {
+        i += 2;
+        continue;
+      }
+      return i + 1;
+    }
+    i++;
+  }
+  return 0;
+}
+
 /**
  * 1行を word/meaning のペアに分解する。区切り文字が全く見つからない行(意味を
  * 書き忘れている、単語だけの行等)は null を返す(呼び出し側でスキップ扱いにする)。
@@ -52,19 +80,31 @@ export function parseWordListLine(rawLine: string): WordListEntry | null {
   const line = rawLine.trim();
   if (!line) return null;
 
+  // 行が引用符付きCSVフィールドで始まる場合、その閉じクォートより前にある
+  // 区切り文字候補(クォート内側の生カンマ等)は探索対象から除外する。
+  const searchStart = quotedPrefixEnd(line);
+
   // 複数の明示的区切り文字が同じ行に現れうる(例: "apple: りんご, 林檎" のように
   // meaning側にもコロン/カンマが含まれる場合)ため、実際に見つかった位置が最も
   // 左側にあるものを優先する(EXPLICIT_DELIMITERSの配列順ではなく、出現位置基準)。
-  let best: { delimiter: string; index: number } | null = null;
+  let best: { index: number; length: number } | null = null;
   for (const delimiter of EXPLICIT_DELIMITERS) {
-    const idx = line.indexOf(delimiter);
+    const idx = line.indexOf(delimiter, searchStart);
     if (idx === -1) continue;
-    if (!best || idx < best.index) best = { delimiter, index: idx };
+    if (!best || idx < best.index) best = { index: idx, length: delimiter.length };
+  }
+  {
+    const searchArea = line.slice(searchStart);
+    const m = BARE_HYPHEN_BEFORE_JAPANESE.exec(searchArea);
+    if (m) {
+      const idx = searchStart + m.index;
+      if (!best || idx < best.index) best = { index: idx, length: 1 };
+    }
   }
 
   let parts: [string, string] | null = null;
   if (best) {
-    parts = splitOnFirstMatch(line, best.delimiter);
+    parts = [line.slice(0, best.index), line.slice(best.index + best.length)];
   } else {
     const m = LATIN_TO_JAPANESE_BOUNDARY.exec(line);
     if (m) {
@@ -85,13 +125,29 @@ export function parseWordListLine(rawLine: string): WordListEntry | null {
   return { word, meaning };
 }
 
+// src/components/wordbooks/CsvImportPanel.tsx のヘッダ検出(hasHeaders)と同じ
+// 判定基準。既にCSV化された "word,meaning" (ヘッダ有り)がそのまま貼り付けられた
+// 場合、ヘッダ行自体を意味のあるペアとして誤って取り込まないようにする
+// (Codexレビュー指摘対応、PR #105、P2: ヘッダ行が word="word" というダミー
+// エントリとして二重に取り込まれる問題)。判定は入力全体の最初の非空行だけに
+// 限定する(CsvImportPanel同様、ヘッダは先頭にしか現れない前提)。
+function isHeaderLine(line: string): boolean {
+  const lower = line.toLowerCase();
+  return lower.includes("word") || lower.includes("meaning") || lower.includes("単語") || lower.includes("英単語");
+}
+
 /** テキストエリア全体を解析する。空行はスキップ(エラー扱いしない)。 */
 export function parseWordList(text: string): WordListParseResult {
   const lines = text.split(/\r?\n/);
   const entries: WordListEntry[] = [];
   const skippedLineNumbers: number[] = [];
+  let sawContentLine = false;
   lines.forEach((line, i) => {
     if (!line.trim()) return; // 空行は無視(スキップ扱いにしない)
+    if (!sawContentLine) {
+      sawContentLine = true;
+      if (isHeaderLine(line)) return; // 貼り付けられたCSVのヘッダ行はエントリ化しない
+    }
     const parsed = parseWordListLine(line);
     if (parsed) entries.push(parsed);
     else skippedLineNumbers.push(i + 1);

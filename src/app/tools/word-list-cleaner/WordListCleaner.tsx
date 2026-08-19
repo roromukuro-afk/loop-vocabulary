@@ -37,6 +37,14 @@ export function WordListCleaner() {
 
   const { csv, neutralizedCount } = entries.length > 0 ? toWordbookCsv(entries) : { csv: "", neutralizedCount: 0 };
 
+  function handleInputChange(value: string) {
+    setInput(value);
+    // 一度整形した後に入力を編集した場合、再度「CSVに整形する」を押さずに
+    // コピー/ダウンロードすると古い結果が渡ってしまう(Codexレビュー指摘対応、
+    // PR #105、P2)。結果パネルごと隠し、再整形するまでは古いCSVを提供しない。
+    if (hasFormatted) setHasFormatted(false);
+  }
+
   function handleFormat() {
     const result = parseWordList(input);
     setEntries(result.entries);
@@ -106,7 +114,7 @@ export function WordListCleaner() {
         <textarea
           id="word-list-input"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => handleInputChange(e.target.value)}
           placeholder={PLACEHOLDER}
           rows={8}
           className="w-full rounded-xl border border-navy-200 p-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-400"
@@ -211,9 +219,9 @@ export function WordListCleaner() {
       )}
 
       <div className="bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-6 text-white text-center">
-        <div className="font-black text-lg mb-1">整形したCSVをそのまま単語帳にインポート</div>
+        <div className="font-black text-lg mb-1">整形したCSVを単語帳にインポート</div>
         <p className="text-sm text-navy-300 mb-4">
-          無料登録後、単語帳の「CSV一括インポート」からこの形式のファイルをそのまま読み込めます。
+          単語帳の「CSV一括インポート」(プレミアム機能)で、この形式のファイルをそのまま読み込めます。無料登録でLoop Vocabularyをすぐにお試しいただけます。
         </p>
         <Link
           href="/signup"
