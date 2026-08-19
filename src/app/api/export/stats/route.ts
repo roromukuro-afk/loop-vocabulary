@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { todayJST } from "@/lib/utils/date";
+import { toCsv } from "@/lib/utils/csvExport";
 
 export const runtime = "nodejs";
-
-function toCsv(headers: string[], rows: (string | number | null | undefined)[][]): string {
-  const esc = (v: string | number | null | undefined) => {
-    const s = v == null ? "" : String(v);
-    return s.includes(",") || s.includes('"') || s.includes("\n")
-      ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  return [headers, ...rows].map((r) => r.map(esc).join(",")).join("\n");
-}
 
 export async function GET() {
   const supabase = await createClient();

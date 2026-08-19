@@ -32,6 +32,46 @@ function main() {
     }
   }
 
+  // ---- 単一スペース + 意味が品詞注記(丸括弧)から始まる場合も正しく分割できる
+  // (Codexレビュー指摘対応、PR #105、6巡目、P1: 意味が日本語文字ではなく注記の丸括弧
+  // から始まる行は境界が一切マッチせずスキップされていた) ----
+  const ANNOTATION_CASES = [
+    ["apple （名）りんご", { word: "apple", meaning: "（名）りんご" }], // 全角括弧の品詞注記
+    ["run (動) 走る", { word: "run", meaning: "(動) 走る" }], // 半角括弧+閉じ括弧後にも空白
+  ];
+  for (const [input, expected] of ANNOTATION_CASES) {
+    const result = parseWordListLine(input);
+    if (result && result.word === expected.word && result.meaning === expected.meaning) {
+      ok(`品詞注記付きの単一スペース区切りを正しく解析: ${JSON.stringify(input)} → ${JSON.stringify(result)}`);
+    } else {
+      bad(`品詞注記付きの単一スペース区切りの解析が想定外: ${JSON.stringify(input)} → ${JSON.stringify(result)}(期待値: ${JSON.stringify(expected)})`);
+    }
+  }
+
+  // ---- 品詞注記付きの意味に後続のASCIIカンマがあっても、そのカンマではなく
+  // ラテン→日本語境界(注記の前)が優先される(Codexレビュー指摘対応、PR #105、6巡目、P1:
+  // 修正前はこの境界がマッチせず、後方のカンマが誤って区切りとして採用され
+  // wordが"run (動) 走る"のように注記ごと切り詰められていた) ----
+  {
+    const result = parseWordListLine("run (動) 走る, 経営する");
+    if (result?.word === "run" && result?.meaning === "(動) 走る, 経営する") {
+      ok("品詞注記付きの意味中の後続カンマに惑わされず、注記直前の境界を優先する");
+    } else {
+      bad(`品詞注記+後続カンマのケースが想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- 日本語文字が最終的に続かない注記付き英語行は、従来どおりマッチしない
+  // (誤検出防止の回帰確認) ----
+  {
+    const result = parseWordListLine("Q&A (note)");
+    if (result === null) {
+      ok("日本語が続かない注記付き英語行は誤って分割されない(null)");
+    } else {
+      bad(`日本語が続かない注記付き英語行が誤って分割された: ${JSON.stringify(result)}`);
+    }
+  }
+
   // ---- 複数区切り文字が同じ行にある場合、最も左側の出現を優先する ----
   {
     // "run: 走る, 経営する" は最初のコロンで分割されるべき(カンマはmeaning側)
