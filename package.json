@@ -22,6 +22,7 @@
     "test:guides-content": "node scripts/testing/e2e/guides-content.mjs",
     "test:exam-info-sources": "node scripts/testing/e2e/exam-info-sources.mjs",
     "test:eiken-2kyu-guide-content": "node scripts/testing/e2e/eiken-2kyu-guide-content.mjs",
+    "test:guide-tool-cross-links": "node scripts/testing/e2e/guide-tool-cross-links.mjs",
     "test:canonical-integrity": "node scripts/testing/e2e/canonical-integrity.mjs",
     "test:technical-seo-foundations": "node scripts/testing/e2e/technical-seo-foundations.mjs",
     "test:robots-sitemap-collision": "node scripts/testing/e2e/robots-sitemap-collision.mjs",

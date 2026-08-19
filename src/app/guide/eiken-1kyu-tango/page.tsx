@@ -195,6 +195,22 @@ export default function Eiken1KyuPage() {
           </div>
         </div>
 
+        {/* 受験日からの逆算 */}
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-2">自分の受験日から逆算した学習ペースを計算する</h2>
+          <p className="text-sm text-navy-700 leading-relaxed mb-3">
+            上記の12ヶ月戦略はあくまで一例です。実際の受験日を入力すると、今日から試験日までの残り日数と、1日あたりに必要な新規学習語数を無料で計算できます。登録不要です。
+          </p>
+          <Link
+            href="/exam-countdown-planner"
+            data-tool="exam_countdown_planner"
+            data-placement="after_12month_strategy"
+            className="inline-block px-5 py-2.5 rounded-xl bg-navy-800 text-white font-bold text-sm hover:bg-navy-900 transition-colors"
+          >
+            受験日から学習ペースを計算する →
+          </Link>
+        </div>
+
         {/* Loop Vocabulary活用 */}
         <div className="bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200 rounded-2xl p-5">
           <h2 className="font-black text-navy-800 mb-3">Loop Vocabulary で1級語彙を制する</h2>
