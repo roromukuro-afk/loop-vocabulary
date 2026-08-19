@@ -244,6 +244,8 @@ export default function EitangoNoOboekataPage() {
             </Link>
             <Link
               href="/tools/vocab-test-maker"
+              data-tool="vocab_test_maker"
+              data-placement="tools_list_card"
               className="block bg-white rounded-xl p-4 border border-sky-100 hover:shadow-sm transition-shadow"
             >
               <div className="font-bold text-navy-800 text-sm">✏️ 英単語テスト作成(登録不要)</div>

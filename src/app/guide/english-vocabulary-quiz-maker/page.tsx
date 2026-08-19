@@ -174,7 +174,7 @@ export default function EnglishVocabularyQuizMakerPage() {
           <p className="text-sm text-navy-300 mb-4">単語帳を作って、1日3回まで無料で小テストを作成できます。</p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Link href="/signup" className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors">無料で始める →</Link>
-            <Link href="/tools/vocab-test-maker" className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">自分の単語で無料テストを作成</Link>
+            <Link href="/tools/vocab-test-maker" data-tool="vocab_test_maker" data-placement="bottom_cta" className="px-5 py-2.5 rounded-xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-colors">自分の単語で無料テストを作成</Link>
           </div>
         </div>
 

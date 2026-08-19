@@ -197,6 +197,8 @@ export default function ToeicTangoPage() {
           </p>
           <Link
             href="/exam-countdown-planner"
+            data-tool="exam_countdown_planner"
+            data-placement="mid_article_exam_countdown_card"
             className="inline-block bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors"
           >
             学習計画を立てる →
