@@ -377,6 +377,24 @@ function main() {
     }
   }
 
+  // ---- Codexレビュー指摘対応(PR #105、4巡目、P2): word-list-cleanerの無害化と
+  // 無関係な、ユーザーが意図的にアポストロフィで始めた正当な値は取り除かれない
+  // ("'cause"・"'Hello,' she said."のような、=+-@のいずれも直後に続かないケース) ----
+  {
+    const reimported = parseCsv("word,meaning\n'cause,なぜなら(口語)\nquote,\"'Hello,' she said.\"");
+    if (
+      reimported.length === 2 &&
+      reimported[0].word === "'cause" &&
+      reimported[0].meaning === "なぜなら(口語)" &&
+      reimported[1].word === "quote" &&
+      reimported[1].meaning === "'Hello,' she said."
+    ) {
+      ok('word-list-cleanerの無害化と無関係な、意図的なアポストロフィ始まりの値("\'cause"・"\'Hello,\' she said.")は取り除かれない');
+    } else {
+      bad(`意図的なアポストロフィの保持が想定外: ${JSON.stringify(reimported)}`);
+    }
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;

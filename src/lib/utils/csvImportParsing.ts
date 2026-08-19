@@ -33,15 +33,17 @@ export function parseLine(line: string): string[] {
   return result;
 }
 
-// スプレッドシートソフトの「セルの先頭に'を付けると数式として実行されず文字列として
-// 扱われる」という業界標準の慣習(Excel自身も、そのようなセルを再エクスポートする際は
-// 表示上の先頭'を取り除く)に合わせる。/tools/word-list-cleaner がCSVインジェクション
-// 対策として=+-@で始まるセルの先頭に付与する'を、このCSVインポート機能でも同じ規約で
-// 取り除くことで、元の値どおりにインポートできるようにする(Codexレビュー指摘対応、
-// PR #105、3巡目: 対策なしでは"-ing"のような正当な語が"'-ing"として永続的に
-// インポートされ、プレビュー・元の入力と異なる単語になってしまっていた)。
+// /tools/word-list-cleanerがCSVインジェクション対策として=+-@で始まるセルの先頭に
+// 付与する'だけを取り除く(Codexレビュー指摘対応、PR #105、4巡目)。先頭の'を無条件に
+// 取り除くと、"'cause"(なぜならの口語表記)や"'Hello,' she said."のように、
+// ユーザーが意図的にアポストロフィで始めた正当な値まで壊してしまう。word-list-cleaner
+// 自身のneutralizeFormulaInjection()が実際に生成するパターン("'" + = + - @ のいずれか)
+// と完全一致する場合だけ取り除くことで、この無害化と無関係なアポストロフィ始まりの
+// 値には一切触れないようにする。
+const NEUTRALIZED_FORMULA_PREFIX = /^'[=+\-@]/;
+
 export function stripLeadingApostrophe(value: string): string {
-  return value.startsWith("'") ? value.slice(1) : value;
+  return NEUTRALIZED_FORMULA_PREFIX.test(value) ? value.slice(1) : value;
 }
 
 export function parseCsv(text: string): ParsedWord[] {
