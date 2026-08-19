@@ -125,15 +125,24 @@ export function parseWordListLine(rawLine: string): WordListEntry | null {
   return { word, meaning };
 }
 
-// src/components/wordbooks/CsvImportPanel.tsx のヘッダ検出(hasHeaders)と同じ
-// 判定基準。既にCSV化された "word,meaning" (ヘッダ有り)がそのまま貼り付けられた
-// 場合、ヘッダ行自体を意味のあるペアとして誤って取り込まないようにする
-// (Codexレビュー指摘対応、PR #105、P2: ヘッダ行が word="word" というダミー
-// エントリとして二重に取り込まれる問題)。判定は入力全体の最初の非空行だけに
-// 限定する(CsvImportPanel同様、ヘッダは先頭にしか現れない前提)。
+// 既にCSV化された "word,meaning" (ヘッダ有り)がそのまま貼り付けられた場合、
+// ヘッダ行自体を意味のあるペアとして誤って取り込まないようにする(Codexレビュー
+// 指摘対応、PR #105、P2: ヘッダ行が word="word" というダミーエントリとして二重に
+// 取り込まれる問題)。判定は入力全体の最初の非空行だけに限定する。
+//
+// CsvImportPanel.tsx のヘッダ検出は行全体に対する部分一致("password"のように
+// "word"を含むだけの語も誤検出する)だが、ここでは実際に区切った結果のword/meaning
+// フィールドそれぞれが既知のヘッダラベルと完全一致する場合のみヘッダとみなす
+// (Codexレビュー指摘対応、PR #105、2巡目、P2: 部分一致では
+// parseWordList("password: パスワード\napple: りんご")のpasswordが誤ってヘッダ扱いで
+// サイレントに消え、スキップ行としても報告されない問題があった)。
+const HEADER_WORD_LABELS = new Set(["word", "英単語", "単語", "english"]);
+const HEADER_MEANING_LABELS = new Set(["meaning", "意味", "日本語", "japanese"]);
+
 function isHeaderLine(line: string): boolean {
-  const lower = line.toLowerCase();
-  return lower.includes("word") || lower.includes("meaning") || lower.includes("単語") || lower.includes("英単語");
+  const parsed = parseWordListLine(line);
+  if (!parsed) return false;
+  return HEADER_WORD_LABELS.has(parsed.word.toLowerCase()) && HEADER_MEANING_LABELS.has(parsed.meaning.toLowerCase());
 }
 
 /** テキストエリア全体を解析する。空行はスキップ(エラー扱いしない)。 */

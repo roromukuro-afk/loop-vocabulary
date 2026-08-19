@@ -301,16 +301,42 @@ function main() {
     }
   }
 
-  // ---- ヘッダ判定は入力全体の最初の非空行だけに限定される(2行目以降に偶然
-  // "word"を含む語があっても誤ってスキップしない。1行目自体が偶然"word"を含む
-  // 単語の場合は誤検出しうる既知のトレードオフ — CsvImportPanel.tsxの
-  // ヘッダ検出と同じ基準を採用しているため許容する) ----
+  // ---- ヘッダ判定は入力全体の最初の非空行だけに限定される(2行目以降に"word"を
+  // 含む語があっても誤ってスキップしない) ----
   {
     const result = parseWordList("apple: りんご\nkeyword: キーワード");
     if (result.entries.length === 2 && result.entries[0].word === "apple" && result.entries[1].word === "keyword") {
       ok("ヘッダ判定は最初の非空行のみに限定され、2行目以降の偶然の部分一致では誤ってスキップしない");
     } else {
       bad(`ヘッダ判定の範囲限定が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、2巡目、P2): ヘッダ判定はword/meaning
+  // フィールドの完全一致のみで行われ、"password"のように"word"を部分的に含むだけの
+  // 1行目は正しく通常のエントリとして取り込まれる(サイレントに消えない) ----
+  {
+    const result = parseWordList("password: パスワード\napple: りんご");
+    if (
+      result.entries.length === 2 &&
+      result.entries[0].word === "password" &&
+      result.entries[0].meaning === "パスワード" &&
+      result.entries[1].word === "apple"
+    ) {
+      ok('ヘッダ判定はword/meaningフィールドの完全一致のみで行われ、"password"(wordを部分的に含むだけ)は誤ってヘッダ扱いされない');
+    } else {
+      bad(`ヘッダ完全一致判定が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- 同様にmeaning側の部分一致(例: "reasoning"が"meaning"を部分的に含む)でも
+  // 誤検出しない ----
+  {
+    const result = parseWordList("logic: reasoning\napple: りんご");
+    if (result.entries.length === 2 && result.entries[0].word === "logic" && result.entries[0].meaning === "reasoning") {
+      ok('meaning側の部分一致("reasoning"が"meaning"を含む)でもヘッダとして誤検出しない');
+    } else {
+      bad(`meaning側の部分一致誤検出防止が想定外: ${JSON.stringify(result)}`);
     }
   }
 
