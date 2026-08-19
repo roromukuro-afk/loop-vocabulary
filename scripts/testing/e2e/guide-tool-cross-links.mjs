@@ -131,10 +131,18 @@ async function runCase(browser, baseUrl, testCase) {
     await page.waitForTimeout(300);
 
     const gaEvents = await getEvents(page, "guide_cta_click");
-    if (gaEvents.some((e) => e[2]?.target === "tools" && e[2]?.guide_slug === testCase.slug)) {
-      ok(`${pagePath}: クリックでguide_cta_click(target=tools)がGA4へ発火する`);
+    const gaMatched = gaEvents.find(
+      (e) =>
+        e[2]?.target === "tools" &&
+        e[2]?.guide_slug === testCase.slug &&
+        e[2]?.destination_path === testCase.linkHref &&
+        e[2]?.tool === testCase.tool &&
+        e[2]?.placement === testCase.placement
+    );
+    if (gaMatched) {
+      ok(`${pagePath}: クリックでguide_cta_click(target/destination_path/tool/placementすべて正しい)がGA4へ発火する`);
     } else {
-      fail(`${pagePath}: GA4へguide_cta_click(target=tools)が発火しない: ${JSON.stringify(gaEvents)}`);
+      fail(`${pagePath}: GA4へのguide_cta_click(destination_path/tool/placement込み)が想定外: ${JSON.stringify(gaEvents)}`);
     }
 
     const firstPartyEvents = analyticsEvents.filter((e) => e.event_name === "guide_cta_click");
