@@ -78,14 +78,16 @@ const LIVE_TOOLS = [
     href: "/exam-countdown-planner",
     cta: "学習計画を立てる →",
   },
-];
-
-const PLANNED_TOOLS = [
   {
+    icon: "🧹",
     title: "英単語リスト整形・CSV変換ツール",
-    desc: "手持ちの英単語リスト（テキスト・スプレッドシート）を、単語帳インポート用のCSV形式に整形するツール。",
+    desc: "区切り文字がバラバラな英単語リストを、単語帳インポート用のCSV形式にその場で整形。ブラウザ内で処理するためサーバー保存は一切ありません。",
+    href: "/tools/word-list-cleaner",
+    cta: "リストを整形する →",
   },
 ];
+
+const PLANNED_TOOLS: { title: string; desc: string }[] = [];
 
 export default function ToolsPage() {
   return (
@@ -130,21 +132,23 @@ export default function ToolsPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-dashed border-navy-200 p-5">
-          <h2 className="font-black text-navy-800 text-lg mb-1">準備中のツール</h2>
-          <p className="text-xs text-navy-500 mb-3">
-            以下は開発中のツールです。公開時期が決まり次第、このページと各SNSでご案内します。
-          </p>
-          <div className="space-y-3">
-            {PLANNED_TOOLS.map((t) => (
-              <div key={t.title} className="bg-navy-50/60 border border-navy-100 rounded-xl p-4">
-                <div className="font-bold text-navy-700 text-sm">{t.title}</div>
-                <p className="text-xs text-navy-500 mt-0.5 leading-relaxed">{t.desc}</p>
-                <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full bg-navy-100 text-navy-500 font-semibold">準備中</span>
-              </div>
-            ))}
+        {PLANNED_TOOLS.length > 0 && (
+          <div className="bg-white rounded-2xl border border-dashed border-navy-200 p-5">
+            <h2 className="font-black text-navy-800 text-lg mb-1">準備中のツール</h2>
+            <p className="text-xs text-navy-500 mb-3">
+              以下は開発中のツールです。公開時期が決まり次第、このページと各SNSでご案内します。
+            </p>
+            <div className="space-y-3">
+              {PLANNED_TOOLS.map((t) => (
+                <div key={t.title} className="bg-navy-50/60 border border-navy-100 rounded-xl p-4">
+                  <div className="font-bold text-navy-700 text-sm">{t.title}</div>
+                  <p className="text-xs text-navy-500 mt-0.5 leading-relaxed">{t.desc}</p>
+                  <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full bg-navy-100 text-navy-500 font-semibold">準備中</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="bg-gradient-to-r from-navy-700 to-navy-900 rounded-2xl p-6 text-white text-center">
           <div className="font-black text-lg mb-1">全機能を無料で試す</div>

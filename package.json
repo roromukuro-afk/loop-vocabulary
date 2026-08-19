@@ -65,6 +65,8 @@
     "test:review-date-calculator": "node scripts/testing/e2e/review-date-calculator.mjs",
     "test:exam-countdown-planner": "node scripts/testing/e2e/exam-countdown-planner.mjs",
     "test:exam-countdown-material-selection": "node scripts/testing/test-exam-countdown-material-selection.mjs",
+    "test:word-list-cleaner": "node scripts/testing/e2e/word-list-cleaner.mjs",
+    "test:word-list-cleaner-parser": "node scripts/testing/test-word-list-cleaner-parser.mjs",
     "test:growth-social-link": "node scripts/testing/test-growth-social-link.mjs",
     "growth:social-link": "node scripts/growth/social-link.mjs",
     "test:diagnostic-share": "node scripts/testing/e2e/diagnostic-share.mjs",
