@@ -354,6 +354,27 @@ function main() {
     }
   }
 
+  // ---- Codexレビュー指摘対応(PR #105、5巡目、P2): 単語が英字以外(数字・記号)で
+  // 終わる場合も、スペース区切りのラテン→日本語境界として認識される
+  // (UI上は単一スペースも区切り文字として案内しているため) ----
+  {
+    const cases = [
+      ["COVID-19 新型コロナ", { word: "COVID-19", meaning: "新型コロナ" }],
+      ["B2 中級", { word: "B2", meaning: "中級" }],
+      ["24/7 常時", { word: "24/7", meaning: "常時" }],
+      ["C++ シープラスプラス", { word: "C++", meaning: "シープラスプラス" }],
+    ];
+    let allOk = true;
+    for (const [input, expected] of cases) {
+      const result = parseWordListLine(input);
+      if (result?.word !== expected.word || result?.meaning !== expected.meaning) {
+        allOk = false;
+        bad(`数字/記号で終わる語のスペース区切りが想定外: ${JSON.stringify(input)} → ${JSON.stringify(result)}(期待値: ${JSON.stringify(expected)})`);
+      }
+    }
+    if (allOk) ok("数字・記号(+ # . /)で終わる語(COVID-19/B2/24/7/C++)も単一スペース区切りとして正しく認識される");
+  }
+
   // ---- Codexレビュー指摘対応(PR #105、3巡目、P2): formula injection対策で
   // 先頭に'を付与したCSVを、実際のインポート先(CsvImportPanel.tsx)で読み直しても
   // 元の値どおりに復元できる(先頭の'が単語の一部として永続的に残らない) ----
