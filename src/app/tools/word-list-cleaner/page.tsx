@@ -52,6 +52,10 @@ const FAQ_ITEMS = [
     q: "市販の単語帳や参考書のリストをそのまま貼り付けてもいいですか？",
     a: "おすすめしません。このツールはご自身で作成した単語リストの整形を想定しています。市販教材や他者の著作物をそのまま貼り付けて配布・保存することは著作権上の問題になる可能性があります。",
   },
+  {
+    q: "「'」(アポストロフィ)が単語や意味の先頭に追加されることがあるのはなぜですか？",
+    a: "単語・意味が「=」「+」「-」「@」のいずれかで始まる場合、コピー・ダウンロードされるCSVの該当セルの先頭に「'」を1文字追加しています。Excel等の表計算ソフトでCSVを開いた際、これらの文字で始まるセルが数式として実行されてしまう「CSVインジェクション」を防ぐための処理です。画面上のプレビュー表には元の値がそのまま表示され、実際に変換された件数も画面に表示されます。",
+  },
 ];
 
 const FAQ_LD = {
@@ -69,6 +73,16 @@ export default function WordListCleanerPage() {
     <div className="min-h-dvh bg-[#f7f9fc] pb-16">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(BREADCRUMB_LD) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
+
+      {/* このツールの整形処理はクライアントサイドのReactコンポーネントに依存するため、
+          JavaScript無効環境では入力欄・ボタンは表示されても一切動作しない。ボタンを
+          押しても何も起きず「壊れている」と誤解させないよう、noscript環境向けの説明を
+          先頭に表示する。 */}
+      <noscript>
+        <div className="bg-amber-100 border-b border-amber-300 px-5 py-3 text-center text-xs text-amber-900">
+          このツールの動作にはJavaScriptが必要です。ブラウザの設定でJavaScriptを有効にしてから再度お試しください。
+        </div>
+      </noscript>
 
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
         <div className="max-w-2xl mx-auto">

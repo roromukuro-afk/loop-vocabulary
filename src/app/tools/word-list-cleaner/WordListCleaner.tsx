@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { trackToolStarted, trackToolCompleted } from "@/lib/analytics/events";
 import { trackEvent } from "@/lib/analytics/track";
-import { parseWordList, toWordbookCsv, type WordListEntry } from "@/lib/utils/wordListCleaner";
+import { parseWordList, toWordbookCsv, csvWithBom, type WordListEntry } from "@/lib/utils/wordListCleaner";
 
 const TOOL_KEY = "word-list-cleaner";
 
@@ -17,6 +17,8 @@ export function WordListCleaner() {
   const [skippedLineNumbers, setSkippedLineNumbers] = useState<number[]>([]);
   const [hasFormatted, setHasFormatted] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const [downloadFailed, setDownloadFailed] = useState(false);
   const generatedFiredRef = useRef(false);
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -33,13 +35,15 @@ export function WordListCleaner() {
     };
   }, []);
 
-  const csv = entries.length > 0 ? toWordbookCsv(entries) : "";
+  const { csv, neutralizedCount } = entries.length > 0 ? toWordbookCsv(entries) : { csv: "", neutralizedCount: 0 };
 
   function handleFormat() {
     const result = parseWordList(input);
     setEntries(result.entries);
     setSkippedLineNumbers(result.skippedLineNumbers);
     setHasFormatted(true);
+    setCopyFailed(false);
+    setDownloadFailed(false);
     if (result.entries.length > 0 && !generatedFiredRef.current) {
       generatedFiredRef.current = true;
       trackToolCompleted(TOOL_KEY);
@@ -52,26 +56,37 @@ export function WordListCleaner() {
     try {
       await navigator.clipboard.writeText(csv);
       setCopied(true);
+      setCopyFailed(false);
       if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
       copiedTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
-      // クリップボードAPIが使えない環境(権限拒否・非対応ブラウザ)では、
-      // テキストエリアを手動選択してのコピーへフォールバックする案内のみ表示する。
+      // クリップボードAPIが使えない環境(権限拒否・非対応ブラウザ)では、下に表示される
+      // 読み取り専用テキストエリアを全選択して手動コピーしてもらうフォールバックを示す。
       setCopied(false);
+      setCopyFailed(true);
     }
   }
 
   function handleDownload() {
     if (!csv) return;
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "wordlist.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      const blob = new Blob([csvWithBom(csv)], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "wordlist.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Firefox/Safari系ブラウザでは、クリック直後に同期的にrevokeすると
+      // ダウンロード自体が開始前に失敗することがあるため、次のイベントループまで遅延する。
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setDownloadFailed(false);
+    } catch {
+      // Blob/Object URL生成がブロックされる環境(サンドボックス化されたiframe等)向けの
+      // フォールバック表示。コピー機能の利用を案内する。
+      setDownloadFailed(true);
+    }
   }
 
   return (
@@ -122,6 +137,11 @@ export function WordListCleaner() {
                   {skippedLineNumbers.length}行(行番号: {skippedLineNumbers.join(", ")})は単語/意味のペアとして認識できず、スキップしました。
                 </p>
               )}
+              {neutralizedCount > 0 && (
+                <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+                  「=」「+」「-」「@」で始まる項目が{neutralizedCount}件あったため、表計算ソフトで数式として実行されるのを防ぐ目的で、コピー・ダウンロードされるCSVでは該当セルの先頭に <code className="bg-white px-1 rounded">&apos;</code> を追加しています(下のプレビュー表示は元の値のままです)。
+                </p>
+              )}
               <div className="max-h-64 overflow-y-auto border border-navy-100 rounded-xl">
                 <table className="w-full text-xs">
                   <thead className="bg-navy-50 sticky top-0">
@@ -156,6 +176,35 @@ export function WordListCleaner() {
                   CSVをダウンロード
                 </button>
               </div>
+
+              {copyFailed && (
+                <div className="mt-3 text-xs text-navy-600 bg-navy-50 rounded-lg p-3">
+                  <p className="mb-2">
+                    お使いのブラウザではコピー機能を利用できませんでした。下のテキストを全選択してコピーしてください。
+                  </p>
+                  <textarea
+                    readOnly
+                    value={csv}
+                    rows={4}
+                    aria-label="整形されたCSV(手動コピー用)"
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="w-full rounded-lg border border-navy-200 p-2 text-xs font-mono"
+                  />
+                </div>
+              )}
+              {downloadFailed && (
+                <p className="mt-3 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">
+                  ダウンロードに失敗しました。お使いの環境ではファイル保存が制限されている可能性があります。「CSVをコピー」してテキストエディタ等に貼り付けてご利用ください。
+                </p>
+              )}
+
+              <p className="mt-4 text-xs text-navy-400 text-center">
+                CSVを使ってテストも作りたい場合は{" "}
+                <Link href="/tools/vocab-test-maker" className="text-sky-600 underline hover:text-sky-700">
+                  単語テスト作成ツール
+                </Link>
+                {" "}もご利用いただけます。
+              </p>
             </>
           )}
         </div>
