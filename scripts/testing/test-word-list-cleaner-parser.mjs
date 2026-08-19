@@ -220,7 +220,9 @@ function main() {
   // ---- parseWordList: 非常に長い入力(5000行)でも例外を投げず、全行を正しく処理する ----
   {
     const lines = [];
-    for (let i = 0; i < 5000; i++) lines.push(`word${i}: 意味${i}`);
+    // "word"を含む語を先頭行に使うとヘッダ判定に誤検出されるため("word0"は
+    // isHeaderLineの"word"部分一致に該当する)、あえて衝突しないprefixを使う。
+    for (let i = 0; i < 5000; i++) lines.push(`item${i}: 項目${i}`);
     const start = Date.now();
     const result = parseWordList(lines.join("\n"));
     const elapsedMs = Date.now() - start;
@@ -249,6 +251,66 @@ function main() {
       ok("往復確認: クォートされた値も元のword/meaningへ復元できる");
     } else {
       bad(`往復確認が想定外: word=${JSON.stringify(restoredWord)}, meaning=${JSON.stringify(restoredMeaning)}`);
+    }
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、P1): 複合語内部のハイフンを区切り文字として
+  // 誤認識せず、直後が日本語のときだけハイフンを区切りとみなす ----
+  {
+    const cases = [
+      ["well-known: 有名な", { word: "well-known", meaning: "有名な" }],
+      ["mother-in-law: 義母", { word: "mother-in-law", meaning: "義母" }],
+      ["re-enter,再入場する", { word: "re-enter", meaning: "再入場する" }],
+    ];
+    let allOk = true;
+    for (const [input, expected] of cases) {
+      const result = parseWordListLine(input);
+      if (result?.word !== expected.word || result?.meaning !== expected.meaning) {
+        allOk = false;
+        bad(`複合語のハイフンが区切りとして誤認識された: ${JSON.stringify(input)} → ${JSON.stringify(result)}(期待値: ${JSON.stringify(expected)})`);
+      }
+    }
+    if (allOk) ok("複合語内部のハイフン(well-known/mother-in-law/re-enter)は区切りとして誤認識されず、単語全体が保持される");
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、P2): 1つ目のフィールド自体にカンマを含む
+  // quoted CSVで、クォート内側のカンマを区切り文字と誤認識しない ----
+  {
+    const result = parseWordListLine('"Hello, world","こんにちは世界"');
+    if (result?.word === "Hello, world" && result?.meaning === "こんにちは世界") {
+      ok("quoted CSV: 1つ目のフィールド自体にカンマを含む場合も、クォート内側のカンマを区切りと誤認識しない");
+    } else {
+      bad(`クォート内側カンマの誤認識防止が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、P2): 貼り付けられたCSVのヘッダ行
+  // (word,meaning / "word","meaning")はダミーエントリとして取り込まれない ----
+  {
+    const r1 = parseWordList("word,meaning\napple,りんご");
+    const r2 = parseWordList('"word","meaning"\napple,りんご');
+    const r3 = parseWordList("英単語,意味\napple,りんご");
+    const allSingleEntry =
+      r1.entries.length === 1 && r1.entries[0].word === "apple" &&
+      r2.entries.length === 1 && r2.entries[0].word === "apple" &&
+      r3.entries.length === 1 && r3.entries[0].word === "apple";
+    if (allSingleEntry) {
+      ok("貼り付けられたCSVのヘッダ行(word,meaning / クォート付き / 英単語,意味)はダミーエントリとして取り込まれない");
+    } else {
+      bad(`ヘッダ行スキップが想定外: r1=${JSON.stringify(r1)}, r2=${JSON.stringify(r2)}, r3=${JSON.stringify(r3)}`);
+    }
+  }
+
+  // ---- ヘッダ判定は入力全体の最初の非空行だけに限定される(2行目以降に偶然
+  // "word"を含む語があっても誤ってスキップしない。1行目自体が偶然"word"を含む
+  // 単語の場合は誤検出しうる既知のトレードオフ — CsvImportPanel.tsxの
+  // ヘッダ検出と同じ基準を採用しているため許容する) ----
+  {
+    const result = parseWordList("apple: りんご\nkeyword: キーワード");
+    if (result.entries.length === 2 && result.entries[0].word === "apple" && result.entries[1].word === "keyword") {
+      ok("ヘッダ判定は最初の非空行のみに限定され、2行目以降の偶然の部分一致では誤ってスキップしない");
+    } else {
+      bad(`ヘッダ判定の範囲限定が想定外: ${JSON.stringify(result)}`);
     }
   }
 

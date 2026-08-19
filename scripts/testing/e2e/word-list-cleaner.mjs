@@ -100,6 +100,14 @@ async function main() {
       fail("出典に関する注意書きが見つからない");
     }
 
+    // Codexレビュー指摘対応(PR #105、P2): CSV一括インポートはプレミアム機能であり、
+    // 「無料登録すればインポートできる」という誤解を招く表現になっていないことを確認する。
+    if (html.includes("プレミアム機能") && !/無料登録後、単語帳の「CSV一括インポート」/.test(html)) {
+      ok("CSV一括インポートがプレミアム機能であることが明示され、無料登録だけで使えるという誤解を招く表現がない");
+    } else {
+      fail("CSV一括インポートのプレミアム要件が正しく開示されていない");
+    }
+
     const sitemapRes = await fetch(`${baseUrl}/sitemap.xml`);
     const sitemapXml = await sitemapRes.text();
     if (new RegExp(`<loc>[^<]*${PAGE_PATH}</loc>`).test(sitemapXml)) ok(`sitemap.xmlに${PAGE_PATH}が含まれる`);
@@ -178,6 +186,30 @@ async function main() {
     } else {
       fail(`word_list_cleaner_formattedが重複発火した: ${formattedEvents.length}件`);
     }
+
+    // ---- Codexレビュー指摘対応(PR #105、P2): 整形後にテキストエリアを編集すると、
+    // 再度「CSVに整形する」を押すまで古い結果パネル(コピー/ダウンロードボタン含む)は
+    // 表示されない(古いCSVが渡ってしまうことを防ぐ) ----
+    await textarea.fill(input + "\nextra: 追加");
+    await page.waitForTimeout(200);
+    const resultsHiddenAfterEdit = (await page.locator('button:has-text("CSVをコピー")').count()) === 0;
+    if (resultsHiddenAfterEdit) {
+      ok("整形後に入力を編集すると、再整形するまで古い結果(コピー/ダウンロードボタン)は表示されない");
+    } else {
+      fail("入力編集後も古い結果パネルが表示されたままになっている(stale CSVが提供される恐れ)");
+    }
+    await page.locator('button:has-text("CSVに整形する")').click();
+    await page.waitForTimeout(300);
+    const bodyTextAfterReformat = await page.locator("body").innerText();
+    if (bodyTextAfterReformat.includes("整形結果(4件)")) {
+      ok("編集後に再整形すると、追加した行を含む最新の結果が表示される");
+    } else {
+      fail(`再整形後の件数表示が想定外。本文: ${bodyTextAfterReformat.slice(0, 500)}`);
+    }
+    // 以降のテストのため、元の3件入力へ戻す
+    await textarea.fill(input);
+    await page.locator('button:has-text("CSVに整形する")').click();
+    await page.waitForTimeout(300);
 
     // ---- コピーボタンでクリップボードへ書き込まれる(整形済みCSVの内容) ----
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
