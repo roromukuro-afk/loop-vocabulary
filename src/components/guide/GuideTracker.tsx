@@ -35,25 +35,25 @@ export function GuideTracker({ slug }: { slug: string }) {
       } else if (href.includes("twitter.com/intent") || href.includes("x.com/intent")) {
         trackGuideShareClick(slug);
       } else if (href.startsWith("/vocab-check")) {
-        trackGuideCtaClick(slug, "vocab_check");
+        trackGuideCtaClick(slug, "vocab_check", href, toolAttr, placementAttr);
         trackEvent("guide_cta_click", { guide_slug: slug, target: "vocab_check", destination_path: href, tool: toolAttr, placement: placementAttr });
       } else if (href.startsWith("/dictionary")) {
-        trackGuideCtaClick(slug, "dictionary");
+        trackGuideCtaClick(slug, "dictionary", href, toolAttr, placementAttr);
         trackEvent("guide_cta_click", { guide_slug: slug, target: "dictionary", destination_path: href, tool: toolAttr, placement: placementAttr });
       } else if (href.startsWith("/premium")) {
-        trackGuideCtaClick(slug, "premium");
+        trackGuideCtaClick(slug, "premium", href, toolAttr, placementAttr);
         trackEvent("guide_cta_click", { guide_slug: slug, target: "premium", destination_path: href, tool: toolAttr, placement: placementAttr });
       } else if (href.startsWith("/materials")) {
-        trackGuideCtaClick(slug, "materials");
+        trackGuideCtaClick(slug, "materials", href, toolAttr, placementAttr);
         trackEvent("guide_cta_click", { guide_slug: slug, target: "materials", destination_path: href, tool: toolAttr, placement: placementAttr });
       } else if (href.startsWith("/tools") || href.startsWith("/exam-countdown-planner") || href.startsWith("/review-date-calculator")) {
         // /exam-countdown-planner・/review-date-calculatorは/tools/配下のURLでは
         // ないが、概念上はどちらも無料ツールであり、GA4側のtarget分類・Growth OS側の
         // funnel集計(guide_cta_click.target="tools")の対象として同じバケットに含める。
-        trackGuideCtaClick(slug, "tools");
+        trackGuideCtaClick(slug, "tools", href, toolAttr, placementAttr);
         trackEvent("guide_cta_click", { guide_slug: slug, target: "tools", destination_path: href, tool: toolAttr, placement: placementAttr });
       } else if (href.startsWith(`/guide/`) && href !== `/guide/${slug}`) {
-        trackGuideCtaClick(slug, "other_guide");
+        trackGuideCtaClick(slug, "other_guide", href, toolAttr, placementAttr);
         trackEvent("guide_cta_click", { guide_slug: slug, target: "other_guide", destination_path: href, tool: toolAttr, placement: placementAttr });
       }
     };
