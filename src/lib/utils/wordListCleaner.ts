@@ -101,20 +101,33 @@ export function parseWordListLine(rawLine: string): WordListEntry | null {
       if (!best || idx < best.index) best = { index: idx, length: 1 };
     }
   }
+  // ラテン文字→日本語境界も、他の明示的区切り文字と同じ「最も左側」比較に含める
+  // (Codexレビュー指摘対応、PR #105、3巡目、P2)。以前はこの境界を「明示的区切り
+  // 文字が行内のどこにも無い場合だけ」のフォールバックとして扱っていたため、
+  // "run 走る, 経営する"(meaning側に読点として使われたカンマがある空白区切り行)で、
+  // 本来の単語/意味の境界(run|走る, 経営する)より右側にあるカンマが誤って
+  // 優先され、"run 走る"がwordとして切り詰められていた。
+  {
+    const searchArea = line.slice(searchStart);
+    const m = LATIN_TO_JAPANESE_BOUNDARY.exec(searchArea);
+    if (m) {
+      // 元のフォールバック実装([0, m.index+1] / [m.index+m[0].length, ])と同じ
+      // 分割位置になるよう、マッチしたラテン文字自体はword側に残し、その後の
+      // 空白だけを区切りとして消費する形に変換する。
+      const idx = searchStart + m.index + 1;
+      const length = m[0].length - 1;
+      if (!best || idx < best.index) best = { index: idx, length };
+    }
+  }
 
   let parts: [string, string] | null = null;
   if (best) {
     parts = [line.slice(0, best.index), line.slice(best.index + best.length)];
   } else {
-    const m = LATIN_TO_JAPANESE_BOUNDARY.exec(line);
-    if (m) {
-      parts = [line.slice(0, m.index + 1), line.slice(m.index + m[0].length)];
-    } else {
-      // 複数の連続スペース(全角スペース含む)を最後の手段の区切りとみなす。
-      const spaceMatch = /[ 　]{2,}/.exec(line);
-      if (spaceMatch) {
-        parts = [line.slice(0, spaceMatch.index), line.slice(spaceMatch.index + spaceMatch[0].length)];
-      }
+    // 複数の連続スペース(全角スペース含む)を最後の手段の区切りとみなす。
+    const spaceMatch = /[ 　]{2,}/.exec(line);
+    if (spaceMatch) {
+      parts = [line.slice(0, spaceMatch.index), line.slice(spaceMatch.index + spaceMatch[0].length)];
     }
   }
 
