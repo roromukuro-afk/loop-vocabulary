@@ -71,7 +71,7 @@ function spawnCmd(cmdline, envOverrides) {
  * 実際の本番と同じ実行方式（next build && next start）で検証する。
  *
  * @param {number} port
- * @param {{ env?: Record<string,string>, skipBuild?: boolean }} [opts]
+ * @param {{ env?: Record<string,string>, skipBuild?: boolean, forceRebuild?: boolean }} [opts]
  *   env: 起動する子プロセスにだけ追加/上書きする環境変数(例: VERCEL_ENV="production"を
  *     注入してPreview/本番の環境判定を実HTTPで検証する用途)。既存呼び出し箇所は省略時
  *     従来どおりprocess.envをそのまま継承する(挙動変更なし)。opts.envを指定した呼び出しは
@@ -82,6 +82,11 @@ function spawnCmd(cmdline, envOverrides) {
  *   skipBuild: 既に別ポートでbuild済みであることが分かっている場合にnpm run buildを
  *     省略する(同じ.nextを複数ポートのnext startで使い回す用途。VERCEL_ENVはビルド時
  *     ではなくリクエスト時にprocess.envから読むため、ビルド成果物の使い回しで問題ない)。
+ *   forceRebuild: CI上でジョブ最初のbuildの.next/BUILD_IDが既に存在していても、必ず
+ *     npm run buildを実行させる。NEXT_PUBLIC_*のようにbuild時に静的に埋め込まれる値を
+ *     直前と変えて検証したいテスト(technical-seo-foundations.mjsの末尾スラッシュ検証等)
+ *     専用(Codexレビュー指摘対応、PR #110: shouldSkipBuildForCI()のCI自動再利用判定が
+ *     このケースで誤って古いビルド成果物を使い回してしまう問題)。
  */
 
 // CI(GitHub Actionsが自動設定するCI=true)上のPR Quality Gate(pr-ci-checks.mjs)は、
@@ -96,11 +101,18 @@ function spawnCmd(cmdline, envOverrides) {
 // ことが確認できる場合だけ、後続のensureServer()呼び出しはビルドを省略して安全に
 // 再利用する。ローカル開発時(CI未設定)は、ソースを編集した直後に単体のテストだけを
 // 実行するケースがあるため、常にrebuildする既存の挙動を維持する(振る舞い変更なし)。
+// NEXT_PUBLIC_*はNext.jsのbuild時に静的に埋め込まれるため、同一ジョブ内でも
+// 「直前と異なるNEXT_PUBLIC_*値を確認したい」テスト(technical-seo-foundations.mjsの
+// 末尾スラッシュ検証等)は、既存の.next/BUILD_IDが存在していても必ず再buildする必要が
+// ある。呼び出し側がforceRebuild:trueを明示した場合はCI自動再利用判定より優先する
+// (Codexレビュー指摘対応、PR #110)。
 export function shouldSkipBuildForCI({
   explicitSkipBuild,
+  explicitForceRebuild,
   isCI = process.env.CI === "true",
   nextBuildIdExists = existsSync(resolve(REPO_ROOT, ".next", "BUILD_ID")),
 } = {}) {
+  if (explicitForceRebuild) return false;
   if (explicitSkipBuild) return true;
   return isCI && nextBuildIdExists;
 }
@@ -119,7 +131,7 @@ export async function ensureServer(port, opts = {}) {
     return { url, proc: null, startedByUs: false };
   }
 
-  if (shouldSkipBuildForCI({ explicitSkipBuild: opts.skipBuild })) {
+  if (shouldSkipBuildForCI({ explicitSkipBuild: opts.skipBuild, explicitForceRebuild: opts.forceRebuild })) {
     if (!opts.skipBuild) {
       console.log("CI: reusing this job's existing .next production bundle (skipping npm run build).");
     }

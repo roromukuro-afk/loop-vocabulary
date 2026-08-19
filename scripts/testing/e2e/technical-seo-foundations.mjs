@@ -384,7 +384,10 @@ async function main() {
     let dev2;
     const browser2 = await chromium.launch();
     try {
-      dev2 = await ensureDevServer(TRAILING_SLASH_PORT);
+      // NEXT_PUBLIC_SITE_URLをこの直前で意図的に変更しているため、CI上で既に存在する
+      // 別ポート分の.next/BUILD_IDを再利用させず、必ずこの値でbuildし直す
+      // (Codexレビュー指摘対応、PR #110)。
+      dev2 = await ensureDevServer(TRAILING_SLASH_PORT, { forceRebuild: true });
       const baseUrl2 = dev2.url;
       console.log(`Trailing-slash検証用サーバ: ${baseUrl2} (startedByUs=${dev2.startedByUs})`);
 

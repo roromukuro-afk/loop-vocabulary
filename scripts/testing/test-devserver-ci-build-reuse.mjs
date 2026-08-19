@@ -64,6 +64,22 @@ function main() {
     else bad(`explicitSkipBuild:falseでの判定が想定外: ${result}`);
   }
 
+  // ---- explicitForceRebuild:true が渡された場合、CI環境+既存.next/BUILD_IDが
+  // あっても常にビルドする(NEXT_PUBLIC_*をこのジョブ内で変えて再検証したいテスト用) ----
+  {
+    const result = shouldSkipBuildForCI({ explicitForceRebuild: true, isCI: true, nextBuildIdExists: true });
+    if (result === false) ok("explicitForceRebuild:trueの場合、CI環境+既存ビルドがあっても常にビルドし直す(build時に静的に埋め込まれる値を変更した検証を壊さない)");
+    else bad(`explicitForceRebuild:trueでの判定が想定外: ${result}`);
+  }
+
+  // ---- explicitForceRebuild:true と explicitSkipBuild:true が同時に渡された場合、
+  // forceRebuildを優先する(呼び出し側がソース変更を明示している方を信頼する) ----
+  {
+    const result = shouldSkipBuildForCI({ explicitForceRebuild: true, explicitSkipBuild: true, isCI: true, nextBuildIdExists: true });
+    if (result === false) ok("explicitForceRebuildとexplicitSkipBuildが同時に渡された場合、forceRebuildが優先される");
+    else bad(`両方渡された場合の判定が想定外: ${result}`);
+  }
+
   // ---- 引数省略時、実際のprocess.env.CIとfs.existsSyncを参照する(デフォルト値の
   // 配線確認。このテスト実行環境自体はCI未設定のはずなので false になる) ----
   {
