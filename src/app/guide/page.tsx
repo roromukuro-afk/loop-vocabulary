@@ -11,6 +11,13 @@ export const metadata: Metadata = {
 
 const GUIDES = [
   {
+    slug: "vocabulary-review-schedule-guide",
+    title: "英単語を覚えた日から復習日を計算する方法【忘却曲線・5回分を自動計算】",
+    description: "今日覚えた英単語、次はいつ復習すればいいか。無料の復習日計算ツールの使い方を紹介。",
+    tag: "学習法",
+    readTime: "3分",
+  },
+  {
     slug: "vocabulary-quiz-pdf-for-teachers",
     title: "塾・学校の英単語小テストをPDFで作る方法【教員・家庭教師向け】",
     description: "定期テスト前・英検前・授業後の確認・宿題プリントに使える、小テストPDF作成の使い方。",
