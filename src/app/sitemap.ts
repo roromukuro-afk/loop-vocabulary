@@ -6,6 +6,7 @@ import { toSafeLastModified } from "@/lib/seo/sitemapDates";
 import { normalizeSiteUrl } from "@/lib/seo/siteUrl";
 
 const GUIDE_SLUGS = [
+  "word-list-cleaner-guide",
   "vocabulary-quiz-pdf-for-teachers",
   "english-vocabulary-quiz-maker",
   "printable-english-vocabulary-test",

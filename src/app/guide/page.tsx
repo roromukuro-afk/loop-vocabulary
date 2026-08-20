@@ -11,6 +11,13 @@ export const metadata: Metadata = {
 
 const GUIDES = [
   {
+    slug: "word-list-cleaner-guide",
+    title: "自分の英単語リストを単語帳へ一括インポートする方法【区切り文字バラバラでもOK】",
+    description: "授業ノートやメモにたまった単語リストを、無料の整形ツールで単語帳インポート用のCSVに変換する方法。",
+    tag: "単語帳の使い方",
+    readTime: "3分",
+  },
+  {
     slug: "vocabulary-quiz-pdf-for-teachers",
     title: "塾・学校の英単語小テストをPDFで作る方法【教員・家庭教師向け】",
     description: "定期テスト前・英検前・授業後の確認・宿題プリントに使える、小テストPDF作成の使い方。",
