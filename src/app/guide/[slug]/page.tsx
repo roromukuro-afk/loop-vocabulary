@@ -2107,11 +2107,16 @@ LEAPをテーマ単位で回しつつ、覚えにくい単語をLoop Vocabulary�
  *   静的版の方が5カテゴリ・出典なしの適切な注記付きで充実しており、動的版の
  *   4カテゴリ分類は独自の追加価値なしと判断。
  *
- * 他の保留slug(ielts-tango)は今回の対象外
- * (オーナー判断待ち、
- * scripts/testing/e2e/guide-route-collision.mjsのKNOWN_DEFERRED_COLLISIONS参照)。
+ * - ielts-tango(2026-08-20確認): 動的版の内容(AWL説明・Band別必要語彙数表・
+ *   カテゴリ別頻出語・Writing言い換え表・学習スケジュール・「conduct research /
+ *   make research」のコロケーション例)は、静的版がすべて同等以上の詳しさで
+ *   既に含んでいる(AWLはCoxhead 2000年の出典・Reading比率10%まで明記、
+ *   コロケーション例も一言一句同じ内容が既存)。動的版固有の追加要素なしと判断し、
+ *   統合作業なしでそのまま除外。
+ *
+ * 保留slugは現在なし。
  */
-const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango", "business-english-tango", "toeic-tango", "eiken-conversation", "eiken-jun1-tango"]);
+const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango", "business-english-tango", "toeic-tango", "eiken-conversation", "eiken-jun1-tango", "ielts-tango"]);
 
 export async function generateStaticParams() {
   return Object.keys(ARTICLES)
