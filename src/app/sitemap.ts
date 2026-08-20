@@ -6,6 +6,7 @@ import { toSafeLastModified } from "@/lib/seo/sitemapDates";
 import { normalizeSiteUrl } from "@/lib/seo/siteUrl";
 
 const GUIDE_SLUGS = [
+  "word-list-cleaner-guide",
   "vocabulary-quiz-pdf-for-teachers",
   "english-vocabulary-quiz-maker",
   "printable-english-vocabulary-test",
@@ -92,6 +93,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/tools/vocab-test-maker`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/review-date-calculator`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/exam-countdown-planner`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/tools/word-list-cleaner`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/materials`,          changeFrequency: "weekly",  priority: 0.9 },
     { url: `${base}/materials/toeic`,    changeFrequency: "weekly",  priority: 0.85 },
     { url: `${base}/materials/business`, changeFrequency: "weekly",  priority: 0.85 },

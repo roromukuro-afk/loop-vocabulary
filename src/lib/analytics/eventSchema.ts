@@ -93,6 +93,17 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   exam_countdown_generated: { category: "acquisition", properties: { days_remaining: "number" } },
   exam_countdown_srs_cta_clicked: { category: "acquisition", properties: {} },
 
+  // ── 英単語リスト整形・CSV変換ツール(/tools/word-list-cleaner、no-login公開ツール) ──
+  // WordListCleaner.tsxのGA4専用trackToolStarted/trackToolCompleted(tool_key固定)とは
+  // 別に、first-party Growth OS側でもファネルを追跡する(他の無料ツールと同じパターン)。
+  word_list_cleaner_page_viewed: { category: "acquisition", properties: {} },
+  // word_list_cleaner_formatted: 「CSVに整形する」ボタンで1件以上のペアが解析できた
+  // 最初の1回だけ発火する(exam_countdown_generatedと同じ、再整形のたびの再発火は
+  // 避ける方針)。entry_countは解析できたペア数(非負整数)のみで、貼り付けられた
+  // 単語そのものは一切送信しない。
+  word_list_cleaner_formatted: { category: "acquisition", properties: { entry_count: "number" } },
+  word_list_cleaner_signup_cta_clicked: { category: "acquisition", properties: {} },
+
   // ── 語彙力チェック ─────────────────────────────────────
   // vocab_check_page_viewed: GA4側のvocab_check_view(トップ表示)に対応。診断を開始せず
   // 離脱したユーザーもGrowth OS側で捕捉できるようにする(以前はstartedのみで欠落していた)。
