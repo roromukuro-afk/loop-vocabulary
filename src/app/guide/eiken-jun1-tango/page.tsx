@@ -218,6 +218,51 @@ export default function EikenJun1Page() {
           </ul>
         </div>
 
+        {/* 語彙問題の解き方 */}
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-3">準1級の語彙問題の解き方</h2>
+          <p className="text-sm text-navy-700 leading-relaxed mb-3">
+            準1級の語彙問題は、単語を知っているかどうかだけでなく「文脈から意味を推測する力」も求められます。
+          </p>
+          <ol className="space-y-2 text-sm text-navy-700 leading-relaxed list-decimal pl-5">
+            <li>選択肢の4語をすべて確認し、知らない語をメモする</li>
+            <li>文の主語・動詞・目的語の関係から、入る品詞を確認する</li>
+            <li>同じ語根を持つ単語から意味を類推する</li>
+          </ol>
+          <div className="mt-3 bg-violet-50 border border-violet-100 rounded-xl p-3 text-xs text-navy-700">
+            例:「The policy was designed to <strong>alleviate</strong> poverty.」→「緩和する」が入ると推測できる
+          </div>
+        </div>
+
+        {/* 合格に必要な勉強時間 */}
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-3">準1級合格に必要な勉強時間の目安</h2>
+          <p className="text-sm text-navy-700 leading-relaxed mb-3">
+            英検2級合格者が準1級に合格するまでの、週あたりの学習時間別の目安です。
+          </p>
+          <table className="w-full text-sm text-navy-700">
+            <thead>
+              <tr className="border-b border-navy-100 text-left">
+                <th className="py-1.5 font-bold text-navy-800">週の学習時間</th>
+                <th className="py-1.5 font-bold text-navy-800">合格までの期間の目安</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { hours: "週5時間", period: "約12〜18ヶ月" },
+                { hours: "週10時間", period: "約6〜9ヶ月" },
+                { hours: "週20時間", period: "約3〜4ヶ月" },
+              ].map((row) => (
+                <tr key={row.hours} className="border-b border-navy-50 last:border-0">
+                  <td className="py-1.5">{row.hours}</td>
+                  <td className="py-1.5">{row.period}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-xs text-navy-500 mt-3">※ あくまで一般的な目安です。個人差があります。「毎日コツコツ」が最も効果的で、Loop Vocabularyのストリーク機能で継続を可視化できます。</p>
+        </div>
+
         {/* Amazon書籍 */}
         <AmazonBookSection books={BOOKS} heading="📚 準1級合格者に人気の参考書（Amazon）" />
 

@@ -2098,11 +2098,20 @@ LEAPをテーマ単位で回しつつ、覚えにくい単語をLoop Vocabulary�
  *   Absolutely./My bad./Could-Can)を監査し修正。音声読み上げ・AI解説等の
  *   製品説明はブラウザ依存・モック開示を踏まえた表現へ修正。
  *
- * 他の保留slug(eiken-jun1-tango, ielts-tango)は今回の対象外
+ * - eiken-jun1-tango(2026-08-20確認): 動的版固有だった「語彙問題の解き方」
+ *   (3ステップの解法+具体例文)と「合格に必要な勉強時間」表(週5/10/20時間ごとの
+ *   目安期間)を静的版へ統合済み。必要語彙数の数値は動的版(7,500〜9,000語)と
+ *   静的版(7,000〜8,000語)で異なっていたが、静的版は既にExamInfoDisclaimer
+ *   (EXAM_INFO_SOURCE_POLICY.md準拠の注記コンポーネント)付きのため、静的版の
+ *   数値をそのまま維持(動的版の数値に合わせる根拠がないため)。カテゴリ別語彙も
+ *   静的版の方が5カテゴリ・出典なしの適切な注記付きで充実しており、動的版の
+ *   4カテゴリ分類は独自の追加価値なしと判断。
+ *
+ * 他の保留slug(ielts-tango)は今回の対象外
  * (オーナー判断待ち、
  * scripts/testing/e2e/guide-route-collision.mjsのKNOWN_DEFERRED_COLLISIONS参照)。
  */
-const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango", "business-english-tango", "toeic-tango", "eiken-conversation"]);
+const DYNAMIC_ROUTE_EXCLUDED_SLUGS = new Set(["eiken-2kyu-tango", "chugaku-eigo-tango", "daigaku-juken-tango", "business-english-tango", "toeic-tango", "eiken-conversation", "eiken-jun1-tango"]);
 
 export async function generateStaticParams() {
   return Object.keys(ARTICLES)
