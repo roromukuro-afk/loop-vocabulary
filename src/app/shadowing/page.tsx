@@ -42,7 +42,7 @@ const SAMPLE_PHRASES = [
 
 export default function ShadowingPage() {
   return (
-    <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+    <div className="min-h-dvh bg-[#f7f9fc]">
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
         <div className="text-[10px] font-bold uppercase tracking-widest text-sky-300 mb-3">Loop Vocabulary</div>
         <h1 className="text-2xl font-black leading-tight">英語シャドーイング練習</h1>
