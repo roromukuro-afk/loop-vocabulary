@@ -674,14 +674,29 @@ async function main() {
       { event_name: "traffic_source_detected", anonymous_session_id: `${prefix}hh`, source: "pinterest", campaign: "campHH", path: null, user_id: null, properties: { source: "pinterest", medium: "social", content: "postHH" }, occurred_at: offset(0), is_test_event: false, schema_version: 1 },
       { event_name: "exam_countdown_page_viewed", anonymous_session_id: `${prefix}hh`, source: "pinterest", campaign: "campHH", path: "/exam-countdown-planner", user_id: null, properties: {}, occurred_at: offset(100), is_test_event: false, schema_version: 1 },
     ];
-    const { error: insertErr } = await admin.from("analytics_events").insert(rows);
+    const { data: insertedRows, error: insertErr } = await admin.from("analytics_events").insert(rows).select("created_at");
     if (insertErr) throw new Error(`fixture行のinsertに失敗: ${insertErr.message}`);
 
     // ---- 集計を実行する(本番スクリプトと同じ関数を直接呼ぶ) ----
     // today変数はファイル冒頭でoffset()の基準(JST正午)を計算する際に既に取得済みの
     // ものを再利用する(この時点で再度todayJST()を呼ぶと、テスト実行がJST日付境界を
     // またいだ場合にoffset()の基準日とクエリ対象日がずれてしまう)。
-    const asOf = new Date().toISOString();
+    //
+    // asOfは「クライアント側の壁時計時刻」ではなく、直前にinsertした行自身がDBサーバー側で
+    // 実際に記録されたcreated_at(最大値)から求める。fetchEventsInWindow()等の
+    // `lte("created_at", asOf)`はDBサーバーのクロックで刻まれるcreated_at列と比較される
+    // ため、asOfをこのプロセスの`new Date()`(ローカルマシンのクロック)から作ると、
+    // ローカルマシンとDBサーバー間にわずかなクロックスキュー(数百ms、このリポジトリの
+    // 開発環境で実測)があるだけで、insert完了直後に取得したasOfがDBサーバーの
+    // created_atより過去になり得る。このinsertとasOf計算の間には他の処理が挟まらず
+    // バッファが実質無いため、profiles側(fetchTestAccountIds、createUser呼び出しから
+    // asOf計算までの間に複数回の別リクエストが挟まりバッファがある)と異なりスキューを
+    // 吸収できず、フィクスチャ行が丸ごとasOfフィルタで除外されてしまっていた
+    // (=summarizeWindow()の全集計が0/空になるバグの根本原因)。今回insertした行自身の
+    // created_at(サーバークロック基準の権威ある値)の最大値を使えば、クライアント側の
+    // クロックに一切依存せずこのレースを解消できる。
+    if (!insertedRows || insertedRows.length === 0) throw new Error("insert後にcreated_atが返ってこなかった");
+    const asOf = insertedRows.reduce((max, r) => (r.created_at > max ? r.created_at : max), insertedRows[0].created_at);
     const testAccountIds = await fetchTestAccountIds(admin, asOf);
     if (testAccountIds.has(testAccountUserId)) {
       ok("fetchTestAccountIds()が今回作成したis_test_account=trueユーザーを正しく含む");
