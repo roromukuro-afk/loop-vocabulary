@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 import { ReviewDateCalculator } from "./ReviewDateCalculator";
 
 const SITE_URL = "https://loop-vocabulary.app";
@@ -29,7 +30,7 @@ const BREADCRUMB_LD = {
 
 export default function ReviewDateCalculatorPage() {
   return (
-    <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+    <div className="min-h-dvh bg-[#f7f9fc]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(BREADCRUMB_LD) }} />
 
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
@@ -43,6 +44,10 @@ export default function ReviewDateCalculatorPage() {
       </div>
 
       <ReviewDateCalculator />
+
+      <div className="mt-12">
+        <PublicFooter />
+      </div>
     </div>
   );
 }

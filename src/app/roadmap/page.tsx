@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 
 export const metadata: Metadata = {
   title: "英語学習ロードマップ【ゼロから英検1級・TOEIC900点まで】| Loop Vocabulary",
@@ -105,7 +106,7 @@ const JSON_LD = {
 
 export default function RoadmapPage() {
   return (
-    <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+    <div className="min-h-dvh bg-[#f7f9fc]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
         <div className="text-[10px] font-bold uppercase tracking-widest text-sky-300 mb-3">Loop Vocabulary</div>
@@ -200,6 +201,10 @@ export default function RoadmapPage() {
             <Link href="/guide/eiken-jun1-tango" className="underline">英検準1級ガイド</Link>
           </div>
         </div>
+      </div>
+
+      <div className="mt-12">
+        <PublicFooter />
       </div>
     </div>
   );

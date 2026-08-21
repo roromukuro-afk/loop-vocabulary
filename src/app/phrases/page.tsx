@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PhraseTtsButton } from "./PhraseTtsButton";
 
 export const metadata: Metadata = {
@@ -58,7 +59,7 @@ export default function PhrasesPage() {
   const levels = [...new Set(PHRASES.map((p) => p.level))];
 
   return (
-    <div className="min-h-dvh bg-[#f7f9fc] pb-16">
+    <div className="min-h-dvh bg-[#f7f9fc]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-5 pt-12 pb-12 text-white text-center">
         <div className="text-[10px] font-bold uppercase tracking-widest text-sky-300 mb-3">Loop Vocabulary</div>
@@ -119,6 +120,10 @@ export default function PhrasesPage() {
             <Link href="/vocab-check/eiken" className="underline">英検語彙チェック</Link>
           </div>
         </div>
+      </div>
+
+      <div className="mt-12">
+        <PublicFooter />
       </div>
     </div>
   );
