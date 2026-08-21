@@ -3,8 +3,8 @@
  * User-declared canonical が別ページを指している不具合が報告されたことへの対応。
  * 2026-07-28: /roadmapにcanonicalタグ自体が無かった問題の再発防止としても拡張）
  *
- * 1. /about・/press・/guide（一覧）・/roadmap・静的フォルダ記事9本・
- *    レガシー動的ルート記事10本の canonicalが必ず自己参照になっている
+ * 1. /about・/press・/guide（一覧）・/roadmap・/phrases・/shadowing・
+ *    静的フォルダ記事9本・レガシー動的ルート記事10本の canonicalが必ず自己参照になっている
  *    （別ページ・vercel.app・wwwを指していない。SITE_URL定数と完全一致することで
  *    間接的にhttps・カスタムドメインであることも保証される）
  * 2. sitemap.xml に対象URLがすべて絶対URLで、かつ1回だけ含まれている
@@ -50,7 +50,7 @@ const LEGACY_DYNAMIC_GUIDE_SLUGS = [
   "eitango-cho-hikaku",
 ];
 
-const NON_GUIDE_PAGES = ["/about", "/press", "/guide", "/roadmap"];
+const NON_GUIDE_PAGES = ["/about", "/press", "/guide", "/roadmap", "/phrases", "/shadowing"];
 
 function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; }
 function ok(msg) { console.log(`✅ ${msg}`); }
