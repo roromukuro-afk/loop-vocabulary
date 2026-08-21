@@ -4,6 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "英語シャドーイング練習【単語・フレーズ】| Loop Vocabulary",
   description: "英語の音声を聞いてそのまま発音するシャドーイング練習。スマートフォンのWebブラウザで手軽に英語発音トレーニング。英検・TOEIC・大学受験対応。",
+  alternates: { canonical: "https://loop-vocabulary.app/shadowing" },
 };
 
 const SHADOWING_TIPS = [

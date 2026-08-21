@@ -5,6 +5,7 @@ import { PhraseTtsButton } from "./PhraseTtsButton";
 export const metadata: Metadata = {
   title: "英語フレーズ集【英検・TOEIC・大学受験】| Loop Vocabulary",
   description: "英検2級・準1級・TOEIC・大学受験で頻出する英語フレーズ・イディオムを一覧で確認できます。ログイン不要で閲覧可能。スマホで学習するならLoop Vocabularyへ。",
+  alternates: { canonical: "https://loop-vocabulary.app/phrases" },
 };
 
 type Phrase = { phrase: string; meaning: string; example: string; level: string };
