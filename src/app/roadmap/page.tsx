@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 
 export const metadata: Metadata = {
   title: "英語学習ロードマップ【ゼロから英検1級・TOEIC900点まで】| Loop Vocabulary",
@@ -200,6 +201,10 @@ export default function RoadmapPage() {
             <Link href="/guide/eiken-jun1-tango" className="underline">英検準1級ガイド</Link>
           </div>
         </div>
+      </div>
+
+      <div className="mt-12">
+        <PublicFooter />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 import { ToolsPageTracker } from "./ToolsPageTracker";
 import { ToolCardLink } from "./ToolCardLink";
 
@@ -157,6 +158,10 @@ export default function ToolsPage() {
         <div className="text-center">
           <Link href="/" className="text-sm text-navy-500 underline">← トップページ</Link>
         </div>
+      </div>
+
+      <div className="mt-12">
+        <PublicFooter />
       </div>
     </div>
   );

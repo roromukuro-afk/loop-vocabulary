@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 
 export const metadata: Metadata = {
   title: "英語シャドーイング練習【単語・フレーズ】| Loop Vocabulary",
@@ -134,6 +135,10 @@ export default function ShadowingPage() {
             <div className="font-bold text-navy-800 text-sm">よくある質問</div>
           </Link>
         </div>
+      </div>
+
+      <div className="mt-12">
+        <PublicFooter />
       </div>
     </div>
   );

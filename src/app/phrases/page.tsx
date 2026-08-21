@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PhraseTtsButton } from "./PhraseTtsButton";
 
 export const metadata: Metadata = {
@@ -119,6 +120,10 @@ export default function PhrasesPage() {
             <Link href="/vocab-check/eiken" className="underline">英検語彙チェック</Link>
           </div>
         </div>
+      </div>
+
+      <div className="mt-12">
+        <PublicFooter />
       </div>
     </div>
   );

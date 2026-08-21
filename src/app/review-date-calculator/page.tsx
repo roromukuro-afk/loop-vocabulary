@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 import { ReviewDateCalculator } from "./ReviewDateCalculator";
 
 const SITE_URL = "https://loop-vocabulary.app";
@@ -43,6 +44,10 @@ export default function ReviewDateCalculatorPage() {
       </div>
 
       <ReviewDateCalculator />
+
+      <div className="mt-12">
+        <PublicFooter />
+      </div>
     </div>
   );
 }

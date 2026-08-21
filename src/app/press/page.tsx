@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 
 const SITE_URL = "https://loop-vocabulary.app";
 
@@ -122,6 +123,10 @@ export default function PressPage() {
         <div className="text-center">
           <Link href="/" className="text-sm text-navy-500 underline">← トップページ</Link>
         </div>
+      </div>
+
+      <div className="mt-12">
+        <PublicFooter />
       </div>
     </div>
   );
