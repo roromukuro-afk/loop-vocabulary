@@ -277,6 +277,9 @@ async function main() {
 
     console.log("\n=== 78. 英単語リスト整形・CSV変換ツール 整形ロジック ユニットテスト ===");
     results.wordListCleanerParser = runNode("scripts/testing/test-word-list-cleaner-parser.mjs");
+
+    console.log("\n=== 79. 英単語リスト整形・CSV変換ツール CSV/TSVパーサ 体系的監査(fuzz含む) ===");
+    results.wordListCleanerAudit = runNode("scripts/testing/test-word-list-cleaner-audit.mjs");
   } finally {
     stopDevServer(dev);
   }
