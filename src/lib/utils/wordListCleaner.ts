@@ -102,6 +102,23 @@ function quotedPrefixEnd(line: string): number {
   return 0;
 }
 
+// 丸括弧(半角()・全角（）)の中にある位置ではtrueを返す判定関数を、行1本ぶん
+// 前計算する。"go (went, gone) 行く"のように、活用形等の丸括弧注記の中に
+// EXPLICIT_DELIMITERSの文字(カンマ等)が現れる場合、それを単語/意味の区切りとして
+// 誤検出しないようにするため(Codexレビュー指摘対応、PR #105、8巡目、P2)。
+// 閉じ括弧が無い壊れた入力では、以降すべて「括弧の中」とみなし安全側に倒す。
+function buildInsideParenMask(line: string): boolean[] {
+  const mask = new Array<boolean>(line.length).fill(false);
+  let depth = 0;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === "(" || ch === "（") depth++;
+    mask[i] = depth > 0;
+    if (ch === ")" || ch === "）") depth = Math.max(0, depth - 1);
+  }
+  return mask;
+}
+
 /**
  * 1行を word/meaning のペアに分解する。区切り文字が全く見つからない行(意味を
  * 書き忘れている、単語だけの行等)は null を返す(呼び出し側でスキップ扱いにする)。
@@ -114,21 +131,34 @@ export function parseWordListLine(rawLine: string): WordListEntry | null {
   // 区切り文字候補(クォート内側の生カンマ等)は探索対象から除外する。
   const searchStart = quotedPrefixEnd(line);
 
+  // "go (went, gone) 行く"のように、活用形等の丸括弧注記の中にEXPLICIT_DELIMITERSの
+  // 文字(カンマ等)が現れる場合、それを区切りとして誤検出しないための位置マスク。
+  const insideParen = buildInsideParenMask(line);
+
   // 複数の明示的区切り文字が同じ行に現れうる(例: "apple: りんご, 林檎" のように
   // meaning側にもコロン/カンマが含まれる場合)ため、実際に見つかった位置が最も
   // 左側にあるものを優先する(EXPLICIT_DELIMITERSの配列順ではなく、出現位置基準)。
+  // 括弧の中で見つかった位置は候補から除外し、括弧の外にある次の出現を探す
+  // (Codexレビュー指摘対応、PR #105、8巡目、P2)。
   let best: { index: number; length: number } | null = null;
   for (const delimiter of EXPLICIT_DELIMITERS) {
-    const idx = line.indexOf(delimiter, searchStart);
+    let idx = line.indexOf(delimiter, searchStart);
+    while (idx !== -1 && insideParen[idx]) {
+      idx = line.indexOf(delimiter, idx + 1);
+    }
     if (idx === -1) continue;
     if (!best || idx < best.index) best = { index: idx, length: delimiter.length };
   }
   {
     const searchArea = line.slice(searchStart);
-    const m = BARE_HYPHEN_BEFORE_JAPANESE.exec(searchArea);
-    if (m) {
+    const re = new RegExp(BARE_HYPHEN_BEFORE_JAPANESE, "g");
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(searchArea))) {
       const idx = searchStart + m.index;
-      if (!best || idx < best.index) best = { index: idx, length: 1 };
+      if (!insideParen[idx]) {
+        if (!best || idx < best.index) best = { index: idx, length: 1 };
+        break;
+      }
     }
   }
   // ラテン文字→日本語境界も、他の明示的区切り文字と同じ「最も左側」比較に含める

@@ -75,6 +75,31 @@ function main() {
     }
   }
 
+  // ---- 括弧の中にEXPLICIT_DELIMITERSの文字(カンマ等)が含まれる場合、それを
+  // 単語/意味の区切りとして誤検出しない(Codexレビュー指摘対応、PR #105、8巡目、
+  // P2: 上の品詞注記ショートカット対象外の修正だけでは、"go (went, gone) 行く"の
+  // 括弧内カンマがEXPLICIT_DELIMITERSとして依然検出され、word="go (went"、
+  // meaning="gone) 行く"に静かに破損していた。安全側に倒し、活用形の括弧を含む
+  // 行は書き換えずnullとしてskippedLineNumbersに委ねる) ----
+  {
+    const result = parseWordListLine("go (went, gone) 行く");
+    if (result === null) {
+      ok("活用形の括弧内カンマは区切りとして誤検出されず、内容を書き換えない(null)");
+    } else {
+      bad(`括弧内カンマが誤って区切りとして使われた: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- 括弧の外にあるカンマは、これまでどおり正しく区切りとして機能する(回帰確認) ----
+  {
+    const result = parseWordListLine("run (動) 走る, 経営する");
+    if (result?.word === "run" && result?.meaning === "(動) 走る, 経営する") {
+      ok("括弧の外のカンマは引き続き正しく無視され、品詞注記直前の境界が優先される(回帰確認)");
+    } else {
+      bad(`括弧外カンマの回帰確認が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
   // ---- 日本語文字が最終的に続かない注記付き英語行は、従来どおりマッチしない
   // (誤検出防止の回帰確認) ----
   {
