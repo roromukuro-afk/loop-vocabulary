@@ -17,19 +17,29 @@ export type WordListParseResult = {
   skippedLineNumbers: number[];
 };
 
-// 明示的な区切り文字。行内でどれか複数一致する場合、この配列の並び順を優先度として
-// 「最も左側で最初に一致したもの」を採用する(タブ区切りのコピペが最も構造化されている
-// ため最優先、全角/半角コロンやハイフンは辞書形式の慣習に合わせて次点)。
+// タブは表計算ソフトからのコピペ由来で最も構造化されている区切り文字であり、行内に
+// (括弧の外で)1つでも見つかれば、他のどの区切り文字候補よりも常に優先する
+// (Codexレビュー指摘対応、PR #105、9巡目、P2: "Hello, world\tこんにちは"のような
+// タブ区切り行で、意味側にたまたま含まれるカンマの位置がタブより左にあるという
+// だけの理由で誤って優先され、先頭語が切り詰められていた)。
+const TAB_DELIMITER = "\t";
+
+// タブ以外の明示的な区切り文字。行内でどれか複数一致する場合、この配列の並び順では
+// なく「最も左側で最初に一致したもの」を採用する(全角/半角コロンやハイフンは辞書
+// 形式の慣習に合わせて優先度をつけている)。
 // 素のハイフン"-"は意図的にここへ含めない — "well-known"・"mother-in-law"のような
 // 複合語の内部ハイフンと、"apple-りんご"のような単語/意味の区切りハイフンを区別できない
 // ため、後述のBARE_HYPHEN_BEFORE_JAPANESEで「直後が日本語のときだけ」に限定して扱う
 // (Codexレビュー指摘対応、PR #105、P1: 複合語のハイフンで先頭語が切り詰められる問題)。
-const EXPLICIT_DELIMITERS = ["\t", "：", " : ", ":", " - ", ","];
+const PUNCTUATION_DELIMITERS = ["：", " : ", ":", " - ", ","];
 
-// 素のハイフンは、直後が日本語(ひらがな・カタカナ・漢字)のときだけ区切りとみなす
-// ("apple-りんご")。直後が英字の場合("well-known"の内部ハイフン等)は複合語の一部として
-// 保持し、区切りとして扱わない。
-const BARE_HYPHEN_BEFORE_JAPANESE = /-(?=[぀-ヿ一-鿿])/;
+// 素のハイフンは、直後が(間に半角/全角スペースを挟んでもよい)日本語(ひらがな・
+// カタカナ・漢字)のときだけ区切りとみなす("apple-りんご"・"apple- りんご")。
+// 直後が英字の場合("well-known"の内部ハイフン等)は複合語の一部として保持し、区切りと
+// して扱わない。ハイフン直後の空白を許容していなかったため、"apple- りんご"のような
+// 非対称なハイフン区切り(UIが対応区切り文字としてハイフンを案内しているにもかかわらず)
+// が一切マッチせずスキップされていた(Codexレビュー指摘対応、PR #105、9巡目、P2)。
+const BARE_HYPHEN_BEFORE_JAPANESE = /-[ 　]*(?=[぀-ヿ一-鿿])/;
 
 // 英字・数字・(英数字を含む用語でよく使われる記号)から日本語(ひらがな・カタカナ・漢字)
 // への切り替わり位置を区切りとみなすフォールバック用の正規表現。"apple りんご" のように、
@@ -135,48 +145,61 @@ export function parseWordListLine(rawLine: string): WordListEntry | null {
   // 文字(カンマ等)が現れる場合、それを区切りとして誤検出しないための位置マスク。
   const insideParen = buildInsideParenMask(line);
 
-  // 複数の明示的区切り文字が同じ行に現れうる(例: "apple: りんご, 林檎" のように
-  // meaning側にもコロン/カンマが含まれる場合)ため、実際に見つかった位置が最も
-  // 左側にあるものを優先する(EXPLICIT_DELIMITERSの配列順ではなく、出現位置基準)。
-  // 括弧の中で見つかった位置は候補から除外し、括弧の外にある次の出現を探す
-  // (Codexレビュー指摘対応、PR #105、8巡目、P2)。
+  // タブが(括弧の外で)行内に見つかれば、他のどの候補よりも常に優先し、以降の
+  // punctuation/ハイフン/ラテン文字境界の判定は一切行わない
+  // (Codexレビュー指摘対応、PR #105、9巡目、P2)。
   let best: { index: number; length: number } | null = null;
-  for (const delimiter of EXPLICIT_DELIMITERS) {
-    let idx = line.indexOf(delimiter, searchStart);
-    while (idx !== -1 && insideParen[idx]) {
-      idx = line.indexOf(delimiter, idx + 1);
-    }
-    if (idx === -1) continue;
-    if (!best || idx < best.index) best = { index: idx, length: delimiter.length };
-  }
   {
-    const searchArea = line.slice(searchStart);
-    const re = new RegExp(BARE_HYPHEN_BEFORE_JAPANESE, "g");
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(searchArea))) {
-      const idx = searchStart + m.index;
-      if (!insideParen[idx]) {
-        if (!best || idx < best.index) best = { index: idx, length: 1 };
-        break;
+    let idx = line.indexOf(TAB_DELIMITER, searchStart);
+    while (idx !== -1 && insideParen[idx]) {
+      idx = line.indexOf(TAB_DELIMITER, idx + 1);
+    }
+    if (idx !== -1) best = { index: idx, length: 1 };
+  }
+
+  if (!best) {
+    // 複数の明示的区切り文字が同じ行に現れうる(例: "apple: りんご, 林檎" のように
+    // meaning側にもコロン/カンマが含まれる場合)ため、実際に見つかった位置が最も
+    // 左側にあるものを優先する(PUNCTUATION_DELIMITERSの配列順ではなく、出現位置基準)。
+    // 括弧の中で見つかった位置は候補から除外し、括弧の外にある次の出現を探す
+    // (Codexレビュー指摘対応、PR #105、8巡目、P2)。
+    for (const delimiter of PUNCTUATION_DELIMITERS) {
+      let idx = line.indexOf(delimiter, searchStart);
+      while (idx !== -1 && insideParen[idx]) {
+        idx = line.indexOf(delimiter, idx + 1);
+      }
+      if (idx === -1) continue;
+      if (!best || idx < best.index) best = { index: idx, length: delimiter.length };
+    }
+    {
+      const searchArea = line.slice(searchStart);
+      const re = new RegExp(BARE_HYPHEN_BEFORE_JAPANESE, "g");
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(searchArea))) {
+        const idx = searchStart + m.index;
+        if (!insideParen[idx]) {
+          if (!best || idx < best.index) best = { index: idx, length: m[0].length };
+          break;
+        }
       }
     }
-  }
-  // ラテン文字→日本語境界も、他の明示的区切り文字と同じ「最も左側」比較に含める
-  // (Codexレビュー指摘対応、PR #105、3巡目、P2)。以前はこの境界を「明示的区切り
-  // 文字が行内のどこにも無い場合だけ」のフォールバックとして扱っていたため、
-  // "run 走る, 経営する"(meaning側に読点として使われたカンマがある空白区切り行)で、
-  // 本来の単語/意味の境界(run|走る, 経営する)より右側にあるカンマが誤って
-  // 優先され、"run 走る"がwordとして切り詰められていた。
-  {
-    const searchArea = line.slice(searchStart);
-    const m = LATIN_TO_JAPANESE_BOUNDARY.exec(searchArea);
-    if (m) {
-      // 元のフォールバック実装([0, m.index+1] / [m.index+m[0].length, ])と同じ
-      // 分割位置になるよう、マッチしたラテン文字自体はword側に残し、その後の
-      // 空白だけを区切りとして消費する形に変換する。
-      const idx = searchStart + m.index + 1;
-      const length = m[0].length - 1;
-      if (!best || idx < best.index) best = { index: idx, length };
+    // ラテン文字→日本語境界も、他の明示的区切り文字と同じ「最も左側」比較に含める
+    // (Codexレビュー指摘対応、PR #105、3巡目、P2)。以前はこの境界を「明示的区切り
+    // 文字が行内のどこにも無い場合だけ」のフォールバックとして扱っていたため、
+    // "run 走る, 経営する"(meaning側に読点として使われたカンマがある空白区切り行)で、
+    // 本来の単語/意味の境界(run|走る, 経営する)より右側にあるカンマが誤って
+    // 優先され、"run 走る"がwordとして切り詰められていた。
+    {
+      const searchArea = line.slice(searchStart);
+      const m = LATIN_TO_JAPANESE_BOUNDARY.exec(searchArea);
+      if (m) {
+        // 元のフォールバック実装([0, m.index+1] / [m.index+m[0].length, ])と同じ
+        // 分割位置になるよう、マッチしたラテン文字自体はword側に残し、その後の
+        // 空白だけを区切りとして消費する形に変換する。
+        const idx = searchStart + m.index + 1;
+        const length = m[0].length - 1;
+        if (!best || idx < best.index) best = { index: idx, length };
+      }
     }
   }
 
@@ -218,11 +241,86 @@ function isHeaderLine(line: string): boolean {
   return HEADER_WORD_LABELS.has(parsed.word.toLowerCase()) && HEADER_MEANING_LABELS.has(parsed.meaning.toLowerCase());
 }
 
+// CsvImportPanel.tsx / csvImportParsing.ts が実際に認識する列名(word/meaning/
+// phonetic/example/example_ja)と同じラベル集合。word,meaning,phonetic のような
+// 3列以上の本物のCSVがそのまま貼り付けられた場合、既存の「最も左側のカンマで
+// 2分割する」1行ずつのヒューリスティックでは phonetic 等の後続列が meaning 側へ
+// 丸ごと畳み込まれてしまう(Codexレビュー指摘対応、PR #105、9巡目、P2)。
+const CSV_COLUMN_LABELS: Record<"word" | "meaning", string[]> = {
+  word: ["word", "英単語", "単語", "english"],
+  meaning: ["meaning", "意味", "日本語", "japanese"],
+};
+
+/**
+ * 先頭行が「本物の複数列CSVヘッダ」かどうかを判定する。word/meaning列の両方を含み、
+ * かつ合計3列以上ある場合のみCSV列モードとみなす。2列だけの word,meaning は誤検出
+ * リスクを避けるため対象外とし、既存の1行ずつのヒューリスティック(isHeaderLine +
+ * parseWordListLine)に委ねる。
+ */
+// csvImportParsing.ts の parseLine() と同じロジック(クォート対応のCSVフィールド
+// 分割)をここへ複製している。他ファイルからimportしていないのは意図的 —
+// csvImportParsing.ts自身のdocstringが述べているとおり、この種の純粋関数ファイルは
+// scripts/testing/*.mjsからNodeのネイティブTS実行で直接importして往復テストできる
+// よう、ファイル単体で完結させる方針のため(このファイル→他ファイルへの相対import
+// を追加すると、tsc/Next.jsのbundler解決では正しく動く拡張子なし指定が、Nodeの
+// ネイティブTS実行では解決できずテストスクリプトが動かなくなる)。
+function splitCsvRow(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      result.push(current); current = "";
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+function detectCsvHeaderColumns(headerLine: string): { wordIndex: number; meaningIndex: number } | null {
+  const fields = splitCsvRow(headerLine);
+  if (fields.length < 3) return null;
+  let wordIndex = -1;
+  let meaningIndex = -1;
+  fields.forEach((raw, i) => {
+    const label = raw.trim().toLowerCase();
+    if (wordIndex === -1 && CSV_COLUMN_LABELS.word.includes(label)) wordIndex = i;
+    if (meaningIndex === -1 && CSV_COLUMN_LABELS.meaning.includes(label)) meaningIndex = i;
+  });
+  if (wordIndex === -1 || meaningIndex === -1) return null;
+  return { wordIndex, meaningIndex };
+}
+
 /** テキストエリア全体を解析する。空行はスキップ(エラー扱いしない)。 */
 export function parseWordList(text: string): WordListParseResult {
   const lines = text.split(/\r?\n/);
   const entries: WordListEntry[] = [];
   const skippedLineNumbers: number[] = [];
+
+  const firstContentIndex = lines.findIndex((l) => l.trim());
+  const csvColumns = firstContentIndex === -1 ? null : detectCsvHeaderColumns(lines[firstContentIndex]);
+
+  if (csvColumns) {
+    // 3列以上の本物のCSV: 各行をカンマ区切りCSVフィールドとして解釈し、word/meaning
+    // 列だけを取り出す(phonetic等の他の列は無視し、meaning側へ畳み込まない)。
+    lines.forEach((line, i) => {
+      if (!line.trim()) return;
+      if (i === firstContentIndex) return; // ヘッダ行自体はエントリ化しない
+      const fields = splitCsvRow(line);
+      const word = (fields[csvColumns.wordIndex] ?? "").trim();
+      const meaning = (fields[csvColumns.meaningIndex] ?? "").trim();
+      if (word && meaning) entries.push({ word, meaning });
+      else skippedLineNumbers.push(i + 1);
+    });
+    return { entries, skippedLineNumbers };
+  }
+
   let sawContentLine = false;
   lines.forEach((line, i) => {
     if (!line.trim()) return; // 空行は無視(スキップ扱いにしない)

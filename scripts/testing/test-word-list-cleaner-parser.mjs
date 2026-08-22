@@ -495,6 +495,65 @@ function main() {
     }
   }
 
+  // ---- Codexレビュー指摘対応(PR #105、9巡目、P2): 意味側にたまたま含まれる
+  // punctuation(カンマ等)より、行内に見つかったタブを常に優先する ----
+  {
+    const cases = [
+      ["Hello, world\tこんにちは", { word: "Hello, world", meaning: "こんにちは" }],
+      ["8:30\t午前八時半", { word: "8:30", meaning: "午前八時半" }],
+    ];
+    let allOk = true;
+    for (const [input, expected] of cases) {
+      const result = parseWordListLine(input);
+      if (result?.word !== expected.word || result?.meaning !== expected.meaning) {
+        allOk = false;
+        bad(`タブ優先の判定が想定外: ${JSON.stringify(input)} → ${JSON.stringify(result)}(期待値: ${JSON.stringify(expected)})`);
+      }
+    }
+    if (allOk) ok("行内にタブがあれば、意味側のカンマ・コロン等の位置に関わらずタブを区切りとして優先する");
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、9巡目、P2): 素のハイフンの直後に空白を
+  // 挟んだ非対称な区切り("apple- りんご")も認識する ----
+  {
+    const result = parseWordListLine("apple- りんご");
+    if (result?.word === "apple" && result?.meaning === "りんご") {
+      ok("素のハイフンの直後に空白を挟んだ区切り(apple- りんご)も正しく認識される");
+    } else {
+      bad(`ハイフン+空白区切りの解析が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、9巡目、P2): 3列以上の本物のCSV
+  // (word,meaning,phonetic)がそのまま貼り付けられた場合、phonetic列がmeaning側に
+  // 畳み込まれず、word/meaning列だけが正しく取り出される ----
+  {
+    const text = "word,meaning,phonetic\nabandon,捨てる,/əˈbændən/\npersist,固執する,/pɚˈsɪst/";
+    const result = parseWordList(text);
+    if (
+      result.entries.length === 2 &&
+      result.entries[0].word === "abandon" &&
+      result.entries[0].meaning === "捨てる" &&
+      result.entries[1].word === "persist" &&
+      result.entries[1].meaning === "固執する" &&
+      result.skippedLineNumbers.length === 0
+    ) {
+      ok("3列以上の本物のCSV(word,meaning,phonetic)はphonetic列を無視し、word/meaning列だけを正しく取り出す");
+    } else {
+      bad(`3列CSVの解析が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+  // 2列だけのword,meaning CSVは、従来どおり1行ずつのヒューリスティック経路のまま
+  // 変わらず動作する(3列以上のみをCSV列モードの対象とする回帰確認)。
+  {
+    const result = parseWordList("word,meaning\napple,りんご");
+    if (result.entries.length === 1 && result.entries[0].word === "apple" && result.entries[0].meaning === "りんご") {
+      ok("2列だけのword,meaning CSVは従来どおりのヒューリスティック経路で正しく解析される(3列CSVモードの誤検出なし)");
+    } else {
+      bad(`2列CSVの回帰確認が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;

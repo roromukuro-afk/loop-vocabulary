@@ -52,6 +52,15 @@ export function WordListCleaner() {
     setHasFormatted(true);
     setCopyFailed(false);
     setDownloadFailed(false);
+    // 直前のコピー操作の「コピーしました ✓」表示が、まだコピーされていない
+    // 新しい整形結果に対して誤って残ってしまうのを防ぐ。入力編集→2秒以内の
+    // 再整形で古いコピー状態が引き継がれていた(Codexレビュー指摘対応、
+    // PR #105、9巡目、P2)。
+    if (copiedTimeoutRef.current) {
+      clearTimeout(copiedTimeoutRef.current);
+      copiedTimeoutRef.current = null;
+    }
+    setCopied(false);
     if (result.entries.length > 0 && !generatedFiredRef.current) {
       generatedFiredRef.current = true;
       trackToolCompleted(TOOL_KEY);

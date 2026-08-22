@@ -222,6 +222,31 @@ async function main() {
       fail(`クリップボードの内容が想定外: ${JSON.stringify(clipboardText)}`);
     }
 
+    // ---- Codexレビュー指摘対応(PR #105、9巡目、P2): コピー直後(2秒のタイムアウト
+    // が消える前)に入力を編集して再整形すると、新しい(まだコピーされていない)結果に
+    // 対して古い「コピーしました ✓」表示が残ってはいけない ----
+    const copyButton = page.locator('button:has-text("CSVをコピー"), button:has-text("コピーしました")');
+    const copyButtonTextRightAfterReformat = await (async () => {
+      await textarea.fill(input);
+      await page.locator('button:has-text("CSVに整形する")').click();
+      await page.waitForTimeout(300);
+      await page.locator('button:has-text("CSVをコピー")').click();
+      await page.waitForTimeout(100); // コピー直後、2秒のタイムアウトが消える前
+      await textarea.fill(input + "\nextra: 追加");
+      await page.locator('button:has-text("CSVに整形する")').click();
+      await page.waitForTimeout(100);
+      return copyButton.innerText();
+    })();
+    if (copyButtonTextRightAfterReformat === "CSVをコピー") {
+      ok("コピー直後に編集→再整形しても、新しい(未コピーの)結果に古い「コピーしました ✓」表示は残らない");
+    } else {
+      fail(`再整形直後のコピーボタン表示が想定外: ${JSON.stringify(copyButtonTextRightAfterReformat)}(「CSVをコピー」であるべき)`);
+    }
+    // 次のチェックのため元の3件入力へ戻す
+    await textarea.fill(input);
+    await page.locator('button:has-text("CSVに整形する")').click();
+    await page.waitForTimeout(300);
+
     // ---- CSV Formula Injection対策: =で始まる単語を含むリストを整形すると、
     // 画面上に無害化件数の案内が表示され、ダウンロードされるCSVの先頭に'が付く ----
     const injectionInput = "=cmd|'/c calc'!A1: 危険な数式\nsafe: 安全な単語";
