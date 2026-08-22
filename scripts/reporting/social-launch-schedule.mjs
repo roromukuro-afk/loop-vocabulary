@@ -43,6 +43,10 @@ export const KNOWN_LAUNCH_CONTENT_KEYS = [
 export const KNOWN_LAUNCH_SCHEDULE = [
   // X①: 2026-08-18 19:00 JST = 2026-08-18T10:00:00.000Z (JST = UTC+9)
   { content: "x_launch_01", source: "x", publishedAtISO: "2026-08-18T10:00:00.000Z" },
+  // X②: 2026-08-20 12:00 JST = 2026-08-20T03:00:00.000Z (x-launch-02-publish-verification.txtのdueAtで確認済み)
+  { content: "x_launch_02", source: "x", publishedAtISO: "2026-08-20T03:00:00.000Z" },
+  // X③: 2026-08-22 12:00 JST = 2026-08-22T03:00:00.000Z (x-launch-03-publish-verification.txtのdueAtで確認済み)
+  { content: "x_launch_03", source: "x", publishedAtISO: "2026-08-22T03:00:00.000Z" },
 ];
 
 // MARKETING_SOCIAL_LAUNCH_PACK_2026-08.mdで文書化済みの8本のうち、destinationが
