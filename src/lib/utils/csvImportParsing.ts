@@ -46,8 +46,39 @@ export function stripLeadingApostrophe(value: string): string {
   return NEUTRALIZED_FORMULA_PREFIX.test(value) ? value.slice(1) : value;
 }
 
+// レコード(1行分のCSV)の区切りとなる改行を、クォートの中/外を区別して判定する。
+// text全体を単純にtext.split(/\r?\n/)すると、/tools/word-list-cleanerのtoWordbookCsv()
+// (csvField()参照)が実際に出力しうる「meaningに改行を含む値をダブルクォートで囲んだCSV」を
+// このインポーターへ貼り付け直した際、クォート内部の改行でレコードが分断され、後半が
+// 欠落する(Codexレビュー指摘対応、PR #105、11巡目、P2)。ここは常にRFC4180形式の
+// CSVとして扱う前提のファイルのため(自由記述の見出し語混じりテキストは扱わない)、
+// wordListCleaner.ts のsplitIntoRecords()と異なり、クォートの出現位置を
+// レコード先頭/区切り文字の直後に限定する必要はない。
+function splitCsvRecords(text: string): string[] {
+  const records: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      current += ch;
+      continue;
+    }
+    if (!inQuotes && (ch === "\n" || ch === "\r")) {
+      records.push(current);
+      current = "";
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      continue;
+    }
+    current += ch;
+  }
+  records.push(current);
+  return records;
+}
+
 export function parseCsv(text: string): ParsedWord[] {
-  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  const lines = splitCsvRecords(text.trim()).filter(l => l.trim());
   if (lines.length === 0) return [];
 
   const firstLower = lines[0].toLowerCase();

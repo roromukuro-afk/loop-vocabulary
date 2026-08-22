@@ -157,6 +157,28 @@ export function parseWordListLine(rawLine: string): WordListEntry | null {
     if (idx !== -1) best = { index: idx, length: 1 };
   }
 
+  // ラテン文字→日本語境界(空白ベース)も、タブと同様に見つかれば常に優先し、
+  // 以降のpunctuation/ハイフンの判定は行わない(Codexレビュー指摘対応、PR #105、
+  // 11巡目、P2)。以前はこの境界をpunctuationと同じ「最も左側」比較に含めて
+  // いたため、"Hello, world こんにちは世界"のように、見出し語の内部にたまたま
+  // カンマが含まれる行で、そのカンマの位置がこの空白境界より左にあるという
+  // だけの理由で誤って優先され、"Hello"だけがwordとして切り詰められていた
+  // ("8:30 午前八時半"のコロンも同様)。空白で日本語へ切り替わる境界が見つかった
+  // 場合、それより前にあるpunctuationは見出し語の一部とみなし、区切りとして
+  // 使わない。
+  if (!best) {
+    const searchArea = line.slice(searchStart);
+    const m = LATIN_TO_JAPANESE_BOUNDARY.exec(searchArea);
+    if (m) {
+      // 元のフォールバック実装([0, m.index+1] / [m.index+m[0].length, ])と同じ
+      // 分割位置になるよう、マッチしたラテン文字自体はword側に残し、その後の
+      // 空白だけを区切りとして消費する形に変換する。
+      const idx = searchStart + m.index + 1;
+      const length = m[0].length - 1;
+      if (!insideParen[idx]) best = { index: idx, length };
+    }
+  }
+
   if (!best) {
     // 複数の明示的区切り文字が同じ行に現れうる(例: "apple: りんご, 林檎" のように
     // meaning側にもコロン/カンマが含まれる場合)ため、実際に見つかった位置が最も
@@ -181,24 +203,6 @@ export function parseWordListLine(rawLine: string): WordListEntry | null {
           if (!best || idx < best.index) best = { index: idx, length: m[0].length };
           break;
         }
-      }
-    }
-    // ラテン文字→日本語境界も、他の明示的区切り文字と同じ「最も左側」比較に含める
-    // (Codexレビュー指摘対応、PR #105、3巡目、P2)。以前はこの境界を「明示的区切り
-    // 文字が行内のどこにも無い場合だけ」のフォールバックとして扱っていたため、
-    // "run 走る, 経営する"(meaning側に読点として使われたカンマがある空白区切り行)で、
-    // 本来の単語/意味の境界(run|走る, 経営する)より右側にあるカンマが誤って
-    // 優先され、"run 走る"がwordとして切り詰められていた。
-    {
-      const searchArea = line.slice(searchStart);
-      const m = LATIN_TO_JAPANESE_BOUNDARY.exec(searchArea);
-      if (m) {
-        // 元のフォールバック実装([0, m.index+1] / [m.index+m[0].length, ])と同じ
-        // 分割位置になるよう、マッチしたラテン文字自体はword側に残し、その後の
-        // 空白だけを区切りとして消費する形に変換する。
-        const idx = searchStart + m.index + 1;
-        const length = m[0].length - 1;
-        if (!best || idx < best.index) best = { index: idx, length };
       }
     }
   }
@@ -291,14 +295,31 @@ function splitDelimitedRow(row: string, delimiter: string): string[] {
 // 出力しうる(csvField()参照)「意味に改行を含む値をダブルクォートで囲んだCSV」を
 // 貼り直した際、クォート内部の改行でレコードが分断され、後半が別の壊れた行として
 // 誤ってスキップされてしまう(Codexレビュー指摘対応、PR #105、10巡目、P2)。
+//
+// クォートを「行内のどこにあっても常に状態をトグルする記号」として扱うと、
+// "quote: 「\"」という記号\napple: りんご" のように、区切り文字でも何でもない
+// ただの記号としての単一の"が現れただけの行(見出し語自体にたまたま含まれる
+// クォート文字)で、以降の改行までもがすべて「クォートの中」とみなされ、
+// 次の行(apple: りんご)が誤って同じレコードへ呑み込まれてしまっていた
+// (Codexレビュー指摘対応、PR #105、11巡目、P2)。CSVの本物のクォートフィールドは
+// 必ず「レコードの先頭」または「区切り文字の直後」で始まる、というRFC4180の
+// 構造的な制約を使い、それ以外の位置に現れた単一の"は状態をトグルしない
+// ただの文字として扱う。
+const RECORD_START_QUOTE_CONTEXT = /[,\t：:]\s*$/;
+
 function splitIntoRecords(text: string): string[] {
   const records: string[] = [];
   let current = "";
   let inQuotes = false;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
-    if (ch === '"') {
-      inQuotes = !inQuotes;
+    if (ch === '"' && !inQuotes && (current === "" || RECORD_START_QUOTE_CONTEXT.test(current))) {
+      inQuotes = true;
+      current += ch;
+      continue;
+    }
+    if (ch === '"' && inQuotes) {
+      inQuotes = false;
       current += ch;
       continue;
     }

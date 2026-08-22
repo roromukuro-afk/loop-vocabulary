@@ -603,6 +603,58 @@ function main() {
     }
   }
 
+  // ---- Codexレビュー指摘対応(PR #105、11巡目、P2): 見出し語の内部にたまたま
+  // カンマ/コロンが含まれる行で、空白による日本語境界がそれより右にある場合、
+  // 境界を優先し見出し語を切り詰めない ----
+  {
+    const cases = [
+      ["Hello, world こんにちは世界", { word: "Hello, world", meaning: "こんにちは世界" }],
+      ["8:30 午前八時半", { word: "8:30", meaning: "午前八時半" }],
+    ];
+    let allOk = true;
+    for (const [input, expected] of cases) {
+      const result = parseWordListLine(input);
+      if (result?.word !== expected.word || result?.meaning !== expected.meaning) {
+        allOk = false;
+        bad(`空白境界優先の判定が想定外: ${JSON.stringify(input)} → ${JSON.stringify(result)}(期待値: ${JSON.stringify(expected)})`);
+      }
+    }
+    if (allOk) ok("見出し語内部のカンマ・コロンより、空白による日本語境界を優先する(Hello, world / 8:30)");
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、11巡目、P2): 区切り文字でも何でもない
+  // ただの記号としての単一の"が行に含まれても、以降の改行までcrquoteの中とみなして
+  // 次の行を呑み込まない ----
+  {
+    const result = parseWordList('quote: 「"」という記号\napple: りんご');
+    if (
+      result.entries.length === 2 &&
+      result.entries[0].word === "quote" &&
+      result.entries[1].word === "apple" &&
+      result.entries[1].meaning === "りんご"
+    ) {
+      ok('区切り文字でもクォートでもない単一の"を含む行が、次の行を誤って呑み込まない');
+    } else {
+      bad(`単一"を含む行の処理が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、11巡目、P2): word-list-cleanerが生成した
+  // (meaningに改行を含む値をダブルクォートで囲んだ)CSVを、実際のインポート先である
+  // CsvImportPanel.tsx側のparseCsv()に貼り付け直しても、クォート内の改行でレコードが
+  // 分断されず完全な値が復元される(クリーナー単体の往復確認だけでなく、実際の
+  // インポーターまで含めた完全なround-trip) ----
+  {
+    const entries = [{ word: "hello", meaning: "line one\nline two" }];
+    const { csv } = toWordbookCsv(entries);
+    const imported = parseCsv(csv);
+    if (imported.length === 1 && imported[0].word === "hello" && imported[0].meaning === "line one\nline two") {
+      ok("word-list-cleanerが生成したクォート内改行付きCSVを、実際のCsvImportPanel.parseCsv()に貼り直しても完全に復元される(実インポーターまでの完全round-trip)");
+    } else {
+      bad(`実インポーターでのクォート内改行round-tripが想定外: ${JSON.stringify(imported)}`);
+    }
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;
