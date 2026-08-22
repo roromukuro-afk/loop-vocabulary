@@ -264,16 +264,19 @@ const CSV_COLUMN_LABELS: Record<"word" | "meaning", string[]> = {
 // よう、ファイル単体で完結させる方針のため(このファイル→他ファイルへの相対import
 // を追加すると、tsc/Next.jsのbundler解決では正しく動く拡張子なし指定が、Nodeの
 // ネイティブTS実行では解決できずテストスクリプトが動かなくなる)。
-function splitCsvRow(line: string): string[] {
+// delimiterを引数化しているのは、コピペされたスプレッドシート由来のタブ区切り
+// 複数列("word\tmeaning\tphonetic")も、CSV由来のカンマ区切り複数列と同じロジックで
+// 列選択できるようにするため(Codexレビュー指摘対応、PR #105、10巡目、P2)。
+function splitDelimitedRow(row: string, delimiter: string): string[] {
   const result: string[] = [];
   let current = "";
   let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
+  for (let i = 0; i < row.length; i++) {
+    const char = row[i];
     if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+      if (inQuotes && row[i + 1] === '"') { current += '"'; i++; }
       else inQuotes = !inQuotes;
-    } else if (char === "," && !inQuotes) {
+    } else if (char === delimiter && !inQuotes) {
       result.push(current); current = "";
     } else {
       current += char;
@@ -283,46 +286,93 @@ function splitCsvRow(line: string): string[] {
   return result;
 }
 
-function detectCsvHeaderColumns(headerLine: string): { wordIndex: number; meaningIndex: number } | null {
-  const fields = splitCsvRow(headerLine);
-  if (fields.length < 3) return null;
-  let wordIndex = -1;
-  let meaningIndex = -1;
-  fields.forEach((raw, i) => {
-    const label = raw.trim().toLowerCase();
-    if (wordIndex === -1 && CSV_COLUMN_LABELS.word.includes(label)) wordIndex = i;
-    if (meaningIndex === -1 && CSV_COLUMN_LABELS.meaning.includes(label)) meaningIndex = i;
-  });
-  if (wordIndex === -1 || meaningIndex === -1) return null;
-  return { wordIndex, meaningIndex };
+// レコード(1件分のword/meaning行)の区切りとなる改行を、クォートの中/外を区別して
+// 判定する。text全体を単純にtext.split(/\r?\n/)すると、toWordbookCsv()自身が
+// 出力しうる(csvField()参照)「意味に改行を含む値をダブルクォートで囲んだCSV」を
+// 貼り直した際、クォート内部の改行でレコードが分断され、後半が別の壊れた行として
+// 誤ってスキップされてしまう(Codexレビュー指摘対応、PR #105、10巡目、P2)。
+function splitIntoRecords(text: string): string[] {
+  const records: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      current += ch;
+      continue;
+    }
+    if (!inQuotes && (ch === "\n" || ch === "\r")) {
+      records.push(current);
+      current = "";
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      continue;
+    }
+    current += ch;
+  }
+  records.push(current);
+  return records;
+}
+
+// タブ区切りの複数列ヘッダも、カンマ区切りと同じ列選択ロジックで扱う
+// (Codexレビュー指摘対応、PR #105、10巡目、P2)。タブの方が構造的に曖昧さが
+// 少ないため先に判定する。
+const COLUMN_MODE_DELIMITERS = ["\t", ","];
+
+function detectColumnMode(headerLine: string): { delimiter: string; wordIndex: number; meaningIndex: number } | null {
+  for (const delimiter of COLUMN_MODE_DELIMITERS) {
+    const fields = splitDelimitedRow(headerLine, delimiter);
+    if (fields.length < 3) continue;
+    let wordIndex = -1;
+    let meaningIndex = -1;
+    fields.forEach((raw, i) => {
+      const label = raw.trim().toLowerCase();
+      if (wordIndex === -1 && CSV_COLUMN_LABELS.word.includes(label)) wordIndex = i;
+      if (meaningIndex === -1 && CSV_COLUMN_LABELS.meaning.includes(label)) meaningIndex = i;
+    });
+    if (wordIndex !== -1 && meaningIndex !== -1) return { delimiter, wordIndex, meaningIndex };
+  }
+  return null;
 }
 
 /** テキストエリア全体を解析する。空行はスキップ(エラー扱いしない)。 */
 export function parseWordList(text: string): WordListParseResult {
-  const lines = text.split(/\r?\n/);
+  const records = splitIntoRecords(text);
   const entries: WordListEntry[] = [];
   const skippedLineNumbers: number[] = [];
 
-  const firstContentIndex = lines.findIndex((l) => l.trim());
-  const csvColumns = firstContentIndex === -1 ? null : detectCsvHeaderColumns(lines[firstContentIndex]);
+  // 各レコードの開始行番号(1始まり)。クォート内部に改行を含むレコードでも、
+  // スキップ行番号が実際の開始位置を正しく指すよう、直前レコードまでの改行数を
+  // 累計して求める(splitIntoRecords自体が既にクォート内の改行を保持したまま
+  // レコードへ含めているため、そのままカウントできる)。
+  let lineCursor = 1;
+  const lineNumbers = records.map((r) => {
+    const start = lineCursor;
+    lineCursor += (r.match(/\r\n|\r|\n/g)?.length ?? 0) + 1;
+    return start;
+  });
 
-  if (csvColumns) {
-    // 3列以上の本物のCSV: 各行をカンマ区切りCSVフィールドとして解釈し、word/meaning
-    // 列だけを取り出す(phonetic等の他の列は無視し、meaning側へ畳み込まない)。
-    lines.forEach((line, i) => {
-      if (!line.trim()) return;
+  const firstContentIndex = records.findIndex((r) => r.trim());
+  const columnMode = firstContentIndex === -1 ? null : detectColumnMode(records[firstContentIndex]);
+
+  if (columnMode) {
+    // 3列以上の本物のCSV/TSV: 各レコードを区切り文字でCSV/TSVフィールドとして
+    // 解釈し、word/meaning列だけを取り出す(phonetic等の他の列は無視し、meaning側へ
+    // 畳み込まない)。
+    records.forEach((record, i) => {
+      if (!record.trim()) return;
       if (i === firstContentIndex) return; // ヘッダ行自体はエントリ化しない
-      const fields = splitCsvRow(line);
-      const word = (fields[csvColumns.wordIndex] ?? "").trim();
-      const meaning = (fields[csvColumns.meaningIndex] ?? "").trim();
+      const fields = splitDelimitedRow(record, columnMode.delimiter);
+      const word = (fields[columnMode.wordIndex] ?? "").trim();
+      const meaning = (fields[columnMode.meaningIndex] ?? "").trim();
       if (word && meaning) entries.push({ word, meaning });
-      else skippedLineNumbers.push(i + 1);
+      else skippedLineNumbers.push(lineNumbers[i]);
     });
     return { entries, skippedLineNumbers };
   }
 
   let sawContentLine = false;
-  lines.forEach((line, i) => {
+  records.forEach((line, i) => {
     if (!line.trim()) return; // 空行は無視(スキップ扱いにしない)
     if (!sawContentLine) {
       sawContentLine = true;
@@ -330,7 +380,7 @@ export function parseWordList(text: string): WordListParseResult {
     }
     const parsed = parseWordListLine(line);
     if (parsed) entries.push(parsed);
-    else skippedLineNumbers.push(i + 1);
+    else skippedLineNumbers.push(lineNumbers[i]);
   });
   return { entries, skippedLineNumbers };
 }

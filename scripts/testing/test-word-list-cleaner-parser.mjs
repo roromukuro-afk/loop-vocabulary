@@ -554,6 +554,55 @@ function main() {
     }
   }
 
+  // ---- Codexレビュー指摘対応(PR #105、10巡目、P2): 3列以上のタブ区切り
+  // (スプレッドシートからのコピペ)も、CSVと同じ列選択ロジックでphonetic列を無視し、
+  // word/meaning列だけを正しく取り出す ----
+  {
+    const text = "word\tmeaning\tphonetic\nabandon\t捨てる\t/əˈbændən/\npersist\t固執する\t/pɚˈsɪst/";
+    const result = parseWordList(text);
+    if (
+      result.entries.length === 2 &&
+      result.entries[0].word === "abandon" &&
+      result.entries[0].meaning === "捨てる" &&
+      result.entries[1].word === "persist" &&
+      result.entries[1].meaning === "固執する" &&
+      result.skippedLineNumbers.length === 0
+    ) {
+      ok("3列以上のタブ区切り(word\\tmeaning\\tphonetic)もphonetic列を無視し、word/meaning列だけを正しく取り出す");
+    } else {
+      bad(`3列TSVの解析が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、10巡目、P2): ダブルクォートで囲まれた
+  // meaningに改行を含む値(toWordbookCsv/csvFieldが実際に出力しうる形式)を貼り直しても、
+  // クォート内の改行でレコードが分断されず、正しく1件として復元される(往復確認) ----
+  {
+    const entries = [{ word: "hello", meaning: "line one\nline two" }];
+    const { csv } = toWordbookCsv(entries);
+    const result = parseWordList(csv);
+    if (
+      result.entries.length === 1 &&
+      result.entries[0].word === "hello" &&
+      result.entries[0].meaning === "line one\nline two" &&
+      result.skippedLineNumbers.length === 0
+    ) {
+      ok("ダブルクォートで囲まれたmeaning内の改行を含むCSVを貼り直しても、クォート内の改行でレコードが分断されず正しく復元される(往復確認)");
+    } else {
+      bad(`クォート内改行を含むCSVの往復確認が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+  // 通常の(クォートを含まない)複数行入力では、スキップ行番号が引き続き正しい
+  // 物理行番号を指す(クォート対応化による回帰確認)。
+  {
+    const result = parseWordList("apple: りんご\nこの行は解析できない\nbanana: バナナ");
+    if (result.entries.length === 2 && result.skippedLineNumbers.length === 1 && result.skippedLineNumbers[0] === 2) {
+      ok("クォートを含まない複数行入力でも、スキップ行番号は引き続き正しい物理行番号(2行目)を指す(回帰確認)");
+    } else {
+      bad(`スキップ行番号の回帰確認が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;
