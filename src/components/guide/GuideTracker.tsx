@@ -5,14 +5,20 @@ import { trackEvent } from "@/lib/analytics/track";
 
 /**
  * data-tool/data-placementが付いていない既存リンク(例: toeic-tango・eiken-2kyu-tango
- * ・eiken-jun1-tango・toeic-900tenの/exam-countdown-plannerリンクは、この委譲リスナー
- * がtools扱いに含める前から存在しており、data属性を持たない)向けのフォールバック。
- * 固定のURLパスからtool識別子を導出するだけで、自由記述は一切読み取らない
- * (Codexレビュー指摘対応)。
+ * ・eiken-jun1-tango・toeic-900tenの/exam-countdown-plannerリンクや、
+ * english-vocabulary-quiz-maker・eiken-2kyu-tangoの/tools/vocab-test-makerリンクは、
+ * この委譲リスナーがtools扱いに含める前から存在しており、data属性を持たない)向けの
+ * フォールバック。固定のURLパスからtool識別子を導出するだけで、自由記述は一切
+ * 読み取らない(Codexレビュー指摘対応)。
  */
 function deriveToolFallback(href: string): string {
   if (href.startsWith("/exam-countdown-planner")) return "exam_countdown_planner";
   if (href.startsWith("/review-date-calculator")) return "review_date_calculator";
+  // /tools/<slug> のように/tools/配下にぶら下がる個別ツールは、末尾のURLセグメントを
+  // そのままtool識別子として使う(例: /tools/vocab-test-maker -> vocab_test_maker)。
+  // /toolsそのもの(ハブページ、個別ツールではない)は対象外とする。
+  const toolsSubpath = /^\/tools\/([a-z0-9-]+)/.exec(href);
+  if (toolsSubpath) return toolsSubpath[1].replace(/-/g, "_");
   return "";
 }
 

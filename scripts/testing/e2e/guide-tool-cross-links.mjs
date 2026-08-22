@@ -177,15 +177,25 @@ async function runCase(browser, baseUrl, testCase) {
 }
 
 // Codexレビュー指摘: この4記事より前から存在する/exam-countdown-plannerリンク
-// (toeic-tango等)にはdata-tool/data-placementが付いておらず、GuideTracker.tsxの
-// tools分岐に新しく含まれたことで空文字列のtool/placementが記録されてしまっていた。
-// hrefからのフォールバック導出(deriveToolFallback)で解消したことを検証する。
-const LEGACY_LINK_CASE = {
-  slug: "toeic-tango",
-  linkHref: "/exam-countdown-planner",
-  expectedTool: "exam_countdown_planner",
-  expectedPlacement: "guide_body",
-};
+// (toeic-tango等)や、/tools/配下の既存ツールリンク(english-vocabulary-quiz-maker
+// の/tools/vocab-test-maker等)にはdata-tool/data-placementが付いておらず、
+// GuideTracker.tsxのtools分岐に新しく含まれたことで空文字列のtool/placementが
+// 記録されてしまっていた。hrefからのフォールバック導出(deriveToolFallback)で
+// 解消したことを検証する。
+const LEGACY_LINK_CASES = [
+  {
+    slug: "toeic-tango",
+    linkHref: "/exam-countdown-planner",
+    expectedTool: "exam_countdown_planner",
+    expectedPlacement: "guide_body",
+  },
+  {
+    slug: "english-vocabulary-quiz-maker",
+    linkHref: "/tools/vocab-test-maker",
+    expectedTool: "vocab_test_maker",
+    expectedPlacement: "guide_body",
+  },
+];
 
 async function runLegacyLinkFallbackCase(browser, baseUrl, testCase) {
   const context = await browser.newContext();
@@ -265,7 +275,9 @@ async function main() {
     }
     // モバイル確認は1記事だけで十分(4記事とも同じコンポーネント構造・同じCSSクラスを使う)
     await runMobileCheck(browser, baseUrl, CASES[0]);
-    await runLegacyLinkFallbackCase(browser, baseUrl, LEGACY_LINK_CASE);
+    for (const legacyCase of LEGACY_LINK_CASES) {
+      await runLegacyLinkFallbackCase(browser, baseUrl, legacyCase);
+    }
   } finally {
     await browser.close();
     stopDevServer(dev);
