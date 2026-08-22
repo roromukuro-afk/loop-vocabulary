@@ -4,6 +4,19 @@ import { trackGuideRead, trackGuideCtaClick, trackGuideShareClick } from "@/lib/
 import { trackEvent } from "@/lib/analytics/track";
 
 /**
+ * data-tool/data-placementが付いていない既存リンク(例: toeic-tango・eiken-2kyu-tango
+ * ・eiken-jun1-tango・toeic-900tenの/exam-countdown-plannerリンクは、この委譲リスナー
+ * がtools扱いに含める前から存在しており、data属性を持たない)向けのフォールバック。
+ * 固定のURLパスからtool識別子を導出するだけで、自由記述は一切読み取らない
+ * (Codexレビュー指摘対応)。
+ */
+function deriveToolFallback(href: string): string {
+  if (href.startsWith("/exam-countdown-planner")) return "exam_countdown_planner";
+  if (href.startsWith("/review-date-calculator")) return "review_date_calculator";
+  return "";
+}
+
+/**
  * 記事表示イベントに加えて、記事内リンク（/signup・/vocab-check・/dictionary・/premium・
  * 他のguide記事・Xシェア）のクリックを委譲リスナーで検出する。
  * 37以上ある個別記事ファイルを1件ずつ書き換えずに済むよう、ここ1箇所にまとめている。
@@ -50,8 +63,10 @@ export function GuideTracker({ slug }: { slug: string }) {
         // /exam-countdown-planner・/review-date-calculatorは/tools/配下のURLでは
         // ないが、概念上はどちらも無料ツールであり、GA4側のtarget分類・Growth OS側の
         // funnel集計(guide_cta_click.target="tools")の対象として同じバケットに含める。
-        trackGuideCtaClick(slug, "tools", href, toolAttr, placementAttr);
-        trackEvent("guide_cta_click", { guide_slug: slug, target: "tools", destination_path: href, tool: toolAttr, placement: placementAttr });
+        const tool = toolAttr || deriveToolFallback(href);
+        const placement = placementAttr || "guide_body";
+        trackGuideCtaClick(slug, "tools", href, tool, placement);
+        trackEvent("guide_cta_click", { guide_slug: slug, target: "tools", destination_path: href, tool, placement });
       } else if (href.startsWith(`/guide/`) && href !== `/guide/${slug}`) {
         trackGuideCtaClick(slug, "other_guide", href, toolAttr, placementAttr);
         trackEvent("guide_cta_click", { guide_slug: slug, target: "other_guide", destination_path: href, tool: toolAttr, placement: placementAttr });

@@ -176,6 +176,63 @@ async function runCase(browser, baseUrl, testCase) {
   }
 }
 
+// Codexレビュー指摘: この4記事より前から存在する/exam-countdown-plannerリンク
+// (toeic-tango等)にはdata-tool/data-placementが付いておらず、GuideTracker.tsxの
+// tools分岐に新しく含まれたことで空文字列のtool/placementが記録されてしまっていた。
+// hrefからのフォールバック導出(deriveToolFallback)で解消したことを検証する。
+const LEGACY_LINK_CASE = {
+  slug: "toeic-tango",
+  linkHref: "/exam-countdown-planner",
+  expectedTool: "exam_countdown_planner",
+  expectedPlacement: "guide_body",
+};
+
+async function runLegacyLinkFallbackCase(browser, baseUrl, testCase) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.addInitScript(MOCK_GTAG_INIT);
+  const analyticsEvents = await interceptAnalyticsEvents(page);
+  const pagePath = `/guide/${testCase.slug}`;
+
+  try {
+    await page.goto(`${baseUrl}${pagePath}`, { waitUntil: "load" });
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(300);
+
+    // data-tool属性を持たない(=新規4記事より前から存在する)リンクを対象にする
+    const link = page.locator(`a[href="${testCase.linkHref}"]:not([data-tool])`).first();
+    if ((await link.count()) === 0) {
+      fail(`${pagePath}: data-tool無しの${testCase.linkHref}リンクが見つからない(フォールバック検証対象なし)`);
+      return;
+    }
+
+    await link.click();
+    await page.waitForTimeout(300);
+
+    const gaEvents = await getEvents(page, "guide_cta_click");
+    const gaMatched = gaEvents.find(
+      (e) => e[2]?.destination_path === testCase.linkHref && e[2]?.tool === testCase.expectedTool && e[2]?.placement === testCase.expectedPlacement
+    );
+    if (gaMatched) {
+      ok(`${pagePath}: data-tool無しリンクでもhrefからtool="${testCase.expectedTool}"がフォールバック導出される(GA4)`);
+    } else {
+      fail(`${pagePath}: フォールバックtool/placementが想定外(GA4): ${JSON.stringify(gaEvents)}`);
+    }
+
+    const firstPartyEvents = analyticsEvents.filter((e) => e.event_name === "guide_cta_click");
+    const matched = firstPartyEvents.find(
+      (e) => e.properties?.destination_path === testCase.linkHref && e.properties?.tool === testCase.expectedTool && e.properties?.placement === testCase.expectedPlacement
+    );
+    if (matched) {
+      ok(`${pagePath}: フォールバックtool/placementがfirst-party側にも正しく発火する`);
+    } else {
+      fail(`${pagePath}: フォールバックtool/placementが想定外(first-party): ${JSON.stringify(firstPartyEvents)}`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 async function runMobileCheck(browser, baseUrl, testCase) {
   const context = await browser.newContext({ viewport: { width: 375, height: 812 } });
   const page = await context.newPage();
@@ -208,6 +265,7 @@ async function main() {
     }
     // モバイル確認は1記事だけで十分(4記事とも同じコンポーネント構造・同じCSSクラスを使う)
     await runMobileCheck(browser, baseUrl, CASES[0]);
+    await runLegacyLinkFallbackCase(browser, baseUrl, LEGACY_LINK_CASE);
   } finally {
     await browser.close();
     stopDevServer(dev);
