@@ -280,6 +280,9 @@ async function main() {
 
     console.log("\n=== 79. 英単語リスト整形・CSV変換ツール CSV/TSVパーサ 体系的監査(fuzz含む) ===");
     results.wordListCleanerAudit = runNode("scripts/testing/test-word-list-cleaner-audit.mjs");
+
+    console.log("\n=== 80. 英単語リスト整形・CSV変換ツール CSV/TSV構造解析 PapaParse差分テスト ===");
+    results.wordListCleanerCsvDifferential = runNode("scripts/testing/test-word-list-cleaner-csv-differential.mjs");
   } finally {
     stopDevServer(dev);
   }

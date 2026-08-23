@@ -280,10 +280,11 @@ const CSV_COLUMN_LABELS: Record<"word" | "meaning", string[]> = {
 };
 
 /**
- * 先頭行が「本物の複数列CSVヘッダ」かどうかを判定する。word/meaning列の両方を含み、
- * かつ合計3列以上ある場合のみCSV列モードとみなす。2列だけの word,meaning は誤検出
- * リスクを避けるため対象外とし、既存の1行ずつのヒューリスティック(isHeaderLine +
- * parseWordListLine)に委ねる。
+ * 先頭行が「本物のCSV/TSVヘッダ」かどうかを判定する。word/meaning列の両方を含む
+ * 2列以上の行であればCSV列モードとみなし、以降の各行を構造的なCSV/TSVフィールド
+ * として解析する(Codexレビュー指摘対応、PR #105、13巡目、P2: 2列だけの
+ * word,meaning CSVを対象外にしていたため、値自体に区切り文字候補の文字(コロン等)を
+ * 含む本物のCSVが1行ずつのヒューリスティックへ誤って渡り、壊れていた)。
  */
 // csvImportParsing.ts の parseLine() と同じロジック(クォート対応のCSVフィールド
 // 分割)をここへ複製している。他ファイルからimportしていないのは意図的 —
@@ -375,10 +376,18 @@ function splitIntoRecords(text: string): string[] {
 // 少ないため先に判定する。
 const COLUMN_MODE_DELIMITERS = ["\t", ","];
 
+// 2列だけのword,meaning CSVも、3列以上と同じ構造的な列選択(splitDelimitedRow)で
+// 扱う。以前は「誤検出リスクを避けるため」2列を対象外とし、1行ずつの
+// ヒューリスティックへ委ねていたが、そのヒューリスティックはCSV/TSVのクォート・
+// エスケープ規則を認識しないため、"word,meaning\n8:30,午前八時半"のような
+// 値自体にコロンを含む本物の2列CSV(toWordbookCsvが自分自身で生成しうる形式でも
+// ある)で、区切り文字候補の中では出現位置が最も左側というだけの理由でコロンが
+// 誤って区切りとして選ばれ、"8:30"というwordが"8"に切り詰められていた
+// (Codexレビュー指摘対応、PR #105、13巡目、P2)。
 function detectColumnMode(headerLine: string): { delimiter: string; wordIndex: number; meaningIndex: number } | null {
   for (const delimiter of COLUMN_MODE_DELIMITERS) {
     const fields = splitDelimitedRow(headerLine, delimiter);
-    if (fields.length < 3) continue;
+    if (fields.length < 2) continue;
     let wordIndex = -1;
     let meaningIndex = -1;
     fields.forEach((raw, i) => {

@@ -543,12 +543,14 @@ function main() {
       bad(`3列CSVの解析が想定外: ${JSON.stringify(result)}`);
     }
   }
-  // 2列だけのword,meaning CSVは、従来どおり1行ずつのヒューリスティック経路のまま
-  // 変わらず動作する(3列以上のみをCSV列モードの対象とする回帰確認)。
+  // 2列だけのword,meaning CSVも、3列以上と同じ構造的な列モードで正しく解析される
+  // (Codexレビュー指摘対応、PR #105、13巡目、P2: 以前は2列をCSV列モードの対象外に
+  // していたため、値自体に区切り文字候補を含む本物のCSVが1行ずつのヒューリスティックへ
+  // 誤って渡っていた)。
   {
     const result = parseWordList("word,meaning\napple,りんご");
     if (result.entries.length === 1 && result.entries[0].word === "apple" && result.entries[0].meaning === "りんご") {
-      ok("2列だけのword,meaning CSVは従来どおりのヒューリスティック経路で正しく解析される(3列CSVモードの誤検出なし)");
+      ok("2列だけのword,meaning CSVも列モードで正しく解析される");
     } else {
       bad(`2列CSVの回帰確認が想定外: ${JSON.stringify(result)}`);
     }
@@ -700,6 +702,21 @@ function main() {
       ok('エスケープされた""(doubled quote)を含むmeaning内の改行を含む値をtoWordbookCsvで生成し貼り直しても、""を閉じクォートと誤認識せず正しく復元される(往復確認)');
     } else {
       bad(`エスケープされた""を含む改行付き値のround-tripが想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、13巡目、P2): 2列CSVでも、値自体に
+  // 区切り文字候補の文字(コロン等)を含む本物のword("8:30"等)が、1行ずつの
+  // ヒューリスティックへ誤って渡って切り詰められない。toWordbookCsvが自分自身で
+  // 生成しうる2列CSVの完全round-tripとして確認する ----
+  {
+    const entries = [{ word: "8:30", meaning: "午前八時半" }];
+    const { csv } = toWordbookCsv(entries);
+    const result = parseWordList(csv);
+    if (result.entries.length === 1 && result.entries[0].word === "8:30" && result.entries[0].meaning === "午前八時半") {
+      ok('2列CSVでも、コロンを含むword("8:30")が列モードで正しく保持される(toWordbookCsv round-trip)');
+    } else {
+      bad(`2列CSVでのコロン含有wordのround-tripが想定外: ${JSON.stringify(result)}`);
     }
   }
 

@@ -68,6 +68,7 @@
     "test:word-list-cleaner": "node scripts/testing/e2e/word-list-cleaner.mjs",
     "test:word-list-cleaner-parser": "node scripts/testing/test-word-list-cleaner-parser.mjs",
     "test:word-list-cleaner-audit": "node scripts/testing/test-word-list-cleaner-audit.mjs",
+    "test:word-list-cleaner-csv-differential": "node scripts/testing/test-word-list-cleaner-csv-differential.mjs",
     "test:csv-export": "node scripts/testing/test-csv-export.mjs",
     "test:growth-social-link": "node scripts/testing/test-growth-social-link.mjs",
     "growth:social-link": "node scripts/growth/social-link.mjs",
@@ -249,6 +250,7 @@
   "devDependencies": {
     "@capacitor/cli": "^8.3.4",
     "@types/node": "^20.16.11",
+    "@types/papaparse": "^5.5.2",
     "@types/pngjs": "^6.0.5",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.0",
@@ -259,6 +261,7 @@
     "eslint": "^8.57.1",
     "eslint-config-next": "15.5.18",
     "jsqr": "^1.4.0",
+    "papaparse": "^5.6.0",
     "playwright": "^1.61.0",
     "pngjs": "^7.0.0",
     "postcss": "^8.4.47",
