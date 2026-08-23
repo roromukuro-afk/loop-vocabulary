@@ -770,6 +770,24 @@ function main() {
     }
   }
 
+  // ---- 単語帳インポート上限(5,000件)の境界値: WordListCleaner.tsxの
+  // "entries.length > 5000"警告バナー判定はJSXの単純な比較だが、その前提となる
+  // parseWordList自体の件数カウントが境界値(4999/5000/5001)で正確であることを
+  // 確認する。件数が1件でもずれると警告の出るタイミングがズレてしまう。 ----
+  {
+    const cases = [4999, 5000, 5001];
+    let allOk = true;
+    for (const n of cases) {
+      const text = Array.from({ length: n }, (_, i) => `word${i}: 意味${i}`).join("\n");
+      const result = parseWordList(text);
+      if (result.entries.length !== n) {
+        allOk = false;
+        bad(`境界値${n}件での件数カウントが想定外: entries.length=${result.entries.length}`);
+      }
+    }
+    if (allOk) ok("単語帳インポート上限の境界値(4999/5000/5001件)でparseWordListの件数カウントが正確");
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;
