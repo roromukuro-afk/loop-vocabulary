@@ -788,6 +788,35 @@ function main() {
     if (allOk) ok("単語帳インポート上限の境界値(4999/5000/5001件)でparseWordListの件数カウントが正確");
   }
 
+  // ---- Codexレビュー指摘対応(PR #105、16巡目、P2): CsvImportPanel.parseCsv()で、
+  // クォート内のエスケープされた""の直後に改行があっても、レコードが分断されず
+  // 正しく1件として復元される(csvImportParsing.tsのsplitCsvRecords()にも
+  // wordListCleaner.tsのsplitIntoRecords()と同じ""対応を適用) ----
+  {
+    const result = parseCsv('hello,"say ""hi""\nnext line"');
+    if (result.length === 1 && result[0].word === "hello" && result[0].meaning === 'say "hi"\nnext line') {
+      ok('CsvImportPanel.parseCsv()でも、エスケープされた""の直後に改行があるクォート値がレコード分断されず正しく復元される');
+    } else {
+      bad(`""直後の改行を含むクォート値の処理が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、16巡目、P2): ヘッダ無しの本物のデータ行で、
+  // word/meaningの値自体がたまたま別カテゴリの既知ラベルと一致していても
+  // (例: word="japanese", meaning="日本語")、誤ってヘッダ扱いされない ----
+  {
+    const result = parseCsv("japanese,日本語\napple,りんご");
+    if (
+      result.length === 2 &&
+      result[0].word === "japanese" && result[0].meaning === "日本語" &&
+      result[1].word === "apple" && result[1].meaning === "りんご"
+    ) {
+      ok('word/meaningの値がたまたま既知ラベルと一致する本物のデータ行(japanese,日本語)が誤ってヘッダ扱いされない');
+    } else {
+      bad(`ラベル一致データ行の誤ヘッダ判定防止が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;

@@ -351,6 +351,19 @@ async function main() {
       } else {
         fail(`インポート上限超過の警告表示が見つからない。本文抜粋: ${overLimitBodyText.slice(0, 800)}`);
       }
+
+      // ---- Codexレビュー指摘対応(PR #105、16巡目、P2): プレビュー表は
+      // max-h-64で見た目の高さを制限しているだけで、5,001件のような大きな結果でも
+      // 実際にDOMへ描画される<tr>件数自体は先頭200件に制限されていることを確認する
+      // (端末を固まらせない)。コピー/ダウンロードの対象は全件のままであることは
+      // 上のヘッダ表示(整形結果(5001件))と別チェック(CSVをコピーの内容検証)で
+      // 既に確認済み。 ----
+      const renderedPreviewRowCount = await page.locator("tbody tr").count();
+      if (renderedPreviewRowCount === 200 && overLimitBodyText.includes("プレビューは先頭200件のみ表示")) {
+        ok("5,001件の整形結果でも、プレビュー表に実際にDOM描画される行は先頭200件に制限され、その旨の案内が表示される");
+      } else {
+        fail(`プレビュー行数制限が想定外: 実際のDOM行数=${renderedPreviewRowCount}(期待値200)`);
+      }
     } catch (e) {
       fail(`5,000件超入力の検証中に例外: ${e.message}`);
     }

@@ -15,6 +15,14 @@ const TOOL_KEY = "word-list-cleaner";
 // 何の警告もなく先頭5,000件しか保存されず、ユーザーが気づけない)。
 const WORDBOOK_IMPORT_LIMIT = 5000;
 
+// プレビュー表に実際にDOMへ描画する行数の上限。max-h-64は表示上の高さを
+// 制限するだけで、DOMに生成される<tr>の件数自体は減らないため、5,000〜10,000件の
+// ような大きな整形結果では、コピー/ダウンロードできるようになる前にレンダリングで
+// 端末が固まりうる(Codexレビュー指摘対応、PR #105、16巡目、P2)。コピー・
+// ダウンロードの対象は常に完全なentries配列のままとし、プレビュー表示だけを
+// 先頭のこの件数に制限する。
+const PREVIEW_ROW_LIMIT = 200;
+
 const PLACEHOLDER = `apple: りんご
 banana - バナナ
 cherry\tさくらんぼ`;
@@ -196,7 +204,7 @@ export function WordListCleaner() {
                     </tr>
                   </thead>
                   <tbody>
-                    {entries.map((e, i) => (
+                    {entries.slice(0, PREVIEW_ROW_LIMIT).map((e, i) => (
                       <tr key={i} className="border-t border-navy-50">
                         <td className="px-3 py-1.5 text-navy-800">{e.word}</td>
                         <td className="px-3 py-1.5 text-navy-600">{e.meaning}</td>
@@ -205,6 +213,11 @@ export function WordListCleaner() {
                   </tbody>
                 </table>
               </div>
+              {entries.length > PREVIEW_ROW_LIMIT && (
+                <p className="mt-2 text-xs text-navy-400 text-center">
+                  プレビューは先頭{PREVIEW_ROW_LIMIT}件のみ表示しています(コピー・ダウンロードには全{entries.length}件が含まれます)。
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3 mt-4">
                 <button
                   type="button"

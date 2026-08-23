@@ -90,6 +90,12 @@ function splitCsvRecords(text: string): string[] {
       continue;
     }
     if (ch === '"' && inQuotes) {
+      // ""(エスケープされたクォート)は、閉じクォートとして扱わずクォートモードを
+      // 継続する。先読みせず単純にトグルするだけだと、"say ""hi""\nnext"のように
+      // エスケープされたクォートの直後に改行を含む値で、ペアの1つ目を閉じクォートと
+      // 誤認識し、まだ本来クォートの中であるはずの改行がレコード境界として扱われて
+      // しまう(Codexレビュー指摘対応、PR #105、16巡目、P2)。
+      if (text[i + 1] === '"') { current += '""'; i++; continue; }
       inQuotes = false;
       current += ch;
       continue;
@@ -106,14 +112,8 @@ function splitCsvRecords(text: string): string[] {
   return records;
 }
 
-// 認識するヘッダラベル一覧(word/meaning/phonetic/example/example_ja)。
-const HEADER_LABELS = [
-  "word", "英単語", "単語", "english",
-  "meaning", "意味", "日本語", "japanese",
-  "phonetic", "発音", "読み方", "pronunciation",
-  "example", "例文", "英語例文",
-  "example_ja", "例文日本語", "日本語例文",
-];
+const WORD_LABELS = ["word", "英単語", "単語", "english"];
+const MEANING_LABELS = ["meaning", "意味", "日本語", "japanese"];
 
 export function parseCsv(text: string): ParsedWord[] {
   const lines = splitCsvRecords(text.trim()).filter(l => l.trim());
@@ -127,8 +127,17 @@ export function parseCsv(text: string): ParsedWord[] {
   // 文字列を含むヘッダなしデータ行が、行全体への部分一致では誤ってヘッダ行と
   // 判定され、本来の最初のデータ行(apple)が丸ごと消えてしまっていた
   // (Codexレビュー指摘対応、PR #105、14巡目、P2)。
+  //
+  // ただし「いずれか1フィールドでもラベルと一致すれば」という判定のままだと、
+  // "japanese,日本語"(word="japanese", meaning="日本語"という実在の単語データ)
+  // のように、両方の値がたまたま別カテゴリのラベルと一致するだけの本物のデータ行
+  // まで誤ってヘッダ扱いしてしまう(Codexレビュー指摘対応、PR #105、16巡目、P2)。
+  // word列に相当する位置にword系ラベル、meaning列に相当する位置にmeaning系ラベルが
+  // 別々のフィールドとして両方そろって初めてヘッダとみなす。
   const firstFields = parseLine(lines[0]).map((f) => f.trim().toLowerCase());
-  const hasHeaders = firstFields.some((f) => HEADER_LABELS.includes(f));
+  const wordLabelIndex = firstFields.findIndex((f) => WORD_LABELS.includes(f));
+  const meaningLabelIndex = firstFields.findIndex((f) => MEANING_LABELS.includes(f));
+  const hasHeaders = wordLabelIndex !== -1 && meaningLabelIndex !== -1 && wordLabelIndex !== meaningLabelIndex;
 
   const headerMap: Record<string, number> = { word: 0, meaning: 1 };
   let startLine = 0;
@@ -136,8 +145,8 @@ export function parseCsv(text: string): ParsedWord[] {
   if (hasHeaders) {
     startLine = 1;
     firstFields.forEach((lh, i) => {
-      if (["word", "英単語", "単語", "english"].includes(lh)) headerMap.word = i;
-      else if (["meaning", "意味", "日本語", "japanese"].includes(lh)) headerMap.meaning = i;
+      if (WORD_LABELS.includes(lh)) headerMap.word = i;
+      else if (MEANING_LABELS.includes(lh)) headerMap.meaning = i;
       else if (["phonetic", "発音", "読み方", "pronunciation"].includes(lh)) headerMap.phonetic = i;
       else if (["example", "例文", "英語例文"].includes(lh)) headerMap.example = i;
       else if (["example_ja", "例文日本語", "日本語例文"].includes(lh)) headerMap.example_ja = i;

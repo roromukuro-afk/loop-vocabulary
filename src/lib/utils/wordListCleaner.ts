@@ -296,20 +296,32 @@ const CSV_COLUMN_LABELS: Record<"word" | "meaning", string[]> = {
 // delimiterを引数化しているのは、コピペされたスプレッドシート由来のタブ区切り
 // 複数列("word\tmeaning\tphonetic")も、CSV由来のカンマ区切り複数列と同じロジックで
 // 列選択できるようにするため(Codexレビュー指摘対応、PR #105、10巡目、P2)。
+// クォートは、そのフィールドの先頭(直前が区切り文字または行頭)にある場合だけ
+// 「クォートされたフィールドの開始」とみなす。フィールド途中の単一の"
+// (例: "5\" unit"のインチ記号)まで無条件にクォート開始として扱うと、文字自体が
+// 出力から消えてしまう(Codexレビュー指摘対応、PR #105、16巡目、P2: csvImportParsing.ts
+// のparseLine()に対して15巡目で行った修正と同じ内容を、こちらのsplitDelimitedRow()にも
+// 適用)。
 function splitDelimitedRow(row: string, delimiter: string): string[] {
   const result: string[] = [];
   let current = "";
   let inQuotes = false;
   for (let i = 0; i < row.length; i++) {
     const char = row[i];
-    if (char === '"') {
-      if (inQuotes && row[i + 1] === '"') { current += '"'; i++; }
-      else inQuotes = !inQuotes;
-    } else if (char === delimiter && !inQuotes) {
-      result.push(current); current = "";
-    } else {
-      current += char;
+    if (char === '"' && !inQuotes && current === "") {
+      inQuotes = true;
+      continue;
     }
+    if (char === '"' && inQuotes) {
+      if (row[i + 1] === '"') { current += '"'; i++; continue; }
+      inQuotes = false;
+      continue;
+    }
+    if (char === delimiter && !inQuotes) {
+      result.push(current); current = "";
+      continue;
+    }
+    current += char;
   }
   result.push(current);
   return result;

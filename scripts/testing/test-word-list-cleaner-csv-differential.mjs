@@ -170,11 +170,44 @@ function main() {
         reason: `record count mismatch: papaparse=${expectedRecordCount}, ours=${ourRecordCount}`,
         papaRows, ourEntries,
       });
+      continue;
+    }
+
+    // 件数だけでなく、実際にword/meaning列として取り出された「値」自体も
+    // PapaParseの同じ列(index 0/1、生成したヘッダはword,meaning,extra*固定)と
+    // 突き合わせる。件数比較だけでは、"word,\"x,y\""をwordとmeaningの境界を
+    // 誤ってcorruptしたまま1件として返すような不具合(例: フィールド内容の破損)を
+    // 検出できない(Codexレビュー指摘対応、PR #105、16巡目、P2)。列0/1をこちら側の
+    // 出力と同じくtrim()してから比較する(こちら側もword/meaning抽出時にtrim()を
+    // 適用しているため)。papaの列0または列1がtrim後に空になる行は、こちら側でも
+    // word/meaningいずれかが空になりskipされる行に相当するため、比較対象から除く
+    // (件数の突き合わせは既に上のourRecordCount比較で担保済み)。
+    const papaWordMeaningPairs = papaNonBlankRows
+      .map((row) => ({ word: (row[0] ?? "").trim(), meaning: (row[1] ?? "").trim() }))
+      .filter((p) => p.word !== "" && p.meaning !== "");
+    if (papaWordMeaningPairs.length !== ourEntries.entries.length) {
+      failures.push({
+        n, seed: SEED, text, delimiter,
+        reason: `kept-entry count mismatch: papaparse(non-empty word+meaning)=${papaWordMeaningPairs.length}, ours=${ourEntries.entries.length}`,
+        papaRows, ourEntries,
+      });
+      continue;
+    }
+    for (let k = 0; k < papaWordMeaningPairs.length; k++) {
+      const expected = papaWordMeaningPairs[k];
+      const actual = ourEntries.entries[k];
+      if (actual.word !== expected.word || actual.meaning !== expected.meaning) {
+        failures.push({
+          n, seed: SEED, text, delimiter, index: k,
+          reason: `field value mismatch at entry ${k}: papaparse={word:${JSON.stringify(expected.word)},meaning:${JSON.stringify(expected.meaning)}}, ours={word:${JSON.stringify(actual.word)},meaning:${JSON.stringify(actual.meaning)}}`,
+          papaRows, ourEntries,
+        });
+      }
     }
   }
 
   if (failures.length === 0) {
-    ok(`differential test: ${ITERATIONS} generated CSV/TSV inputs (quoted fields, escaped quotes, embedded delimiters/newlines, CRLF/LF, empty cells, trailing newlines, 1-4 records) all agree with PapaParse on record structure`);
+    ok(`differential test: ${ITERATIONS} generated CSV/TSV inputs (quoted fields, escaped quotes, embedded delimiters/newlines, CRLF/LF, empty cells, trailing newlines, 1-4 records) all agree with PapaParse on record structure AND on the actual word/meaning field values extracted`);
   } else {
     for (const f of failures.slice(0, 5)) {
       bad(`differential mismatch (n=${f.n}, seed=${f.seed}, delimiter=${JSON.stringify(f.delimiter)}): ${f.reason}\n  minimal repro text: ${JSON.stringify(f.text)}`);
