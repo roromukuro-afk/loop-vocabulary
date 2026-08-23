@@ -7,6 +7,14 @@ import { parseWordList, toWordbookCsv, csvWithBom, type WordListEntry } from "@/
 
 const TOOL_KEY = "word-list-cleaner";
 
+// 単語帳への実際のインポート先(src/app/api/wordbook/[id]/csv-import/route.ts の
+// PREMIUM_LIMIT)が黙って超過分を切り捨てる件数。このツール自体は件数の上限なく
+// 整形・コピー・ダウンロードできてしまうため、この件数を超えた場合はインポート時に
+// 一部が失われることを明示する(Codexレビュー指摘対応、PR #105、14巡目、P2:
+// 例えば8,000件を整形して「8,000件」と表示されたまま単語帳へインポートすると、
+// 何の警告もなく先頭5,000件しか保存されず、ユーザーが気づけない)。
+const WORDBOOK_IMPORT_LIMIT = 5000;
+
 const PLACEHOLDER = `apple: りんご
 banana - バナナ
 cherry\tさくらんぼ`;
@@ -157,6 +165,11 @@ export function WordListCleaner() {
               {neutralizedCount > 0 && (
                 <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
                   「=」「+」「-」「@」で始まる項目が{neutralizedCount}件あったため、表計算ソフトで数式として実行されるのを防ぐ目的で、コピー・ダウンロードされるCSVでは該当セルの先頭に <code className="bg-white px-1 rounded">&apos;</code> を追加しています(下のプレビュー表示は元の値のままです)。
+                </p>
+              )}
+              {entries.length > WORDBOOK_IMPORT_LIMIT && (
+                <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+                  整形結果が{entries.length}件あり、単語帳の「CSV一括インポート」で一度に取り込める上限({WORDBOOK_IMPORT_LIMIT}件、プレミアムプランの場合)を超えています。このままインポートすると、先頭{WORDBOOK_IMPORT_LIMIT}件のみが保存され、残りは取り込まれません。ファイルを分割してからインポートすることをおすすめします。
                 </p>
               )}
               <div className="max-h-64 overflow-y-auto border border-navy-100 rounded-xl">

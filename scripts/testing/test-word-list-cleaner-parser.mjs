@@ -720,6 +720,36 @@ function main() {
     }
   }
 
+  // ---- Codexレビュー指摘対応(PR #105、14巡目、P2): CsvImportPanel.parseCsv()の
+  // ヘッダ判定が、クォート内改行を含む先頭レコード全体への部分一致ではなく、
+  // 実際にフィールド分割した値の完全一致で行われる。meaning側の値にたまたま
+  // "meaning"という文字列が含まれるヘッダ無しデータ行が、誤ってヘッダ行と
+  // 判定されない ----
+  {
+    const csvText = 'apple,"line one\nmeaning follows"\nbanana,バナナ';
+    const result = parseCsv(csvText);
+    if (
+      result.length === 2 &&
+      result[0].word === "apple" &&
+      result[0].meaning === "line one\nmeaning follows" &&
+      result[1].word === "banana" &&
+      result[1].meaning === "バナナ"
+    ) {
+      ok('ヘッダ無しデータ行のmeaning値にたまたま"meaning"という文字列が含まれていても、部分一致で誤ってヘッダ扱いされず先頭データ行(apple)が失われない');
+    } else {
+      bad(`ヘッダ判定の完全一致化が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+  {
+    // 本物のヘッダ行(word,meaning)は引き続き正しくヘッダとして認識される(回帰確認)。
+    const result = parseCsv("word,meaning\napple,りんご");
+    if (result.length === 1 && result[0].word === "apple" && result[0].meaning === "りんご") {
+      ok("本物のヘッダ行(word,meaning)は引き続き正しくヘッダとして認識される(回帰確認)");
+    } else {
+      bad(`本物のヘッダ行認識の回帰確認が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;

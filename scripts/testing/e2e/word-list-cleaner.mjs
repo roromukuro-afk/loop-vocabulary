@@ -324,6 +324,37 @@ async function main() {
     if (errors.length === 0) ok("コンソールエラー・5xxエラーなし");
     else fail(`コンソールエラー等を検出: ${errors.join(" / ")}`);
 
+    // ---- Codexレビュー指摘対応(PR #105、14巡目、P2): 単語帳への実際のインポート
+    // 上限(プレミアムで5,000件)を超える件数を整形すると、インポート時に一部が
+    // 失われる旨の警告が表示される。5,000行超の大きな入力はfill()自体に時間が
+    // かかりうるため、独立したtry/catchに分離し(失敗してもそれまでの重要な
+    // チェック結果を道連れにしない)、タイムアウトも延長する。 ----
+    try {
+      // 直前のCTAクリックチェックで/signupへ遷移したままなので、まずページへ
+      // 戻る(でないと#word-list-inputが存在せずlocatorがtimeoutする)。
+      await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
+      const overLimitInput = Array.from({ length: 5001 }, (_, i) => `word${i}: 意味${i}`).join("\n");
+      // 5,000行超(約10万文字)はlocator.fill()が不安定にtimeoutすることがあるため、
+      // React管理下のcontrolled textareaへネイティブのvalueセッター+inputイベントで
+      // 直接値を設定する(React 16+の制御コンポーネントがonChangeを正しく検知する
+      // 標準的な方法)。
+      await page.locator("#word-list-input").evaluate((el, value) => {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+        setter.call(el, value);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      }, overLimitInput);
+      await page.locator('button:has-text("CSVに整形する")').click();
+      await page.waitForTimeout(500);
+      const overLimitBodyText = await page.locator("body").innerText();
+      if (overLimitBodyText.includes("整形結果(5001件)") && /5000件.*(のみ|上限)|上限.*5000件/.test(overLimitBodyText)) {
+        ok("単語帳へのインポート上限(5,000件)を超える整形結果には、超過分が失われる旨の警告が表示される");
+      } else {
+        fail(`インポート上限超過の警告表示が見つからない。本文抜粋: ${overLimitBodyText.slice(0, 800)}`);
+      }
+    } catch (e) {
+      fail(`5,000件超入力の検証中に例外: ${e.message}`);
+    }
+
     await context.close();
   } catch (e) {
     fail(`ブラウザ検証中に例外: ${e.message}`);

@@ -77,22 +77,36 @@ function splitCsvRecords(text: string): string[] {
   return records;
 }
 
+// 認識するヘッダラベル一覧(word/meaning/phonetic/example/example_ja)。
+const HEADER_LABELS = [
+  "word", "英単語", "単語", "english",
+  "meaning", "意味", "日本語", "japanese",
+  "phonetic", "発音", "読み方", "pronunciation",
+  "example", "例文", "英語例文",
+  "example_ja", "例文日本語", "日本語例文",
+];
+
 export function parseCsv(text: string): ParsedWord[] {
   const lines = splitCsvRecords(text.trim()).filter(l => l.trim());
   if (lines.length === 0) return [];
 
-  const firstLower = lines[0].toLowerCase();
-  const hasHeaders = firstLower.includes("word") || firstLower.includes("meaning") ||
-    firstLower.includes("単語") || firstLower.includes("英単語");
+  // 先頭レコードを実際にCSVフィールドとして分割してから、各フィールドの値が
+  // 既知のヘッダラベルと完全一致するかで判定する(行全体に対する部分一致では
+  // ないことに注意)。splitIntoRecords/splitCsvRecordsがクォート内の改行を
+  // 正しく1レコードとして保持するようになったことで、"apple,\"line
+  // one\nmeaning follows\""のような、meaningの値にたまたま"meaning"という
+  // 文字列を含むヘッダなしデータ行が、行全体への部分一致では誤ってヘッダ行と
+  // 判定され、本来の最初のデータ行(apple)が丸ごと消えてしまっていた
+  // (Codexレビュー指摘対応、PR #105、14巡目、P2)。
+  const firstFields = parseLine(lines[0]).map((f) => f.trim().toLowerCase());
+  const hasHeaders = firstFields.some((f) => HEADER_LABELS.includes(f));
 
   const headerMap: Record<string, number> = { word: 0, meaning: 1 };
   let startLine = 0;
 
   if (hasHeaders) {
     startLine = 1;
-    const headers = parseLine(lines[0]);
-    headers.forEach((h, i) => {
-      const lh = h.toLowerCase().trim();
+    firstFields.forEach((lh, i) => {
       if (["word", "英単語", "単語", "english"].includes(lh)) headerMap.word = i;
       else if (["meaning", "意味", "日本語", "japanese"].includes(lh)) headerMap.meaning = i;
       else if (["phonetic", "発音", "読み方", "pronunciation"].includes(lh)) headerMap.phonetic = i;
