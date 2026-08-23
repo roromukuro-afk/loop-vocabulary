@@ -655,6 +655,54 @@ function main() {
     }
   }
 
+  // ---- Codexレビュー指摘対応(PR #105、12巡目、P2): コロンの直後に空白があり
+  // (word: meaning形式)、意味側の英語がさらに続いてから日本語へ切り替わる場合、
+  // ラテン→日本語境界より「word:」というコロン区切りを優先する ----
+  {
+    const cases = [
+      ["apple: red りんご", { word: "apple", meaning: "red りんご" }],
+      ["apple: red, blue りんご", { word: "apple", meaning: "red, blue りんご" }],
+    ];
+    let allOk = true;
+    for (const [input, expected] of cases) {
+      const result = parseWordListLine(input);
+      if (result?.word !== expected.word || result?.meaning !== expected.meaning) {
+        allOk = false;
+        bad(`コロン直後に空白があるケースの解析が想定外: ${JSON.stringify(input)} → ${JSON.stringify(result)}(期待値: ${JSON.stringify(expected)})`);
+      }
+    }
+    if (allOk) ok('コロンの直後に空白がある場合("apple: red りんご")、意味側に続く英語に惑わされずコロン区切りを優先する');
+  }
+  {
+    // コロンの直後に空白が無い場合(8:30のような時刻表記)は、この優先付けの対象外で
+    // 引き続きラテン→日本語境界に委ねる(回帰確認)。
+    const result = parseWordListLine("8:30 午前八時半");
+    if (result?.word === "8:30" && result?.meaning === "午前八時半") {
+      ok('コロンの直後に空白が無い場合(8:30)は優先付けの対象外のまま、ラテン→日本語境界が正しく機能する(回帰確認)');
+    } else {
+      bad(`8:30の回帰確認が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
+  // ---- Codexレビュー指摘対応(PR #105、12巡目、P2): クォートで開いたフィールド
+  // 内部の""(doubled quote、エスケープされた"1文字)の直後に改行が続いても、
+  // その""をフィールドの閉じクォートと誤認識してレコードを分断しない ----
+  {
+    const entries = [{ word: "hello", meaning: 'say "hi"\nnext line' }];
+    const { csv } = toWordbookCsv(entries);
+    const result = parseWordList(csv);
+    if (
+      result.entries.length === 1 &&
+      result.entries[0].word === "hello" &&
+      result.entries[0].meaning === 'say "hi"\nnext line' &&
+      result.skippedLineNumbers.length === 0
+    ) {
+      ok('エスケープされた""(doubled quote)を含むmeaning内の改行を含む値をtoWordbookCsvで生成し貼り直しても、""を閉じクォートと誤認識せず正しく復元される(往復確認)');
+    } else {
+      bad(`エスケープされた""を含む改行付き値のround-tripが想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;

@@ -157,6 +157,30 @@ export function parseWordListLine(rawLine: string): WordListEntry | null {
     if (idx !== -1) best = { index: idx, length: 1 };
   }
 
+  // 半角/全角コロンの直後に空白がある場合("apple: red りんご"のように、コロンの
+  // 後にさらに英語の語句が続いてから日本語へ切り替わる場合)は、"word: meaning"
+  // というこのツールが案内する最も典型的な辞書形式の区切りとみなし、下記の
+  // ラテン→日本語境界より優先する。優先しないと、"red"の直後の空白が
+  // ラテン→日本語境界としてマッチしてしまい、"apple: red"が丸ごとwordに
+  // 取り込まれてしまう(Codexレビュー指摘対応、PR #105、12巡目、P2)。
+  // コロンの直後に空白が無い場合("8:30"のような時刻表記等、コロンが1つの語の
+  // 内部にある場合)はこの優先扱いの対象外とし、下記のラテン→日本語境界に
+  // 判定を委ねる(このケースを区別しないと、この優先付けが"8:30 午前八時半"の
+  // ような既存のケースを壊してしまう)。
+  if (!best) {
+    for (const colon of ["：", ":"]) {
+      let idx = line.indexOf(colon, searchStart);
+      while (idx !== -1) {
+        const nextChar = line[idx + colon.length];
+        if (!insideParen[idx] && (nextChar === " " || nextChar === "　")) {
+          if (!best || idx < best.index) best = { index: idx, length: colon.length };
+          break;
+        }
+        idx = line.indexOf(colon, idx + 1);
+      }
+    }
+  }
+
   // ラテン文字→日本語境界(空白ベース)も、タブと同様に見つかれば常に優先し、
   // 以降のpunctuation/ハイフンの判定は行わない(Codexレビュー指摘対応、PR #105、
   // 11巡目、P2)。以前はこの境界をpunctuationと同じ「最も左側」比較に含めて
@@ -319,6 +343,17 @@ function splitIntoRecords(text: string): string[] {
       continue;
     }
     if (ch === '"' && inQuotes) {
+      // クォートで開いたフィールドの内部にある""(doubled quote)は、csvField()が
+      // 実際に出力しうるエスケープされた"1文字を表すRFC4180の規則であり、
+      // フィールドを閉じるものではない。これを閉じクォートとして扱うと、
+      // "say ""hi""\nnext line"のような値で最初の""の片方だけを閉じクォートと
+      // 誤認識し、以降を「クォートの外」とみなしてしまうため、直後の改行で
+      // 誤ってレコードが分断されていた(Codexレビュー指摘対応、PR #105、12巡目、P2)。
+      if (text[i + 1] === '"') {
+        current += '""';
+        i++;
+        continue;
+      }
       inQuotes = false;
       current += ch;
       continue;
