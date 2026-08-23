@@ -29,6 +29,12 @@ export function WordListCleaner() {
   const [downloadFailed, setDownloadFailed] = useState(false);
   const generatedFiredRef = useRef(false);
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // handleFormatが呼ばれるたびに増分する世代カウンタ。navigator.clipboard.writeText()の
+  // Promiseが未解決のまま入力編集→再整形が行われた場合、その古いPromiseが後から解決
+  // しても新しい(まだコピーされていない)結果へ誤って「コピーしました」を反映させない
+  // ために使う(Codexレビュー指摘対応、PR #105、15巡目、P2: 9巡目の修正は同期的な
+  // タイマー・状態のリセットのみで、非同期処理中のPromise自体は考慮していなかった)。
+  const formatGenerationRef = useRef(0);
 
   useEffect(() => {
     trackToolStarted(TOOL_KEY);
@@ -54,6 +60,7 @@ export function WordListCleaner() {
   }
 
   function handleFormat() {
+    formatGenerationRef.current += 1;
     const result = parseWordList(input);
     setEntries(result.entries);
     setSkippedLineNumbers(result.skippedLineNumbers);
@@ -78,13 +85,21 @@ export function WordListCleaner() {
 
   async function handleCopy() {
     if (!csv) return;
+    // このコピー操作が対象としている整形結果の世代を覚えておく。
+    // navigator.clipboard.writeText()がpendingの間に入力編集→再整形されると、
+    // 完了時点ではもう別の(まだコピーされていない)結果に切り替わっている
+    // ため、その場合はこの結果を無視する(Codexレビュー指摘対応、PR #105、
+    // 15巡目、P2)。
+    const generationAtCopyStart = formatGenerationRef.current;
     try {
       await navigator.clipboard.writeText(csv);
+      if (formatGenerationRef.current !== generationAtCopyStart) return;
       setCopied(true);
       setCopyFailed(false);
       if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
       copiedTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
+      if (formatGenerationRef.current !== generationAtCopyStart) return;
       // クリップボードAPIが使えない環境(権限拒否・非対応ブラウザ)では、下に表示される
       // 読み取り専用テキストエリアを全選択して手動コピーしてもらうフォールバックを示す。
       setCopied(false);

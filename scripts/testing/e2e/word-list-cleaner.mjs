@@ -390,6 +390,50 @@ async function main() {
     fail(`クリップボード失敗フォールバック検証中に例外: ${e.message}`);
   }
 
+  // ---- Codexレビュー指摘対応(PR #105、15巡目、P2): navigator.clipboard.writeText()が
+  // pendingの間に入力編集→再整形すると、古いPromiseが後から解決しても新しい
+  // (まだコピーされていない)結果に「コピーしました ✓」が誤って反映されない ----
+  try {
+    const raceContext = await browser.newContext();
+    const racePage = await raceContext.newPage();
+    // writeTextの解決を、ページ側からwindow.__resolveClipboardWrite__()を
+    // 呼ぶまで意図的に保留する(タイマーではなく明示的なトリガーにすることで、
+    // タイミングに依存しない確実な再現にする)。
+    await racePage.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: () =>
+            new Promise((resolve) => {
+              window.__resolveClipboardWrite__ = resolve;
+            }),
+        },
+        configurable: true,
+      });
+    });
+    await gotoReady(racePage, `${baseUrl}${PAGE_PATH}`);
+    await racePage.locator("#word-list-input").fill(SAMPLE_INPUT);
+    await racePage.locator('button:has-text("CSVに整形する")').click();
+    await racePage.waitForTimeout(200);
+    await racePage.locator('button:has-text("CSVをコピー")').click();
+    await racePage.waitForTimeout(100); // writeText()はまだpending
+    // pendingのまま入力を編集→再整形する(新しい結果へ切り替わる)。
+    await racePage.locator("#word-list-input").fill(SAMPLE_INPUT + "\nextra: 追加");
+    await racePage.locator('button:has-text("CSVに整形する")').click();
+    await racePage.waitForTimeout(200);
+    // ここでようやく古いwriteText()を解決させる。
+    await racePage.evaluate(() => window.__resolveClipboardWrite__?.());
+    await racePage.waitForTimeout(300);
+    const copyButtonTextAfterStaleResolve = await racePage.locator('button:has-text("CSVをコピー"), button:has-text("コピーしました")').innerText();
+    if (copyButtonTextAfterStaleResolve === "CSVをコピー") {
+      ok("コピー中(Promise pending)に編集→再整形すると、古いPromiseが後から解決しても新しい(未コピーの)結果に「コピーしました ✓」が誤って反映されない");
+    } else {
+      fail(`古いコピーPromise解決後のボタン表示が想定外: ${JSON.stringify(copyButtonTextAfterStaleResolve)}(「CSVをコピー」であるべき)`);
+    }
+    await raceContext.close();
+  } catch (e) {
+    fail(`クリップボードPromiseのrace condition検証中に例外: ${e.message}`);
+  }
+
   // ---- モバイルviewportでもtextarea/ボタンが操作可能であることを確認する ----
   try {
     const mobileContext = await browser.newContext({ viewport: { width: 375, height: 812 } });

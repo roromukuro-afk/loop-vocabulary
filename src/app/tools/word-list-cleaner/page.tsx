@@ -14,6 +14,19 @@ export const metadata: Metadata = {
     description: "区切り文字がバラバラな単語リストを、単語帳インポート用CSVへその場で整形。ログイン不要ですぐ使えます。",
     url: PAGE_URL,
     type: "website",
+    siteName: "Loop Vocabulary",
+    locale: "ja_JP",
+    // ページ側でopenGraphを指定するとlayout.tsxのopenGraph(images含む)は
+    // フィールドごとにdeep mergeされず丸ごと置き換わるため、共通のOG画像を
+    // ここでも明示しないとSNSシェア時に画像なしになる(vocab-test-maker等と
+    // 同じパターン、Codexレビュー指摘対応、PR #105、15巡目、P2)。
+    images: [{ url: `${SITE_URL}/api/og`, width: 1200, height: 630, alt: "Loop Vocabulary" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "英単語リスト整形・CSV変換ツール【無料】単語帳インポート用",
+    description: "区切り文字がバラバラな単語リストを、単語帳インポート用CSVへその場で整形。ログイン不要ですぐ使えます。",
+    images: [`${SITE_URL}/api/og`],
   },
 };
 

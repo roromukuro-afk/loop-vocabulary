@@ -750,6 +750,26 @@ function main() {
     }
   }
 
+  // ---- Codexレビュー指摘対応(PR #105、15巡目、P2): CsvImportPanel.parseCsv()でも、
+  // 区切り文字でも何でもないただの記号としての単一の"(インチ記号等)を含む行が、
+  // 次の行を誤って呑み込まない(wordListCleaner.tsのsplitIntoRecords()に対して
+  // 11巡目で行った修正と同じ内容を、csvImportParsing.tsのsplitCsvRecords()にも
+  // 適用) ----
+  {
+    const result = parseCsv('inch,5" unit\napple,りんご');
+    if (
+      result.length === 2 &&
+      result[0].word === "inch" &&
+      result[0].meaning === '5" unit' &&
+      result[1].word === "apple" &&
+      result[1].meaning === "りんご"
+    ) {
+      ok('CsvImportPanel.parseCsv()でも、区切り文字でもクォートでもない単一の"(インチ記号)を含む行が次の行を誤って呑み込まない');
+    } else {
+      bad(`実インポーターでの単一"を含む行の処理が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;

@@ -14,20 +14,34 @@ export type ParsedWord = {
   example_ja?: string;
 };
 
+// フィールド内のクォートは、そのフィールドの先頭(直前がカンマまたは行頭)に
+// ある場合だけ「クォートされたフィールドの開始」とみなす。フィールド途中の
+// 単一の"(例: "5\" unit"のインチ記号)まで無条件にクォート開始として扱うと、
+// splitCsvRecords()側の改行呑み込みは直らなくても、このparseLine()単体では
+// 文字自体が消えてしまう(inQuotes中はクォート文字をcurrentへ追加しないため)。
+// レコード分割(splitCsvRecords)と同じ「フィールド境界でだけクォートを認識する」
+// 考え方をフィールド分割(parseLine)側にも揃える(Codexレビュー指摘対応、
+// PR #105、15巡目、P2の修正過程で新たに判明)。
 export function parseLine(line: string): string[] {
   const result: string[] = [];
   let current = "";
   let inQuotes = false;
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-      else inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
-      result.push(current); current = "";
-    } else {
-      current += char;
+    if (char === '"' && !inQuotes && current === "") {
+      inQuotes = true;
+      continue;
     }
+    if (char === '"' && inQuotes) {
+      if (line[i + 1] === '"') { current += '"'; i++; continue; }
+      inQuotes = false;
+      continue;
+    }
+    if (char === ',' && !inQuotes) {
+      result.push(current); current = "";
+      continue;
+    }
+    current += char;
   }
   result.push(current);
   return result;
@@ -50,18 +64,33 @@ export function stripLeadingApostrophe(value: string): string {
 // text全体を単純にtext.split(/\r?\n/)すると、/tools/word-list-cleanerのtoWordbookCsv()
 // (csvField()参照)が実際に出力しうる「meaningに改行を含む値をダブルクォートで囲んだCSV」を
 // このインポーターへ貼り付け直した際、クォート内部の改行でレコードが分断され、後半が
-// 欠落する(Codexレビュー指摘対応、PR #105、11巡目、P2)。ここは常にRFC4180形式の
-// CSVとして扱う前提のファイルのため(自由記述の見出し語混じりテキストは扱わない)、
-// wordListCleaner.ts のsplitIntoRecords()と異なり、クォートの出現位置を
-// レコード先頭/区切り文字の直後に限定する必要はない。
+// 欠落する(Codexレビュー指摘対応、PR #105、11巡目、P2)。
+//
+// 当初はここを常にRFC4180形式のCSVとして扱う前提とし、クォートの出現位置を
+// レコード先頭/区切り文字の直後に限定する必要はないとしていたが、実際にはこの
+// インポーターも(word-list-cleaner同様に).txt等の自由記述に近いテキストを
+// 受け付けうるため、"inch,5\" unit\napple,りんご"のように、区切り文字でも
+// 何でもないただの記号としての単一の"(インチ記号)を含む行が、以降の改行までを
+// すべて「クォートの中」とみなして次の行を丸ごと呑み込んでしまっていた
+// (Codexレビュー指摘対応、PR #105、15巡目、P2)。wordListCleaner.tsの
+// splitIntoRecords()と同じ考え方で、クォートはレコードの先頭またはカンマ区切りの
+// 直後にある場合だけ「フィールドの開始」とみなし、それ以外の位置に現れた単一の"は
+// 状態をトグルしないただの文字として扱う。
+const RECORD_START_QUOTE_CONTEXT = /,\s*$/;
+
 function splitCsvRecords(text: string): string[] {
   const records: string[] = [];
   let current = "";
   let inQuotes = false;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
-    if (ch === '"') {
-      inQuotes = !inQuotes;
+    if (ch === '"' && !inQuotes && (current === "" || RECORD_START_QUOTE_CONTEXT.test(current))) {
+      inQuotes = true;
+      current += ch;
+      continue;
+    }
+    if (ch === '"' && inQuotes) {
+      inQuotes = false;
       current += ch;
       continue;
     }
