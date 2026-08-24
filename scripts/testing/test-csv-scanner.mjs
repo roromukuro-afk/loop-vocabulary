@@ -79,6 +79,39 @@ function main() {
     bad(`閉じクォート無し入力で例外が発生: ${e.message}`);
   }
 
+  // ---- 区切り文字とクォートの間に空白があるフィールド(Codexレビュー指摘対応、
+  // PR #105、round-17再監査P2)。旧実装は`current === ""`だけを見ていたため、
+  // 空白が積まれた時点でクォート開始を認識できず、内部のカンマを誤って区切り文字
+  // として分割していた。splitCsvRecords側は元々`delimiter\s*"`を許容していたため、
+  // 両者で挙動が食い違っていた。 ----
+  eq(
+    splitCsvFields('apple, "red, fruit"', ","),
+    ["apple", "red, fruit"],
+    "区切り文字の直後に空白があっても、その後のクォートされたフィールドは正しく認識され、内部のカンマで誤分割されない(空白自体は破棄される)",
+  );
+  eq(
+    splitCsvFields('  "leading spaces"', ","),
+    ["leading spaces"],
+    "フィールド先頭の空白(複数)の後のクォートも同様に認識され、空白は破棄される",
+  );
+
+  // ---- 性能: delimiterでもクォートでもない単一の"を大量に含む巨大な1レコード/
+  // 1フィールドでも、線形時間で処理できること(Codexレビュー指摘対応、PR #105、
+  // round-17再監査P2)。旧実装はcurrent全体を都度正規表現でre-scanしており、
+  // 160,000文字規模の入力でO(n^2)となり約13秒かかっていた。 ----
+  {
+    const pathological = "a\"".repeat(80000); // 約160,000文字、区切り文字を含まない単一レコード/フィールド
+    const t0 = Date.now();
+    const recResult = splitCsvRecords(pathological, [","]);
+    const fieldResult = splitCsvFields(pathological, ",");
+    const elapsedMs = Date.now() - t0;
+    if (Array.isArray(recResult) && Array.isArray(fieldResult) && elapsedMs < 1000) {
+      ok(`delimiterでもクォートでもない単一の"を80,000個含む約16万文字の入力を${elapsedMs}msで例外なく処理する(旧実装はO(n^2)で約13秒かかっていた)`);
+    } else {
+      bad(`巨大な入力の処理が想定より遅い、または失敗: elapsedMs=${elapsedMs}`);
+    }
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;

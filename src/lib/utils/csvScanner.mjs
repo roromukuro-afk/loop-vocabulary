@@ -41,6 +41,14 @@
  * エスケープされた"1文字を表すRFC4180の規則であり、閉じクォートとしては
  * 扱わない(先読みで判定し、ペアごと消費する)。
  *
+ * 「フィールド境界にいるか」は、`current`(それまでの累積文字列)全体に対して
+ * 正規表現を都度re-scanするのではなく、1文字ごとにO(1)で更新する`atFieldBoundary`
+ * フラグとして追跡する(Codexレビュー指摘対応、PR #105、round-17再監査P2:
+ * delimiterでもクォートでもない単一の"を大量に含む巨大な1レコード(例:
+ * "a\""を80,000回繰り返した約16万文字)では、都度current全体を正規表現で
+ * re-scanする実装だとO(n^2)になり、ブラウザのメインスレッドを約13秒間
+ * ブロックしていた)。
+ *
  * @param {string} text
  * @param {string[]} delimiterChars このテキストで区切り文字として使われうる
  *   1文字ずつの候補一覧(例: [","] や ["\t", ","])。呼び出し時点でまだ
@@ -49,28 +57,41 @@
  * @returns {string[]}
  */
 export function splitCsvRecords(text, delimiterChars) {
-  const contextPattern = new RegExp(`[${delimiterChars.map(escapeForCharClass).join("")}]\\s*$`);
+  const delimiterSet = new Set(delimiterChars);
   const records = [];
   let current = "";
   let inQuotes = false;
+  // レコード先頭は常にフィールド境界(旧実装の`current === ""`特例に相当)。
+  let atFieldBoundary = true;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
-    if (ch === '"' && !inQuotes && (current === "" || contextPattern.test(current))) {
+    if (ch === '"' && !inQuotes && atFieldBoundary) {
       inQuotes = true;
       current += ch;
+      atFieldBoundary = false;
       continue;
     }
     if (ch === '"' && inQuotes) {
       if (text[i + 1] === '"') { current += '""'; i++; continue; }
       inQuotes = false;
       current += ch;
+      atFieldBoundary = false;
       continue;
     }
     if (!inQuotes && (ch === "\n" || ch === "\r")) {
       records.push(current);
       current = "";
+      atFieldBoundary = true;
       if (ch === "\r" && text[i + 1] === "\n") i++;
       continue;
+    }
+    if (!inQuotes) {
+      if (delimiterSet.has(ch)) {
+        atFieldBoundary = true;
+      } else if (!(atFieldBoundary && /\s/.test(ch))) {
+        // delimiter直後の空白が続く間だけatFieldBoundaryを維持する。
+        atFieldBoundary = false;
+      }
     }
     current += ch;
   }
@@ -80,9 +101,20 @@ export function splitCsvRecords(text, delimiterChars) {
 
 /**
  * 1レコード分の文字列を`delimiter`でフィールドに分割する。クォートは
- * フィールドの先頭(直前が区切り文字または行頭)にある場合だけ「クォートされた
- * フィールドの開始」とみなし、それ以外の位置に現れた単一の"はただの文字として
- * 保持する。クォート内部の""は先読みでエスケープされた"1文字として扱う。
+ * フィールドの先頭(直前が区切り文字・行頭、またはそれらの直後の空白のみ)に
+ * ある場合だけ「クォートされたフィールドの開始」とみなし、それ以外の位置に
+ * 現れた単一の"はただの文字として保持する。クォート内部の""は先読みで
+ * エスケープされた"1文字として扱う。
+ *
+ * フィールド先頭かどうかは、splitCsvRecords()と同じ理由でO(1)の
+ * `atFieldStart`フラグとして追跡する(Codexレビュー指摘対応、PR #105、
+ * round-17再監査P2)。区切り文字とクォートの間に空白がある入力
+ * (例: `word,meaning\napple, "red, fruit"`)では、旧実装(`current === ""`
+ * だけを見る判定)だと空白が既にcurrentへ積まれた時点でクォート開始と
+ * 認識できず、内部のカンマを誤って区切り文字として分割してしまっていた
+ * (splitCsvRecords側は元々`delimiter\s*"`を許容しており、両者で挙動が
+ * 食い違っていた)。空白のみを飛ばしてクォート開始を認識し、その空白は
+ * 破棄する(引用符直前の空白は値に含めない)。
  *
  * @param {string} row
  * @param {string} delimiter 1文字の区切り文字(例: "," または "\t")
@@ -92,29 +124,32 @@ export function splitCsvFields(row, delimiter) {
   const result = [];
   let current = "";
   let inQuotes = false;
+  // フィールド先頭(または先頭からの空白の連続)にいるかどうか。
+  let atFieldStart = true;
   for (let i = 0; i < row.length; i++) {
     const char = row[i];
-    if (char === '"' && !inQuotes && current === "") {
+    if (char === '"' && !inQuotes && atFieldStart) {
       inQuotes = true;
+      current = ""; // ここまでに積まれた先頭の空白は破棄する。
       continue;
     }
     if (char === '"' && inQuotes) {
       if (row[i + 1] === '"') { current += '"'; i++; continue; }
       inQuotes = false;
+      atFieldStart = false;
       continue;
     }
     if (char === delimiter && !inQuotes) {
       result.push(current);
       current = "";
+      atFieldStart = true;
       continue;
+    }
+    if (!inQuotes) {
+      atFieldStart = atFieldStart && /\s/.test(char);
     }
     current += char;
   }
   result.push(current);
   return result;
-}
-
-function escapeForCharClass(ch) {
-  // 文字クラス([...])の中で特別な意味を持ちうる文字だけをエスケープする。
-  return ch.replace(/[\]\\^-]/g, "\\$&");
 }
