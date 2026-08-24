@@ -346,10 +346,14 @@ async function main() {
       await page.locator('button:has-text("CSVに整形する")').click();
       await page.waitForTimeout(500);
       const overLimitBodyText = await page.locator("body").innerText();
-      if (overLimitBodyText.includes("整形結果(5001件)") && /5000件.*(のみ|上限)|上限.*5000件/.test(overLimitBodyText)) {
-        ok("単語帳へのインポート上限(5,000件)を超える整形結果には、超過分が失われる旨の警告が表示される");
+      if (
+        overLimitBodyText.includes("整形結果(5001件)") &&
+        /5000件.*(のみ|上限)|上限.*5000件/.test(overLimitBodyText) &&
+        overLimitBodyText.includes("残り1件は上限超過のため取り込まれません")
+      ) {
+        ok("単語帳へのインポート上限(5,000件)を超える整形結果には、超過分が失われる旨の警告と、除外される正確な件数(1件)が表示される");
       } else {
-        fail(`インポート上限超過の警告表示が見つからない。本文抜粋: ${overLimitBodyText.slice(0, 800)}`);
+        fail(`インポート上限超過の警告表示、または除外件数の明示が見つからない。本文抜粋: ${overLimitBodyText.slice(0, 800)}`);
       }
 
       // ---- Codexレビュー指摘対応(PR #105、16巡目、P2): プレビュー表は
@@ -364,8 +368,57 @@ async function main() {
       } else {
         fail(`プレビュー行数制限が想定外: 実際のDOM行数=${renderedPreviewRowCount}(期待値200)`);
       }
+
+      // ---- 200件プレビュー上限の境界値(201件): プレビュー行数上限は超えるが、
+      // 単語帳インポート上限(5,000件)には遠く満たない件数で、「プレビューは
+      // 先頭200件のみ」の案内だけが出て、インポート上限超過の警告は出ないことを
+      // 別々に確認する(2つの上限の文言が混同されていないか)。 ----
+      const boundaryInput = Array.from({ length: 201 }, (_, i) => `bword${i}: 意味${i}`).join("\n");
+      await page.locator("#word-list-input").evaluate((el, value) => {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+        setter.call(el, value);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      }, boundaryInput);
+      await page.locator('button:has-text("CSVに整形する")').click();
+      await page.waitForTimeout(500);
+      const boundaryBodyText = await page.locator("body").innerText();
+      const boundaryRowCount = await page.locator("tbody tr").count();
+      if (
+        boundaryBodyText.includes("整形結果(201件)") &&
+        boundaryBodyText.includes("プレビューは先頭200件のみ表示しています(コピー・ダウンロードには全201件が含まれます)") &&
+        boundaryRowCount === 200 &&
+        !boundaryBodyText.includes("上限") &&
+        !boundaryBodyText.includes("取り込まれません")
+      ) {
+        ok("201件(プレビュー上限のみ超過・インポート上限未満)では、プレビュー200件制限の案内のみが表示され、インポート上限超過の警告は表示されない");
+      } else {
+        fail(`201件境界値の表示が想定外: DOM行数=${boundaryRowCount}, 本文抜粋: ${boundaryBodyText.slice(0, 800)}`);
+      }
+
+      // ---- インポート上限のちょうど境界値(5,000件、超過ではなくジャスト到達):
+      // WORDBOOK_IMPORT_LIMITの判定は「entries.length > WORDBOOK_IMPORT_LIMIT」
+      // (超過のみ)であるべきで、ちょうど5,000件では超過警告が出ないことを
+      // 5,001件(超過)のケースと対にして確認する。 ----
+      const exactLimitInput = Array.from({ length: 5000 }, (_, i) => `eword${i}: 意味${i}`).join("\n");
+      await page.locator("#word-list-input").evaluate((el, value) => {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+        setter.call(el, value);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      }, exactLimitInput);
+      await page.locator('button:has-text("CSVに整形する")').click();
+      await page.waitForTimeout(500);
+      const exactLimitBodyText = await page.locator("body").innerText();
+      if (
+        exactLimitBodyText.includes("整形結果(5000件)") &&
+        !exactLimitBodyText.includes("上限") &&
+        !exactLimitBodyText.includes("取り込まれません")
+      ) {
+        ok("ちょうど5,000件(インポート上限と同数、超過ではない)では、インポート上限超過の警告は表示されない");
+      } else {
+        fail(`5,000件ちょうどの境界値の表示が想定外。本文抜粋: ${exactLimitBodyText.slice(0, 800)}`);
+      }
     } catch (e) {
-      fail(`5,000件超入力の検証中に例外: ${e.message}`);
+      fail(`5,000件超入力・201件/5,000件境界値の検証中に例外: ${e.message}`);
     }
 
     await context.close();

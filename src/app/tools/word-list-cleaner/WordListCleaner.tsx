@@ -192,7 +192,7 @@ export function WordListCleaner() {
               )}
               {entries.length > WORDBOOK_IMPORT_LIMIT && (
                 <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
-                  整形結果が{entries.length}件あり、単語帳の「CSV一括インポート」で一度に取り込める上限({WORDBOOK_IMPORT_LIMIT}件、プレミアムプランの場合)を超えています。このままインポートすると、先頭{WORDBOOK_IMPORT_LIMIT}件のみが保存され、残りは取り込まれません。ファイルを分割してからインポートすることをおすすめします。
+                  整形結果が{entries.length}件あり、単語帳の「CSV一括インポート」で一度に取り込める上限({WORDBOOK_IMPORT_LIMIT}件、プレミアムプランの場合)を超えています。このままインポートすると、先頭{WORDBOOK_IMPORT_LIMIT}件のみが保存され、残り{entries.length - WORDBOOK_IMPORT_LIMIT}件は上限超過のため取り込まれません。ファイルを分割してからインポートすることをおすすめします。
                 </p>
               )}
               <div className="max-h-64 overflow-y-auto border border-navy-100 rounded-xl">

@@ -283,6 +283,9 @@ async function main() {
 
     console.log("\n=== 80. 英単語リスト整形・CSV変換ツール CSV/TSV構造解析 PapaParse差分テスト ===");
     results.wordListCleanerCsvDifferential = runNode("scripts/testing/test-word-list-cleaner-csv-differential.mjs");
+
+    console.log("\n=== 81. wordListCleaner.ts/csvImportParsing.ts共有CSV/TSVスキャナー 単体テスト ===");
+    results.csvScanner = runNode("scripts/testing/test-csv-scanner.mjs");
   } finally {
     stopDevServer(dev);
   }

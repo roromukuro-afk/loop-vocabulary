@@ -69,6 +69,7 @@
     "test:word-list-cleaner-parser": "node scripts/testing/test-word-list-cleaner-parser.mjs",
     "test:word-list-cleaner-audit": "node scripts/testing/test-word-list-cleaner-audit.mjs",
     "test:word-list-cleaner-csv-differential": "node scripts/testing/test-word-list-cleaner-csv-differential.mjs",
+    "test:csv-scanner": "node scripts/testing/test-csv-scanner.mjs",
     "test:csv-export": "node scripts/testing/test-csv-export.mjs",
     "test:growth-social-link": "node scripts/testing/test-growth-social-link.mjs",
     "growth:social-link": "node scripts/growth/social-link.mjs",

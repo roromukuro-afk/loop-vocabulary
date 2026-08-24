@@ -7,11 +7,17 @@
  *
  * 使い方: node scripts/testing/test-word-list-cleaner-audit.mjs
  */
+import { writeFileSync, mkdirSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseWordListLine, parseWordList, toWordbookCsv, csvWithBom } from "../../src/lib/utils/wordListCleaner.ts";
 
 let pass = 0, fail = 0;
 function ok(msg) { console.log(`✅ ${msg}`); pass++; }
 function bad(msg) { console.error(`❌ FAIL: ${msg}`); fail++; }
+
+const __dir = dirname(fileURLToPath(import.meta.url));
+const FUZZ_FAILURES_DIR = resolve(__dir, ".fuzz-failures");
 
 function main() {
   // ==== 1. 改行コード: CRLF / LF / CR ====
@@ -346,11 +352,16 @@ function main() {
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
       };
     }
-    const rand = mulberry32(20260822);
+    // --seed=<n> でCLIから上書きできるようにする(失敗を再現したい場合、後述の
+    // 失敗保存ファイルに記録されたseedをそのまま渡せば同じ入力列を再生成できる)。
+    const seedArg = process.argv.find((a) => a.startsWith("--seed="));
+    const SEED = seedArg ? parseInt(seedArg.slice("--seed=".length), 10) : 20260822;
+    const rand = mulberry32(SEED);
     const ALPHABET = ['"', ",", "\t", "\n", "\r", " ", "　", "a", "b", "-", "ー", "(", ")", "（", "）", "：", ":", "=", "+", "@", "あ", "漢", "﻿"];
     let crashed = 0;
     let tooSlow = 0;
     const ITERATIONS = 500;
+    const failures = [];
     for (let n = 0; n < ITERATIONS; n++) {
       const len = Math.floor(rand() * 60);
       let s = "";
@@ -359,24 +370,38 @@ function main() {
         const start = Date.now();
         const r = parseWordList(s);
         const elapsed = Date.now() - start;
-        if (elapsed > 500) tooSlow++;
+        if (elapsed > 500) {
+          tooSlow++;
+          failures.push({ n, seed: SEED, input: s, reason: `too slow: ${elapsed}ms` });
+        }
         // データ混線チェック: 返されたentries/skippedLineNumbersが基本的な型不変条件を満たすこと
         for (const e of r.entries) {
           if (typeof e.word !== "string" || typeof e.meaning !== "string" || e.word === "" || e.meaning === "") {
             crashed++; // 型不変条件違反も異常として扱う
-            bad(`fuzz: 不正なentryを検出 (input=${JSON.stringify(s)}): ${JSON.stringify(e)}`);
+            bad(`fuzz: 不正なentryを検出 (n=${n}, seed=${SEED}, input=${JSON.stringify(s)}): ${JSON.stringify(e)}`);
+            failures.push({ n, seed: SEED, input: s, reason: `invalid entry: ${JSON.stringify(e)}` });
             break;
           }
         }
       } catch (e) {
         crashed++;
-        bad(`fuzz: 例外が発生 (input=${JSON.stringify(s)}): ${e.message}`);
+        bad(`fuzz: 例外が発生 (n=${n}, seed=${SEED}, input=${JSON.stringify(s)}): ${e.message}`);
+        failures.push({ n, seed: SEED, input: s, reason: `threw: ${e.message}` });
       }
     }
+    // 失敗があれば、seedと最小再現に必要な情報(件番号n・入力文字列)をJSONファイルへ
+    // 保存する(Codexレビュー指摘対応、PR #105、17巡目)。--seed=<SEED>で同じ乱数列を
+    // 再生成できるため、n件目までスキップして同じ入力を再現できる。
+    if (failures.length > 0) {
+      mkdirSync(FUZZ_FAILURES_DIR, { recursive: true });
+      const outPath = resolve(FUZZ_FAILURES_DIR, `failure-${Date.now()}.json`);
+      writeFileSync(outPath, JSON.stringify({ seed: SEED, iterations: ITERATIONS, failures }, null, 2), "utf-8");
+      console.error(`fuzz failures saved to: ${outPath} (rerun with --seed=${SEED} to reproduce the same input sequence)`);
+    }
     if (crashed === 0 && tooSlow === 0) {
-      ok(`fuzzテスト: ランダム生成した${ITERATIONS}件の入力(クォート・区切り文字・BOM・全角文字混在)すべてで例外・型不変条件違反・極端な遅延なし`);
+      ok(`fuzzテスト(seed=${SEED}): ランダム生成した${ITERATIONS}件の入力(クォート・区切り文字・BOM・全角文字混在)すべてで例外・型不変条件違反・極端な遅延なし`);
     } else {
-      bad(`fuzzテスト: crashed=${crashed}, tooSlow=${tooSlow} / ${ITERATIONS}`);
+      bad(`fuzzテスト(seed=${SEED}): crashed=${crashed}, tooSlow=${tooSlow} / ${ITERATIONS}`);
     }
   }
 

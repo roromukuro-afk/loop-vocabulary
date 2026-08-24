@@ -4,7 +4,13 @@
  * のようなプレーンなNodeスクリプトから直接importして往復確認テストができるようにする
  * ため(Node組み込みのTypeScript剥がしは.tsxのJSX構文を解釈できず、コンポーネント本体を
  * 直接importできない)。
+ *
+ * RFC CSV/TSVの構造解析(レコード分割・フィールド分割)は csvScanner.mjs に
+ * 集約されており、wordListCleaner.ts(列モード)と共有している(Codexレビュー
+ * 指摘対応、PR #105、17巡目: 同じクォート処理を2ファイル4関数へ個別に複製して
+ * いたことが、11/12/15/16巡目で繰り返し指摘された同種の不具合の根本原因だった)。
  */
+import { splitCsvRecords, splitCsvFields } from "./csvScanner.mjs";
 
 export type ParsedWord = {
   word: string;
@@ -14,37 +20,8 @@ export type ParsedWord = {
   example_ja?: string;
 };
 
-// フィールド内のクォートは、そのフィールドの先頭(直前がカンマまたは行頭)に
-// ある場合だけ「クォートされたフィールドの開始」とみなす。フィールド途中の
-// 単一の"(例: "5\" unit"のインチ記号)まで無条件にクォート開始として扱うと、
-// splitCsvRecords()側の改行呑み込みは直らなくても、このparseLine()単体では
-// 文字自体が消えてしまう(inQuotes中はクォート文字をcurrentへ追加しないため)。
-// レコード分割(splitCsvRecords)と同じ「フィールド境界でだけクォートを認識する」
-// 考え方をフィールド分割(parseLine)側にも揃える(Codexレビュー指摘対応、
-// PR #105、15巡目、P2の修正過程で新たに判明)。
 export function parseLine(line: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"' && !inQuotes && current === "") {
-      inQuotes = true;
-      continue;
-    }
-    if (char === '"' && inQuotes) {
-      if (line[i + 1] === '"') { current += '"'; i++; continue; }
-      inQuotes = false;
-      continue;
-    }
-    if (char === ',' && !inQuotes) {
-      result.push(current); current = "";
-      continue;
-    }
-    current += char;
-  }
-  result.push(current);
-  return result;
+  return splitCsvFields(line, ",");
 }
 
 // /tools/word-list-cleanerがCSVインジェクション対策として=+-@で始まるセルの先頭に
@@ -64,59 +41,17 @@ export function stripLeadingApostrophe(value: string): string {
 // text全体を単純にtext.split(/\r?\n/)すると、/tools/word-list-cleanerのtoWordbookCsv()
 // (csvField()参照)が実際に出力しうる「meaningに改行を含む値をダブルクォートで囲んだCSV」を
 // このインポーターへ貼り付け直した際、クォート内部の改行でレコードが分断され、後半が
-// 欠落する(Codexレビュー指摘対応、PR #105、11巡目、P2)。
-//
-// 当初はここを常にRFC4180形式のCSVとして扱う前提とし、クォートの出現位置を
-// レコード先頭/区切り文字の直後に限定する必要はないとしていたが、実際にはこの
-// インポーターも(word-list-cleaner同様に).txt等の自由記述に近いテキストを
-// 受け付けうるため、"inch,5\" unit\napple,りんご"のように、区切り文字でも
-// 何でもないただの記号としての単一の"(インチ記号)を含む行が、以降の改行までを
-// すべて「クォートの中」とみなして次の行を丸ごと呑み込んでしまっていた
-// (Codexレビュー指摘対応、PR #105、15巡目、P2)。wordListCleaner.tsの
-// splitIntoRecords()と同じ考え方で、クォートはレコードの先頭またはカンマ区切りの
-// 直後にある場合だけ「フィールドの開始」とみなし、それ以外の位置に現れた単一の"は
-// 状態をトグルしないただの文字として扱う。
-const RECORD_START_QUOTE_CONTEXT = /,\s*$/;
-
-function splitCsvRecords(text: string): string[] {
-  const records: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '"' && !inQuotes && (current === "" || RECORD_START_QUOTE_CONTEXT.test(current))) {
-      inQuotes = true;
-      current += ch;
-      continue;
-    }
-    if (ch === '"' && inQuotes) {
-      // ""(エスケープされたクォート)は、閉じクォートとして扱わずクォートモードを
-      // 継続する。先読みせず単純にトグルするだけだと、"say ""hi""\nnext"のように
-      // エスケープされたクォートの直後に改行を含む値で、ペアの1つ目を閉じクォートと
-      // 誤認識し、まだ本来クォートの中であるはずの改行がレコード境界として扱われて
-      // しまう(Codexレビュー指摘対応、PR #105、16巡目、P2)。
-      if (text[i + 1] === '"') { current += '""'; i++; continue; }
-      inQuotes = false;
-      current += ch;
-      continue;
-    }
-    if (!inQuotes && (ch === "\n" || ch === "\r")) {
-      records.push(current);
-      current = "";
-      if (ch === "\r" && text[i + 1] === "\n") i++;
-      continue;
-    }
-    current += ch;
-  }
-  records.push(current);
-  return records;
+// 欠落する(Codexレビュー指摘対応、PR #105、11巡目、P2)。このファイルは常にカンマ区切りの
+// CSVとして扱うため、区切り文字候補は","だけを渡す。
+function splitCsvRecordsLocal(text: string): string[] {
+  return splitCsvRecords(text, [","]);
 }
 
 const WORD_LABELS = ["word", "英単語", "単語", "english"];
 const MEANING_LABELS = ["meaning", "意味", "日本語", "japanese"];
 
 export function parseCsv(text: string): ParsedWord[] {
-  const lines = splitCsvRecords(text.trim()).filter(l => l.trim());
+  const lines = splitCsvRecordsLocal(text.trim()).filter(l => l.trim());
   if (lines.length === 0) return [];
 
   // 先頭レコードを実際にCSVフィールドとして分割してから、各フィールドの値が

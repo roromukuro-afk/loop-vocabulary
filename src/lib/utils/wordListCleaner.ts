@@ -7,7 +7,17 @@
  * 整形するだけの純粋関数群。サーバー保存・DB書き込みは一切行わない。
  *
  * 意味の自動生成・辞書引きはスコープ外(ユーザーが既に意味を書いている前提)。
+ *
+ * RFC CSV/TSVの構造解析(レコード分割・フィールド分割)は csvScanner.mjs に
+ * 集約されており、csvImportParsing.ts(実際のwordbook CSVインポーター)と
+ * 共有している(Codexレビュー指摘対応、PR #105、17巡目: 同じクォート処理を
+ * 2ファイル4関数へ個別に複製していたことが、11/12/15/16巡目で繰り返し指摘された
+ * 同種の不具合の根本原因だった)。このファイル固有のplain-text heuristics
+ * (parseWordListLine本体、quotedPrefixEnd、LATIN_TO_JAPANESE_BOUNDARY等、
+ * "word meaning"・コロン・ハイフン区切りの自由記述を扱うアルゴリズム)は
+ * 対象外のままここに残る。
  */
+import { splitCsvRecords, splitCsvFields } from "./csvScanner.mjs";
 
 export type WordListEntry = { word: string; meaning: string };
 
@@ -286,45 +296,13 @@ const CSV_COLUMN_LABELS: Record<"word" | "meaning", string[]> = {
  * word,meaning CSVを対象外にしていたため、値自体に区切り文字候補の文字(コロン等)を
  * 含む本物のCSVが1行ずつのヒューリスティックへ誤って渡り、壊れていた)。
  */
-// csvImportParsing.ts の parseLine() と同じロジック(クォート対応のCSVフィールド
-// 分割)をここへ複製している。他ファイルからimportしていないのは意図的 —
-// csvImportParsing.ts自身のdocstringが述べているとおり、この種の純粋関数ファイルは
-// scripts/testing/*.mjsからNodeのネイティブTS実行で直接importして往復テストできる
-// よう、ファイル単体で完結させる方針のため(このファイル→他ファイルへの相対import
-// を追加すると、tsc/Next.jsのbundler解決では正しく動く拡張子なし指定が、Nodeの
-// ネイティブTS実行では解決できずテストスクリプトが動かなくなる)。
-// delimiterを引数化しているのは、コピペされたスプレッドシート由来のタブ区切り
-// 複数列("word\tmeaning\tphonetic")も、CSV由来のカンマ区切り複数列と同じロジックで
-// 列選択できるようにするため(Codexレビュー指摘対応、PR #105、10巡目、P2)。
-// クォートは、そのフィールドの先頭(直前が区切り文字または行頭)にある場合だけ
-// 「クォートされたフィールドの開始」とみなす。フィールド途中の単一の"
-// (例: "5\" unit"のインチ記号)まで無条件にクォート開始として扱うと、文字自体が
-// 出力から消えてしまう(Codexレビュー指摘対応、PR #105、16巡目、P2: csvImportParsing.ts
-// のparseLine()に対して15巡目で行った修正と同じ内容を、こちらのsplitDelimitedRow()にも
-// 適用)。
+// レコード分割・フィールド分割の実体はcsvScanner.mjsに集約されている(このファイル
+// 冒頭のdocstring参照)。delimiterを引数化しているのは、コピペされたスプレッドシート
+// 由来のタブ区切り複数列("word\tmeaning\tphonetic")も、CSV由来のカンマ区切り複数列と
+// 同じロジックで列選択できるようにするため(Codexレビュー指摘対応、PR #105、10巡目、
+// P2)。
 function splitDelimitedRow(row: string, delimiter: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < row.length; i++) {
-    const char = row[i];
-    if (char === '"' && !inQuotes && current === "") {
-      inQuotes = true;
-      continue;
-    }
-    if (char === '"' && inQuotes) {
-      if (row[i + 1] === '"') { current += '"'; i++; continue; }
-      inQuotes = false;
-      continue;
-    }
-    if (char === delimiter && !inQuotes) {
-      result.push(current); current = "";
-      continue;
-    }
-    current += char;
-  }
-  result.push(current);
-  return result;
+  return splitCsvFields(row, delimiter);
 }
 
 // レコード(1件分のword/meaning行)の区切りとなる改行を、クォートの中/外を区別して
@@ -332,55 +310,11 @@ function splitDelimitedRow(row: string, delimiter: string): string[] {
 // 出力しうる(csvField()参照)「意味に改行を含む値をダブルクォートで囲んだCSV」を
 // 貼り直した際、クォート内部の改行でレコードが分断され、後半が別の壊れた行として
 // 誤ってスキップされてしまう(Codexレビュー指摘対応、PR #105、10巡目、P2)。
-//
-// クォートを「行内のどこにあっても常に状態をトグルする記号」として扱うと、
-// "quote: 「\"」という記号\napple: りんご" のように、区切り文字でも何でもない
-// ただの記号としての単一の"が現れただけの行(見出し語自体にたまたま含まれる
-// クォート文字)で、以降の改行までもがすべて「クォートの中」とみなされ、
-// 次の行(apple: りんご)が誤って同じレコードへ呑み込まれてしまっていた
-// (Codexレビュー指摘対応、PR #105、11巡目、P2)。CSVの本物のクォートフィールドは
-// 必ず「レコードの先頭」または「区切り文字の直後」で始まる、というRFC4180の
-// 構造的な制約を使い、それ以外の位置に現れた単一の"は状態をトグルしない
-// ただの文字として扱う。
-const RECORD_START_QUOTE_CONTEXT = /[,\t：:]\s*$/;
-
+// この時点ではまだ列モードの区切り文字(カンマ/タブのどちらか)が確定していない
+// ため(delimiter判定はレコード分割の後に行われる)、両方の候補文字をクォート
+// 開始位置の判定に渡す。
 function splitIntoRecords(text: string): string[] {
-  const records: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '"' && !inQuotes && (current === "" || RECORD_START_QUOTE_CONTEXT.test(current))) {
-      inQuotes = true;
-      current += ch;
-      continue;
-    }
-    if (ch === '"' && inQuotes) {
-      // クォートで開いたフィールドの内部にある""(doubled quote)は、csvField()が
-      // 実際に出力しうるエスケープされた"1文字を表すRFC4180の規則であり、
-      // フィールドを閉じるものではない。これを閉じクォートとして扱うと、
-      // "say ""hi""\nnext line"のような値で最初の""の片方だけを閉じクォートと
-      // 誤認識し、以降を「クォートの外」とみなしてしまうため、直後の改行で
-      // 誤ってレコードが分断されていた(Codexレビュー指摘対応、PR #105、12巡目、P2)。
-      if (text[i + 1] === '"') {
-        current += '""';
-        i++;
-        continue;
-      }
-      inQuotes = false;
-      current += ch;
-      continue;
-    }
-    if (!inQuotes && (ch === "\n" || ch === "\r")) {
-      records.push(current);
-      current = "";
-      if (ch === "\r" && text[i + 1] === "\n") i++;
-      continue;
-    }
-    current += ch;
-  }
-  records.push(current);
-  return records;
+  return splitCsvRecords(text, COLUMN_MODE_DELIMITERS);
 }
 
 // タブ区切りの複数列ヘッダも、カンマ区切りと同じ列選択ロジックで扱う
