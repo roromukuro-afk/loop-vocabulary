@@ -17,13 +17,12 @@
  * 使い方: node scripts/reporting/vocab-growth-organic-campaign-report.mjs
  */
 import { fileURLToPath } from "node:url";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { loadEnv, requireEnv, REPO_ROOT } from "../testing/lib/env.mjs";
+import { loadEnv, requireEnv } from "../testing/lib/env.mjs";
 import { getAdminClient } from "../testing/lib/supabaseAdmin.mjs";
 import { fetchTestAccountIds, summarizeWindow, summarizeWindowISO, FUNNEL_EVENTS } from "../testing/social-acquisition-snapshot.mjs";
 import { addDaysToDateStr, MIN_SAMPLE_SIZE_FOR_RATE } from "./lib/windowMath.mjs";
 import { buildFunnelRates } from "./lib/funnelRates.mjs";
+import { REPORTS_DIR, writeVersionedReport } from "./lib/reportVersioning.mjs";
 import {
   CAMPAIGN,
   KNOWN_LAUNCH_CONTENT_KEYS,
@@ -33,14 +32,12 @@ import {
 } from "./vocab-growth-organic-schedule.mjs";
 import { todayJST, toJstDateString } from "../../src/lib/utils/date.ts";
 
-const REPORTS_DIR = resolve(REPO_ROOT, "reports", "vocab-growth-organic");
+// レポート書き出し(collectorVersion付与・ファイル名のバージョン一意化・
+// MANIFEST.json更新)はvocab-growth-organic-24h-check.mjsと共有する
+// lib/reportVersioning.mjsに集約されている(以前は両ファイルにそれぞれ
+// 独立したREPORTS_DIR/writeReport()が複製されていた)。
 function writeReport(baseName, data, summaryText) {
-  if (!existsSync(REPORTS_DIR)) mkdirSync(REPORTS_DIR, { recursive: true });
-  const jsonPath = resolve(REPORTS_DIR, `${baseName}.json`);
-  const summaryPath = resolve(REPORTS_DIR, `${baseName}.summary.txt`);
-  writeFileSync(jsonPath, JSON.stringify(data, null, 2), "utf8");
-  writeFileSync(summaryPath, summaryText, "utf8");
-  return { jsonPath, summaryPath };
+  return writeVersionedReport(REPORTS_DIR, baseName, data, summaryText);
 }
 
 function fmtRate(r) {

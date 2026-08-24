@@ -15,14 +15,13 @@
  *   node scripts/reporting/vocab-growth-organic-24h-check.mjs --content=organic_02
  */
 import { fileURLToPath } from "node:url";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { loadEnv, requireEnv, REPO_ROOT } from "../testing/lib/env.mjs";
+import { loadEnv, requireEnv } from "../testing/lib/env.mjs";
 import { getAdminClient } from "../testing/lib/supabaseAdmin.mjs";
 import { fetchTestAccountIds, summarizeWindowISO } from "../testing/social-acquisition-snapshot.mjs";
 import { compute24hWindow } from "./lib/windowMath.mjs";
 import { buildFunnelRates } from "./lib/funnelRates.mjs";
 import { sanitizeForFilename } from "./vocab-test-maker-24h-check.mjs";
+import { REPORTS_DIR, writeVersionedReport } from "./lib/reportVersioning.mjs";
 import {
   KNOWN_LAUNCH_SCHEDULE,
   CAMPAIGN,
@@ -31,19 +30,12 @@ import {
 } from "./vocab-growth-organic-schedule.mjs";
 import { todayJST } from "../../src/lib/utils/date.ts";
 
-// reportIO.mjsのREPORTS_DIRはvocab_test_maker_launch専用に固定されているため、
-// vocab_growth_organic向けに専用のサブディレクトリを別途用意する(同じ
-// reports/vocab-test-maker-launch/へ書くとファイル名prefixで衝突こそしないが、
-// 別キャンペーンのレポートが混在して分かりにくくなる)。writeReport()と同じ
-// {baseName}.json + {baseName}.summary.txt の2ファイル構成を踏襲する。
-const REPORTS_DIR = resolve(REPO_ROOT, "reports", "vocab-growth-organic");
+// レポート書き出し(collectorVersion付与・ファイル名のバージョン一意化・
+// MANIFEST.json更新)はvocab-growth-organic-campaign-report.mjsと共有する
+// lib/reportVersioning.mjsに集約されている(以前は両ファイルにそれぞれ
+// 独立したREPORTS_DIR/writeReport()が複製されていた)。
 function writeReport(baseName, data, summaryText) {
-  if (!existsSync(REPORTS_DIR)) mkdirSync(REPORTS_DIR, { recursive: true });
-  const jsonPath = resolve(REPORTS_DIR, `${baseName}.json`);
-  const summaryPath = resolve(REPORTS_DIR, `${baseName}.summary.txt`);
-  writeFileSync(jsonPath, JSON.stringify(data, null, 2), "utf8");
-  writeFileSync(summaryPath, summaryText, "utf8");
-  return { jsonPath, summaryPath };
+  return writeVersionedReport(REPORTS_DIR, baseName, data, summaryText);
 }
 
 export function parseArgs(argv) {
