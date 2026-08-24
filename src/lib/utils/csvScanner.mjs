@@ -95,6 +95,18 @@ export function splitCsvRecords(text, delimiterChars) {
     }
     current += ch;
   }
+  // フィールド境界で開いたクォートに、EOFまでに対応する閉じクォートが
+  // 一度も見つからなかった場合(壊れたCSV/TSV、または単なる書き忘れ)。
+  // このまま返すと、開いたクォート以降の改行がすべてレコード区切りとして
+  // 扱われず、以降の全行が1レコードへ呑み込まれてしまう(Codexレビュー
+  // 指摘対応、PR #105、round-17再監査P2: `inch, " symbol\napple,りんご`が
+  // 2レコードに分かれず1レコードとして返され、apple行がinchのmeaningへ
+  // 静かに混入していた)。閉じクォートが無いと確定した時点で、このテキスト
+  // 全体をクォートを一切解釈しない素朴な改行分割にフォールバックする方が、
+  // 後続の正当な行を1行も失わずに済む安全側の挙動になる。
+  if (inQuotes) {
+    return text.split(/\r\n|\r|\n/);
+  }
   records.push(current);
   return records;
 }

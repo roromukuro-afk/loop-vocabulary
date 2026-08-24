@@ -454,6 +454,38 @@ function main() {
     if (allOk) ok("数字・記号(+ # . /)で終わる語(COVID-19/B2/24/7/C++)も単一スペース区切りとして正しく認識される");
   }
 
+  // ---- Codexレビュー指摘対応(PR #105、round-17再監査、P2): %・!・?で終わる語も
+  // 同じくスペース区切りのラテン→日本語境界として認識される ----
+  {
+    const cases = [
+      ["100% 百パーセント", { word: "100%", meaning: "百パーセント" }],
+      ["hello! こんにちは", { word: "hello!", meaning: "こんにちは" }],
+      ["what? 何", { word: "what?", meaning: "何" }],
+    ];
+    let allOk = true;
+    for (const [input, expected] of cases) {
+      const result = parseWordListLine(input);
+      if (result?.word !== expected.word || result?.meaning !== expected.meaning) {
+        allOk = false;
+        bad(`%/!/?で終わる語のスペース区切りが想定外: ${JSON.stringify(input)} → ${JSON.stringify(result)}(期待値: ${JSON.stringify(expected)})`);
+      }
+    }
+    if (allOk) ok("%・!・?で終わる語(100%/hello!/what?)も単一スペース区切りとして正しく認識される");
+  }
+
+  // ---- 上の許可リスト拡張が、既知の品詞注記ラベルではない括弧(7巡目の既存
+  // テスト、"go (irregular verb) 行く")の閉じ括弧")"までは許可しないことの回帰確認
+  // (許可リストではなく否定文字クラスへ一般化していた場合、")"も境界として誤って
+  // マッチしてしまい、意図的なnull(書き換えない)が壊れていたはず) ----
+  {
+    const result = parseWordListLine("go (irregular verb) 行く");
+    if (result === null) {
+      ok("%/!/?の許可リスト拡張後も、未知の括弧注記の閉じ括弧は境界として誤ってマッチしない(回帰確認、null)");
+    } else {
+      bad(`許可リスト拡張により未知の括弧注記が誤って境界マッチしてしまった: ${JSON.stringify(result)}`);
+    }
+  }
+
   // ---- Codexレビュー指摘対応(PR #105、3巡目、P2): formula injection対策で
   // 先頭に'を付与したCSVを、実際のインポート先(CsvImportPanel.tsx)で読み直しても
   // 元の値どおりに復元できる(先頭の'が単語の一部として永続的に残らない) ----
