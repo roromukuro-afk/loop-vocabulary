@@ -20,6 +20,27 @@ export type ParsedWord = {
   example_ja?: string;
 };
 
+/**
+ * csvScanner.mjsのsplitCsvRecords()が検出した、未終端クォート(閉じクォートが
+ * 見つからないまま入力の終端に達した)のために除外された物理行の情報。
+ * wordListCleaner.tsのMalformedCsvWarningと同じ形だが、TypeScriptの型は
+ * 構造的(structural)であり、ロジックではなく型エイリアスの複製は同種の不具合の
+ * リスクを持たないため、csvScanner.mjs側の実際の実装(唯一のロジック源)への
+ * importで済ませ、ここでは独立に定義する。
+ */
+export type MalformedCsvWarning = {
+  type: "unterminated_quote";
+  /** クォートが開いた物理行番号(1始まり)。 */
+  physicalLine: number;
+  /** 除外された物理行の元テキスト(末尾の改行は含まない)。 */
+  skippedLineText: string;
+};
+
+export type ParseCsvResult = {
+  words: ParsedWord[];
+  malformedCsvWarnings: MalformedCsvWarning[];
+};
+
 export function parseLine(line: string): string[] {
   return splitCsvFields(line, ",");
 }
@@ -43,16 +64,18 @@ export function stripLeadingApostrophe(value: string): string {
 // このインポーターへ貼り付け直した際、クォート内部の改行でレコードが分断され、後半が
 // 欠落する(Codexレビュー指摘対応、PR #105、11巡目、P2)。このファイルは常にカンマ区切りの
 // CSVとして扱うため、区切り文字候補は","だけを渡す。
-function splitCsvRecordsLocal(text: string): string[] {
+function splitCsvRecordsLocal(text: string) {
   return splitCsvRecords(text, [","]);
 }
 
 const WORD_LABELS = ["word", "英単語", "単語", "english"];
 const MEANING_LABELS = ["meaning", "意味", "日本語", "japanese"];
 
-export function parseCsv(text: string): ParsedWord[] {
-  const lines = splitCsvRecordsLocal(text.trim()).filter(l => l.trim());
-  if (lines.length === 0) return [];
+export function parseCsv(text: string): ParseCsvResult {
+  const { records, warnings } = splitCsvRecordsLocal(text.trim());
+  const malformedCsvWarnings: MalformedCsvWarning[] = warnings;
+  const lines = records.filter(l => l.trim());
+  if (lines.length === 0) return { words: [], malformedCsvWarnings };
 
   // 先頭レコードを実際にCSVフィールドとして分割してから、各フィールドの値が
   // 既知のヘッダラベルと完全一致するかで判定する(行全体に対する部分一致では
@@ -88,7 +111,7 @@ export function parseCsv(text: string): ParsedWord[] {
     });
   }
 
-  return lines.slice(startLine).flatMap((line) => {
+  const words = lines.slice(startLine).flatMap((line) => {
     const cols = parseLine(line);
     const word = stripLeadingApostrophe(cols[headerMap.word ?? 0]?.trim() ?? "");
     const meaning = stripLeadingApostrophe(cols[headerMap.meaning ?? 1]?.trim() ?? "");
@@ -104,4 +127,5 @@ export function parseCsv(text: string): ParsedWord[] {
       example_ja: exampleJaRaw ? stripLeadingApostrophe(exampleJaRaw) : undefined,
     }];
   });
+  return { words, malformedCsvWarnings };
 }

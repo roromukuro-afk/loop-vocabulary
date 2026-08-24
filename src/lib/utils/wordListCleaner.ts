@@ -21,10 +21,28 @@ import { splitCsvRecords, splitCsvFields } from "./csvScanner.mjs";
 
 export type WordListEntry = { word: string; meaning: string };
 
+/**
+ * csvScanner.mjsのsplitCsvRecords()が検出した、未終端クォート(閉じクォートが
+ * 見つからないまま入力の終端に達した)のために除外された物理行の情報。この行は
+ * 破損した値として取り込まれず、entriesにもskippedLineNumbersにも一切含まれない
+ * (Codexレビュー指摘対応、PR #105、round-17再監査フレッシュレビューP2への対応、
+ * ユーザーからの追加要求: 未終端クォート時のfallbackを「黙って正常入力として
+ * 扱う」のではなく、画面へ明示する)。
+ */
+export type MalformedCsvWarning = {
+  type: "unterminated_quote";
+  /** クォートが開いた物理行番号(1始まり)。 */
+  physicalLine: number;
+  /** 除外された物理行の元テキスト(末尾の改行は含まない)。 */
+  skippedLineText: string;
+};
+
 export type WordListParseResult = {
   entries: WordListEntry[];
   /** 空行以外で word/meaning のペアとして解釈できなかった行(1始まりの行番号)。 */
   skippedLineNumbers: number[];
+  /** 未終端クォートのために破損した値として除外された物理行の一覧。 */
+  malformedCsvWarnings: MalformedCsvWarning[];
 };
 
 // タブは表計算ソフトからのコピペ由来で最も構造化されている区切り文字であり、行内に
@@ -321,7 +339,7 @@ function splitDelimitedRow(row: string, delimiter: string): string[] {
 // この時点ではまだ列モードの区切り文字(カンマ/タブのどちらか)が確定していない
 // ため(delimiter判定はレコード分割の後に行われる)、両方の候補文字をクォート
 // 開始位置の判定に渡す。
-function splitIntoRecords(text: string): string[] {
+function splitIntoRecords(text: string) {
   return splitCsvRecords(text, COLUMN_MODE_DELIMITERS);
 }
 
@@ -356,20 +374,14 @@ function detectColumnMode(headerLine: string): { delimiter: string; wordIndex: n
 
 /** テキストエリア全体を解析する。空行はスキップ(エラー扱いしない)。 */
 export function parseWordList(text: string): WordListParseResult {
-  const records = splitIntoRecords(text);
+  const { records, recordStartLines, warnings } = splitIntoRecords(text);
   const entries: WordListEntry[] = [];
   const skippedLineNumbers: number[] = [];
-
-  // 各レコードの開始行番号(1始まり)。クォート内部に改行を含むレコードでも、
-  // スキップ行番号が実際の開始位置を正しく指すよう、直前レコードまでの改行数を
-  // 累計して求める(splitIntoRecords自体が既にクォート内の改行を保持したまま
-  // レコードへ含めているため、そのままカウントできる)。
-  let lineCursor = 1;
-  const lineNumbers = records.map((r) => {
-    const start = lineCursor;
-    lineCursor += (r.match(/\r\n|\r|\n/g)?.length ?? 0) + 1;
-    return start;
-  });
+  // splitIntoRecords(csvScanner.mjsのsplitCsvRecords)が既に、未終端クォートで
+  // 破損した物理行を除外した上でrecordStartLines(各recordの実際の開始行番号)を
+  // 対応づけて返すため、ここで改めて改行数を数え直す必要はない(除外された行を
+  // 挟んでも行番号がずれない)。
+  const malformedCsvWarnings: MalformedCsvWarning[] = warnings;
 
   const firstContentIndex = records.findIndex((r) => r.trim());
   const columnMode = firstContentIndex === -1 ? null : detectColumnMode(records[firstContentIndex]);
@@ -385,9 +397,9 @@ export function parseWordList(text: string): WordListParseResult {
       const word = (fields[columnMode.wordIndex] ?? "").trim();
       const meaning = (fields[columnMode.meaningIndex] ?? "").trim();
       if (word && meaning) entries.push({ word, meaning });
-      else skippedLineNumbers.push(lineNumbers[i]);
+      else skippedLineNumbers.push(recordStartLines[i]);
     });
-    return { entries, skippedLineNumbers };
+    return { entries, skippedLineNumbers, malformedCsvWarnings };
   }
 
   let sawContentLine = false;
@@ -399,9 +411,9 @@ export function parseWordList(text: string): WordListParseResult {
     }
     const parsed = parseWordListLine(line);
     if (parsed) entries.push(parsed);
-    else skippedLineNumbers.push(lineNumbers[i]);
+    else skippedLineNumbers.push(recordStartLines[i]);
   });
-  return { entries, skippedLineNumbers };
+  return { entries, skippedLineNumbers, malformedCsvWarnings };
 }
 
 /** RFC4180ライクなCSVフィールドのクォート(カンマ・ダブルクォート・改行を含む場合のみ)。 */

@@ -3,12 +3,13 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { UpsellModal } from "@/components/premium/UpsellModal";
-import { parseCsv, type ParsedWord } from "@/lib/utils/csvImportParsing";
+import { parseCsv, type ParsedWord, type MalformedCsvWarning } from "@/lib/utils/csvImportParsing";
 
 export function CsvImportPanel({ wordbookId, isPremium }: { wordbookId: string; isPremium: boolean }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<ParsedWord[]>([]);
+  const [malformedWarnings, setMalformedWarnings] = useState<MalformedCsvWarning[]>([]);
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -22,12 +23,18 @@ export function CsvImportPanel({ wordbookId, isPremium }: { wordbookId: string; 
     setFileName(file.name);
     setError(null);
     setPreview([]);
+    setMalformedWarnings([]);
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const words = parseCsv(ev.target?.result as string);
+        const { words, malformedCsvWarnings } = parseCsv(ev.target?.result as string);
+        setMalformedWarnings(malformedCsvWarnings);
         if (words.length === 0) {
-          setError("単語が見つかりませんでした。フォーマットを確認してください。");
+          setError(
+            malformedCsvWarnings.length > 0
+              ? "単語が見つかりませんでした。クォート(\")が閉じられていない行があり、その行は取り込まれませんでした。下の警告を確認してください。"
+              : "単語が見つかりませんでした。フォーマットを確認してください。",
+          );
           return;
         }
         setPreview(words);
@@ -129,6 +136,13 @@ achieve,達成する,/əˈtʃiːv/`}</pre>
           </button>
 
           {error && <div role="alert" className="text-sm text-red-600 bg-red-50 rounded-xl p-3">{error}</div>}
+
+          {malformedWarnings.length > 0 && (
+            <div className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+              クォート(&quot;)が閉じられていない行が{malformedWarnings.length}件あり、破損した値として取り込まずスキップしました(行番号:{" "}
+              {malformedWarnings.map((w) => w.physicalLine).join(", ")})。それ以外の行は通常どおり取り込み対象です。
+            </div>
+          )}
 
           {preview.length > 0 && (
             <div>

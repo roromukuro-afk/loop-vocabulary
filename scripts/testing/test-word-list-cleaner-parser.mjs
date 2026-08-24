@@ -495,7 +495,7 @@ function main() {
       { word: "sum", meaning: "+44の国番号のように使う" },
     ];
     const { csv } = toWordbookCsv(entries);
-    const reimported = parseCsv(csv);
+    const reimported = parseCsv(csv).words;
     if (
       reimported.length === 2 &&
       reimported[0].word === "-ing" &&
@@ -513,7 +513,7 @@ function main() {
   // 無関係な、ユーザーが意図的にアポストロフィで始めた正当な値は取り除かれない
   // ("'cause"・"'Hello,' she said."のような、=+-@のいずれも直後に続かないケース) ----
   {
-    const reimported = parseCsv("word,meaning\n'cause,なぜなら(口語)\nquote,\"'Hello,' she said.\"");
+    const reimported = parseCsv("word,meaning\n'cause,なぜなら(口語)\nquote,\"'Hello,' she said.\"").words;
     if (
       reimported.length === 2 &&
       reimported[0].word === "'cause" &&
@@ -681,7 +681,7 @@ function main() {
   {
     const entries = [{ word: "hello", meaning: "line one\nline two" }];
     const { csv } = toWordbookCsv(entries);
-    const imported = parseCsv(csv);
+    const imported = parseCsv(csv).words;
     if (imported.length === 1 && imported[0].word === "hello" && imported[0].meaning === "line one\nline two") {
       ok("word-list-cleanerが生成したクォート内改行付きCSVを、実際のCsvImportPanel.parseCsv()に貼り直しても完全に復元される(実インポーターまでの完全round-trip)");
     } else {
@@ -759,7 +759,7 @@ function main() {
   // 判定されない ----
   {
     const csvText = 'apple,"line one\nmeaning follows"\nbanana,バナナ';
-    const result = parseCsv(csvText);
+    const result = parseCsv(csvText).words;
     if (
       result.length === 2 &&
       result[0].word === "apple" &&
@@ -774,7 +774,7 @@ function main() {
   }
   {
     // 本物のヘッダ行(word,meaning)は引き続き正しくヘッダとして認識される(回帰確認)。
-    const result = parseCsv("word,meaning\napple,りんご");
+    const result = parseCsv("word,meaning\napple,りんご").words;
     if (result.length === 1 && result[0].word === "apple" && result[0].meaning === "りんご") {
       ok("本物のヘッダ行(word,meaning)は引き続き正しくヘッダとして認識される(回帰確認)");
     } else {
@@ -788,7 +788,7 @@ function main() {
   // 11巡目で行った修正と同じ内容を、csvImportParsing.tsのsplitCsvRecords()にも
   // 適用) ----
   {
-    const result = parseCsv('inch,5" unit\napple,りんご');
+    const result = parseCsv('inch,5" unit\napple,りんご').words;
     if (
       result.length === 2 &&
       result[0].word === "inch" &&
@@ -825,7 +825,7 @@ function main() {
   // 正しく1件として復元される(csvImportParsing.tsのsplitCsvRecords()にも
   // wordListCleaner.tsのsplitIntoRecords()と同じ""対応を適用) ----
   {
-    const result = parseCsv('hello,"say ""hi""\nnext line"');
+    const result = parseCsv('hello,"say ""hi""\nnext line"').words;
     if (result.length === 1 && result[0].word === "hello" && result[0].meaning === 'say "hi"\nnext line') {
       ok('CsvImportPanel.parseCsv()でも、エスケープされた""の直後に改行があるクォート値がレコード分断されず正しく復元される');
     } else {
@@ -837,7 +837,7 @@ function main() {
   // word/meaningの値自体がたまたま別カテゴリの既知ラベルと一致していても
   // (例: word="japanese", meaning="日本語")、誤ってヘッダ扱いされない ----
   {
-    const result = parseCsv("japanese,日本語\napple,りんご");
+    const result = parseCsv("japanese,日本語\napple,りんご").words;
     if (
       result.length === 2 &&
       result[0].word === "japanese" && result[0].meaning === "日本語" &&

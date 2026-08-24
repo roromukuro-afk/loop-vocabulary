@@ -3,8 +3,8 @@
  * RFC CSV/TSV構造スキャナー)単体の直接テスト。両ファイル経由の統合テストは
  * test-word-list-cleaner-parser.mjs / test-word-list-cleaner-csv-differential.mjs
  * 側でカバーしているが、こちらは共有スキャナーの生の入出力契約(bare quote、
- * escaped ""、quoted newline、CRLF、delimiter内包、末尾空セル)を関数単位で
- * 直接固定する。
+ * escaped ""、quoted newline、CRLF、delimiter内包、末尾空セル、未終端クォートの
+ * 復旧)を関数単位で直接固定する。
  *
  * 使い方: node scripts/testing/test-csv-scanner.mjs
  */
@@ -17,6 +17,13 @@ function eq(actual, expected, msg) {
   const a = JSON.stringify(actual), e = JSON.stringify(expected);
   if (a === e) ok(msg);
   else bad(`${msg}: actual=${a}, expected=${e}`);
+}
+
+// splitCsvRecords()はround-18で{records, recordStartLines, warnings}を返す
+// ようになった(単なるstring[]ではない)。records部分だけを見たい既存の
+// 単純なテストのための薄いヘルパー。
+function records(text, delimiterChars) {
+  return splitCsvRecords(text, delimiterChars).records;
 }
 
 function main() {
@@ -40,23 +47,23 @@ function main() {
   eq(splitCsvFields(",,", ","), ["", "", ""], "全て空セルの行でも3フィールドとして分割される");
 
   // ---- splitCsvRecords: 基本の改行分割 ----
-  eq(splitCsvRecords("a\nb", [","]), ["a", "b"], "LFで2レコードに分割される");
-  eq(splitCsvRecords("a\r\nb", [","]), ["a", "b"], "CRLFで2レコードに分割される(CRは吸収される)");
-  eq(splitCsvRecords("a\rb", [","]), ["a", "b"], "CR単独でも2レコードに分割される");
+  eq(records("a\nb", [","]), ["a", "b"], "LFで2レコードに分割される");
+  eq(records("a\r\nb", [","]), ["a", "b"], "CRLFで2レコードに分割される(CRは吸収される)");
+  eq(records("a\rb", [","]), ["a", "b"], "CR単独でも2レコードに分割される");
 
   // ---- クォート内の改行(レコードが分断されない) ----
-  eq(splitCsvRecords('a,"line1\nline2"\nb', [","]), ['a,"line1\nline2"', "b"], "クォート内の改行はレコード境界として扱われず、1レコードとして保持される");
+  eq(records('a,"line1\nline2"\nb', [","]), ['a,"line1\nline2"', "b"], "クォート内の改行はレコード境界として扱われず、1レコードとして保持される");
 
   // ---- bare quote(レコード分割側。区切り文字でも何でもない記号としての単一") ----
   eq(
-    splitCsvRecords('quote: 「"」という記号\napple: りんご', ["\t", ","]),
+    records('quote: 「"」という記号\napple: りんご', ["\t", ","]),
     ['quote: 「"」という記号', "apple: りんご"],
     "見出し語内のただの記号としての単一\"は、次のレコードを誤って呑み込まない",
   );
 
   // ---- escaped ""の直後に改行(レコード側) ----
   eq(
-    splitCsvRecords('hello,"say ""hi""\nnext line"', [","]),
+    records('hello,"say ""hi""\nnext line"', [","]),
     ['hello,"say ""hi""\nnext line"'],
     'エスケープされた""の直後に改行があっても、閉じクォートと誤認識せず1レコードのまま',
   );
@@ -64,7 +71,7 @@ function main() {
   // ---- 複数の区切り文字候補(delimiter未確定時のレコード分割、wordListCleaner.tsの
   // 列モード相当) ----
   eq(
-    splitCsvRecords('word\tmeaning\tphonetic\nabandon\t捨てる\t/x/', ["\t", ","]),
+    records('word\tmeaning\tphonetic\nabandon\t捨てる\t/x/', ["\t", ","]),
     ["word\tmeaning\tphonetic", "abandon\t捨てる\t/x/"],
     "タブが区切り文字候補に含まれていれば、タブ区切り行でも正しく2レコードに分割される",
   );
@@ -73,25 +80,11 @@ function main() {
   try {
     const r1 = splitCsvFields('"unterminated', ",");
     const r2 = splitCsvRecords('"unterminated all the way to EOF', [","]);
-    if (Array.isArray(r1) && Array.isArray(r2)) ok("閉じクォートが無い壊れた入力でも例外を投げず配列を返す");
+    if (Array.isArray(r1) && Array.isArray(r2.records)) ok("閉じクォートが無い壊れた入力でも例外を投げず配列を返す");
     else bad(`閉じクォート無し入力の戻り値が想定外: r1=${JSON.stringify(r1)}, r2=${JSON.stringify(r2)}`);
   } catch (e) {
     bad(`閉じクォート無し入力で例外が発生: ${e.message}`);
   }
-
-  // ---- フィールド境界で開いたクォートに閉じクォートが無い場合、以降の改行を
-  // 呑み込まず、素朴な改行分割にフォールバックして後続の正当な行を保持する
-  // (Codexレビュー指摘対応、PR #105、round-17再監査P2)。 ----
-  eq(
-    splitCsvRecords('inch, " symbol\napple,りんご', [","]),
-    ['inch, " symbol', "apple,りんご"],
-    "フィールド境界で開いたクォートが閉じられないまま改行・後続行があっても、後続行を呑み込まず2レコードとして分割される(素朴な改行分割へフォールバック)",
-  );
-  eq(
-    splitCsvRecords('a,"properly closed"\nb,c', [","]),
-    ['a,"properly closed"', "b,c"],
-    "正しく閉じられたクォートを含む正常な入力では、フォールバックが発動せず従来どおりクォート認識で分割される(回帰確認)",
-  );
 
   // ---- 区切り文字とクォートの間に空白があるフィールド(Codexレビュー指摘対応、
   // PR #105、round-17再監査P2)。旧実装は`current === ""`だけを見ていたため、
@@ -119,11 +112,95 @@ function main() {
     const recResult = splitCsvRecords(pathological, [","]);
     const fieldResult = splitCsvFields(pathological, ",");
     const elapsedMs = Date.now() - t0;
-    if (Array.isArray(recResult) && Array.isArray(fieldResult) && elapsedMs < 1000) {
+    if (Array.isArray(recResult.records) && Array.isArray(fieldResult) && elapsedMs < 1000) {
       ok(`delimiterでもクォートでもない単一の"を80,000個含む約16万文字の入力を${elapsedMs}msで例外なく処理する(旧実装はO(n^2)で約13秒かかっていた)`);
     } else {
       bad(`巨大な入力の処理が想定より遅い、または失敗: elapsedMs=${elapsedMs}`);
     }
+  }
+
+  // ==== 未終端クォートの開示設計(Codexレビュー指摘対応、PR #105、round-17
+  // 再監査フレッシュレビューP2、およびユーザーによる追加要求)。単に素朴な
+  // 改行分割へ丸ごとフォールバックするのではなく、壊れた「その1行」だけを
+  // 除外し、後続の正当な行(正しい複数行クォートフィールドを含む)は通常どおり
+  // 復元する。 ====
+
+  // ---- 末尾(最後)の未終端クォート: 最後の1行だけが破損行として除外される ----
+  {
+    const r = splitCsvRecords('apple,りんご\nbanana, "unterminated', [","]);
+    eq(r.records, ["apple,りんご"], "末尾の未終端クォート: 正常な先行行は保持され、破損した最後の行は除外される");
+    eq(r.recordStartLines, [1], "recordStartLinesは保持された行数と一致する(除外された行は含まれない)");
+    if (r.warnings.length === 1 && r.warnings[0].type === "unterminated_quote" && r.warnings[0].physicalLine === 2) {
+      ok("末尾の未終端クォート: warningsに1件、正しい物理行番号(2行目)で記録される");
+    } else {
+      bad(`末尾の未終端クォートのwarningsが想定外: ${JSON.stringify(r.warnings)}`);
+    }
+  }
+
+  // ---- 途中(中間)の未終端クォート: 前後の正常行がどちらも回復される ----
+  {
+    const r = splitCsvRecords('apple,りんご\ninch, " symbol\nbanana,バナナ', [","]);
+    eq(r.records, ["apple,りんご", "banana,バナナ"], "途中の未終端クォート: 前後の正常行が両方とも回復される(破損した中間行だけ除外)");
+    eq(r.recordStartLines, [1, 3], "recordStartLinesが正しい物理行番号(1行目・3行目)を指す(2行目はスキップ)");
+    if (r.warnings.length === 1 && r.warnings[0].physicalLine === 2 && r.warnings[0].skippedLineText === 'inch, " symbol') {
+      ok("途中の未終端クォート: warningsに破損した物理行番号(2)と該当テキストが記録される");
+    } else {
+      bad(`途中の未終端クォートのwarningsが想定外: ${JSON.stringify(r.warnings)}`);
+    }
+  }
+
+  // ---- 元のCodex指摘の再現ケース: 破損行の直後の正常行が回復される ----
+  eq(
+    splitCsvRecords('inch, " symbol\napple,りんご', [","]).records,
+    ["apple,りんご"],
+    "破損した1行目は除外され、2行目(apple,りんご)は正しく回復される",
+  );
+
+  // ---- 複数の未終端クォートが同じテキスト中に別々に現れる場合、それぞれ
+  // 個別に検出・除外され、間の正常行は保持される ----
+  {
+    const r = splitCsvRecords('a, "bad1\ngood1,x\nb, "bad2\ngood2,y', [","]);
+    eq(r.records, ["good1,x", "good2,y"], "複数の未終端クォートがそれぞれ独立して検出され、間の正常行はすべて回復される");
+    if (r.warnings.length === 2 && r.warnings[0].physicalLine === 1 && r.warnings[1].physicalLine === 3) {
+      ok("複数の未終端クォート: warningsに2件、それぞれ正しい物理行番号で記録される");
+    } else {
+      bad(`複数の未終端クォートのwarningsが想定外: ${JSON.stringify(r.warnings)}`);
+    }
+  }
+
+  // ---- 破損したクォートより前にある正当な複数行クォートフィールドは、後方の
+  // 破損の影響を一切受けず、通常どおり1レコードとして正しく保持される
+  // (1パス処理の性質上、証明可能に安全なケース。テキスト全体を素朴な改行
+  // 分割に丸ごとフォールバックする設計ではないことの直接確認) ----
+  {
+    const r = splitCsvRecords('good,"first\nmultiline"\nbad, " unterminated with no other quotes anywhere', [","]);
+    eq(r.records, ['good,"first\nmultiline"'], "破損したクォートより前にある正当な複数行クォートフィールドは、後方の破損の影響を受けず正しく1レコードとして保持される");
+    eq(r.recordStartLines, [1], "recordStartLinesも正しく1行目を指す");
+    if (r.warnings.length === 1 && r.warnings[0].physicalLine === 3) {
+      ok("後方の破損したクォートは、前方の正当な複数行フィールドに影響を与えず、正しく3行目(複数行フィールドが1〜2行目を占めた後)の破損として個別に検出される");
+    } else {
+      bad(`後方の破損検出が想定外: ${JSON.stringify(r.warnings)}`);
+    }
+  }
+
+  // ---- 既知の限界(コード側のコメントで明示): 破損したクォートの直後に、
+  // それ自体は正しく閉じられる複数行クォートフィールドがある場合、その正当な
+  // 閉じクォートが、直前の破損したクォートの閉じクォートとして誤って
+  // 食いつかれてしまうことがある(両者を区別する情報がテキスト自体に無い、
+  // フォワード1パスパーサ全般に共通する限界)。この既知の挙動を固定するテスト
+  // (「正しい」出力ではなく、実際に安全に予測できる出力を記録する)。 ----
+  eq(
+    splitCsvRecords('bad, " unterminated\nc,"valid\nmultiline"\nlast,row', [","]).records,
+    ['bad, " unterminated\nc,"valid\nmultiline"', "last,row"],
+    "既知の限界: 破損クォート直後の正当な複数行フィールドの閉じクォートが誤って食いつかれ、1つのレコードへ結合されることがある(回帰確認、この挙動を意図的に固定する)",
+  );
+
+  // ---- 正しく閉じられたクォートを含む正常な入力では、warningsが一切発生しない
+  // (回帰確認) ----
+  {
+    const r = splitCsvRecords('a,"properly closed"\nb,c', [","]);
+    eq(r.records, ['a,"properly closed"', "b,c"], "正しく閉じられたクォートを含む正常な入力は従来どおりクォート認識で分割される(回帰確認)");
+    eq(r.warnings, [], "正常な入力ではwarningsが空になる(回帰確認)");
   }
 
   if (fail > 0) {

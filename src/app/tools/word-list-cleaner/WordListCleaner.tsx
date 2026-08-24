@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { trackToolStarted, trackToolCompleted } from "@/lib/analytics/events";
 import { trackEvent } from "@/lib/analytics/track";
-import { parseWordList, toWordbookCsv, csvWithBom, type WordListEntry } from "@/lib/utils/wordListCleaner";
+import { parseWordList, toWordbookCsv, csvWithBom, type WordListEntry, type MalformedCsvWarning } from "@/lib/utils/wordListCleaner";
 
 const TOOL_KEY = "word-list-cleaner";
 
@@ -31,6 +31,7 @@ export function WordListCleaner() {
   const [input, setInput] = useState("");
   const [entries, setEntries] = useState<WordListEntry[]>([]);
   const [skippedLineNumbers, setSkippedLineNumbers] = useState<number[]>([]);
+  const [malformedCsvWarnings, setMalformedCsvWarnings] = useState<MalformedCsvWarning[]>([]);
   const [hasFormatted, setHasFormatted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -72,6 +73,7 @@ export function WordListCleaner() {
     const result = parseWordList(input);
     setEntries(result.entries);
     setSkippedLineNumbers(result.skippedLineNumbers);
+    setMalformedCsvWarnings(result.malformedCsvWarnings);
     setHasFormatted(true);
     setCopyFailed(false);
     setDownloadFailed(false);
@@ -172,9 +174,16 @@ export function WordListCleaner() {
       {hasFormatted && (
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
           {entries.length === 0 ? (
-            <p className="text-sm text-navy-600">
-              単語と意味のペアを認識できませんでした。区切り文字(タブ・コロン・ハイフン・カンマ・スペース)を確認してください。
-            </p>
+            <>
+              <p className="text-sm text-navy-600">
+                単語と意味のペアを認識できませんでした。区切り文字(タブ・コロン・ハイフン・カンマ・スペース)を確認してください。
+              </p>
+              {malformedCsvWarnings.length > 0 && (
+                <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-3">
+                  クォート(&quot;)が閉じられていない行が{malformedCsvWarnings.length}件(行番号: {malformedCsvWarnings.map((w) => w.physicalLine).join(", ")})あり、破損した値として取り込まずスキップしました。
+                </p>
+              )}
+            </>
           ) : (
             <>
               <div className="flex items-center justify-between mb-3">
@@ -183,6 +192,11 @@ export function WordListCleaner() {
               {skippedLineNumbers.length > 0 && (
                 <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
                   {skippedLineNumbers.length}行(行番号: {skippedLineNumbers.join(", ")})は単語/意味のペアとして認識できず、スキップしました。
+                </p>
+              )}
+              {malformedCsvWarnings.length > 0 && (
+                <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+                  クォート(&quot;)が閉じられていない行が{malformedCsvWarnings.length}件(行番号: {malformedCsvWarnings.map((w) => w.physicalLine).join(", ")})あり、破損した値として取り込まずスキップしました。それ以外の行は通常どおり整形結果に含まれています。
                 </p>
               )}
               {neutralizedCount > 0 && (

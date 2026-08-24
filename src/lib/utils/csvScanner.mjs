@@ -29,6 +29,109 @@
  * そのまま解決)・Node実行(そのまま解決)のどちらでも同じ相対pathで解決できる。
  */
 
+// 候補の閉じクォート(text[idxAfterQuote - 1]の"")の直後が、実際に
+// フィールド/レコードの終端として妥当な文脈(空白列の後にdelimiter・改行・
+// EOFのいずれか)かどうかを判定する。これが無いと、本来閉じられるべきで
+// はない未終端クォートの中に、たまたま別の(無関係な)クォートが後から
+// 現れただけで、そちらが誤って「閉じクォート」として食いつかれてしまう
+// (例: `a, "bad1\ngood1,x\nb, "bad2\ngood2,y`のように、1つ目の壊れた
+// クォートが2つ目の壊れたクォートの"を誤って自分の閉じクォートとして
+// 消費してしまい、間の正常な行good1,xごと1つの巨大な壊れたレコードへ
+// 呑み込んでしまっていた)。文脈が妥当でない場合は、このクォートを
+// トグルしないただの文字として扱い、開いたクォートを維持したまま
+// 先へ進む。
+function isValidQuoteCloseFollow(text, delimiterSet, idxAfterQuote) {
+  let j = idxAfterQuote;
+  // delimiterがタブのように空白文字そのものである場合、それ自体をスキップ
+  // 対象の空白と誤認識して読み飛ばしてしまわないよう、delimiter自身では
+  // ループを止める(Codexレビュー指摘対応ではなく、実装時の自己監査で発見:
+  // delimiterChars=["\t"]のとき、正しく閉じたクォートの直後のタブを
+  // 「スキップしてよい空白」とみなして通り過ぎてしまい、次の非空白文字が
+  // delimiter/改行/EOFのいずれでもないという理由で、正しい閉じクォートまで
+  // 誤って未終端と判定していた)。
+  while (j < text.length && text[j] !== "\n" && text[j] !== "\r" && !delimiterSet.has(text[j]) && /\s/.test(text[j])) j++;
+  if (j >= text.length) return true;
+  const ch = text[j];
+  return ch === "\n" || ch === "\r" || delimiterSet.has(ch);
+}
+
+// splitCsvRecords()の中核となる1回分の走査。textのstartOffset位置から、
+// 閉じクォートが見つからないまま行き詰まる(inQuotesのままEOFに達する)か、
+// テキスト末尾まで正常に完了するかのどちらかで終わる。呼び出し元
+// (splitCsvRecords)がこれを繰り返し呼び出し、行き詰まった箇所ごとに
+// 「その物理行だけ」を切り離して再開することで、EOFまで閉じられない
+// クォート1つのために後続の正当な行(クォート内の正しい複数行フィールドを
+// 含む)を丸ごと壊さないようにする。
+function scanOnePass(text, startOffset, delimiterSet, startLine) {
+  const records = [];
+  const recordStartLines = [];
+  let current = "";
+  let currentStartLine = startLine;
+  let inQuotes = false;
+  // レコード先頭は常にフィールド境界(旧実装の`current === ""`特例に相当)。
+  let atFieldBoundary = true;
+  let physicalLine = startLine;
+  let quoteOpenOffset = null;
+  let quoteOpenLine = null;
+
+  for (let i = startOffset; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"' && !inQuotes && atFieldBoundary) {
+      inQuotes = true;
+      current += ch;
+      atFieldBoundary = false;
+      quoteOpenOffset = i;
+      quoteOpenLine = physicalLine;
+      continue;
+    }
+    if (ch === '"' && inQuotes) {
+      if (text[i + 1] === '"') { current += '""'; i++; continue; }
+      if (isValidQuoteCloseFollow(text, delimiterSet, i + 1)) {
+        inQuotes = false;
+        current += ch;
+        atFieldBoundary = false;
+        quoteOpenOffset = null;
+        continue;
+      }
+      // 直後の文脈がフィールド/レコード終端として妥当でないため、閉じ
+      // クォートとして扱わず、ただの文字として飲み込んで開いたままにする。
+      current += ch;
+      continue;
+    }
+    if (!inQuotes && (ch === "\n" || ch === "\r")) {
+      records.push(current);
+      recordStartLines.push(currentStartLine);
+      current = "";
+      atFieldBoundary = true;
+      physicalLine++;
+      currentStartLine = physicalLine;
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      continue;
+    }
+    if (inQuotes && (ch === "\n" || (ch === "\r" && text[i + 1] !== "\n"))) {
+      // クォート内部の改行(正当な複数行フィールド)でも、物理行番号自体は
+      // 引き続き数える(warningsのphysicalLineを正確にするため)。
+      physicalLine++;
+    }
+    if (!inQuotes) {
+      if (delimiterSet.has(ch)) {
+        atFieldBoundary = true;
+      } else if (!(atFieldBoundary && /\s/.test(ch))) {
+        // delimiter直後の空白が続く間だけatFieldBoundaryを維持する。
+        atFieldBoundary = false;
+      }
+    }
+    current += ch;
+  }
+
+  if (inQuotes) {
+    return { records, recordStartLines, brokenAtOffset: quoteOpenOffset, brokenAtLine: quoteOpenLine };
+  }
+  records.push(current);
+  recordStartLines.push(currentStartLine);
+  return { records, recordStartLines, brokenAtOffset: null, brokenAtLine: null };
+}
+
 /**
  * `text`をレコード(1行分のCSV/TSV)に分割する。クォートで囲まれたフィールドの
  * 中に、レコード区切りとなる改行(\n または \r\n)が文字どおり含まれていても、
@@ -49,66 +152,87 @@
  * re-scanする実装だとO(n^2)になり、ブラウザのメインスレッドを約13秒間
  * ブロックしていた)。
  *
+ * フィールド境界で開いたクォートにEOFまで対応する閉じクォートが見つからない
+ * 場合(壊れたCSV/TSV、単なる書き忘れ)、クォートが開いた「物理行」だけを
+ * 破損した行として除外し、その次の物理行からクォート解釈を再開する
+ * (Codexレビュー指摘対応、PR #105、round-17再監査フレッシュレビューP2:
+ * `inch, " symbol\napple,りんご`が2レコードに分かれず1レコードとして
+ * 返され、apple行がinchのmeaningへ静かに混入していた)。テキスト全体を
+ * 素朴な改行分割へ丸ごとフォールバックすると、この壊れた箇所より後にある
+ * 正当な複数行クォートフィールドまで巻き添えで壊れてしまうため、
+ * 「壊れた1行だけ除外→残りは通常どおりクォート解釈を続行」という
+ * 再同期(resync)方式を採る。
+ *
+ * 閉じクォート候補(直前が"で、doubled ""ではない)は、その直後(空白列を
+ * 挟んでよい)がdelimiter・改行・EOFのいずれかである場合だけ実際に「閉じる」
+ * とみなす(isValidQuoteCloseFollow())。これが無いと、"a, "bad1\ngood1,x\n
+ * b, "bad2\ngood2,y"のように壊れたクォートが複数バラバラに現れる入力で、
+ * 1つ目の壊れたクォートが2つ目の(無関係な)壊れたクォートの"を誤って
+ * 自分の閉じクォートとして食いつき、間の正常な行(good1,x)ごと1つの巨大な
+ * レコードへ呑み込んでしまう。
+ *
+ * それでも解決できない既知の限界が1つ残る: 壊れたクォートの後に、正しく
+ * 閉じられた(≒直後の文脈が妥当な)複数行クォートフィールドが存在する場合、
+ * そのフィールド自身の正当な閉じクォートが、直前の壊れたクォートの閉じ
+ * クォートとして誤って食いつかれてしまう(両者を区別する情報がテキスト自体
+ * に無いため)。これはフォワード1パスのストリーミングパーサ(PapaParse等)
+ * 全般に共通する既知の限界であり、このスキャナー固有の問題ではない。
+ * 保証できるのは「壊れたクォートより前にある複数行クォートフィールドは
+ * 必ず正しく処理される」(1パス処理の性質上、後方の壊れたクォートが前方の
+ * 内容へ影響することはあり得ない)ことと、「壊れた行の直後にある、それ自体が
+ * クォートを一切含まない通常の行は必ず回復される」ことの2点。
+ *
  * @param {string} text
  * @param {string[]} delimiterChars このテキストで区切り文字として使われうる
  *   1文字ずつの候補一覧(例: [","] や ["\t", ","])。呼び出し時点でまだ
  *   実際の区切り文字が確定していない場合(wordListCleaner.tsの列モードのように、
  *   レコード分割の後で区切り文字を判定する設計)は、候補をすべて渡す。
- * @returns {string[]}
+ * @returns {{
+ *   records: string[],
+ *   recordStartLines: number[],
+ *   warnings: Array<{type: "unterminated_quote", physicalLine: number, skippedLineText: string}>,
+ * }} recordsとrecordStartLinesは同じ長さ・同じ順序で対応する(records[i]は
+ *   元テキストのrecordStartLines[i]行目から始まる)。破損して除外された行は
+ *   recordsに含まれず、その行の情報はwarningsにのみ記録される。
  */
 export function splitCsvRecords(text, delimiterChars) {
   const delimiterSet = new Set(delimiterChars);
   const records = [];
-  let current = "";
-  let inQuotes = false;
-  // レコード先頭は常にフィールド境界(旧実装の`current === ""`特例に相当)。
-  let atFieldBoundary = true;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '"' && !inQuotes && atFieldBoundary) {
-      inQuotes = true;
-      current += ch;
-      atFieldBoundary = false;
-      continue;
-    }
-    if (ch === '"' && inQuotes) {
-      if (text[i + 1] === '"') { current += '""'; i++; continue; }
-      inQuotes = false;
-      current += ch;
-      atFieldBoundary = false;
-      continue;
-    }
-    if (!inQuotes && (ch === "\n" || ch === "\r")) {
-      records.push(current);
-      current = "";
-      atFieldBoundary = true;
-      if (ch === "\r" && text[i + 1] === "\n") i++;
-      continue;
-    }
-    if (!inQuotes) {
-      if (delimiterSet.has(ch)) {
-        atFieldBoundary = true;
-      } else if (!(atFieldBoundary && /\s/.test(ch))) {
-        // delimiter直後の空白が続く間だけatFieldBoundaryを維持する。
-        atFieldBoundary = false;
-      }
-    }
-    current += ch;
+  const recordStartLines = [];
+  const warnings = [];
+  let scanFrom = 0;
+  let lineBase = 1;
+  // scanFromは壊れた行を1行スキップするたびに厳密に前進するため、理論上
+  // 無限ループにはならないが、想定外の状態遷移に備えた安全弁として上限を置く。
+  let guard = 0;
+
+  while (scanFrom <= text.length) {
+    if (++guard > 100000) break;
+    const pass = scanOnePass(text, scanFrom, delimiterSet, lineBase);
+    records.push(...pass.records);
+    recordStartLines.push(...pass.recordStartLines);
+    if (pass.brokenAtOffset === null) break;
+
+    // 壊れたクォートが開いた物理行の範囲[lineStart, nextLineStart)を特定し、
+    // その1行だけを破損行として除外する。次のパスはnextLineStartから、
+    // クォート解釈を最初からやり直す形で再開する。
+    const lineStart = text.lastIndexOf("\n", pass.brokenAtOffset - 1) + 1;
+    let nextLineStart = text.indexOf("\n", pass.brokenAtOffset);
+    nextLineStart = nextLineStart === -1 ? text.length : nextLineStart + 1;
+    const skippedLineText = text.slice(lineStart, nextLineStart).replace(/\r?\n$/, "");
+
+    warnings.push({
+      type: "unterminated_quote",
+      physicalLine: pass.brokenAtLine,
+      skippedLineText,
+    });
+
+    scanFrom = nextLineStart;
+    lineBase = pass.brokenAtLine + 1;
+    if (nextLineStart >= text.length) break;
   }
-  // フィールド境界で開いたクォートに、EOFまでに対応する閉じクォートが
-  // 一度も見つからなかった場合(壊れたCSV/TSV、または単なる書き忘れ)。
-  // このまま返すと、開いたクォート以降の改行がすべてレコード区切りとして
-  // 扱われず、以降の全行が1レコードへ呑み込まれてしまう(Codexレビュー
-  // 指摘対応、PR #105、round-17再監査P2: `inch, " symbol\napple,りんご`が
-  // 2レコードに分かれず1レコードとして返され、apple行がinchのmeaningへ
-  // 静かに混入していた)。閉じクォートが無いと確定した時点で、このテキスト
-  // 全体をクォートを一切解釈しない素朴な改行分割にフォールバックする方が、
-  // 後続の正当な行を1行も失わずに済む安全側の挙動になる。
-  if (inQuotes) {
-    return text.split(/\r\n|\r|\n/);
-  }
-  records.push(current);
-  return records;
+
+  return { records, recordStartLines, warnings };
 }
 
 /**

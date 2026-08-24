@@ -108,14 +108,37 @@ function main() {
     }
   }
 
-  // ==== 5. 閉じていないクォート ====
+  // ==== 5. 閉じていないクォート(round-18: 「黙って正常入力として扱う」フォール
+  // バックではなく、malformedCsvWarningsとして明示的に開示される。entries/
+  // skippedLineNumbersのどちらにも紛れ込まず、「破損した値として取り込まれず
+  // 除外された」ことが独立したカテゴリとして区別できる) ====
   {
     const r = parseWordList('word,meaning\n"unterminated,テスト');
-    // 閉じクォートが無い壊れた入力: 例外を投げず、安全側(スキップ or 何らかのベストエフォート)に倒れることを確認。
-    if (r.entries.length + r.skippedLineNumbers.length >= 1) {
-      ok("閉じていないクォートを含む行でも例外を投げず、スキップまたはベストエフォートで処理される");
+    if (
+      r.entries.length === 0 &&
+      r.skippedLineNumbers.length === 0 &&
+      r.malformedCsvWarnings.length === 1 &&
+      r.malformedCsvWarnings[0].type === "unterminated_quote" &&
+      r.malformedCsvWarnings[0].physicalLine === 2
+    ) {
+      ok("閉じていないクォートを含む行は、entries/skippedLineNumbersのどちらにも含まれず、malformedCsvWarningsとして正しい物理行番号(2行目)で明示される");
     } else {
       bad(`閉じクォート無し入力の処理が想定外: ${JSON.stringify(r)}`);
+    }
+  }
+  {
+    // 破損行の直後に正常な行がある場合、正常な行は破損行の影響を受けず回復される。
+    const r = parseWordList('word,meaning\n"unterminated,テスト\napple,りんご');
+    if (
+      r.entries.length === 1 &&
+      r.entries[0].word === "apple" &&
+      r.entries[0].meaning === "りんご" &&
+      r.malformedCsvWarnings.length === 1 &&
+      r.malformedCsvWarnings[0].physicalLine === 2
+    ) {
+      ok("破損した行の直後にある正常な行(apple,りんご)は、破損行の影響を受けず正しく回復される");
+    } else {
+      bad(`破損行直後の正常行の回復が想定外: ${JSON.stringify(r)}`);
     }
   }
   {

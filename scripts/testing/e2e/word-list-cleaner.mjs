@@ -421,6 +421,45 @@ async function main() {
       fail(`5,000件超入力・201件/5,000件境界値の検証中に例外: ${e.message}`);
     }
 
+    // ---- 未終端クォート(閉じられていない")の開示(ユーザーからの追加要求、
+    // round-18): 黙って正常入力として扱わず、破損した行の件数・行番号を画面へ
+    // 明示する。破損した行は取り込まれず、直後の正常な行(apple,りんご)は
+    // 影響を受けず回復される。コピー結果にも破損した値が一切含まれない
+    // (silent data corruptionが無いことの直接確認)。 ----
+    try {
+      await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
+      const malformedInput = 'word,meaning\n"unterminated,テスト\napple,りんご';
+      await page.locator("#word-list-input").fill(malformedInput);
+      await page.locator('button:has-text("CSVに整形する")').click();
+      await page.waitForTimeout(300);
+      const malformedBodyText = await page.locator("body").innerText();
+      const hasWarning = malformedBodyText.includes("クォート") && malformedBodyText.includes("閉じられていない") && malformedBodyText.includes("1件") && malformedBodyText.includes("行番号: 2");
+      const hasCorrectEntry = malformedBodyText.includes("整形結果(1件)");
+      if (hasWarning && hasCorrectEntry) {
+        ok("未終端クォートを含む行が1件あることと、その物理行番号(2行目)が画面に明示され、破損していない行(apple,りんご)だけが整形結果1件として正しく回復される");
+      } else {
+        fail(`未終端クォートの開示表示が想定外。本文抜粋: ${malformedBodyText.slice(0, 800)}`);
+      }
+
+      // コピー結果(=単語帳インポート・ダウンロードと同じcsv変数)にも、破損した
+      // 行の断片が一切含まれず、回復された正常な行だけが含まれることを確認する。
+      await page.locator('button:has-text("CSVをコピー")').click();
+      await page.waitForTimeout(300);
+      const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+      if (
+        clipboardText.includes("apple") &&
+        clipboardText.includes("りんご") &&
+        !clipboardText.includes("unterminated") &&
+        !clipboardText.includes("テスト")
+      ) {
+        ok("コピーされたCSVには、破損した行(unterminated/テスト)の断片が一切含まれず、回復された正常な行(apple,りんご)だけが含まれる(silent data corruptionが無いことの確認、画面表示と一致)");
+      } else {
+        fail(`コピー結果に破損データの混入または欠落を検出: ${JSON.stringify(clipboardText)}`);
+      }
+    } catch (e) {
+      fail(`未終端クォート開示の検証中に例外: ${e.message}`);
+    }
+
     await context.close();
   } catch (e) {
     fail(`ブラウザ検証中に例外: ${e.message}`);
