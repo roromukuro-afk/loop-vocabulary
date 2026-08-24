@@ -62,6 +62,18 @@ export const FUNNEL_EVENTS = [
   "exam_countdown_page_viewed",
   "exam_countdown_generated",
   "exam_countdown_srs_cta_clicked",
+  // vocab_growth_organicキャンペーンのvocab-check/dictionary destination
+  // (organic_01/organic_06、vocab-growth-organic-schedule.mjsのVOCAB_CHECK_/
+  // DICTIONARY_DESTINATION_CONTENT_KEYS)向けfunnel。eventSchema.tsには元々
+  // 登録済みだったが、この集計スクリプトのFUNNEL_EVENTSに含まれていなかったため、
+  // vocab-growth-organic-schedule.mjs側がfunnel.vocab_check_page_viewed等を
+  // 参照しても常にundefined→`?? []`で空配列にフォールバックし、実際の到達が
+  // あってもfunnel/landingが常にゼロ表示になっていた(Codexレビュー指摘対応、
+  // PR #125)。
+  "vocab_check_page_viewed",
+  "vocab_check_signup_clicked",
+  "dictionary_view",
+  "dictionary_word_added",
 ];
 
 // "landing"とみなすイベント名の集合(Codexレビュー指摘対応)。landing_viewは
@@ -74,11 +86,19 @@ export const FUNNEL_EVENTS = [
 // FUNNEL_EVENTSには含まれていてもLANDING_EVENT_NAMESになければlanding識別数
 // (分母)に一切計上されず、funnel件数(分子)だけが積み上がる不整合になる。
 // これらのイベントいずれかを「このセッションのentry pointに到達した」証跡として扱う。
+// vocab_check_page_viewed/dictionary_viewも同じ理由で追加(Codexレビュー指摘対応、
+// PR #125): /vocab-check・/dictionaryへSNSから直接ランディングした場合も、この
+// 2つがLANDING_EVENT_NAMESに含まれていないとlanding識別数(分母)に一切計上され
+// ない。CTA/完了系イベント(vocab_check_signup_clicked/dictionary_word_added)は
+// 他destinationのcta系イベント(vocab_test_maker_srs_cta_clicked等)と同様、
+// landingではなくfunnelの後段としてのみ扱うためここには含めない。
 const LANDING_EVENT_NAMES = [
   "landing_view",
   "vocab_test_maker_page_viewed",
   "guide_view",
   "exam_countdown_page_viewed",
+  "vocab_check_page_viewed",
+  "dictionary_view",
 ];
 
 // 同一visit内でのreload(track.tsのtrafficSourceDetectedFiredがハード再読み込みで

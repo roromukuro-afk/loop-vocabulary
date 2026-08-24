@@ -21,7 +21,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { loadEnv, requireEnv, REPO_ROOT } from "../testing/lib/env.mjs";
 import { getAdminClient } from "../testing/lib/supabaseAdmin.mjs";
-import { fetchTestAccountIds, summarizeWindow, FUNNEL_EVENTS } from "../testing/social-acquisition-snapshot.mjs";
+import { fetchTestAccountIds, summarizeWindow, summarizeWindowISO, FUNNEL_EVENTS } from "../testing/social-acquisition-snapshot.mjs";
 import { addDaysToDateStr, MIN_SAMPLE_SIZE_FOR_RATE } from "./lib/windowMath.mjs";
 import { buildFunnelRates } from "./lib/funnelRates.mjs";
 import {
@@ -85,12 +85,21 @@ async function buildDailyBreakdown(admin, testAccountIds, asOf, campaignStartDat
   return rows;
 }
 
-/** (b) organic_07公開後7日間のcampaign全体集計。まだ7日経っていなければnullを返す。 */
+/** (b) organic_07公開後7日間のcampaign全体集計。まだ7日経っていなければnullを返す。
+ *
+ * organic_07の投稿時刻(21:00 JST)はJST暦日の途中であり、summarizeWindow()の暦日
+ * 単位ウィンドウ(toJstDateString + addDaysToDateStr)をそのまま使うと、公開前の
+ * 当日21時間分を含み、7日目の最後の21時間分を含まない、ずれたウィンドウで集計して
+ * しまう(Codexレビュー指摘対応、PR #125)。24h-checkと同じsummarizeWindowISO()を
+ * 使い、publishedAtISOちょうどからその7日後ちょうどまでの正確なISO範囲で集計する。 */
 async function buildCampaignSevenDaySummary(admin, testAccountIds, asOf) {
   const organic07 = KNOWN_LAUNCH_SCHEDULE.find((e) => e.content === "organic_07");
-  const startDateStr = toJstDateString(new Date(organic07.publishedAtISO));
-  const endDateStrInclusive = addDaysToDateStr(startDateStr, 6); // 7日間(開始日含む)
+  const startISO = organic07.publishedAtISO;
   const windowEndMs = new Date(organic07.publishedAtISO).getTime() + 7 * 24 * 60 * 60 * 1000;
+  const endISO = new Date(windowEndMs).toISOString();
+  // 表示用(日別内訳と揃えたJST暦日表記)。実際のクエリ範囲はstartISO/endISOの方。
+  const startDateStr = toJstDateString(new Date(organic07.publishedAtISO));
+  const endDateStrInclusive = addDaysToDateStr(startDateStr, 6);
 
   if (Date.now() < windowEndMs) {
     const daysRemaining = ((windowEndMs - Date.now()) / (24 * 60 * 60 * 1000)).toFixed(1);
@@ -98,7 +107,7 @@ async function buildCampaignSevenDaySummary(admin, testAccountIds, asOf) {
   }
 
   const filterAttr = { campaign: CAMPAIGN };
-  const result = await summarizeWindow(admin, "campaign 7-day summary", startDateStr, endDateStrInclusive, testAccountIds, asOf, undefined, filterAttr);
+  const result = await summarizeWindowISO(admin, "campaign 7-day summary", startISO, endISO, testAccountIds, asOf, undefined, filterAttr);
 
   const allContentKeys = [
     ...new Set([...KNOWN_LAUNCH_CONTENT_KEYS, ...Object.keys(result.byContent), ...Object.keys(result.funnelCountsByContent), ...Object.keys(result.signupCountByContent)]),
@@ -117,7 +126,7 @@ async function buildCampaignSevenDaySummary(admin, testAccountIds, asOf) {
   }
   const totals = campaignTotals(result.byContent, result.funnelCountsByContent, result.signupCountByContent, KNOWN_LAUNCH_CONTENT_KEYS);
 
-  return { complete: true, startDateStr, endDateStrInclusive, totals, byContent };
+  return { complete: true, startISO, endISO, startDateStr, endDateStrInclusive, totals, byContent };
 }
 
 async function main() {
