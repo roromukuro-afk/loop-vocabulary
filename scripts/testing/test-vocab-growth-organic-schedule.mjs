@@ -81,23 +81,30 @@ function main() {
     }
   }
 
-  // ---- campaignTotals: untrackedなcontent(organic_05)は合計(socialLanding
-  // Identities等)から除外され、excludedUntrackedContentKeysに記録される
-  // (Codexレビュー指摘対応、PR #125: 「実測0」と「計測ギャップ」を混同して
-  // 合算すると、campaign全体の合計が実際より少なく見える) ----
+  // ---- campaignTotals: untrackedなcontent(organic_05)のlanding/funnelは
+  // 合計(socialLandingIdentities等)から除外され、excludedUntrackedContentKeys
+  // に記録される(Codexレビュー指摘対応、PR #125: 「実測0」と「計測ギャップ」
+  // を混同して合算すると、campaign全体の合計が実際より少なく見える)。
+  // ただしsignupは除外せず引き続き合算する(Codexレビュー指摘対応、PR #125
+  // フレッシュレビュー: signupはtraffic_source_detected visit起点で着地
+  // ページのイベントに依存せず計測できるため、untrackedを理由に除外すると
+  // 実際に発生したacquisitionの成果を過小報告してしまう) ----
   {
     const untrackedKey = UNTRACKED_DESTINATION_CONTENT_KEYS[0]; // "organic_05"
     const byContent = { organic_01: 10, [untrackedKey]: 0, organic_02: 5 };
     const funnelCountsByContent = {};
-    const signupCountByContent = { organic_01: 2, organic_02: 1 };
+    // untrackedKey自身にも実際にsignupが発生したケースを含める(landingが
+    // 計測できないことと、signupが計測できないことは別の話であることを
+    // 直接確認するため)。
+    const signupCountByContent = { organic_01: 2, organic_02: 1, [untrackedKey]: 4 };
     const totals = campaignTotals(byContent, funnelCountsByContent, signupCountByContent, ["organic_01", untrackedKey, "organic_02"]);
     if (
       totals.socialLandingIdentities === 15 &&
-      totals.socialSignupCount === 3 &&
+      totals.socialSignupCount === 7 &&
       totals.excludedUntrackedContentKeys.length === 1 &&
       totals.excludedUntrackedContentKeys[0] === untrackedKey
     ) {
-      ok(`campaignTotals()はuntrackedなcontent(${untrackedKey})を合計から除外し、excludedUntrackedContentKeysに記録する`);
+      ok(`campaignTotals()はuntrackedなcontent(${untrackedKey})のlanding/funnelだけを合計から除外してexcludedUntrackedContentKeysに記録しつつ、signup(4件)は他のcontentと同様に合算する`);
     } else {
       bad(`campaignTotalsのuntracked除外が想定外: ${JSON.stringify(totals)}`);
     }

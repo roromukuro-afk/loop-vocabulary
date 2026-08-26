@@ -65,25 +65,37 @@ export function formatJstDateTime(iso) {
 }
 
 // untrackedなdestination(organic_05等、first-party analyticsイベントが
-// 未実装)は、landingが構造的に必ず0になる(LANDING_EVENT_NAMESに対応する
-// イベントが存在しないため)。これを他のcontentの実測0と同列に合算すると、
-// 「未計測」が「実測0」に紛れ込み、campaign全体の合計値が実際より少なく
-// 見えてしまう(Codexレビュー指摘対応、PR #125: 7投稿のうち1投稿の寄与が
-// 本当は不明であるにもかかわらず、合計が「7投稿すべて実測済みの合計」として
-// 誤読されうる)。untrackedなcontentはtotalsの合算対象から除外し、
-// 除外したcontentキーをexcludedUntrackedContentKeysとして明示する。
+// 未実装)は、landing/funnelが構造的に必ず0になる(LANDING_EVENT_NAMES/
+// FUNNEL_EVENTSに対応するイベントが存在しないため)。これを他のcontentの
+// 実測0と同列に合算すると、「未計測」が「実測0」に紛れ込み、campaign全体の
+// 合計値が実際より少なく見えてしまう(Codexレビュー指摘対応、PR #125:
+// 7投稿のうち1投稿の寄与が本当は不明であるにもかかわらず、合計が「7投稿
+// すべて実測済みの合計」として誤読されうる)。untrackedなcontentのlanding/
+// funnelはtotalsの合算対象から除外し、除外したcontentキーをexcludedUntracked
+// ContentKeysとして明示する。
+//
+// ただしsignupは別扱いにする(Codexレビュー指摘対応、PR #125フレッシュ
+// レビュー: signupCountByContentは、着地ページ固有のイベント[dictionary_view
+// 等]ではなく、attributionされたtraffic_source_detected visit + プロフィール
+// 作成タイミングから独立して導出されており、着地ページにイベントが実装
+// されていなくても正しく計測できる)。organic_05経由で実際にサインアップした
+// ユーザーがいれば、その件数はlanding/funnelと違って本物の実測値であり、
+// untrackedを理由に合計から除外すると、実際に発生したacquisitionの成果を
+// 過小報告してしまう。
 export function campaignTotals(byContent, funnelCountsByContent, signupCountByContent, keys) {
   let socialLandingIdentities = 0;
   let socialSignupCount = 0;
   const funnelCounts = Object.fromEntries(FUNNEL_EVENTS.map((name) => [name, 0]));
   const excludedUntrackedContentKeys = [];
   for (const key of keys) {
+    // signupは常に合算する(untrackedでも計測可能な独立した指標のため)。
+    socialSignupCount += signupCountByContent[key] ?? 0;
+
     if (UNTRACKED_DESTINATION_CONTENT_KEYS.includes(key)) {
       excludedUntrackedContentKeys.push(key);
-      continue;
+      continue; // landing/funnelだけを合算対象から除外する。
     }
     socialLandingIdentities += byContent[key] ?? 0;
-    socialSignupCount += signupCountByContent[key] ?? 0;
     const funnel = funnelCountsByContent[key];
     if (!funnel) continue;
     for (const name of FUNNEL_EVENTS) funnelCounts[name] += funnel[name] ?? 0;
@@ -206,7 +218,7 @@ async function main() {
     isCompleteWindow: campaignSevenDaySummary.complete === true,
     dailyBreakdown,
     campaignSevenDaySummary,
-    note: `organic_05(/materials/eiken)はfirst-party analyticsイベント未実装のため、byContent[organic_05].landingはnull(実測0ではなく計測不能)。totals.excludedUntrackedContentKeysに含まれ、totals.socialLandingIdentities等の合算からも除外されている。`,
+    note: `organic_05(/materials/eiken)はfirst-party analyticsイベント未実装のため、byContent[organic_05].landingはnull(実測0ではなく計測不能)。totals.excludedUntrackedContentKeysに含まれ、totals.socialLandingIdentities/funnelCountsの合算からは除外されているが、totals.socialSignupCountにはorganic_05経由のsignup(traffic_source_detected visit起点で独立に計測可能)を引き続き含む。`,
   };
 
   const summaryLines = [
@@ -219,10 +231,10 @@ async function main() {
     campaignSevenDaySummary.complete
       ? [
           `-- organic_07公開後7日間のcampaign集計(${campaignSevenDaySummary.startDisplay} 〜 ${campaignSevenDaySummary.endDisplay}) --`,
-          `social landing identities(${CAMPAIGN}のみ、untracked destination除く): ${campaignSevenDaySummary.totals.socialLandingIdentities}`,
-          `social起点signup(${CAMPAIGN}のみ、untracked destination除く): ${campaignSevenDaySummary.totals.socialSignupCount}`,
+          `social landing identities(${CAMPAIGN}のみ、untracked destinationのlanding/funnelは除く): ${campaignSevenDaySummary.totals.socialLandingIdentities}`,
+          `social起点signup(${CAMPAIGN}のみ、untracked destination含む — signupはlandingページのイベント非依存で計測可能): ${campaignSevenDaySummary.totals.socialSignupCount}`,
           campaignSevenDaySummary.totals.excludedUntrackedContentKeys.length > 0
-            ? `(上記合計から除外: ${campaignSevenDaySummary.totals.excludedUntrackedContentKeys.join(", ")} — 計測ギャップのため)`
+            ? `(上記landing/funnel合計から除外: ${campaignSevenDaySummary.totals.excludedUntrackedContentKeys.join(", ")} — landing/funnelの計測ギャップのため。signupはこれらのcontentの分も含めて集計済み)`
             : "",
           ...Object.entries(campaignSevenDaySummary.byContent).map(
             ([key, v]) =>
