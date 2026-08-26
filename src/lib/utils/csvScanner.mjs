@@ -55,8 +55,39 @@ function isValidQuoteCloseFollow(text, delimiterSet, idxAfterQuote) {
   return ch === "\n" || ch === "\r" || delimiterSet.has(ch);
 }
 
+// beforeOffset(壊れたクォートの開始位置)を含む物理行の先頭位置を、CRLF/LF/
+// CR単独のいずれの改行コードでも正しく求める(Codexレビュー指摘対応、PR #105、
+// round-18再監査フレッシュレビュー4巡目: \nだけを探すlastIndexOf/indexOfでは
+// CR単独の改行コードで行境界を1つも見つけられなかった)。
+function findLineStartBefore(text, beforeOffset) {
+  let i = beforeOffset - 1;
+  while (i >= 0 && text[i] !== "\n" && text[i] !== "\r") i--;
+  return i + 1;
+}
+
+// fromOffset以降で最初の改行(CRLF/LF/CR単独のいずれか)の直後の位置を返す
+// (見つからなければtext.length)。
+function findNextLineStart(text, fromOffset) {
+  let i = fromOffset;
+  while (i < text.length && text[i] !== "\n" && text[i] !== "\r") i++;
+  if (i >= text.length) return text.length;
+  if (text[i] === "\r" && text[i + 1] === "\n") return i + 2;
+  return i + 1;
+}
+
+// 1つの開いたクォートについて、閉じクォートを探索してよい最大の物理行数。
+// これを超えても閉じクォートが見つからなければ、EOFまで探索を続けずその場で
+// 未終端と確定する(Codexレビュー指摘対応、PR #105、round-18再監査フレッシュ
+// レビュー4巡目: 上限が無いと、閉じクォートを持たない行が多数連続する入力
+// (例: 5,000行の未終端クォート)で、壊れた行を1行スキップして再開するたびに
+// 残りテキスト全体を毎回EOFまで再スキャンすることになり、準二次的に遅くなる
+// —5,000行で約2.4秒かかっていた)。実際の見出し語リストの1つの値がこれだけの
+// 行数にまたがることは通常無いため、十分に余裕を持った定数(200行)とする。
+const MAX_LINES_SEARCHING_FOR_QUOTE_CLOSE = 100;
+
 // splitCsvRecords()の中核となる1回分の走査。textのstartOffset位置から、
-// 閉じクォートが見つからないまま行き詰まる(inQuotesのままEOFに達する)か、
+// 閉じクォートが見つからないまま行き詰まる(inQuotesのままEOFに達するか、
+// MAX_LINES_SEARCHING_FOR_QUOTE_CLOSEを超えて閉じクォートが見つからない)か、
 // テキスト末尾まで正常に完了するかのどちらかで終わる。呼び出し元
 // (splitCsvRecords)がこれを繰り返し呼び出し、行き詰まった箇所ごとに
 // 「その物理行だけ」を切り離して再開することで、EOFまで閉じられない
@@ -73,6 +104,9 @@ function scanOnePass(text, startOffset, delimiterSet, startLine) {
   let physicalLine = startLine;
   let quoteOpenOffset = null;
   let quoteOpenLine = null;
+  // 現在開いているクォートについて、開いてから何行分の閉じクォート探索を
+  // 続けたか(MAX_LINES_SEARCHING_FOR_QUOTE_CLOSE参照)。
+  let linesSinceQuoteOpen = 0;
 
   for (let i = startOffset; i < text.length; i++) {
     const ch = text[i];
@@ -82,6 +116,7 @@ function scanOnePass(text, startOffset, delimiterSet, startLine) {
       atFieldBoundary = false;
       quoteOpenOffset = i;
       quoteOpenLine = physicalLine;
+      linesSinceQuoteOpen = 0;
       continue;
     }
     if (ch === '"' && inQuotes) {
@@ -112,6 +147,14 @@ function scanOnePass(text, startOffset, delimiterSet, startLine) {
       // クォート内部の改行(正当な複数行フィールド)でも、物理行番号自体は
       // 引き続き数える(warningsのphysicalLineを正確にするため)。
       physicalLine++;
+      linesSinceQuoteOpen++;
+      if (linesSinceQuoteOpen > MAX_LINES_SEARCHING_FOR_QUOTE_CLOSE) {
+        // MAX_LINES_SEARCHING_FOR_QUOTE_CLOSE行を超えても閉じクォートが
+        // 見つからない場合、EOFまで探索を続けず、この時点で未終端と確定する
+        // (Codexレビュー指摘対応、PR #105、round-18再監査フレッシュレビュー
+        // 4巡目、性能問題)。
+        return { records, recordStartLines, brokenAtOffset: quoteOpenOffset, brokenAtLine: quoteOpenLine };
+      }
     }
     if (!inQuotes) {
       if (delimiterSet.has(ch)) {
@@ -215,11 +258,15 @@ export function splitCsvRecords(text, delimiterChars) {
 
     // 壊れたクォートが開いた物理行の範囲[lineStart, nextLineStart)を特定し、
     // その1行だけを破損行として除外する。次のパスはnextLineStartから、
-    // クォート解釈を最初からやり直す形で再開する。
-    const lineStart = text.lastIndexOf("\n", pass.brokenAtOffset - 1) + 1;
-    let nextLineStart = text.indexOf("\n", pass.brokenAtOffset);
-    nextLineStart = nextLineStart === -1 ? text.length : nextLineStart + 1;
-    const skippedLineText = text.slice(lineStart, nextLineStart).replace(/\r?\n$/, "");
+    // クォート解釈を最初からやり直す形で再開する。CRLF/LF/CR単独のいずれの
+    // 改行コードでも正しく行境界を判定する(Codexレビュー指摘対応、PR #105、
+    // round-18再監査フレッシュレビュー4巡目: 旧実装は\nだけを探しており、
+    // CR単独(古いMac形式)の改行では行境界を1つも見つけられず、入力全体が
+    // 1つの破損行として警告に丸ごと取り込まれ、後続の正当な行も巻き添えで
+    // 失われていた)。
+    const lineStart = findLineStartBefore(text, pass.brokenAtOffset);
+    const nextLineStart = findNextLineStart(text, pass.brokenAtOffset);
+    const skippedLineText = text.slice(lineStart, nextLineStart).replace(/\r\n$|\r$|\n$/, "");
 
     warnings.push({
       type: "unterminated_quote",

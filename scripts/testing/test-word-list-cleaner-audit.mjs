@@ -252,6 +252,27 @@ function main() {
     }
   }
 
+  // ==== 9c. 先頭に空行がある入力でも、その直後の本物のTSVヘッダーから区切り
+  // 文字を正しく確定できる(Codexレビュー指摘対応、PR #105、round-18再監査
+  // フレッシュレビュー4巡目: 旧実装は単純に最初の改行までを「先頭行」として
+  // 扱っていたため、先頭が空行の入力ではヘッダー検出自体を諦めて両方の区切り
+  // 文字候補へフォールバックし、9bと同じ誤検出が再発していた) ====
+  {
+    const r = parseWordList('\nword\tmeaning\nquote\tUse comma, " literally\napple\tりんご');
+    if (
+      r.entries.length === 2 &&
+      r.entries[0].word === "quote" &&
+      r.entries[0].meaning === 'Use comma, " literally' &&
+      r.entries[1].word === "apple" &&
+      r.entries[1].meaning === "りんご" &&
+      r.malformedCsvWarnings.length === 0
+    ) {
+      ok("先頭に空行がある入力でも、直後の本物のTSVヘッダーから区切り文字を正しく確定でき、9bと同じ誤検出が再発しない");
+    } else {
+      bad(`先頭空行付きTSV入力の解析が想定外: ${JSON.stringify(r)}`);
+    }
+  }
+
   // ==== 11. 括弧内カンマ go (went, gone) ====
   {
     const r = parseWordListLine("go (went, gone) 行く");

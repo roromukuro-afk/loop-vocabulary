@@ -203,6 +203,57 @@ function main() {
     eq(r.warnings, [], "正常な入力ではwarningsが空になる(回帰確認)");
   }
 
+  // ==== CR単独(古いMac形式)の改行コードでも、未終端クォートの復旧が正しく
+  // 行われる(Codexレビュー指摘対応、PR #105、round-18再監査フレッシュレビュー
+  // 4巡目: 旧実装は\nだけを行境界の探索対象にしており、CR単独の改行では行境界を
+  // 1つも見つけられず、入力全体が1つの破損行として警告に丸ごと取り込まれ、
+  // 後続の正当な行(apple)も巻き添えで失われていた) ====
+  {
+    const r = splitCsvRecords('good,ok\rinch," bad\rapple,りんご', [","]);
+    eq(r.records, ["good,ok", "apple,りんご"], "CR単独の改行コードでも、未終端クォートの破損行だけが除外され、前後の正常な行(good,ok / apple,りんご)は両方とも回復される");
+    if (r.warnings.length === 1 && r.warnings[0].skippedLineText === 'inch," bad') {
+      ok("CR単独の改行コードでも、破損した物理行のテキストが正しく特定される");
+    } else {
+      bad(`CR単独改行での破損行特定が想定外: ${JSON.stringify(r.warnings)}`);
+    }
+  }
+
+  // ==== 性能: 多数の独立した未終端クォート行(それぞれ閉じクォートを一切
+  // 持たない)を含む入力でも、準二次的に遅くならず線形時間に近い速度で処理
+  // できる(Codexレビュー指摘対応、PR #105、round-18再監査フレッシュレビュー
+  // 4巡目: 旧実装は壊れた行を1行スキップして再開するたびに残りテキスト全体を
+  // 毎回EOFまで再スキャンしており、5,000行の未終端クォートで約2.4秒かかって
+  // いた) ====
+  {
+    const N = 5000;
+    const lines = [];
+    for (let i = 0; i < N; i++) lines.push(`bad${i}, " unterminated${i}`);
+    const pathological = lines.join("\n");
+    const t0 = Date.now();
+    const r = splitCsvRecords(pathological, [","]);
+    const elapsedMs = Date.now() - t0;
+    if (r.records.length === 0 && r.warnings.length === N && elapsedMs < 2000) {
+      ok(`${N}行の独立した未終端クォート行(閉じクォート無し)を${elapsedMs}msで処理する(旧実装は準二次的で約2.4秒かかっていた)`);
+    } else {
+      bad(`多数の独立した未終端クォート行の処理が想定外: records.length=${r.records.length}, warnings.length=${r.warnings.length}, elapsedMs=${elapsedMs}`);
+    }
+  }
+
+  // ---- 未終端クォート探索の行数上限(MAX_LINES_SEARCHING_FOR_QUOTE_CLOSE=200)
+  // より十分に短い、現実的な複数行クォートフィールド(50行)は、探索の打ち切り
+  // による巻き添えを受けず正しく1レコードとして保持される(回帰確認: 性能対策の
+  // 行数上限が、現実的な長さの正当な複数行フィールドを壊さないことの確認) ----
+  {
+    const meaningLines = Array.from({ length: 50 }, (_, i) => `line${i}`).join("\n");
+    const text = `word,"${meaningLines}"\nnext,ok`;
+    const r = splitCsvRecords(text, [","]);
+    if (r.records.length === 2 && r.records[0] === `word,"${meaningLines}"` && r.records[1] === "next,ok" && r.warnings.length === 0) {
+      ok("50行にまたがる現実的な長さの正当な複数行クォートフィールドは、性能対策の行数上限(100行)の影響を受けず正しく1レコードとして保持される");
+    } else {
+      bad(`50行の複数行フィールドの処理が想定外: records=${JSON.stringify(r.records.map((x) => x.length))}, warnings=${JSON.stringify(r.warnings)}`);
+    }
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;

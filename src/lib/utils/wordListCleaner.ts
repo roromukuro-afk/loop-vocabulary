@@ -354,15 +354,19 @@ function splitIntoRecords(text: string) {
   return splitCsvRecords(text, detectedDelimiter ? [detectedDelimiter] : COLUMN_MODE_DELIMITERS);
 }
 
-// ヘッダー行として使う「生の先頭1行」を、クォート解釈を一切行わない単純な
-// 改行探索だけで取り出す(ヘッダー行自体がクォートで囲まれた複数行フィールドを
-// 含むことは通常無い、という前提)。この生の先頭行だけでdetectColumnMode()を
-// 試し、word/meaning列を検出できればその区切り文字を確定として返す。
+// ヘッダー行として使う「生の先頭の非空行」を、クォート解釈を一切行わない単純な
+// 改行分割だけで取り出す(ヘッダー行自体がクォートで囲まれた複数行フィールドを
+// 含むことは通常無い、という前提)。先頭に空行があるだけでヘッダー検出自体を
+// 諦めないよう、最初の非空行まで読み飛ばす(Codexレビュー指摘対応、PR #105、
+// round-18再監査フレッシュレビュー4巡目: 先頭が空行の入力で、直後の本物のTSV
+// ヘッダーを一切見ずに両区切り文字候補へフォールバックしてしまい、データ行の
+// 値中のカンマ+リテラルの"が誤ってTSVのフィールド境界と認識され、未終端クォート
+// と誤判定されていた)。この生の先頭非空行だけでdetectColumnMode()を試し、
+// word/meaning列を検出できればその区切り文字を確定として返す。
 function detectDelimiterFromRawFirstLine(text: string): string | null {
-  const firstLineEnd = text.search(/\r\n|\r|\n/);
-  const firstLineRaw = firstLineEnd === -1 ? text : text.slice(0, firstLineEnd);
-  if (!firstLineRaw.trim()) return null;
-  return detectColumnMode(firstLineRaw)?.delimiter ?? null;
+  const firstNonEmptyLine = text.split(/\r\n|\r|\n/).find((line) => line.trim());
+  if (!firstNonEmptyLine) return null;
+  return detectColumnMode(firstNonEmptyLine)?.delimiter ?? null;
 }
 
 // タブ区切りの複数列ヘッダも、カンマ区切りと同じ列選択ロジックで扱う
