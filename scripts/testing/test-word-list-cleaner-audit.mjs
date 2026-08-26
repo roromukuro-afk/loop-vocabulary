@@ -230,6 +230,28 @@ function main() {
     }
   }
 
+  // ==== 9b. TSVデータ行の値に「カンマ+リテラルの"」がたまたま含まれる場合、
+  // カンマ候補のせいで未終端クォートと誤判定されない(Codexレビュー指摘対応、
+  // PR #105、round-18再監査P2: ヘッダーからTSVと確定する前に両方の区切り文字
+  // 候補をクォート境界判定へ渡していたため、TSV行の値中のカンマがフィールド
+  // 境界だと誤認識され、その直後のリテラルな"が閉じクォートを持たない
+  // 未終端クォートとして誤検出され、行ごと除外されていた) ====
+  {
+    const r = parseWordList('word\tmeaning\nquote\tUse comma, " literally\napple\tりんご');
+    if (
+      r.entries.length === 2 &&
+      r.entries[0].word === "quote" &&
+      r.entries[0].meaning === 'Use comma, " literally' &&
+      r.entries[1].word === "apple" &&
+      r.entries[1].meaning === "りんご" &&
+      r.malformedCsvWarnings.length === 0
+    ) {
+      ok("TSVヘッダーで区切り文字がタブに確定した後は、データ行の値中のカンマ+リテラルの\"がカンマ候補のせいで未終端クォートと誤判定されない");
+    } else {
+      bad(`TSV行中のカンマ+リテラル\"の解析が想定外: ${JSON.stringify(r)}`);
+    }
+  }
+
   // ==== 11. 括弧内カンマ go (went, gone) ====
   {
     const r = parseWordListLine("go (went, gone) 行く");

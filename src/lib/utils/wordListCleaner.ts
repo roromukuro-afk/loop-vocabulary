@@ -336,11 +336,33 @@ function splitDelimitedRow(row: string, delimiter: string): string[] {
 // 出力しうる(csvField()参照)「意味に改行を含む値をダブルクォートで囲んだCSV」を
 // 貼り直した際、クォート内部の改行でレコードが分断され、後半が別の壊れた行として
 // 誤ってスキップされてしまう(Codexレビュー指摘対応、PR #105、10巡目、P2)。
-// この時点ではまだ列モードの区切り文字(カンマ/タブのどちらか)が確定していない
-// ため(delimiter判定はレコード分割の後に行われる)、両方の候補文字をクォート
-// 開始位置の判定に渡す。
+//
+// 区切り文字候補(タブ・カンマ)を両方ともクォート開始位置の判定へ渡すと、
+// 本物のTSV行の値の中に「カンマ+スペース+リテラルの"」がたまたま含まれる
+// だけで、カンマがTSVのフィールド境界だと誤認識され、そのクォートが閉じ
+// クォートを持たない未終端クォートとして誤検出されてしまう(Codexレビュー
+// 指摘対応、PR #105、round-18再監査P2: `word\tmeaning\nquote\tUse comma,
+// " literally\napple\tりんご`で、quote行がTSVのフィールド境界を一切
+// 使っていないにもかかわらず、その"がTSV側の候補カンマのせいで未終端クォート
+// と誤判定され、行ごと除外されていた)。ヘッダー行(先頭の生の1行、まだ
+// クォート解釈前)から先に実際の区切り文字を1つに確定できる場合は、それだけを
+// クォート開始位置の判定へ渡す。ヘッダーからword/meaning列を検出できない
+// (見出しの無い自由記述貼り付け等)場合のみ、従来どおり両方の候補を渡す
+// (delimiterが最後まで確定しない列モード外のケースへの後方互換)。
 function splitIntoRecords(text: string) {
-  return splitCsvRecords(text, COLUMN_MODE_DELIMITERS);
+  const detectedDelimiter = detectDelimiterFromRawFirstLine(text);
+  return splitCsvRecords(text, detectedDelimiter ? [detectedDelimiter] : COLUMN_MODE_DELIMITERS);
+}
+
+// ヘッダー行として使う「生の先頭1行」を、クォート解釈を一切行わない単純な
+// 改行探索だけで取り出す(ヘッダー行自体がクォートで囲まれた複数行フィールドを
+// 含むことは通常無い、という前提)。この生の先頭行だけでdetectColumnMode()を
+// 試し、word/meaning列を検出できればその区切り文字を確定として返す。
+function detectDelimiterFromRawFirstLine(text: string): string | null {
+  const firstLineEnd = text.search(/\r\n|\r|\n/);
+  const firstLineRaw = firstLineEnd === -1 ? text : text.slice(0, firstLineEnd);
+  if (!firstLineRaw.trim()) return null;
+  return detectColumnMode(firstLineRaw)?.delimiter ?? null;
 }
 
 // タブ区切りの複数列ヘッダも、カンマ区切りと同じ列選択ロジックで扱う
