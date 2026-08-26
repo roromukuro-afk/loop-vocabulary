@@ -19,7 +19,7 @@ const TOEIC_FREQUENT_VERBS_ID = "10000000-0000-0000-0000-000000000110";
 export const metadata: Metadata = {
   title: "ニュース英語の単語教材【無料】経済・企業ニュースを読む語彙 | Loop Vocabulary",
   description:
-    "経済ニュース・企業ニュースで頻出する英単語を無料でインポートして学習。英語ニュースを読むための基礎語彙を、単語帳に追加するだけで忘却曲線による自動復習・4択/入力/タイピングテストで定着できます。社会人・投資/ビジネス関心層におすすめです。",
+    "経済ニュース・企業ニュースで頻出する英単語を無料でインポートして学習。英語ニュースを読むための基礎語彙を、単語帳に追加するだけで忘却曲線による自動復習・4択/入力テストで定着できます。社会人・投資/ビジネス関心層におすすめです。",
   openGraph: {
     title: "ニュース英語の単語教材【無料】経済・企業ニュースを読む語彙",
     description: "経済・企業ニュースで頻出する英単語を無料で学習。忘却曲線で自動復習。",
@@ -130,8 +130,8 @@ export default async function NewsMaterialsLandingPage() {
       <h1 className="text-xl font-bold text-navy-800 mt-2">ニュース英語の単語教材</h1>
       <p className="text-sm text-navy-600 mt-2 leading-relaxed">
         経済ニュース・企業ニュースでよく使われる英単語を厳選した内蔵教材です。英語ニュースを読むための
-        基礎語彙を増やせます。単語帳に追加するだけで忘却曲線（SRS）による自動復習が始まり、4択・入力・
-        タイピングテストで定着できます。社会人の方、投資・ビジネス情報を英語で追いたい方におすすめです。
+        基礎語彙を増やせます。単語帳に追加するだけで忘却曲線（SRS）による自動復習が始まり、4択・入力
+        テストで定着できます。社会人の方、投資・ビジネス情報を英語で追いたい方におすすめです。
       </p>
 
       {/* CTA */}
@@ -156,6 +156,28 @@ export default async function NewsMaterialsLandingPage() {
             無料で始める
           </Link>
         )}
+      </div>
+
+      {/* ニュース英語が一般英語・ビジネス英語と違う理由 */}
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="bg-white rounded-xl border border-navy-100 p-3">
+          <div className="text-sm font-bold text-navy-800">📈 経済・市場のニュースを読む</div>
+          <p className="text-xs text-navy-500 mt-1">
+            決算・市場動向・金融政策など、経済ニュースで頻出する語彙をまとめて学べます。
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-navy-100 p-3">
+          <div className="text-sm font-bold text-navy-800">🏢 企業ニュースの語彙</div>
+          <p className="text-xs text-navy-500 mt-1">
+            企業戦略・業績発表・提携など、企業に関する英語記事で使われる語彙を収録しています。
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-navy-100 p-3">
+          <div className="text-sm font-bold text-navy-800">🔁 SRSで自動復習</div>
+          <p className="text-xs text-navy-500 mt-1">
+            単語帳に追加するだけで、忘却曲線に基づいた復習が自動で始まります。
+          </p>
+        </div>
       </div>
 
       {/* 教材一覧（主役: 経済/企業ニュース） */}
@@ -214,10 +236,48 @@ export default async function NewsMaterialsLandingPage() {
           <span>→</span>
           <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">③ SRSで復習</span>
           <span>→</span>
-          <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">④ 4択・入力・タイピングで確認</span>
+          <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">④ 4択・入力で確認</span>
           <span>→</span>
           <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">⑤ 辞書で単語を追加</span>
         </div>
+      </div>
+
+      {/* 無料でできること / Premiumでできること */}
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="bg-white rounded-xl border border-navy-100 p-4">
+          <div className="text-sm font-bold text-navy-800 mb-2">無料でできること</div>
+          <ul className="text-xs text-navy-600 space-y-1 list-disc pl-4">
+            <li>フラッシュカードで自己想起 → 忘却曲線で自動復習</li>
+            <li>経済・企業ニュース向け教材のインポート・単語帳の作成</li>
+            <li>4択テスト・入力テストでの確認</li>
+            <li>PDFテストの作成</li>
+            <li>達成スタンプでの学習記録</li>
+          </ul>
+        </div>
+        <div className="bg-white rounded-xl border border-navy-100 p-4">
+          <div className="text-sm font-bold text-navy-800 mb-2">Premiumでさらに効率化</div>
+          <ul className="text-xs text-navy-600 space-y-1 list-disc pl-4">
+            <li>AI弱点分析で苦手な単語・分野の傾向を確認</li>
+            <li>読んだニュース記事からAIで単語を抽出（AI単語抽出）</li>
+            <li>AI学習プランで学習範囲を整理</li>
+            <li>タイピング練習・広告非表示</li>
+          </ul>
+          <Link href="/premium" className="inline-block mt-2 text-xs text-sky-700 hover:underline">
+            月額 ¥480〜 プレミアムを見る →
+          </Link>
+        </div>
+      </div>
+
+      {/* ご利用にあたって */}
+      <div className="mt-5 bg-navy-50 rounded-2xl p-4">
+        <div className="text-sm font-bold text-navy-700 mb-2">ご利用にあたって</div>
+        <ul className="text-xs text-navy-600 space-y-1 list-disc pl-4">
+          <li>無料の範囲でも、単語帳・SRS復習・4択/入力/PDFテストなど基本的な学習が可能です</li>
+          <li>有料プランの料金（月額¥480〜・年額¥3,800）は<Link href="/premium" className="underline">プレミアムページ</Link>に明記しています</li>
+          <li>解約方法は<Link href="/terms" className="underline">利用規約</Link>に記載しています</li>
+          <li>投資判断や英語力向上を保証するような表現、誇張した実績の記載は行っていません</li>
+          <li>学習履歴（正誤・復習状況）をもとに、無理なく復習を続けられるよう支援するアプリです</li>
+        </ul>
       </div>
 
       {/* よくある質問 */}
