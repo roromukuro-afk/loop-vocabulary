@@ -14,6 +14,10 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/reports`,
     type: "website",
   },
+  // AdSense Low value content是正(Issue #127): このページは実データを一切含まず、
+  // 将来のレポート公開方針を説明するだけの「準備中」ページのため、十分なサンプルサイズの
+  // 実データが公開されるまでnoindexにする(sitemap.tsからも除外、主要ナビゲーションからも除去)。
+  robots: { index: false, follow: true },
 };
 
 const BREADCRUMB_LD = {

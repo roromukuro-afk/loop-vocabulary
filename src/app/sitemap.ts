@@ -83,7 +83,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: base,                         changeFrequency: "weekly",  priority: 1.0 },
     { url: `${base}/about`,              changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/press`,              changeFrequency: "monthly", priority: 0.5 },
-    { url: `${base}/reports`,            changeFrequency: "monthly", priority: 0.4 },
+    // /reportsはAdSense Low value content是正(Issue #127)によりnoindex化し、実データが
+    // 公開されるまでsitemapからも除外(src/app/reports/page.tsxのrobots設定を参照)。
     { url: `${base}/vocab-check`,        changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/vocab-check/eiken`,  changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/vocab-check/toeic`,  changeFrequency: "monthly", priority: 0.7 },

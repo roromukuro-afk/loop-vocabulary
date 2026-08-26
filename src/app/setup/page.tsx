@@ -1,7 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
+
+// AdSense Low value content是正(Issue #127): robots.txtでDisallow: /setupとしているが、
+// noindexメタが無いと、他サイトからのリンク経由でURLだけがインデックスされうる
+// (robots.txt Disallowはクロール自体を防ぐため、後からnoindexを追加してもGoogleはそれを
+// 読みに行けない)。開発環境セットアップ用の内部ページであり検索結果に出す意味がないため、
+// 他の管理系ページと同じnoindexパターンを明示的に付与する。
+export const metadata: Metadata = {
+  robots: { index: false, follow: true },
+};
 
 export default function SetupPage() {
   const env = getSupabaseEnv();
