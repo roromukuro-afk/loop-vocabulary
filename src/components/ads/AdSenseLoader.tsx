@@ -3,14 +3,15 @@
 // 独自コンテンツが薄いページ（操作画面・法務ページ等）では行わないための
 // ルート限定ローダー。許可ルートは src/lib/ads/adRoutePolicy.ts を参照。
 import Script from "next/script";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { isAdsAllowedPath } from "@/lib/ads/adRoutePolicy";
 import { buildAutoAdsInitScript } from "@/lib/ads/autoAdsInitScript";
 
 export function AdSenseLoader({ client }: { client?: string }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  if (!client || !isAdsAllowedPath(pathname)) return null;
+  if (!client || !isAdsAllowedPath(pathname, searchParams)) return null;
 
   return (
     <>
