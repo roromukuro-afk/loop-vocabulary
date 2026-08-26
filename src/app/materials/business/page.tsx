@@ -145,6 +145,28 @@ export default async function BusinessMaterialsLandingPage() {
         )}
       </div>
 
+      {/* ビジネス英語が一般英語・受験英語と違う理由 */}
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="bg-white rounded-xl border border-navy-100 p-3">
+          <div className="text-sm font-bold text-navy-800">📧 会議・メールに強くなる</div>
+          <p className="text-xs text-navy-500 mt-1">
+            職場で頻出する会議・メール表現を単語帳に登録すれば、実務でそのまま活きる語彙が身につきます。
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-navy-100 p-3">
+          <div className="text-sm font-bold text-navy-800">🌐 学校英語とは違う語彙</div>
+          <p className="text-xs text-navy-500 mt-1">
+            契約・交渉・プロジェクト管理など、受験英語や一般的な英会話ではあまり扱わない実務寄りの単語を収録しています。
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-navy-100 p-3">
+          <div className="text-sm font-bold text-navy-800">📰 ニュース語彙へステップアップ</div>
+          <p className="text-xs text-navy-500 mt-1">
+            ビジネス基礎語彙を固めたら、経済・企業ニュースの語彙教材で読解の幅を広げられます。
+          </p>
+        </div>
+      </div>
+
       {/* 教材一覧 */}
       <div id="business-materials" className="mt-6 space-y-3 scroll-mt-4" data-testid="category-lp-materials">
         {rows.map((m) => (
@@ -180,6 +202,45 @@ export default async function BusinessMaterialsLandingPage() {
           <span>→</span>
           <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">④ テスト</span>
         </div>
+      </div>
+
+      {/* 無料でできること / Premiumでできること */}
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="bg-white rounded-xl border border-navy-100 p-4">
+          <div className="text-sm font-bold text-navy-800 mb-2">無料でできること</div>
+          <ul className="text-xs text-navy-600 space-y-1 list-disc pl-4">
+            <li>フラッシュカードで自己想起 → 忘却曲線で自動復習</li>
+            <li>ビジネス英語向け教材のインポート・単語帳の作成</li>
+            <li>4択テスト・入力テストでの確認</li>
+            <li>PDFテストの作成</li>
+            <li>達成スタンプでの学習記録</li>
+          </ul>
+        </div>
+        <div className="bg-white rounded-xl border border-navy-100 p-4">
+          <div className="text-sm font-bold text-navy-800 mb-2">Premiumでさらに効率化</div>
+          <ul className="text-xs text-navy-600 space-y-1 list-disc pl-4">
+            <li>AI弱点分析で苦手な単語・分野の傾向を確認</li>
+            <li>受け取ったメールや資料からAIで単語を抽出（AI単語抽出）</li>
+            <li>AI学習プランで学習範囲を整理</li>
+            <li>リスニング練習で発音・音も確認</li>
+            <li>タイピング練習・広告非表示</li>
+          </ul>
+          <Link href="/premium" className="inline-block mt-2 text-xs text-sky-700 hover:underline">
+            月額 ¥480〜 プレミアムを見る →
+          </Link>
+        </div>
+      </div>
+
+      {/* ご利用にあたって */}
+      <div className="mt-5 bg-navy-50 rounded-2xl p-4">
+        <div className="text-sm font-bold text-navy-700 mb-2">ご利用にあたって</div>
+        <ul className="text-xs text-navy-600 space-y-1 list-disc pl-4">
+          <li>無料の範囲でも、単語帳・SRS復習・4択/入力/PDFテストなど基本的な学習が可能です</li>
+          <li>有料プランの料金（月額¥480〜・年額¥3,800）は<Link href="/premium" className="underline">プレミアムページ</Link>に明記しています</li>
+          <li>解約方法は<Link href="/terms" className="underline">利用規約</Link>に記載しています</li>
+          <li>資格取得・昇進・英語力向上を保証するような表現、誇張した実績の記載は行っていません</li>
+          <li>学習履歴（正誤・復習状況）をもとに、無理なく復習を続けられるよう支援するアプリです</li>
+        </ul>
       </div>
 
       {/* よくある質問 */}
