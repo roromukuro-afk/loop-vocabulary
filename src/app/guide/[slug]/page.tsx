@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
@@ -6,6 +7,7 @@ import { AmazonBookSection } from "@/components/affiliate/AmazonBook";
 import { GuideTracker } from "@/components/guide/GuideTracker";
 import { GuideEmailCapture } from "@/components/guide/GuideEmailCapture";
 import { GuideMaterialCTA } from "@/components/guide/GuideMaterialCTA";
+import { GuideByline } from "@/components/guide/GuideByline";
 
 type Article = {
   title: string;
@@ -14,6 +16,12 @@ type Article = {
   published: string;
   content: string;
   faq?: { q: string; a: string }[];
+  byline?: {
+    targetAudience: string;
+    sources: ReactNode;
+    lastUpdated: string;
+    changelog: { date: string; note: string }[];
+  };
 };
 
 type BookRec = { title: string; author: string; asin: string; price: string; label?: string };
@@ -25,6 +33,21 @@ const BRAND_REVIEW_SLUGS = new Set([
   "leap-eitango",
   "eitango-cho-hikaku",
 ]);
+
+// 単語帳比較5記事(BRAND_REVIEW_SLUGS)共通のGuideByline出典文。教材の仕様(収録語数・
+// 配列・レベル表記等)は出版社が公表している商品情報に基づく一般的な特徴の紹介であり、
+// 特定の学術研究を検証・引用するものではない。使い方の助言(音読・赤シート再生・
+// テーマ別暗記等)も実践的なコツとして紹介するものであり、効果を保証する記述ではない。
+// 復習タイミング・自己想起に関する研究的根拠は、既にDOI付き出典を明記している
+// eitango-oboeru-houhou記事側にまとめてあるため、ここでは重複させずリンクのみ示す
+// (Codexレビュー指摘対応、AdSense是正 Issue #127・PR-D)。
+const BOOK_REVIEW_SOURCES: ReactNode = (
+  <>
+    各単語帳の収録語数・配列・レベル表記などの仕様は、出版社が公表している商品情報に基づく一般的な特徴の紹介です。特定の学術研究を検証・引用するものではありません。フレーズ音読・赤シートでの再生・テーマ別の関連づけといった使い方の助言は、各単語帳の設計思想に沿った実践的なコツとして紹介しているものであり、効果を保証するものではありません。復習タイミングや自己想起の効果に関する研究的根拠は、
+    <Link href="/guide/eitango-oboeru-houhou" className="underline">英単語の覚え方・効率的な記憶術【自己想起×忘却曲線】</Link>
+    の記事で出典を明記しています。
+  </>
+);
 
 const BOOKS: Record<string, BookRec[]> = {
   "daigaku-juken-tango": [
@@ -1694,6 +1717,12 @@ Loop Vocabulary は、紙の単語帳の弱点（復習管理・苦手把握）�
       { q: "システム英単語はいつから始めるべきですか？", a: "中学〜高校基礎の語彙がある程度固まった段階（共通テストで5〜6割が見える頃）がおすすめです。基礎が抜けたまま入ると負荷が高く挫折しやすいため、先に基礎単語を固めるとスムーズです。" },
       { q: "システム英単語だけで難関大に対応できますか？", a: "見出し語＋多義語まで仕上げれば、多くの難関大の土台になります。ただし最難関では追加の語彙や過去問由来の語が必要になることもあるため、過去問演習で出会った未知語を補強すると万全です。" },
     ],
+    byline: {
+      targetAudience: "システム英単語の使い方・自分に合うか迷っている大学受験生向け",
+      sources: BOOK_REVIEW_SOURCES,
+      lastUpdated: "2026-08-26",
+      changelog: [{ date: "2026-08-26", note: "AdSense是正の一環で対象者・出典・最終更新日を明記。" }],
+    },
   },
 
   "target-1900": {
@@ -1760,6 +1789,12 @@ Loop Vocabulary は、紙の単語帳の弱点（復習管理・苦手把握）�
       { q: "ターゲット1900は1単語1義だけ覚えれば十分ですか？", a: "まずは見出しの1義を確実に覚えるのが優先です。それが固まったら、難関大対策として複数の意味（多義語）や派生語も押さえると長文での失点が減ります。最初から欲張らず、1義→多義の順で広げましょう。" },
       { q: "ターゲット1900とアプリはどう併用しますか？", a: "紙のターゲットで全体を高速周回し、間違えた単語やあいまいな単語をアプリに登録して回すのが効果的です。高速周回で抜けやすい単語を、アプリの忘却曲線復習と苦手分析が自動で拾ってくれます。" },
     ],
+    byline: {
+      targetAudience: "ターゲット1900の使い方・自分に合うか迷っている大学受験生向け",
+      sources: BOOK_REVIEW_SOURCES,
+      lastUpdated: "2026-08-26",
+      changelog: [{ date: "2026-08-26", note: "AdSense是正の一環で対象者・出典・最終更新日を明記。" }],
+    },
   },
 
 
@@ -1857,6 +1892,12 @@ Loop Vocabulary は、紙の単語帳の弱点（復習管理・苦手把握）�
       { q: "システム英単語とターゲット、覚える単語はどれくらい違いますか？", a: "序盤（最頻出帯）はほぼ同じ単語が並びます。どちらも頻度順／でる順だからです。違いが出るのは終盤の難関レベルで、シス単は抽象的な形容詞、ターゲットは専門的な名詞がやや多い傾向があります。ただし最難関の難語にも共通するものが多くあります。" },
       { q: "結局どちらを選べばいいですか？", a: "覚え方の好みで選んでください。文脈ごと覚えたい・長文や英作文を重視するならシステム英単語、1単語1義でテンポよく高速周回したいならターゲット1900が向きます。優劣ではなく相性で選び、1冊を完璧にするのが正解です。" },
     ],
+    byline: {
+      targetAudience: "システム英単語とターゲット1900のどちらを選ぶか迷っている大学受験生向け",
+      sources: BOOK_REVIEW_SOURCES,
+      lastUpdated: "2026-08-26",
+      changelog: [{ date: "2026-08-26", note: "AdSense是正の一環で対象者・出典・最終更新日を明記。" }],
+    },
   },
 
 
@@ -1965,6 +2006,12 @@ LEAPはテーマごとに関連語をまとめて覚える設計のため、テ�
       { q: "LEAPのレベルはどれくらいですか？", a: "共通テストから難関国公立・難関私大まで対応します。改訂版は2,300語に増え、難単語も追加されているため、収録の充実度は定番のターゲット・シス単を上回ります。基礎から始めたい場合は易しめのLEAP Basicもあります。" },
       { q: "LEAPは英作文・スピーキングにも使えますか？", a: "はい、むしろ強みです。LEAPは自分で使う『発信語彙』と、理解できればよい『受信語彙』を分けて配列しているため、英作文・スピーキングで使える単語を意識的に固められます。CEFR表示で頻度の高い語から優先することもできます。" },
     ],
+    byline: {
+      targetAudience: "英単語LEAPの使い方・自分に合うか迷っている大学受験生向け",
+      sources: BOOK_REVIEW_SOURCES,
+      lastUpdated: "2026-08-26",
+      changelog: [{ date: "2026-08-26", note: "AdSense是正の一環で対象者・出典・最終更新日を明記。" }],
+    },
   },
 
 
@@ -2043,6 +2090,12 @@ LEAPはテーマごとに関連語をまとめて覚える設計のため、テ�
       { q: "単語帳は何冊も併用すべきですか？", a: "基本は1冊を完璧にするのが先決です。定番の単語帳は頻出語の大部分が共通しているため、複数を並行するより1冊を仕上げてから、必要に応じて次のレベルや過去問由来の語彙に進む方が効率的です。" },
       { q: "LEAP・シス単・ターゲットで収録単語は大きく違いますか？", a: "序盤の最頻出語は大きく重なります。違いは主に配列（頻度順かテーマ別か）と覚え方、そして難関帯の単語の傾向です。語彙量ではLEAP(2,300語)がやや多く、最難関の難語は鉄壁が充実しています。" },
     ],
+    byline: {
+      targetAudience: "大学受験の単語帳をどれにするか比較検討している受験生向け",
+      sources: BOOK_REVIEW_SOURCES,
+      lastUpdated: "2026-08-26",
+      changelog: [{ date: "2026-08-26", note: "AdSense是正の一環で対象者・出典・最終更新日を明記。" }],
+    },
   },
 
 };
@@ -2455,6 +2508,17 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
             heading={GUIDE_MATERIALS[slug].heading}
             materials={GUIDE_MATERIALS[slug].items}
           />
+        )}
+
+        {article.byline && (
+          <div className="mt-6">
+            <GuideByline
+              targetAudience={article.byline.targetAudience}
+              sources={article.byline.sources}
+              lastUpdated={article.byline.lastUpdated}
+              changelog={article.byline.changelog}
+            />
+          </div>
         )}
 
         {/* FAQ */}
