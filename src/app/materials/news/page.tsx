@@ -19,7 +19,7 @@ const TOEIC_FREQUENT_VERBS_ID = "10000000-0000-0000-0000-000000000110";
 export const metadata: Metadata = {
   title: "ニュース英語の単語教材【無料】経済・企業ニュースを読む語彙 | Loop Vocabulary",
   description:
-    "経済ニュース・企業ニュースで頻出する英単語を無料でインポートして学習。英語ニュースを読むための基礎語彙を、単語帳に追加するだけで忘却曲線による自動復習・4択/入力/タイピングテストで定着できます。社会人・投資/ビジネス関心層におすすめです。",
+    "経済ニュース・企業ニュースで頻出する英単語を無料でインポートして学習。英語ニュースを読むための基礎語彙を、単語帳に追加するだけで忘却曲線による自動復習・4択/入力テストで定着できます。社会人・投資/ビジネス関心層におすすめです。",
   openGraph: {
     title: "ニュース英語の単語教材【無料】経済・企業ニュースを読む語彙",
     description: "経済・企業ニュースで頻出する英単語を無料で学習。忘却曲線で自動復習。",
@@ -130,8 +130,8 @@ export default async function NewsMaterialsLandingPage() {
       <h1 className="text-xl font-bold text-navy-800 mt-2">ニュース英語の単語教材</h1>
       <p className="text-sm text-navy-600 mt-2 leading-relaxed">
         経済ニュース・企業ニュースでよく使われる英単語を厳選した内蔵教材です。英語ニュースを読むための
-        基礎語彙を増やせます。単語帳に追加するだけで忘却曲線（SRS）による自動復習が始まり、4択・入力・
-        タイピングテストで定着できます。社会人の方、投資・ビジネス情報を英語で追いたい方におすすめです。
+        基礎語彙を増やせます。単語帳に追加するだけで忘却曲線（SRS）による自動復習が始まり、4択・入力
+        テストで定着できます。社会人の方、投資・ビジネス情報を英語で追いたい方におすすめです。
       </p>
 
       {/* CTA */}
@@ -236,7 +236,7 @@ export default async function NewsMaterialsLandingPage() {
           <span>→</span>
           <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">③ SRSで復習</span>
           <span>→</span>
-          <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">④ 4択・入力・タイピングで確認</span>
+          <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">④ 4択・入力で確認</span>
           <span>→</span>
           <span className="px-2 py-1 bg-white rounded-lg border border-navy-100">⑤ 辞書で単語を追加</span>
         </div>
@@ -250,7 +250,7 @@ export default async function NewsMaterialsLandingPage() {
             <li>フラッシュカードで自己想起 → 忘却曲線で自動復習</li>
             <li>経済・企業ニュース向け教材のインポート・単語帳の作成</li>
             <li>4択テスト・入力テストでの確認</li>
-            <li>PDFテスト・タイピング確認の作成</li>
+            <li>PDFテストの作成</li>
             <li>達成スタンプでの学習記録</li>
           </ul>
         </div>
