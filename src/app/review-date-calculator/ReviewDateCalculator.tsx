@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { trackToolStarted, trackToolCompleted } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 
 const TOOL_KEY = "review-date-calculator";
 
@@ -93,6 +94,9 @@ export function ReviewDateCalculator() {
   useEffect(() => {
     if (!hasTrackedStart) {
       trackToolStarted(TOOL_KEY);
+      // GA4専用のtrackToolStartedとは別に、first-party Growth OS側でもページ表示を
+      // 1回だけ記録する(exam_countdown_page_viewedと同じパターン)。
+      trackEvent("review_date_calculator_page_viewed", {});
       setHasTrackedStart(true);
     }
   }, [hasTrackedStart]);
@@ -103,6 +107,7 @@ export function ReviewDateCalculator() {
     // completedがstartedより多く記録され、GA4ファネルの意味が崩れてしまう。
     if (!hasTrackedCompletion && schedule.length === 5) {
       trackToolCompleted(TOOL_KEY);
+      trackEvent("review_date_calculator_schedule_generated", {});
       setHasTrackedCompletion(true);
     }
   }, [schedule, hasTrackedCompletion]);
@@ -214,6 +219,7 @@ export function ReviewDateCalculator() {
         </p>
         <Link
           href="/signup"
+          onClick={() => trackEvent("review_date_calculator_srs_cta_clicked", {})}
           className="inline-block px-6 py-3 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
         >
           無料で始める →

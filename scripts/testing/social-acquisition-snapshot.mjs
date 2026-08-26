@@ -62,6 +62,11 @@ export const FUNNEL_EVENTS = [
   "exam_countdown_page_viewed",
   "exam_countdown_generated",
   "exam_countdown_srs_cta_clicked",
+  // review-date-calculatorのfunnel。exam_countdown_*と同じ理由でここに登録しないと
+  // social起点のraw rowが記録されてもここでは可視化されない(Codexレビュー指摘対応、PR #122)。
+  "review_date_calculator_page_viewed",
+  "review_date_calculator_schedule_generated",
+  "review_date_calculator_srs_cta_clicked",
 ];
 
 // "landing"とみなすイベント名の集合(Codexレビュー指摘対応)。landing_viewは
@@ -79,6 +84,9 @@ const LANDING_EVENT_NAMES = [
   "vocab_test_maker_page_viewed",
   "guide_view",
   "exam_countdown_page_viewed",
+  // review_date_calculator_page_viewedも同じ理由で追加: /review-date-calculatorへ
+  // SNSから直接ランディングした場合、これがなければlanding識別数(分母)に計上されない。
+  "review_date_calculator_page_viewed",
 ];
 
 // 同一visit内でのreload(track.tsのtrafficSourceDetectedFiredがハード再読み込みで

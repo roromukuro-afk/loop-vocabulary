@@ -15,6 +15,7 @@
  *  - signup数(profiles.created_atベース、is_test_account=false)
  *  - guide_view / guide_cta_click / vocab_test_maker_page_viewed/_generated/
  *    _srs_cta_clicked/_saved_to_wordbook / exam_countdown_page_viewed/_generated/
+ *    _srs_cta_clicked / review_date_calculator_page_viewed/_schedule_generated/
  *    _srs_cta_clicked の件数
  *
  * 使い方: node scripts/testing/acquisition-snapshot.mjs
@@ -37,6 +38,11 @@ const FUNNEL_EVENTS = [
   "exam_countdown_page_viewed",
   "exam_countdown_generated",
   "exam_countdown_srs_cta_clicked",
+  // review-date-calculatorのfunnel。exam_countdown_*と同じ理由でここに登録しないと
+  // raw rowが記録されてもここでは可視化されない(Codexレビュー指摘対応、PR #122)。
+  "review_date_calculator_page_viewed",
+  "review_date_calculator_schedule_generated",
+  "review_date_calculator_srs_cta_clicked",
 ];
 
 function windowRangeISO(startDateStr, endDateStrInclusive) {

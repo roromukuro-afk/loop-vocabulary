@@ -93,6 +93,18 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   exam_countdown_generated: { category: "acquisition", properties: { days_remaining: "number" } },
   exam_countdown_srs_cta_clicked: { category: "acquisition", properties: {} },
 
+  // ── 復習日計算ツール(/review-date-calculator、no-login公開ツール) ──
+  // ReviewDateCalculator.tsxのGA4専用trackToolStarted/trackToolCompleted(tool_key固定)
+  // とは別に、exam_countdown_planner系と同じ方針でfirst-party Growth OS側でもファネルを
+  // 追跡するために追加する。入力された学習日自体は送信しない(個人の学習履歴を推測
+  // できる情報のため)。
+  review_date_calculator_page_viewed: { category: "acquisition", properties: {} },
+  // review_date_calculator_schedule_generated: 5回分の復習日スケジュールが実際に計算
+  // された最初の1回だけ発火する(exam_countdown_generatedと同じ、日付を選び直す
+  // たびの再発火は避ける方針)。
+  review_date_calculator_schedule_generated: { category: "acquisition", properties: {} },
+  review_date_calculator_srs_cta_clicked: { category: "acquisition", properties: {} },
+
   // ── 語彙力チェック ─────────────────────────────────────
   // vocab_check_page_viewed: GA4側のvocab_check_view(トップ表示)に対応。診断を開始せず
   // 離脱したユーザーもGrowth OS側で捕捉できるようにする(以前はstartedのみで欠落していた)。
