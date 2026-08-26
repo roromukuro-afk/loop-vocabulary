@@ -76,6 +76,14 @@ export function buildFunnelRates(stages, minSample = MIN_SAMPLE_SIZE_FOR_RATE) {
     // 実際には計測不能な指標があたかも実測されたかのように報告先(JSON/テキスト
     // サマリー)へ出てしまう。
     skipSavedStage = false,
+    // trueの場合、ctaRate/signupRateの両方をnotApplicableマーカーにする
+    // (Codexレビュー指摘対応、PR #125: /dictionaryにはサインアップ前に発火する
+    // 真のCTAクリックイベントが実装されておらず、認証済みユーザーの単語保存完了後
+    // にしか発火しないdictionary_word_addedをctaKeysとして渡すと、意味が逆転した
+    // 「新規ユーザーによる単語保存の割合」がsignup/cta転換率として報告されて
+    // しまう)。呼び出し元は真の値をctaKeysへは一切渡さず、生のfunnelCounts側で
+    // 別途参照すること。
+    skipCtaStage = false,
   } = stages;
 
   const landing = new Set(landingKeys);
@@ -98,10 +106,12 @@ export function buildFunnelRates(stages, minSample = MIN_SAMPLE_SIZE_FOR_RATE) {
     generatedRate: skipGeneratedStage
       ? notApplicableRate(minSample)
       : computeRate(intersectSize(pageViewed, generated), pageViewed.size, minSample),
-    ctaRate: skipGeneratedStage
-      ? computeRate(intersectSize(pageViewed, cta), pageViewed.size, minSample)
-      : computeRate(intersectSize(generated, cta), generated.size, minSample),
-    signupRate: computeRate(intersectSize(cta, signup), cta.size, minSample),
+    ctaRate: skipCtaStage
+      ? notApplicableRate(minSample)
+      : skipGeneratedStage
+        ? computeRate(intersectSize(pageViewed, cta), pageViewed.size, minSample)
+        : computeRate(intersectSize(generated, cta), generated.size, minSample),
+    signupRate: skipCtaStage ? notApplicableRate(minSample) : computeRate(intersectSize(cta, signup), cta.size, minSample),
     savedRate: skipSavedStage ? notApplicableRate(minSample) : computeRate(intersectSize(cta, saved), cta.size, minSample),
   };
 }
