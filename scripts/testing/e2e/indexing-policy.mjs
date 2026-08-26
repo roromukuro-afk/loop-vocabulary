@@ -77,6 +77,9 @@ const NOINDEX_PAGES = [
   "/premium/success",
   "/referral/abcd1234",
   "/offline",
+  // AdSense Low value content是正(Issue #127): 実データを持たない「準備中」ページの
+  // ためnoindex化(src/app/reports/page.tsx参照)。
+  "/reports",
 ];
 
 // index対象であるべき公開ページ(代表サンプル)
@@ -87,7 +90,6 @@ const INDEX_PAGES = [
   "/materials/eiken",
   "/guide",
   "/guide/eitango-oboeru-houhou",
-  "/reports",
   "/premium",
   "/about",
   "/press",
