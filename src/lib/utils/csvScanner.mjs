@@ -98,6 +98,39 @@ function findNextLineStart(text, fromOffset) {
 // 有効な閉じクォートが見つかった区間には一切影響しない — この下限は
 // 「閉じクォートが実在しないことが証明された」場合にのみ設定されるため、
 // 正当な複数行クォートフィールド(閉じクォートが実在する)の検出を妨げない)。
+//
+// ただしこの下限は「無条件に」再利用してよいわけではない(Codexレビュー
+// 指摘対応、PR #105、round-20再監査フレッシュレビューP2: `noCloseFoundFrom`は
+// 前のパスが`inQuotes=true`のまま(＝既にクォートが開いている状態から)
+// EOFまで到達できなかった、という証明に基づく。この証明が成立するのは
+// 「新しいクォート開始位置iの直後(text[i+1])がクォートでない」場合に限る。
+// 直後がクォートの場合(例: `""`)、前のパスでは「既にinQuotes中に遭遇した
+// escaped ""ペア」として2文字まとめて飲み込まれ、2文字目が単独の閉じ
+// クォートになり得たかどうかは一切検証されていない。ところが再同期後の
+// 新しいパスでは、この`"`は"新規に開くクォート"として扱われるため、直後の
+// `"`は改めて独立した閉じクォート候補として評価され、直後がdelimiter/改行/
+// EOFであれば正当な空クォートフィールド`""`として閉じてしまう(=前のパスの
+// 「閉じない」という結論と食い違う)。実例: `word,meaning,phonetic\n
+// bad,"unterminated\napple,りんご,""\nbanana,バナナ,x`では、"bad"行の未終端
+// クォートにより`noCloseFoundFrom`が確立された後、"apple"行の`""`(本来は
+// 空のクォートフィールド)が、直後がクォートであるという理由だけで
+// short-circuitされ、"apple"行ごと壊れた行として誤って除外されてしまって
+// いた。text[i+1]==='"'の場合は下限を信用せず、実際に開いて素直に走査する
+// ことでこの誤判定を防ぐ(この分岐に入るのは入力中に隣接するクォート
+// ペアがある場合のみで、5,000/20,000行の未終端クォート性能テストのような
+// 「1行につきクォート1個だけ」の病的入力では一切発生しないため、性能特性は
+// 変わらない)。
+//
+// さらに、この下限は「一度でも実際に有効な閉じクォートに遭遇したら、その
+// パス内ではもう使ってはいけない」(round-20再監査フレッシュレビューP2、
+// 上記と同じ指摘の一部: 前パスの「閉じない」証明は、そのパス内で一度も
+// 実際に閉じなかった前提の上に成り立つ。今のパスで実際にクォートが閉じた
+// (inQuotes: true→false)後は、以降のオフセットにおける状態はもはや前パスの
+// 「閉じないまま継続した」状態と一致しない(前パスはinQuotes=trueのまま
+// EOFまで続いたが、今のパスはinQuotes=falseに戻っている)ため、その後で
+// 別の新しいクォートが開いても前パスの証明を再利用する根拠がない。実際に
+// 閉じた時点でローカルに下限を無効化(null)し、以降はこのパス自身が新たに
+// 証明した場合にのみ再度short-circuitする)。
 function scanOnePass(text, startOffset, delimiterSet, startLine, noCloseFoundFrom) {
   const records = [];
   const recordStartLines = [];
@@ -109,14 +142,21 @@ function scanOnePass(text, startOffset, delimiterSet, startLine, noCloseFoundFro
   let physicalLine = startLine;
   let quoteOpenOffset = null;
   let quoteOpenLine = null;
+  // 呼び出し元から継承した下限を、このパス内でのみ有効な状態として複製する
+  // (上記コメント参照)。パス内で実際に閉じクォートに遭遇するとnullへ
+  // 無効化され、以降このパスの中では二度と再利用されない。
+  let activeNoCloseFoundFrom = noCloseFoundFrom;
 
   for (let i = startOffset; i < text.length; i++) {
     const ch = text[i];
     if (ch === '"' && !inQuotes && atFieldBoundary) {
-      // この位置以降に有効な閉じクォートが存在しないことが既に証明済みなら、
-      // このクォートを開いて改めてEOFまで走査するまでもなく、即座に壊れて
-      // いると結論できる(上記noCloseFoundFromの説明参照)。
-      if (noCloseFoundFrom !== null && i >= noCloseFoundFrom) {
+      // この位置以降に有効な閉じクォートが存在しないことが既に証明済みで、
+      // かつ直後がクォートでない(=前パスの「escaped ""として2文字まとめて
+      // 飲み込む」処理と、このパスの「新規オープン+直後を独立評価」処理が
+      // 同じ結果に収束することが保証されている)場合に限り、このクォートを
+      // 開いて改めてEOFまで走査するまでもなく、即座に壊れていると結論できる
+      // (上記activeNoCloseFoundFromの説明参照)。
+      if (activeNoCloseFoundFrom !== null && i >= activeNoCloseFoundFrom && text[i + 1] !== '"') {
         return { records, recordStartLines, brokenAtOffset: i, brokenAtLine: physicalLine };
       }
       inQuotes = true;
@@ -133,6 +173,10 @@ function scanOnePass(text, startOffset, delimiterSet, startLine, noCloseFoundFro
         current += ch;
         atFieldBoundary = false;
         quoteOpenOffset = null;
+        // 実際に閉じクォートが見つかった以上、継承した下限(「このパスは
+        // 一度も閉じずにEOFまで続いた」という前提に基づく証明)はもはや
+        // このパスの実際の状態と矛盾するため、以降は再利用しない。
+        activeNoCloseFoundFrom = null;
         continue;
       }
       // 直後の文脈がフィールド/レコード終端として妥当でないため、閉じ

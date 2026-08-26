@@ -272,6 +272,33 @@ function main() {
     }
   }
 
+  // ==== 再同期後のnoCloseFoundFrom誤再利用(Codexレビュー指摘対応、PR #105、
+  // round-20再監査フレッシュレビューP2)。`noCloseFoundFrom`下限は前パスが
+  // 「クォートを開いたままinQuotes=trueでEOFまで到達した」という証明に
+  // 基づくが、再同期後の新しいパスは常にinQuotes=falseから再開する。破損行
+  // ("bad"行)のせいで開いたまま閉じなかったクォートの直後に、正当な空の
+  // クォートフィールド`""`(直後に閉じクォートとして妥当な改行が続く)が
+  // 来ると、前パスでは既にinQuotes中だったため`""`をescaped-quoteペアとして
+  // 2文字まとめて飲み込んでしまい閉じない、と誤って結論していたが、新しい
+  // パスでは1文字目が新規オープン、2文字目が独立した閉じクォート候補として
+  // 正しく評価され、実際には正当な空フィールドとして閉じる。この食い違いを
+  // 無条件のshort-circuitが握りつぶし、"apple"行ごと壊れた行として誤って
+  // 除外してしまっていた(cleaner・importerの両方に影響)。 ====
+  {
+    const r = splitCsvRecords('word,meaning,phonetic\nbad,"unterminated\napple,りんご,""\nbanana,バナナ,x', [","]);
+    eq(
+      r.records,
+      ["word,meaning,phonetic", 'apple,りんご,""', "banana,バナナ,x"],
+      "再同期後、直後がクォートである新しい開始位置ではnoCloseFoundFrom下限を再利用せず実走査する: bad行は破損として除外されるが、apple行(空クォートフィールド\"\"を含む)とbanana行は両方とも正しく回復される",
+    );
+    eq(r.recordStartLines, [1, 3, 4], "recordStartLinesも回復された3行(1・3・4行目)を正しく指す(bad行の2行目はスキップ)");
+    if (r.warnings.length === 1 && r.warnings[0].physicalLine === 2 && r.warnings[0].skippedLineText === 'bad,"unterminated') {
+      ok("再同期後のnoCloseFoundFrom誤再利用: warningsにはbad行(2行目)の破損のみが記録され、apple行は破損扱いされない");
+    } else {
+      bad(`再同期後のnoCloseFoundFrom誤再利用のwarningsが想定外: ${JSON.stringify(r.warnings)}`);
+    }
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;
