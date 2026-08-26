@@ -38,7 +38,13 @@ async function main() {
     if (/<link rel="canonical" href="[^"]*\/tools"/.test(html)) ok("/tools: canonicalが自己参照");
     else fail("/tools: canonicalが正しくない");
 
-    const liveLinks = ["/vocab-check", "/dictionary", "/materials", "/guide/vocabulary-quiz-pdf-for-teachers"];
+    const liveLinks = [
+      "/vocab-check",
+      "/dictionary",
+      "/materials",
+      "/guide/vocabulary-quiz-pdf-for-teachers",
+      "/tools/word-list-cleaner",
+    ];
     for (const link of liveLinks) {
       if (html.includes(`href="${link}"`)) ok(`/tools: ${link} への導線がある`);
       else fail(`/tools: ${link} への導線が見つからない`);
@@ -48,11 +54,18 @@ async function main() {
       else fail(`${link}: ${linkRes.status} (リンク切れの可能性)`);
     }
 
-    if (/準備中/.test(html)) ok("/tools: 準備中ツールのラベルがある");
-    else fail("/tools: 準備中ラベルが見つからない");
+    // 「準備中」ラベルは、実際に未実装のツールがPLANNED_TOOLSにある間だけ表示される
+    // 設計(0件ならセクションごと非表示)。現時点(word-list-cleaner実装後)は
+    // PLANNED_TOOLSが空のため、ラベルが無いことの方が正しい状態 — 存在してもしなくても
+    // 失敗にはしない情報ログのみとし、次に何か「準備中」ツールが追加された時点で
+    // 再びラベルが現れることを妨げない。
+    if (/準備中/.test(html)) console.log("(info) /tools: 準備中ツールのラベルが表示されている(PLANNED_TOOLSが1件以上ある状態)");
+    else console.log("(info) /tools: 準備中ツールのラベルは無い(PLANNED_TOOLSが0件の状態、現在は正しい)");
 
-    // 準備中ツールが実在しないURL(/tools/exam-countdown-study-plan等)へリンクしていないことを確認
-    const plannedUrls = ["/tools/exam-countdown-study-plan", "/tools/word-list-cleaner"];
+    // 未実装のツールが実在しないURL(/tools/exam-countdown-study-plan等)へリンクして
+    // いないことを確認(exam-countdown-planner/word-list-cleanerは両方とも実装済み・
+    // 正しいURLで上のliveLinksに含まれているため、ここでは架空のURLのみを対象にする)。
+    const plannedUrls = ["/tools/exam-countdown-study-plan"];
     const leakedLinks = plannedUrls.filter((u) => html.includes(`href="${u}"`));
     if (leakedLinks.length === 0) ok("/tools: 未実装ページへの内部リンクが張られていない");
     else fail(`/tools: 未実装ページへリンクが張られている(クロールエラーの原因): ${leakedLinks.join(", ")}`);

@@ -40,3 +40,7 @@ ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 # が書き出すレポートだけは、運用状況の生データでありコミット対象ではないため、
 # 専用のサブディレクトリに限定してignoreする。
 reports/vocab-test-maker-launch/
+
+# fuzzテスト失敗時の再現用ローカル出力(scripts/testing/test-word-list-cleaner-audit.mjs)。
+# seed+入力を含むデバッグ用の一時ファイルで、コミット対象ではない。
+scripts/testing/.fuzz-failures/
