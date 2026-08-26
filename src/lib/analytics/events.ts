@@ -201,8 +201,21 @@ export function trackWordPageRelatedWordClick(wordSlug: string, relatedWord: str
 // ── グロース計測: /guide ─────────────────────────────────────────
 // trackGuideRead（記事表示）は既存。CTA/導線クリックのみ追加する。
 
-export function trackGuideCtaClick(guideSlug: string, target: "vocab_check" | "dictionary" | "premium" | "materials" | "other_guide" | "tools") {
-  gtag("guide_cta_click", { guide_slug: guideSlug, target, event_category: "conversion" });
+// destinationPath/tool/placementはIssue #106で追加。first-party側のguide_cta_click
+// (src/lib/analytics/track.ts経由)と同じ3項目をGA4側にも渡すことで、ツール別・
+// 設置箇所別のGA4レポートを可能にする(Codexレビュー指摘対応、PR #107: 以前は
+// first-partyにしか渡しておらず、GA4側はtarget="tools"というバケットまでしか
+// 分からなかった)。tool/exam-countdown-planner等のツール固有リンク以外
+// (vocab_check/dictionary/premium/materials/other_guide)ではtool/placementは
+// 空文字列のまま渡される。
+export function trackGuideCtaClick(
+  guideSlug: string,
+  target: "vocab_check" | "dictionary" | "premium" | "materials" | "other_guide" | "tools",
+  destinationPath: string,
+  tool: string,
+  placement: string,
+) {
+  gtag("guide_cta_click", { guide_slug: guideSlug, target, destination_path: destinationPath, tool, placement, event_category: "conversion" });
 }
 
 export function trackGuideShareClick(guideSlug: string) {
