@@ -149,6 +149,27 @@ function main() {
     if (!threw) ok("閉じクォートがテキスト末尾まで一切無い入力でも例外を投げない");
     else bad("閉じクォート無し・EOFまで続く入力で例外が発生した");
   }
+  {
+    // Codexレビュー指摘対応、PR #105、round-21再監査フレッシュレビューP2:
+    // 未終端クォートによる破損行が1,000件(MAX_MALFORMED_ROW_RECOVERY_ATTEMPTS)を
+    // 超えて連続すると、csvScanner.mjsのsplitCsvRecords()は以降の1行ずつの
+    // 精密な復旧を諦め、残り全体(その中にたまたま存在する正当な行を含む)を
+    // 1件の集約警告(note付き)にまとめる。この集約が起きた場合、malformedCsvWarnings
+    // に含まれる正当な行(この例のapple,りんご)は一切entriesに現れないことを
+    // parseWordList()レベルで直接確認する(UI側の文言修正[WordListCleaner.tsx]の
+    // 前提となるデータ挙動そのものの回帰確認)。
+    const header = "word,meaning";
+    const malformedLines = Array.from({ length: 1005 }, (_, i) => `bad${i}," unterminated${i}`);
+    const text = [header, ...malformedLines, "apple,りんご"].join("\n");
+    const r = parseWordList(text);
+    const aggregateWarning = r.malformedCsvWarnings.find((w) => w.note);
+    const appleRecovered = r.entries.some((e) => e.word === "apple" && e.meaning === "りんご");
+    if (aggregateWarning && !appleRecovered && r.entries.length === 0) {
+      ok("未終端クォートの破損行が1,000件を超えて連続すると集約警告(note付き)になり、その直後にある正当な行(apple,りんご)はentriesに一切現れない(=一切解析されていない)ことを確認");
+    } else {
+      bad(`集約警告時のapple行の扱いが想定外: aggregateWarning=${JSON.stringify(aggregateWarning)}, appleRecovered=${appleRecovered}, entries.length=${r.entries.length}`);
+    }
+  }
 
   // ==== 6. 空セル・空行・末尾区切り ====
   {

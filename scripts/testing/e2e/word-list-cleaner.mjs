@@ -460,6 +460,40 @@ async function main() {
       fail(`未終端クォート開示の検証中に例外: ${e.message}`);
     }
 
+    // ---- 未終端クォートの破損行が1,000件(MAX_MALFORMED_ROW_RECOVERY_ATTEMPTS)を
+    // 超えて連続する病的な入力(Codexレビュー指摘対応、PR #105、round-21再監査
+    // フレッシュレビューP2): この場合csvScanner.mjsは残り全体を1件の集約警告
+    // (note付き)にまとめ、その中にたまたま存在する正当な行(apple,りんご)も
+    // 一切解析されない。修正前のUI文言は「それ以外の行は通常どおり整形結果に
+    // 含まれています」と無条件に主張しており、この集約ケースでは事実と反していた
+    // (1,001件の破損行の直後にあるapple,りんごはプレビューに一切現れないのに、
+    // 取り込まれたかのように案内していた)。修正後は、集約が起きたことと、
+    // それ以降の内容が一切解析されていないことを明示する文言に切り替わることを
+    // 確認する。 ----
+    try {
+      await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
+      const aggregateLines = Array.from({ length: 1005 }, (_, i) => `bad${i}," unterminated${i}`);
+      const aggregateInput = ["word,meaning", ...aggregateLines, "apple,りんご"].join("\n");
+      await page.locator("#word-list-input").fill(aggregateInput);
+      await page.locator('button:has-text("CSVに整形する")').click();
+      await page.waitForTimeout(300);
+      const aggregateBodyText = await page.locator("body").innerText();
+      // 修正前の(この集約ケースでは事実に反する)無条件の文言が出ていないこと。
+      const hasFalseClaim = aggregateBodyText.includes("それ以外の行は通常どおり整形結果に含まれています");
+      // 修正後: 復旧を打ち切ったこと・一切解析されていないことが明示されている。
+      const hasDiscardMessage = aggregateBodyText.includes("個別の行単位の復旧を打ち切りました") && aggregateBodyText.includes("一切解析されて");
+      // 実際に破棄された行(apple,りんご)が、整形結果のプレビューに一切現れない
+      // (=本当に「解析されていない」ことのデータ面での裏付け)。
+      const appleNotRecovered = !aggregateBodyText.includes("りんご");
+      if (!hasFalseClaim && hasDiscardMessage && appleNotRecovered) {
+        ok("未終端クォートの破損行が1,000件を超えて連続した場合、「それ以外の行は通常どおり整形結果に含まれています」という(この場合は事実に反する)文言は表示されず、代わりに復旧を打ち切って以降を一切解析していない旨が明示され、実際にapple/りんごはプレビューに現れない(=本当に取り込まれていない)");
+      } else {
+        fail(`未終端クォート大量連続時の集約警告表示が想定外: hasFalseClaim=${hasFalseClaim}, hasDiscardMessage=${hasDiscardMessage}, appleNotRecovered=${appleNotRecovered}。本文抜粋: ${aggregateBodyText.slice(0, 1000)}`);
+      }
+    } catch (e) {
+      fail(`未終端クォート大量連続時(集約警告)の検証中に例外: ${e.message}`);
+    }
+
     await context.close();
   } catch (e) {
     fail(`ブラウザ検証中に例外: ${e.message}`);

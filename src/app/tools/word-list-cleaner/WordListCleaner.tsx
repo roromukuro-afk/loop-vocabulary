@@ -27,6 +27,27 @@ const PLACEHOLDER = `apple: りんご
 banana - バナナ
 cherry\tさくらんぼ`;
 
+// malformedCsvWarningsの中から「個別復旧の試行回数上限を超え、残り全体を1件へ
+// 集約した」警告(note付き)を探す。これが存在する場合、その警告のskippedLineTextは
+// 破損行だけでなく、たまたま後続に存在した正常な単語/意味のペアも含む残り全体を
+// 丸ごと保持しており、それらは一切解析されず整形結果に含まれていない
+// (Codexレビュー指摘対応、PR #105、round-21再監査フレッシュレビューP2: 「それ以外の
+// 行は通常どおり整形結果に含まれています」という文言が、この集約ケースでは事実と
+// 反する[例: 1,001件の破損行の直後にある正当な行が実際には一切取り込まれていない
+// のに、取り込まれたかのように案内していた]ため、集約ケースを検出して文言を
+// 出し分ける)。
+function findAggregateMalformedWarning(warnings: MalformedCsvWarning[]): MalformedCsvWarning | undefined {
+  return warnings.find((w) => w.note);
+}
+
+// 集約警告のskippedLineTextに含まれる物理行数を数える(末尾の改行による空要素は
+// 除外する)。ユーザーへ「何行が未解析のまま失われたか」を具体的な件数で示すために使う。
+function countDiscardedLines(skippedLineText: string): number {
+  const lines = skippedLineText.split(/\r\n|\r|\n/);
+  if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  return lines.length;
+}
+
 export function WordListCleaner() {
   const [input, setInput] = useState("");
   const [entries, setEntries] = useState<WordListEntry[]>([]);
@@ -178,11 +199,22 @@ export function WordListCleaner() {
               <p className="text-sm text-navy-600">
                 単語と意味のペアを認識できませんでした。区切り文字(タブ・コロン・ハイフン・カンマ・スペース)を確認してください。
               </p>
-              {malformedCsvWarnings.length > 0 && (
-                <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-3">
-                  クォート(&quot;)が閉じられていない行が{malformedCsvWarnings.length}件(行番号: {malformedCsvWarnings.map((w) => w.physicalLine).join(", ")})あり、破損した値として取り込まずスキップしました。
-                </p>
-              )}
+              {malformedCsvWarnings.length > 0 && (() => {
+                const aggregateWarning = findAggregateMalformedWarning(malformedCsvWarnings);
+                if (aggregateWarning) {
+                  const discardedLineCount = countDiscardedLines(aggregateWarning.skippedLineText);
+                  return (
+                    <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-3">
+                      クォート(&quot;)が閉じられていない行が連続したため、{aggregateWarning.physicalLine}行目で個別の行単位の復旧を打ち切りました。{aggregateWarning.physicalLine}行目から末尾までの{discardedLineCount}行は、その中に正常な単語/意味のペアが含まれていても一切解析されていません。{aggregateWarning.physicalLine}行目より前で入力を分割し、クォートの閉じ忘れを修正したうえで再度お試しください。
+                    </p>
+                  );
+                }
+                return (
+                  <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-3">
+                    クォート(&quot;)が閉じられていない行が{malformedCsvWarnings.length}件(行番号: {malformedCsvWarnings.map((w) => w.physicalLine).join(", ")})あり、破損した値として取り込まずスキップしました。
+                  </p>
+                );
+              })()}
             </>
           ) : (
             <>
@@ -194,11 +226,22 @@ export function WordListCleaner() {
                   {skippedLineNumbers.length}行(行番号: {skippedLineNumbers.join(", ")})は単語/意味のペアとして認識できず、スキップしました。
                 </p>
               )}
-              {malformedCsvWarnings.length > 0 && (
-                <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
-                  クォート(&quot;)が閉じられていない行が{malformedCsvWarnings.length}件(行番号: {malformedCsvWarnings.map((w) => w.physicalLine).join(", ")})あり、破損した値として取り込まずスキップしました。それ以外の行は通常どおり整形結果に含まれています。
-                </p>
-              )}
+              {malformedCsvWarnings.length > 0 && (() => {
+                const aggregateWarning = findAggregateMalformedWarning(malformedCsvWarnings);
+                if (aggregateWarning) {
+                  const discardedLineCount = countDiscardedLines(aggregateWarning.skippedLineText);
+                  return (
+                    <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+                      クォート(&quot;)が閉じられていない行が連続したため、{aggregateWarning.physicalLine}行目で個別の行単位の復旧を打ち切りました。{aggregateWarning.physicalLine}行目から末尾までの{discardedLineCount}行は、その中に正常な単語/意味のペアが含まれていても一切解析されておらず、上の整形結果からすべて除外されています。{aggregateWarning.physicalLine}行目より前で入力を分割し、クォートの閉じ忘れを修正したうえで、{aggregateWarning.physicalLine}行目以降を改めて整形し直してください。
+                    </p>
+                  );
+                }
+                return (
+                  <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+                    クォート(&quot;)が閉じられていない行が{malformedCsvWarnings.length}件(行番号: {malformedCsvWarnings.map((w) => w.physicalLine).join(", ")})あり、破損した値として取り込まずスキップしました。それ以外の行は通常どおり整形結果に含まれています。
+                  </p>
+                );
+              })()}
               {neutralizedCount > 0 && (
                 <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
                   「=」「+」「-」「@」で始まる項目が{neutralizedCount}件あったため、表計算ソフトで数式として実行されるのを防ぐ目的で、コピー・ダウンロードされるCSVでは該当セルの先頭に <code className="bg-white px-1 rounded">&apos;</code> を追加しています(下のプレビュー表示は元の値のままです)。

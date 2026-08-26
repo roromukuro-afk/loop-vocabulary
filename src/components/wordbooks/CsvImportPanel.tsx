@@ -5,6 +5,25 @@ import { Button } from "@/components/ui/Button";
 import { UpsellModal } from "@/components/premium/UpsellModal";
 import { parseCsv, type ParsedWord, type MalformedCsvWarning } from "@/lib/utils/csvImportParsing";
 
+// malformedCsvWarningsの中から「個別復旧の試行回数上限を超え、残り全体を1件へ
+// 集約した」警告(note付き)を探す。これが存在する場合、その警告のskippedLineTextは
+// 破損行だけでなく、たまたま後続に存在した正常な単語も含む残り全体を丸ごと
+// 保持しており、それらは一切解析されず取り込み対象になっていない
+// (Codexレビュー指摘対応、PR #105、round-21再監査フレッシュレビューP2: 「それ以外の
+// 行は通常どおり取り込み対象です」という文言が、この集約ケースでは事実と反する
+// [例: 1,001件の破損行の直後にある正当な行が実際には一切取り込まれていないのに、
+// 取り込まれるかのように案内していた]ため、集約ケースを検出して文言を出し分ける)。
+function findAggregateMalformedWarning(warnings: MalformedCsvWarning[]): MalformedCsvWarning | undefined {
+  return warnings.find((w) => w.note);
+}
+
+// 集約警告のskippedLineTextに含まれる物理行数を数える(末尾の改行による空要素は除外)。
+function countDiscardedLines(skippedLineText: string): number {
+  const lines = skippedLineText.split(/\r\n|\r|\n/);
+  if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  return lines.length;
+}
+
 export function CsvImportPanel({ wordbookId, isPremium }: { wordbookId: string; isPremium: boolean }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -137,12 +156,23 @@ achieve,達成する,/əˈtʃiːv/`}</pre>
 
           {error && <div role="alert" className="text-sm text-red-600 bg-red-50 rounded-xl p-3">{error}</div>}
 
-          {malformedWarnings.length > 0 && (
-            <div className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
-              クォート(&quot;)が閉じられていない行が{malformedWarnings.length}件あり、破損した値として取り込まずスキップしました(行番号:{" "}
-              {malformedWarnings.map((w) => w.physicalLine).join(", ")})。それ以外の行は通常どおり取り込み対象です。
-            </div>
-          )}
+          {malformedWarnings.length > 0 && (() => {
+            const aggregateWarning = findAggregateMalformedWarning(malformedWarnings);
+            if (aggregateWarning) {
+              const discardedLineCount = countDiscardedLines(aggregateWarning.skippedLineText);
+              return (
+                <div className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                  クォート(&quot;)が閉じられていない行が連続したため、{aggregateWarning.physicalLine}行目で個別の行単位の復旧を打ち切りました。{aggregateWarning.physicalLine}行目から末尾までの{discardedLineCount}行は、その中に正常な単語データが含まれていても一切解析されておらず、取り込み対象に含まれていません。{aggregateWarning.physicalLine}行目より前でファイルを分割し、クォートの閉じ忘れを修正したうえで、{aggregateWarning.physicalLine}行目以降を改めてインポートし直してください。
+                </div>
+              );
+            }
+            return (
+              <div className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                クォート(&quot;)が閉じられていない行が{malformedWarnings.length}件あり、破損した値として取り込まずスキップしました(行番号:{" "}
+                {malformedWarnings.map((w) => w.physicalLine).join(", ")})。それ以外の行は通常どおり取り込み対象です。
+              </div>
+            );
+          })()}
 
           {preview.length > 0 && (
             <div>
