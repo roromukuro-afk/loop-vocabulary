@@ -34,7 +34,17 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   // 送信しており、analytics_eventsには一度も保存されていなかった(Codexレビュー指摘:
   // scripts/testing/acquisition-snapshot.mjs・social-acquisition-snapshot.mjsの
   // funnel集計がこの列を含めていたにもかかわらず常に0件になっていた)。
-  guide_cta_click: { category: "acquisition", properties: { guide_slug: "string", target: "string" } },
+  // destination_path/tool/placementはIssue #106(関連ガイドから無料ツールへの内部導線)
+  // で追加。destination_pathは既存のtargetバケット(vocab_check等)より細かい実際の
+  // リンク先パス、toolは記事本文内で個別に選定したツール識別子(例:
+  // exam_countdown_planner/review_date_calculator)、placementは記事内のどの文脈に
+  // リンクを置いたか(例: after_srs_mechanism)。3つとも該当しないtarget(signup等、
+  // このイベント自体を発火しない/premium等の既存バケット)では空文字列のまま。
+  // 単語本文・個人情報は一切含めない。
+  guide_cta_click: {
+    category: "acquisition",
+    properties: { guide_slug: "string", target: "string", destination_path: "string", tool: "string", placement: "string" },
+  },
   // guide_share_invoked: 記事末尾の共有CTA(Issue #98)の操作起点を記録する。
   // vocab_test_maker_share_invokedと同じ理由でmethod以外は増やさない
   // (「投稿完了」を意味する名前・propertiesにしない)。

@@ -24,28 +24,37 @@ export function GuideTracker({ slug }: { slug: string }) {
       // snapshot.mjs)がguide_cta_click件数を含めているにもかかわらず、この関数は
       // GA4にしか送っておらずanalytics_eventsには一度も保存されていなかった
       // (Codexレビュー指摘対応、Issue #98)。同じクリックでfirst-party側にも送る。
+      // Issue #106: 記事本文内で個別に選定したツールへのリンクは、その<a>要素に
+      // data-tool/data-placementを付与している(下のtool固有ブロック参照)。
+      // 単語本文等の自由入力は一切読み取らない — 固定のdata属性値のみ。
+      const toolAttr = a?.getAttribute("data-tool") ?? "";
+      const placementAttr = a?.getAttribute("data-placement") ?? "";
+
       if (href.startsWith("/signup")) {
         trackEvent("signup_cta_click", { cta_location: "guide", guide_slug: slug });
       } else if (href.includes("twitter.com/intent") || href.includes("x.com/intent")) {
         trackGuideShareClick(slug);
       } else if (href.startsWith("/vocab-check")) {
-        trackGuideCtaClick(slug, "vocab_check");
-        trackEvent("guide_cta_click", { guide_slug: slug, target: "vocab_check" });
+        trackGuideCtaClick(slug, "vocab_check", href, toolAttr, placementAttr);
+        trackEvent("guide_cta_click", { guide_slug: slug, target: "vocab_check", destination_path: href, tool: toolAttr, placement: placementAttr });
       } else if (href.startsWith("/dictionary")) {
-        trackGuideCtaClick(slug, "dictionary");
-        trackEvent("guide_cta_click", { guide_slug: slug, target: "dictionary" });
+        trackGuideCtaClick(slug, "dictionary", href, toolAttr, placementAttr);
+        trackEvent("guide_cta_click", { guide_slug: slug, target: "dictionary", destination_path: href, tool: toolAttr, placement: placementAttr });
       } else if (href.startsWith("/premium")) {
-        trackGuideCtaClick(slug, "premium");
-        trackEvent("guide_cta_click", { guide_slug: slug, target: "premium" });
+        trackGuideCtaClick(slug, "premium", href, toolAttr, placementAttr);
+        trackEvent("guide_cta_click", { guide_slug: slug, target: "premium", destination_path: href, tool: toolAttr, placement: placementAttr });
       } else if (href.startsWith("/materials")) {
-        trackGuideCtaClick(slug, "materials");
-        trackEvent("guide_cta_click", { guide_slug: slug, target: "materials" });
-      } else if (href.startsWith("/tools")) {
-        trackGuideCtaClick(slug, "tools");
-        trackEvent("guide_cta_click", { guide_slug: slug, target: "tools" });
+        trackGuideCtaClick(slug, "materials", href, toolAttr, placementAttr);
+        trackEvent("guide_cta_click", { guide_slug: slug, target: "materials", destination_path: href, tool: toolAttr, placement: placementAttr });
+      } else if (href.startsWith("/tools") || href.startsWith("/exam-countdown-planner") || href.startsWith("/review-date-calculator")) {
+        // /exam-countdown-planner・/review-date-calculatorは/tools/配下のURLでは
+        // ないが、概念上はどちらも無料ツールであり、GA4側のtarget分類・Growth OS側の
+        // funnel集計(guide_cta_click.target="tools")の対象として同じバケットに含める。
+        trackGuideCtaClick(slug, "tools", href, toolAttr, placementAttr);
+        trackEvent("guide_cta_click", { guide_slug: slug, target: "tools", destination_path: href, tool: toolAttr, placement: placementAttr });
       } else if (href.startsWith(`/guide/`) && href !== `/guide/${slug}`) {
-        trackGuideCtaClick(slug, "other_guide");
-        trackEvent("guide_cta_click", { guide_slug: slug, target: "other_guide" });
+        trackGuideCtaClick(slug, "other_guide", href, toolAttr, placementAttr);
+        trackEvent("guide_cta_click", { guide_slug: slug, target: "other_guide", destination_path: href, tool: toolAttr, placement: placementAttr });
       }
     };
 

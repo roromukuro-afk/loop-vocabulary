@@ -212,6 +212,8 @@ export default function Eiken2KyuPage() {
           </p>
           <Link
             href="/tools/vocab-test-maker"
+            data-tool="vocab_test_maker"
+            data-placement="mid_article_test_maker_card"
             className="inline-block bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors"
           >
             自分の単語でテストを作る →
@@ -246,6 +248,8 @@ export default function Eiken2KyuPage() {
           </p>
           <Link
             href="/exam-countdown-planner"
+            data-tool="exam_countdown_planner"
+            data-placement="mid_article_exam_countdown_card"
             className="inline-block bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors"
           >
             学習計画を立てる →
