@@ -31,12 +31,12 @@ const FAQ_ITEMS = [
     a: "テストの作成・印刷・PDF保存はログイン不要で誰でも使えます。ログインが必要になるのは、作成した単語をLoop Vocabularyの復習(SRS)機能に引き継いで暗記学習を続けたい場合のみです。",
   },
   {
+    // Codexレビュー指摘対応: sessionStorageのTTL(30分)はreadPendingPayload()が
+    // 「次に読み込まれたとき」に古ければ復元に使わず破棄する期限であり、30分経過を
+    // 起点に能動的に消去する処理ではない。「消える」という能動的な表現は実装と
+    // 一致しないため、「30分より前のものは復元に使われない」という正確な表現に修正した。
     q: "貼り付けた単語データはサーバーに保存されますか？",
-    a: "「Loopで覚える」ボタンを押してSRS復習に引き継ぐ場合のみサーバーに保存されます。それ以外の操作(テスト作成・印刷)では単語データはサーバーに送信・保存されず、URLのクエリパラメータにも含まれません。ログイン前に一時保存する場合も、ブラウザのsessionStorage(このタブを閉じるか30分経つと消える一時領域)に置かれるだけです。",
-  },
-  {
-    q: "word-list-cleaner(単語リスト整形ツール)との違いは何ですか？",
-    a: "word-list-cleanerは、CSVやコピペした単語リストの表記ゆれ・重複・崩れた形式を整えるための「整形」専用ツールです。vocab-test-makerは、すでに整った単語リストから印刷・PDF用の小テストを「作成」するためのツールで、目的が異なります。整形してから小テストを作りたい場合は、word-list-cleanerで整えた結果をこちらに貼り付けてご利用ください。",
+    a: "「Loopで覚える」ボタンを押してSRS復習に引き継ぐ場合のみサーバーに保存されます。それ以外の操作(テスト作成・印刷)では単語データはサーバーに送信・保存されず、URLのクエリパラメータにも含まれません。ログイン前に一時保存する場合も、ブラウザのsessionStorage(このタブ限定の一時領域)に置かれるだけで、保存から30分より前のものは復元に使われません。",
   },
 ];
 
@@ -105,7 +105,8 @@ export default function VocabTestMakerPage() {
             ))}
           </div>
           <div className="mt-4 flex flex-wrap gap-3 text-xs">
-            <Link href="/tools/word-list-cleaner" className="text-navy-500 underline">関連ツール: 単語リスト整形(word-list-cleaner)</Link>
+            {/* Codexレビュー指摘対応: /tools/word-list-cleanerはPR #105が未マージのため
+                mainには存在せず、リンクすると404になる。マージ後に復活させる。 */}
             <Link href="/exam-countdown-planner" className="text-navy-500 underline">関連ツール: 試験日から逆算する学習計画メーカー</Link>
             <Link href="/guide/juku-vocabulary-test" className="text-navy-500 underline">関連ガイド: 塾での小テスト作成</Link>
           </div>
