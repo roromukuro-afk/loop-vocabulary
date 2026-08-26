@@ -8,7 +8,6 @@ import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 const PORT = Number(process.env.TEST_PORT || 3799);
 
 const PAGES = [
-  { slug: "english-vocabulary-quiz-maker", keyword: "作成ツール" },
   { slug: "printable-english-vocabulary-test", keyword: "印刷" },
   { slug: "juku-vocabulary-test", keyword: "塾" },
   { slug: "high-school-english-vocabulary-test", keyword: "高校英語" },

@@ -105,11 +105,12 @@ async function main() {
     if (toolsLinkCount > 0) ok("/toolsからの内部リンクが存在する");
     else fail("/toolsからの内部リンクが見つからない");
 
-    // ---- guideからの内部リンク: 監査でHIGH関連度と判定した9ガイド全件 ----
-    // (既存5件 + 監査で新規追加した4件。うちeitango-no-oboekataは他と違うCTAカード形式)。
+    // ---- guideからの内部リンク: 監査でHIGH関連度と判定した8ガイド全件 ----
+    // (うちeitango-no-oboekataは他と違うCTAカード形式。2026-08-26:
+    // english-vocabulary-quiz-makerをprintable-english-vocabulary-testへ統合したため
+    // 9件から8件に更新)。
     const highRelevanceGuides = [
       "/guide/vocabulary-quiz-pdf-for-teachers",
-      "/guide/english-vocabulary-quiz-maker",
       "/guide/printable-english-vocabulary-test",
       "/guide/juku-vocabulary-test",
       "/guide/high-school-english-vocabulary-test",

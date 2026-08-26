@@ -25,18 +25,11 @@ const GUIDES = [
     readTime: "4分",
   },
   {
-    slug: "english-vocabulary-quiz-maker",
-    title: "英単語小テスト作成ツールの使い方【無料・登録不要で試せる】",
-    description: "単語帳の準備から出題形式の選び方、PDF出力までの流れを紹介。Word/Excel手作業との違いも比較。",
-    tag: "教員・塾講師向け",
-    readTime: "4分",
-  },
-  {
     slug: "printable-english-vocabulary-test",
     title: "印刷できる英単語テストPDFを作る方法【A4・段組み対応】",
-    description: "A4用紙にきれいに印刷できるPDFの作り方と、段組み・解答欄配置・印刷設定のポイントを解説。",
+    description: "単語帳の準備から出題形式の選び方、A4用紙にきれいに印刷できるPDFの作り方まで。Word/Excel手作業との違いも比較。",
     tag: "教員・塾講師向け",
-    readTime: "4分",
+    readTime: "5分",
   },
   {
     slug: "juku-vocabulary-test",

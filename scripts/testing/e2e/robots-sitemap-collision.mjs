@@ -102,10 +102,11 @@ function extractStaticSitemapPaths(sitemapSrc) {
 // そこで、baselineを「origin/mainの現在のsitemap.ts」から動的に取得する。これにより
 // baselineは各PRのbase更新のたびに自動的に最新へ追従し、手動メンテナンスなしで
 // 「このPRで新たに追加したslug以外は、mainに存在するものが全て残っている」ことを
-// 常に検証できる(originが参照できない環境向けに、既知の44件への静的フォールバックも
-// 用意する)。
+// 常に検証できる(originが参照できない環境向けに、既知の43件への静的フォールバックも
+// 用意する。2026-08-26: english-vocabulary-quiz-makerをprintable-english-vocabulary-test
+// へ統合したため44件から43件に更新)。
 const FALLBACK_BASELINE_GUIDE_SLUGS = [
-  "vocabulary-quiz-pdf-for-teachers", "english-vocabulary-quiz-maker", "printable-english-vocabulary-test",
+  "vocabulary-quiz-pdf-for-teachers", "printable-english-vocabulary-test",
   "juku-vocabulary-test", "high-school-english-vocabulary-test", "spaced-repetition-english-vocabulary",
   "flashcards-vs-multiple-choice", "eiken-vocabulary-study", "university-exam-vocabulary",
   "school-test-vocabulary", "listening-and-pronunciation-vocabulary", "ai-vocabulary-learning",
@@ -158,6 +159,15 @@ function getBaselineGuideSlugs() {
 }
 
 const EXPECTED_SAMPLE_SLUGS = ["eigo-listening-renshu", "toeic-tango", "eiken-1kyu-tango"];
+
+// PR単位で意図的に統合・削除したslug。baselineはorigin/main(このPRのマージ前時点の
+// mainブランチ)から動的取得されるため、このPRで意図的に削除したslugは、マージされる
+// までの間「baselineには存在するが現在は存在しない」という差分として検出されてしまう。
+// ここに追加する場合は、next.config.jsのguideRedirects(308)・GUIDES一覧・関連ページからの
+// 内部リンク更新を必ずセットで行うこと。
+// 2026-08-26(Issue #127): english-vocabulary-quiz-makerは内容がほぼ全面的に重複していた
+// printable-english-vocabulary-testへ統合し、308リダイレクトを設定した。
+const KNOWN_INTENTIONAL_REMOVALS = ["english-vocabulary-quiz-maker"];
 
 function main() {
   const robotsTxt = readFileSync(ROBOTS_PATH, "utf-8");
@@ -226,13 +236,33 @@ function main() {
   // (Codexレビュー指摘、PR #89、2巡目: 静的ハードコードのみだと追加分は永遠に
   // 未保護のままだった)。
   const missingBaselineSlugs = baselineGuideSlugs.filter((slug) => !currentGuideSlugs.has(slug));
-  if (missingBaselineSlugs.length === 0) {
-    ok(`baselineのGUIDE_SLUGS ${baselineGuideSlugs.length}件が全て現在も存在する(現在の総数: ${currentGuideSlugs.size}件)`);
+  const unexpectedMissingSlugs = missingBaselineSlugs.filter((slug) => !KNOWN_INTENTIONAL_REMOVALS.includes(slug));
+  if (unexpectedMissingSlugs.length === 0) {
+    const intentional = missingBaselineSlugs.filter((slug) => KNOWN_INTENTIONAL_REMOVALS.includes(slug));
+    if (intentional.length > 0) {
+      ok(
+        `baselineのGUIDE_SLUGS ${baselineGuideSlugs.length}件のうち、既知の意図的な統合による削除` +
+          `(${intentional.join(", ")})を除き全て現在も存在する(現在の総数: ${currentGuideSlugs.size}件)`,
+      );
+    } else {
+      ok(`baselineのGUIDE_SLUGS ${baselineGuideSlugs.length}件が全て現在も存在する(現在の総数: ${currentGuideSlugs.size}件)`);
+    }
   } else {
     fail(
-      `sitemap.ts から既知のガイド記事が消えている: ${missingBaselineSlugs.join(", ")} ` +
-        `(baseline${baselineGuideSlugs.length}件中${missingBaselineSlugs.length}件が消失、現在の総数: ${currentGuideSlugs.size}件)`,
+      `sitemap.ts から既知のガイド記事が消えている: ${unexpectedMissingSlugs.join(", ")} ` +
+        `(baseline${baselineGuideSlugs.length}件中${unexpectedMissingSlugs.length}件が想定外に消失、現在の総数: ${currentGuideSlugs.size}件)`,
     );
+  }
+  // KNOWN_INTENTIONAL_REMOVALSのドリフト検知: このPRがマージされ、origin/mainのbaseline
+  // 自体からも当該slugが既に消えている場合、このリストのエントリはもう不要(むしろ以後は
+  // 本来の「本当の削除退行」を隠してしまう)ため、削除するよう促す。
+  for (const slug of KNOWN_INTENTIONAL_REMOVALS) {
+    if (!baselineGuideSlugs.includes(slug)) {
+      fail(
+        `KNOWN_INTENTIONAL_REMOVALSの "${slug}" はbaseline(origin/main)に既に存在しない ` +
+          `(マージ済みで役目を終えたと考えられる)。このリストから削除してください`,
+      );
+    }
   }
   for (const slug of EXPECTED_SAMPLE_SLUGS) {
     if (staticPaths.includes(`/guide/${slug}`)) {
