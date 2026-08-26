@@ -48,26 +48,67 @@ function fmtRate(r) {
   return `${(r.rate * 100).toFixed(1)}%`;
 }
 
-function campaignTotals(byContent, funnelCountsByContent, signupCountByContent, keys) {
+// ISO文字列をJST日時表記(YYYY-MM-DD HH:mm JST)で表示するためだけの
+// ローカルフォーマッタ(Codexレビュー指摘対応、PR #125: 7日集計の表示用日付が
+// toJstDateString+addDaysToDateStr(暦日単位の近似)で計算されており、実際の
+// クエリ範囲(startISO/endISOちょうど、時刻を含む)とズレていた。organic_07が
+// 21:00 JSTに投稿されるため、7日後の終端も21:00 JSTであるべきところ、暦日
+// 近似では0:00 JST基準の日付だけがずれて表示されていた)。
+export function formatJstDateTime(iso) {
+  const d = new Date(iso);
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(d);
+  const get = (type) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")} JST`;
+}
+
+// untrackedなdestination(organic_05等、first-party analyticsイベントが
+// 未実装)は、landingが構造的に必ず0になる(LANDING_EVENT_NAMESに対応する
+// イベントが存在しないため)。これを他のcontentの実測0と同列に合算すると、
+// 「未計測」が「実測0」に紛れ込み、campaign全体の合計値が実際より少なく
+// 見えてしまう(Codexレビュー指摘対応、PR #125: 7投稿のうち1投稿の寄与が
+// 本当は不明であるにもかかわらず、合計が「7投稿すべて実測済みの合計」として
+// 誤読されうる)。untrackedなcontentはtotalsの合算対象から除外し、
+// 除外したcontentキーをexcludedUntrackedContentKeysとして明示する。
+export function campaignTotals(byContent, funnelCountsByContent, signupCountByContent, keys) {
   let socialLandingIdentities = 0;
   let socialSignupCount = 0;
   const funnelCounts = Object.fromEntries(FUNNEL_EVENTS.map((name) => [name, 0]));
+  const excludedUntrackedContentKeys = [];
   for (const key of keys) {
+    if (UNTRACKED_DESTINATION_CONTENT_KEYS.includes(key)) {
+      excludedUntrackedContentKeys.push(key);
+      continue;
+    }
     socialLandingIdentities += byContent[key] ?? 0;
     socialSignupCount += signupCountByContent[key] ?? 0;
     const funnel = funnelCountsByContent[key];
     if (!funnel) continue;
     for (const name of FUNNEL_EVENTS) funnelCounts[name] += funnel[name] ?? 0;
   }
-  return { socialLandingIdentities, socialSignupCount, funnelCounts };
+  return { socialLandingIdentities, socialSignupCount, funnelCounts, excludedUntrackedContentKeys };
 }
 
-/** (a) 完全日別推移: キャンペーン開始日〜昨日(today自身は未完了の可能性があるため除く)。 */
-async function buildDailyBreakdown(admin, testAccountIds, asOf, campaignStartDateStr) {
+/**
+ * (a) 完全日別推移: キャンペーン開始日〜昨日(today自身は未完了の可能性が
+ * あるため除く)。
+ *
+ * 上限をorganic_07(最終投稿)のJST投稿日までに限定する(Codexレビュー指摘
+ * 対応、PR #125: 日次実行される登録済みTaskがキャンペーン終了後も無期限に
+ * 動き続けるため、上限が無いと実行のたびに2026-08-22以降の全日を毎回
+ * 再走査することになり、日数が際限なく増え続けて所定の実行時間枠を
+ * いずれ超過しうる。investigationの対象期間外の日付までレポートしてしまう
+ * 問題でもある)。organic_07の投稿日より後は、この「投稿期間中の日別推移」
+ * としては意味を持たない(7日後集計は別途campaignSevenDaySummaryが担う)。
+ */
+async function buildDailyBreakdown(admin, testAccountIds, asOf, campaignStartDateStr, campaignPostingEndDateStr) {
   const today = todayJST();
+  const upperBoundExclusive = today < campaignPostingEndDateStr ? today : campaignPostingEndDateStr;
   const days = [];
   let d = campaignStartDateStr;
-  while (d < today) {
+  while (d < upperBoundExclusive) {
     days.push(d);
     d = addDaysToDateStr(d, 1);
   }
@@ -94,13 +135,17 @@ async function buildCampaignSevenDaySummary(admin, testAccountIds, asOf) {
   const startISO = organic07.publishedAtISO;
   const windowEndMs = new Date(organic07.publishedAtISO).getTime() + 7 * 24 * 60 * 60 * 1000;
   const endISO = new Date(windowEndMs).toISOString();
-  // 表示用(日別内訳と揃えたJST暦日表記)。実際のクエリ範囲はstartISO/endISOの方。
-  const startDateStr = toJstDateString(new Date(organic07.publishedAtISO));
-  const endDateStrInclusive = addDaysToDateStr(startDateStr, 6);
+  // 表示用の日時表記は、暦日単位の近似(toJstDateString+addDaysToDateStr)ではなく、
+  // 実際のクエリ範囲そのもの(startISO/endISO)から時刻付きで導出する(Codexレビュー
+  // 指摘対応、PR #125: 暦日近似だと、organic_07が21:00 JSTに投稿されるため終端が
+  // 「9月4日」と表示され、実際にクエリに含まれる9月5日21時までの21時間分が
+  // 表示上見えなくなっていた)。
+  const startDisplay = formatJstDateTime(startISO);
+  const endDisplay = formatJstDateTime(endISO);
 
   if (Date.now() < windowEndMs) {
     const daysRemaining = ((windowEndMs - Date.now()) / (24 * 60 * 60 * 1000)).toFixed(1);
-    return { complete: false, daysRemaining, startDateStr, endDateStrInclusive };
+    return { complete: false, daysRemaining, startISO, endISO, startDisplay, endDisplay };
   }
 
   const filterAttr = { campaign: CAMPAIGN };
@@ -115,15 +160,19 @@ async function buildCampaignSevenDaySummary(admin, testAccountIds, asOf) {
     const funnelKeys = result.funnelKeysByContent[key] ?? {};
     const signupKeys = result.signupKeysByContent[key] ?? [];
     const stageKeys = selectFunnelStageKeys(key, funnelKeys);
+    const isUntracked = UNTRACKED_DESTINATION_CONTENT_KEYS.includes(key);
     byContent[key] = {
-      untracked: UNTRACKED_DESTINATION_CONTENT_KEYS.includes(key),
-      landing: result.byContent[key] ?? 0,
+      untracked: isUntracked,
+      // untrackedなdestinationはlanding計測イベント自体が存在しないため、
+      // 構造的に必ず0になる。「実測0」と区別できるよう、numberではなくnullを
+      // 返す(Codexレビュー指摘対応、PR #125)。
+      landing: isUntracked ? null : (result.byContent[key] ?? 0),
       rates: buildFunnelRates({ landingKeys, ...stageKeys, signupKeys }, MIN_SAMPLE_SIZE_FOR_RATE),
     };
   }
   const totals = campaignTotals(result.byContent, result.funnelCountsByContent, result.signupCountByContent, KNOWN_LAUNCH_CONTENT_KEYS);
 
-  return { complete: true, startISO, endISO, startDateStr, endDateStrInclusive, totals, byContent };
+  return { complete: true, startISO, endISO, startDisplay, endDisplay, totals, byContent };
 }
 
 async function main() {
@@ -135,33 +184,49 @@ async function main() {
   const testAccountIds = await fetchTestAccountIds(admin, asOf);
 
   const campaignStartDateStr = toJstDateString(new Date(KNOWN_LAUNCH_SCHEDULE[0].publishedAtISO));
-  const dailyBreakdown = await buildDailyBreakdown(admin, testAccountIds, asOf, campaignStartDateStr);
+  const organic07 = KNOWN_LAUNCH_SCHEDULE.find((e) => e.content === "organic_07");
+  // organic_07自身の投稿日を含め、その翌日を日別推移の(排他的な)上限にする
+  // (buildDailyBreakdownのdocstring参照)。
+  const campaignPostingEndDateStrExclusive = addDaysToDateStr(toJstDateString(new Date(organic07.publishedAtISO)), 1);
+  const dailyBreakdown = await buildDailyBreakdown(admin, testAccountIds, asOf, campaignStartDateStr, campaignPostingEndDateStrExclusive);
   const campaignSevenDaySummary = await buildCampaignSevenDaySummary(admin, testAccountIds, asOf);
 
   const report = {
     kind: "vocab_growth_organic_campaign_report",
     generatedAt: asOf,
     campaign: CAMPAIGN,
+    // このレポートはdailyBreakdown(投稿期間中の日次推移)とcampaignSevenDaySummary
+    // (7日後集計、まだ未完了ならnull相当)の2種類を1つのJSONにまとめているため、
+    // windowStart/windowEndはキャンペーン全体としての最大範囲(organic_01投稿〜
+    // organic_07投稿7日後)を表す。個々のセクションの実際の完了状況は
+    // campaignSevenDaySummary.completeを参照すること。
+    windowStart: KNOWN_LAUNCH_SCHEDULE[0].publishedAtISO,
+    windowEnd: new Date(new Date(organic07.publishedAtISO).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    querySucceeded: true,
+    isCompleteWindow: campaignSevenDaySummary.complete === true,
     dailyBreakdown,
     campaignSevenDaySummary,
-    note: `organic_05(/materials/eiken)はfirst-party analyticsイベント未実装のため、その行のrateは計測ギャップ(実測0ではない)として扱うこと。`,
+    note: `organic_05(/materials/eiken)はfirst-party analyticsイベント未実装のため、byContent[organic_05].landingはnull(実測0ではなく計測不能)。totals.excludedUntrackedContentKeysに含まれ、totals.socialLandingIdentities等の合算からも除外されている。`,
   };
 
   const summaryLines = [
     "=== vocab_growth_organic campaign report ===",
     "",
-    `-- 完全日別推移(${campaignStartDateStr} 〜 昨日、JST暦日) --`,
+    `-- 完全日別推移(${campaignStartDateStr} 〜 ${addDaysToDateStr(campaignPostingEndDateStrExclusive, -1)}、JST暦日、投稿期間中のみ) --`,
     ...dailyBreakdown.map((r) => `  ${r.dateStr}: landing=${r.socialLandingIdentities}, signup=${r.socialSignupCount}`),
     dailyBreakdown.length === 0 ? "  (まだ完全な過去日がありません)" : "",
     "",
     campaignSevenDaySummary.complete
       ? [
-          `-- organic_07公開後7日間のcampaign集計(${campaignSevenDaySummary.startDateStr} 〜 ${campaignSevenDaySummary.endDateStrInclusive}、JST) --`,
-          `social landing identities(${CAMPAIGN}のみ): ${campaignSevenDaySummary.totals.socialLandingIdentities}`,
-          `social起点signup(${CAMPAIGN}のみ): ${campaignSevenDaySummary.totals.socialSignupCount}`,
+          `-- organic_07公開後7日間のcampaign集計(${campaignSevenDaySummary.startDisplay} 〜 ${campaignSevenDaySummary.endDisplay}) --`,
+          `social landing identities(${CAMPAIGN}のみ、untracked destination除く): ${campaignSevenDaySummary.totals.socialLandingIdentities}`,
+          `social起点signup(${CAMPAIGN}のみ、untracked destination除く): ${campaignSevenDaySummary.totals.socialSignupCount}`,
+          campaignSevenDaySummary.totals.excludedUntrackedContentKeys.length > 0
+            ? `(上記合計から除外: ${campaignSevenDaySummary.totals.excludedUntrackedContentKeys.join(", ")} — 計測ギャップのため)`
+            : "",
           ...Object.entries(campaignSevenDaySummary.byContent).map(
             ([key, v]) =>
-              `  ${key}${v.untracked ? " [計測ギャップ: 未実装]" : ""}: landing=${v.landing}, cta=${fmtRate(v.rates.ctaRate)}, signup=${fmtRate(v.rates.signupRate)}`,
+              `  ${key}${v.untracked ? " [計測ギャップ: 未実装、landing計測不能]" : ""}: landing=${v.landing === null ? "計測不能" : v.landing}, cta=${fmtRate(v.rates.ctaRate)}, signup=${fmtRate(v.rates.signupRate)}`,
           ),
         ].join("\n")
       : `-- organic_07公開後7日間のcampaign集計: まだ完了していません(あと約${campaignSevenDaySummary.daysRemaining}日) --`,
@@ -169,7 +234,13 @@ async function main() {
     "(read-only, DELETE/UPDATEは実行していません)",
   ];
 
-  const baseName = `vocab-growth-organic-campaign-report-${todayJST()}`;
+  // 論理的な識別子は「このキャンペーンの評価進捗レポート」1本として扱い、
+  // 生成日をファイル名に含めない(Codexレビュー指摘対応、PR #125: 生成日を
+  // 含めると、collector修正後の再生成が別の論理IDになってしまい、新旧の
+  // 比較・supersede判定自体が成立しなかった)。dailyBreakdownは実行のたびに
+  // 増分更新される「最新の完全な状態」であり、常に直前の生成結果を完全に
+  // 包含・supersedeする関係にあるため、日付をキーに含めない設計と整合する。
+  const baseName = "vocab-growth-organic-campaign-report";
   const { jsonPath, summaryPath } = writeReport(baseName, report, `${summaryLines.join("\n")}\n`);
 
   console.log(summaryLines.join("\n"));

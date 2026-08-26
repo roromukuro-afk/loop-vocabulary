@@ -28,7 +28,6 @@ import {
   selectFunnelStageKeys,
   UNTRACKED_DESTINATION_CONTENT_KEYS,
 } from "./vocab-growth-organic-schedule.mjs";
-import { todayJST } from "../../src/lib/utils/date.ts";
 
 // レポート書き出し(collectorVersion付与・ファイル名のバージョン一意化・
 // MANIFEST.json更新)はvocab-growth-organic-campaign-report.mjsと共有する
@@ -82,9 +81,16 @@ function formatRate(r) {
   return `${(r.rate * 100).toFixed(1)}% (${r.numerator}/${r.denominator})`;
 }
 
-export function buildReportBaseName(content, source, campaign, startISO, dateStr) {
+// 論理的な識別子は測定対象(content/source/campaign/startISO)だけで決まり、
+// 生成日を含めない(Codexレビュー指摘対応、PR #125: 生成日をbaseNameへ
+// 含めていたため、同じ投稿・同じウィンドウのレポートをcollector修正後に
+// 別の日で再生成しただけで論理IDが変わってしまい、reportVersioning.mjsの
+// updateManifest()がグルーピングできず、新旧の比較・supersede判定自体が
+// 成立しなかった)。生成日はレポートJSON本体のgeneratedAtフィールドに
+// メタデータとして残る。
+export function buildReportBaseName(content, source, campaign, startISO) {
   const postIdentity = `${content}-${source ?? "unknown"}-${campaign}-${startISO}`;
-  return `vocab-growth-organic-24h-check-${sanitizeForFilename(postIdentity)}-${dateStr}`;
+  return `vocab-growth-organic-24h-check-${sanitizeForFilename(postIdentity)}`;
 }
 
 async function main() {
@@ -116,7 +122,12 @@ async function main() {
 
   const funnelForContent = result.funnelCountsByContent[content] ?? {};
   const funnelKeysForContent = result.funnelKeysByContent[content] ?? {};
-  const landingForContent = result.byContent[content] ?? 0;
+  // untrackedなdestination(organic_05等)はlanding計測イベント自体が存在
+  // しないため、byContent[content]は構造的に必ず0になる。「実測0」と
+  // 区別できるよう、numberではなくnullを報告する(Codexレビュー指摘対応、
+  // PR #125: 実際にtrafficがあってもlandingが常に0として記録され、その
+  // 「0」が実測ゼロと見分けがつかないままcampaign集計へ積み上がっていた)。
+  const landingForContent = isUntracked ? null : (result.byContent[content] ?? 0);
   const landingKeysForContent = result.landingKeysByContent[content] ?? [];
   const signupForContent = result.signupCountByContent[content] ?? 0;
   const signupKeysForContent = result.signupKeysByContent[content] ?? [];
@@ -131,6 +142,10 @@ async function main() {
   const report = {
     kind: "vocab_growth_organic_24h_check",
     generatedAt: asOf,
+    windowStart: startISO,
+    windowEnd: endISO,
+    querySucceeded: true,
+    isCompleteWindow: true,
     post: { content, source, campaign, publishedAtISO },
     window: { startISO, endISO },
     measurementGap: isUntracked
@@ -167,7 +182,7 @@ async function main() {
           "",
         ]
       : []),
-    `landing identities (この投稿のUTMでの到達): ${landingForContent}`,
+    `landing identities (この投稿のUTMでの到達): ${landingForContent === null ? "計測不能(measurement gap)" : landingForContent}`,
     `signup(このsource/campaign/content起点、is_test_account=false): ${signupForContent}`,
     "",
     `rates(insufficient dataの場合は明示、最小サンプル数=${rates.pageViewedRate.minSample}):`,
@@ -178,7 +193,7 @@ async function main() {
     "(read-only, DELETE/UPDATEは実行していません)",
   ];
 
-  const baseName = buildReportBaseName(content, source, campaign, startISO, todayJST());
+  const baseName = buildReportBaseName(content, source, campaign, startISO);
   const { jsonPath, summaryPath } = writeReport(baseName, report, `${summaryLines.join("\n")}\n`);
 
   console.log(summaryLines.join("\n"));

@@ -84,11 +84,20 @@ export function selectFunnelStageKeys(content, funnelKeysForContent) {
   }
 
   if (DICTIONARY_DESTINATION_CONTENT_KEYS.includes(content)) {
+    // dictionary_word_addedは認証済みユーザーの単語保存(DB insert成功後)にしか
+    // 発火せず、サインアップ前に発火する真のCTAクリックイベントが/dictionaryには
+    // 実装されていない(Codexレビュー指摘対応、PR #125)。これをctaKeysへ渡すと、
+    // signupRate = intersectSize(cta, signup)/cta.sizeが「新規ユーザーによる単語
+    // 保存の割合」という意味の異なる値になってしまう。真のpre-signup CTAイベントが
+    // 実装されるまでは、cta/signup段階をnotApplicableとして明示する(skipCtaStage)。
+    // dictionary_word_added自体の生の発火数はfunnelCountsに引き続き残るため、
+    // 情報としては失われない。
     return {
       pageViewedKeys: funnel.dictionary_view ?? [],
       generatedKeys: [],
       skipGeneratedStage: true,
-      ctaKeys: funnel.dictionary_word_added ?? [],
+      ctaKeys: [],
+      skipCtaStage: true,
       savedKeys: [],
       skipSavedStage: true,
     };

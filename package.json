@@ -144,6 +144,7 @@
     "test:vocab-test-maker-report-window-math": "node scripts/testing/test-vocab-test-maker-report-window-math.mjs",
     "test:vocab-test-maker-funnel-rates": "node scripts/testing/test-vocab-test-maker-funnel-rates.mjs",
     "test:report-versioning": "node scripts/testing/test-report-versioning.mjs",
+    "test:vocab-growth-organic-schedule": "node scripts/testing/test-vocab-growth-organic-schedule.mjs",
     "test:vocab-test-maker-24h-check-args": "node scripts/testing/test-vocab-test-maker-24h-check-args.mjs",
     "test:scheduled-task-registration": "node scripts/testing/test-scheduled-task-registration.mjs",
     "test:scheduled-task-registration-live": "node scripts/testing/test-scheduled-task-registration-live.mjs",
