@@ -32,8 +32,12 @@ export type MalformedCsvWarning = {
   type: "unterminated_quote";
   /** クォートが開いた物理行番号(1始まり)。 */
   physicalLine: number;
-  /** 除外された物理行の元テキスト(末尾の改行は含まない)。 */
+  /** 除外された物理行の元テキスト(末尾の改行は含まない)。個別復旧の
+   * 試行回数上限を超えた場合は、残り全体(複数行)がここに入る。 */
   skippedLineText: string;
+  /** 個別復旧の試行回数上限を超え、残り全体を1件へ集約した場合にのみ
+   * 付与される説明文。 */
+  note?: string;
 };
 
 export type ParseCsvResult = {
@@ -72,7 +76,12 @@ const WORD_LABELS = ["word", "英単語", "単語", "english"];
 const MEANING_LABELS = ["meaning", "意味", "日本語", "japanese"];
 
 export function parseCsv(text: string): ParseCsvResult {
-  const { records, warnings } = splitCsvRecordsLocal(text.trim());
+  // 事前にtext.trim()で先頭・末尾の空白/空行を取り除くと、splitCsvRecordsLocal()
+  // が数える物理行番号が先頭の空行の数だけずれてしまい、warningsのphysicalLine
+  // が実際の行番号と食い違う(Codexレビュー指摘対応、PR #105、round-18再監査
+  // フレッシュレビュー5巡目)。空行の除外は、行番号の集計が終わった後の
+  // records配列に対して行う(下のfilter)。
+  const { records, warnings } = splitCsvRecordsLocal(text);
   const malformedCsvWarnings: MalformedCsvWarning[] = warnings;
   const lines = records.filter(l => l.trim());
   if (lines.length === 0) return { words: [], malformedCsvWarnings };

@@ -75,19 +75,8 @@ function findNextLineStart(text, fromOffset) {
   return i + 1;
 }
 
-// 1つの開いたクォートについて、閉じクォートを探索してよい最大の物理行数。
-// これを超えても閉じクォートが見つからなければ、EOFまで探索を続けずその場で
-// 未終端と確定する(Codexレビュー指摘対応、PR #105、round-18再監査フレッシュ
-// レビュー4巡目: 上限が無いと、閉じクォートを持たない行が多数連続する入力
-// (例: 5,000行の未終端クォート)で、壊れた行を1行スキップして再開するたびに
-// 残りテキスト全体を毎回EOFまで再スキャンすることになり、準二次的に遅くなる
-// —5,000行で約2.4秒かかっていた)。実際の見出し語リストの1つの値がこれだけの
-// 行数にまたがることは通常無いため、十分に余裕を持った定数(200行)とする。
-const MAX_LINES_SEARCHING_FOR_QUOTE_CLOSE = 100;
-
 // splitCsvRecords()の中核となる1回分の走査。textのstartOffset位置から、
-// 閉じクォートが見つからないまま行き詰まる(inQuotesのままEOFに達するか、
-// MAX_LINES_SEARCHING_FOR_QUOTE_CLOSEを超えて閉じクォートが見つからない)か、
+// 閉じクォートが見つからないまま行き詰まる(inQuotesのままEOFに達する)か、
 // テキスト末尾まで正常に完了するかのどちらかで終わる。呼び出し元
 // (splitCsvRecords)がこれを繰り返し呼び出し、行き詰まった箇所ごとに
 // 「その物理行だけ」を切り離して再開することで、EOFまで閉じられない
@@ -104,9 +93,6 @@ function scanOnePass(text, startOffset, delimiterSet, startLine) {
   let physicalLine = startLine;
   let quoteOpenOffset = null;
   let quoteOpenLine = null;
-  // 現在開いているクォートについて、開いてから何行分の閉じクォート探索を
-  // 続けたか(MAX_LINES_SEARCHING_FOR_QUOTE_CLOSE参照)。
-  let linesSinceQuoteOpen = 0;
 
   for (let i = startOffset; i < text.length; i++) {
     const ch = text[i];
@@ -116,7 +102,6 @@ function scanOnePass(text, startOffset, delimiterSet, startLine) {
       atFieldBoundary = false;
       quoteOpenOffset = i;
       quoteOpenLine = physicalLine;
-      linesSinceQuoteOpen = 0;
       continue;
     }
     if (ch === '"' && inQuotes) {
@@ -146,15 +131,16 @@ function scanOnePass(text, startOffset, delimiterSet, startLine) {
     if (inQuotes && (ch === "\n" || (ch === "\r" && text[i + 1] !== "\n"))) {
       // クォート内部の改行(正当な複数行フィールド)でも、物理行番号自体は
       // 引き続き数える(warningsのphysicalLineを正確にするため)。
+      // 意図的に行数上限を設けない: 正当な複数行クォートフィールドの長さに
+      // 上限を課すと、100行を超える正当なクォートフィールドが誤って未終端と
+      // 判定されてしまう(Codexレビュー指摘対応、PR #105、round-18再監査
+      // フレッシュレビュー5巡目: 直前に試みたMAX_LINES_SEARCHING_FOR_QUOTE_
+      // CLOSEによる行数上限は、性能問題を解消する代わりにこの正しさの回帰を
+      // 引き起こしていた)。準二次性能問題への対策は、代わりに呼び出し元
+      // splitCsvRecords()側で「再同期の試行回数」自体に上限を設ける形で行う
+      // (1回1回の探索の深さではなく、壊れた行を何回まで個別に復旧しようと
+      // 試みるかを制限する — 正当なフィールドの長さには一切影響しない)。
       physicalLine++;
-      linesSinceQuoteOpen++;
-      if (linesSinceQuoteOpen > MAX_LINES_SEARCHING_FOR_QUOTE_CLOSE) {
-        // MAX_LINES_SEARCHING_FOR_QUOTE_CLOSE行を超えても閉じクォートが
-        // 見つからない場合、EOFまで探索を続けず、この時点で未終端と確定する
-        // (Codexレビュー指摘対応、PR #105、round-18再監査フレッシュレビュー
-        // 4巡目、性能問題)。
-        return { records, recordStartLines, brokenAtOffset: quoteOpenOffset, brokenAtLine: quoteOpenLine };
-      }
     }
     if (!inQuotes) {
       if (delimiterSet.has(ch)) {
@@ -233,28 +219,55 @@ function scanOnePass(text, startOffset, delimiterSet, startLine) {
  * @returns {{
  *   records: string[],
  *   recordStartLines: number[],
- *   warnings: Array<{type: "unterminated_quote", physicalLine: number, skippedLineText: string}>,
+ *   warnings: Array<{type: "unterminated_quote", physicalLine: number, skippedLineText: string, note?: string}>,
  * }} recordsとrecordStartLinesは同じ長さ・同じ順序で対応する(records[i]は
  *   元テキストのrecordStartLines[i]行目から始まる)。破損して除外された行は
  *   recordsに含まれず、その行の情報はwarningsにのみ記録される。
  */
+// 個別に復旧を試みる破損行の最大件数。これを超えたら、以降は1行ずつの
+// 精密な復旧を諦め、残り全体を1件の集約警告として報告する(Codexレビュー
+// 指摘対応、PR #105、round-18再監査フレッシュレビュー4/5巡目: 正当な複数行
+// クォートフィールドの長さには一切上限を課さない代わりに[前述のコメント
+// 参照]、閉じクォートを持たない行が非常に多数[例: 5,000行]連続する病的な
+// 入力では、1行スキップして再開するたびに残りテキスト全体をEOFまで
+// 再スキャンすることになり準二次的に遅くなる。個々の探索の深さではなく
+// 「壊れた行を何回まで個別に復旧しようと試みるか」を制限することで、
+// 正当なフィールドの長さに影響を与えずに最悪ケースの総コストを
+// O(この上限 × 入力長)に抑える)。
+const MAX_MALFORMED_ROW_RECOVERY_ATTEMPTS = 1000;
+
 export function splitCsvRecords(text, delimiterChars) {
   const delimiterSet = new Set(delimiterChars);
   const records = [];
   const recordStartLines = [];
+  // 明示的に型注釈する: pushする2種類のwarningオブジェクト形状(note有り/無し)
+  // をTypeScriptが個別のpush呼び出しから推論すると、typeフィールドがリテラル型
+  // "unterminated_quote"から広い string 型へ広がってしまい、csvImportParsing.ts/
+  // wordListCleaner.ts側のMalformedCsvWarning[]への代入で型エラーになる。
+  /** @type {Array<{type: "unterminated_quote", physicalLine: number, skippedLineText: string, note?: string}>} */
   const warnings = [];
   let scanFrom = 0;
   let lineBase = 1;
-  // scanFromは壊れた行を1行スキップするたびに厳密に前進するため、理論上
-  // 無限ループにはならないが、想定外の状態遷移に備えた安全弁として上限を置く。
-  let guard = 0;
+  let recoveryAttempts = 0;
 
   while (scanFrom <= text.length) {
-    if (++guard > 100000) break;
     const pass = scanOnePass(text, scanFrom, delimiterSet, lineBase);
     records.push(...pass.records);
     recordStartLines.push(...pass.recordStartLines);
     if (pass.brokenAtOffset === null) break;
+
+    if (++recoveryAttempts > MAX_MALFORMED_ROW_RECOVERY_ATTEMPTS) {
+      // 個別復旧の試行回数が上限を超えた。これ以上1行ずつ精密に復旧しようと
+      // せず、壊れたクォートが開いた地点から先の残り全体を1件の集約警告に
+      // まとめる(内容は破棄せず、監査用にskippedLineTextへ丸ごと残す)。
+      warnings.push({
+        type: "unterminated_quote",
+        physicalLine: pass.brokenAtLine,
+        skippedLineText: text.slice(findLineStartBefore(text, pass.brokenAtOffset)),
+        note: `未終端クォートによる破損行が${MAX_MALFORMED_ROW_RECOVERY_ATTEMPTS}件を超えたため、これ以降は個別の行単位での復旧を行わず、残り全体をまとめて破損扱いにしました。`,
+      });
+      break;
+    }
 
     // 壊れたクォートが開いた物理行の範囲[lineStart, nextLineStart)を特定し、
     // その1行だけを破損行として除外する。次のパスはnextLineStartから、

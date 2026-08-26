@@ -849,6 +849,24 @@ function main() {
     }
   }
 
+  // ---- Codexレビュー指摘対応(PR #105、round-18再監査フレッシュレビュー
+  // 5巡目、P2): 先頭に空行がある入力で未終端クォートがある場合、
+  // malformedCsvWarningsのphysicalLineが実際の行番号と食い違わない
+  // (以前はparseCsv()がtext.trim()で先頭の空行を除いてから行番号を数えて
+  // いたため、実際は4行目の破損が2行目と誤って報告されていた) ----
+  {
+    const result = parseCsv('\n\nword,meaning\n"unterminated,テスト');
+    if (
+      result.words.length === 0 &&
+      result.malformedCsvWarnings.length === 1 &&
+      result.malformedCsvWarnings[0].physicalLine === 4
+    ) {
+      ok('先頭に空行(2行)がある入力でも、malformedCsvWarningsのphysicalLineは実際の物理行番号(4行目)を正しく指す(先頭のtext.trim()による行番号ズレが無い)');
+    } else {
+      bad(`先頭空行付き入力でのphysicalLine報告が想定外: ${JSON.stringify(result)}`);
+    }
+  }
+
   if (fail > 0) {
     console.error("\n=== 失敗したチェックがあります ===");
     process.exitCode = 1;

@@ -33,8 +33,12 @@ export type MalformedCsvWarning = {
   type: "unterminated_quote";
   /** クォートが開いた物理行番号(1始まり)。 */
   physicalLine: number;
-  /** 除外された物理行の元テキスト(末尾の改行は含まない)。 */
+  /** 除外された物理行の元テキスト(末尾の改行は含まない)。個別復旧の
+   * 試行回数上限を超えた場合は、残り全体(複数行)がここに入る。 */
   skippedLineText: string;
+  /** 個別復旧の試行回数上限を超え、残り全体を1件へ集約した場合にのみ
+   * 付与される説明文。 */
+  note?: string;
 };
 
 export type WordListParseResult = {
