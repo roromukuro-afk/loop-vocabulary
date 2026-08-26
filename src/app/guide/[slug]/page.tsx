@@ -2398,9 +2398,15 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
     "headline": article.title,
     "description": article.description,
     "datePublished": article.published,
-    // GuideBylineが表示する「最終更新日」と一致させる(Codexレビュー指摘対応)。
-    // bylineが無い記事はdatePublishedのみを引き続き最終更新日として扱う。
-    "dateModified": article.byline?.lastUpdated ?? article.published,
+    // GuideBylineが表示する「最終更新日」と一致させる(Codexレビュー指摘対応、1巡目)。
+    // bylineが無い記事はdatePublishedをdateModifiedとして流用しない(2巡目のCodex
+    // レビュー指摘対応): 記事本文中に「最終確認日」等、published日より新しい実際の
+    // 更新事実が別途記載されている場合があり、datePublishedをそのままdateModifiedとして
+    // 主張すると、その実際の更新日より古い虚偽の値をクローラーに渡すことになる
+    // (実例: eiken-2kyu-tango-nanko — published:2025-03-01だが本文に
+    // 「最終確認日: 2026-07-12」の記載がある)。byline.lastUpdatedが無い記事は、
+    // 不正確な値を主張するよりdateModified自体を省略する。
+    ...(article.byline?.lastUpdated ? { "dateModified": article.byline.lastUpdated } : {}),
     "author": { "@type": "Organization", "name": "Loop Vocabulary" },
     "publisher": {
       "@type": "Organization",
