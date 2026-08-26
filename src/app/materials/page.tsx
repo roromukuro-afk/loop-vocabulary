@@ -20,16 +20,23 @@ const MATERIALS_DESCRIPTION = "英検2級・準1級・TOEIC・大学受験・中
 // リクエストでは実行時にstring[]が渡ってくる(Next.js App Routerの既知の挙動)。素朴に
 // sp.q.trim()を呼ぶと配列にはtrimが無く例外になり、この公開URLが500になってしまう
 // (Codexレビュー指摘対応)。配列の場合は先頭要素を使い、いずれの形でも安全に判定する。
-function firstSearchParam(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
+//
+// generateMetadata()とページ本体(MaterialsPage)の両方がこの1つの関数だけを経由して
+// sp.qを解釈するようにする。generateMetadata()側だけをtrimしてページ本体は生のsp.qを
+// 見ていたため、`?q=+`(空白のみ)のようなリクエストでgenerateMetadata()はnoindexを
+// 付けない(=index対象)と判定する一方、ページ本体は生のsp.q("+")を真値と見なして
+// 検索結果ビュー(薄いページ)を描画してしまう不整合があった(Codexレビュー指摘対応)。
+function normalizeSearchQuery(value: string | string[] | undefined): string {
+  const first = Array.isArray(value) ? value[0] : value;
+  return (first ?? "").trim();
 }
 
 export async function generateMetadata(
   { searchParams }: { searchParams: Promise<{ q?: string | string[] }> }
 ): Promise<Metadata> {
   const sp = await searchParams;
-  const q = firstSearchParam(sp.q);
-  const isSearchResult = Boolean(q && q.trim());
+  const q = normalizeSearchQuery(sp.q);
+  const isSearchResult = Boolean(q);
   return {
     title: MATERIALS_TITLE,
     description: MATERIALS_DESCRIPTION,
@@ -250,11 +257,12 @@ function MaterialCard({
 export default async function MaterialsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string | string[] }>;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const sp = await searchParams;
+  const q = normalizeSearchQuery(sp.q);
 
   let dbQuery = supabase
     .from("materials")
@@ -263,7 +271,7 @@ export default async function MaterialsPage({
     .in("license_status", ["approved", "original"])
     .order("level", { ascending: true });
 
-  if (sp.q) dbQuery = dbQuery.ilike("title", `%${sp.q}%`);
+  if (q) dbQuery = dbQuery.ilike("title", `%${q}%`);
 
   const { data: materials } = await dbQuery.limit(200);
 
@@ -307,14 +315,14 @@ export default async function MaterialsPage({
   const allMaterials = (materials ?? []) as Material[];
 
   // 検索モード: フラットリスト表示
-  if (sp.q) {
+  if (q) {
     return (
       <AppShell>
         <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "教材・単語帳" }]} className="mb-3" />
         <h1 className="text-xl font-bold text-navy-800 mb-4">教材・参考書</h1>
-        <SearchBar defaultValue={sp.q} />
+        <SearchBar defaultValue={q} />
         <p className="text-sm text-navy-500 mt-3 mb-3">
-          「{sp.q}」の検索結果 — {allMaterials.length} 件
+          「{q}」の検索結果 — {allMaterials.length} 件
         </p>
         <ul className="space-y-3">
           {allMaterials.map((m) => (
