@@ -4,7 +4,9 @@
  * 1. /reportsが200で表示される
  * 2. 「準備中」であることが明示され、実データのランキング数値が無い
  * 3. 公開予定レポート・最低サンプルサイズ・個人情報方針の説明がある
- * 4. canonicalが自己参照、sitemapに含まれる
+ * 4. canonicalが自己参照
+ * 5. noindexが付与され、sitemapからは除外されている(AdSense Low value content是正、
+ *    Issue #127: 実データを持たない「準備中」ページのため、実データ公開までnoindex)
  *
  * 使い方: node scripts/testing/e2e/reports-page.mjs
  */
@@ -52,10 +54,16 @@ async function main() {
     if (canonicalMatch?.[1] === "https://loop-vocabulary.app/reports") ok("canonicalが自己参照");
     else fail(`canonicalが不正: ${canonicalMatch?.[1]}`);
 
+    if (/<meta[^>]+name="robots"[^>]+content="[^"]*noindex[^"]*"/i.test(html)) ok("noindexメタが付与されている");
+    else fail("noindexメタが見つからない(準備中ページのためindex対象外であるべき)");
+
     const sitemapRes = await fetch(`${baseUrl}/sitemap.xml`);
     const sitemapXml = await sitemapRes.text();
-    if (sitemapXml.includes("/reports</loc>") || sitemapXml.includes("/reports<")) ok("sitemap.xmlに/reportsが含まれる");
-    else fail("sitemap.xmlに/reportsが含まれていない");
+    if (!sitemapXml.includes("<loc>https://loop-vocabulary.app/reports</loc>")) {
+      ok("sitemap.xmlに/reportsが含まれていない(noindex化に伴い除外)");
+    } else {
+      fail("sitemap.xmlに/reportsがまだ含まれている(noindex化したのでsitemapからも除外すべき)");
+    }
   } finally {
     stopDevServer(dev);
   }

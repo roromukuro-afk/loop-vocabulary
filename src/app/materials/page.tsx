@@ -8,15 +8,46 @@ import { TrackedLink } from "@/components/analytics/TrackedLink";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "英語教材・単語帳一覧【無料】英検・TOEIC・大学受験 | Loop Vocabulary",
-  description: "英検2級・準1級・TOEIC・大学受験・中学高校英語の単語帳を無料でインポートして学習。AIが苦手を分析し効率的に暗記。スマホ対応・ログイン不要で閲覧可能。",
-  openGraph: {
-    title: "英語教材・単語帳一覧【無料】英検・TOEIC・大学受験 | Loop Vocabulary",
-    description: "英検・TOEIC・大学受験の単語帳を無料でインポートして学習。AIが苦手を分析し効率的に暗記。",
-  },
-  alternates: { canonical: "https://loop-vocabulary.app/materials" },
-};
+const MATERIALS_TITLE = "英語教材・単語帳一覧【無料】英検・TOEIC・大学受験 | Loop Vocabulary";
+const MATERIALS_DESCRIPTION = "英検2級・準1級・TOEIC・大学受験・中学高校英語の単語帳を無料でインポートして学習。AIが苦手を分析し効率的に暗記。スマホ対応・ログイン不要で閲覧可能。";
+
+// AdSense Low value content是正(Issue #127): ?q=はGET formで実際にURLを生成するサーバー
+// サイド検索のため、検索語の組み合わせ次第でcrawlable thin URL(該当ゼロ件の1行だけの
+// ページ)が量産されうる。検索結果ページは一覧ページ(/materials)と重複するnoindex対象と
+// し、ベースの/materialsのみindex対象に維持する。
+//
+// searchParamsの型注釈は{ q?: string }だが、`?q=foo&q=bar`のようにqが複数回指定された
+// リクエストでは実行時にstring[]が渡ってくる(Next.js App Routerの既知の挙動)。素朴に
+// sp.q.trim()を呼ぶと配列にはtrimが無く例外になり、この公開URLが500になってしまう
+// (Codexレビュー指摘対応)。配列の場合は先頭要素を使い、いずれの形でも安全に判定する。
+//
+// generateMetadata()とページ本体(MaterialsPage)の両方がこの1つの関数だけを経由して
+// sp.qを解釈するようにする。generateMetadata()側だけをtrimしてページ本体は生のsp.qを
+// 見ていたため、`?q=+`(空白のみ)のようなリクエストでgenerateMetadata()はnoindexを
+// 付けない(=index対象)と判定する一方、ページ本体は生のsp.q("+")を真値と見なして
+// 検索結果ビュー(薄いページ)を描画してしまう不整合があった(Codexレビュー指摘対応)。
+function normalizeSearchQuery(value: string | string[] | undefined): string {
+  const first = Array.isArray(value) ? value[0] : value;
+  return (first ?? "").trim();
+}
+
+export async function generateMetadata(
+  { searchParams }: { searchParams: Promise<{ q?: string | string[] }> }
+): Promise<Metadata> {
+  const sp = await searchParams;
+  const q = normalizeSearchQuery(sp.q);
+  const isSearchResult = Boolean(q);
+  return {
+    title: MATERIALS_TITLE,
+    description: MATERIALS_DESCRIPTION,
+    openGraph: {
+      title: MATERIALS_TITLE,
+      description: "英検・TOEIC・大学受験の単語帳を無料でインポートして学習。AIが苦手を分析し効率的に暗記。",
+    },
+    alternates: { canonical: "https://loop-vocabulary.app/materials" },
+    robots: isSearchResult ? { index: false, follow: true } : undefined,
+  };
+}
 
 const LEVEL_COLOR: Record<string, string> = {
   "中学基礎":    "bg-green-50 text-green-700",
@@ -226,11 +257,12 @@ function MaterialCard({
 export default async function MaterialsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string | string[] }>;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const sp = await searchParams;
+  const q = normalizeSearchQuery(sp.q);
 
   let dbQuery = supabase
     .from("materials")
@@ -239,7 +271,7 @@ export default async function MaterialsPage({
     .in("license_status", ["approved", "original"])
     .order("level", { ascending: true });
 
-  if (sp.q) dbQuery = dbQuery.ilike("title", `%${sp.q}%`);
+  if (q) dbQuery = dbQuery.ilike("title", `%${q}%`);
 
   const { data: materials } = await dbQuery.limit(200);
 
@@ -283,14 +315,14 @@ export default async function MaterialsPage({
   const allMaterials = (materials ?? []) as Material[];
 
   // 検索モード: フラットリスト表示
-  if (sp.q) {
+  if (q) {
     return (
       <AppShell>
         <Breadcrumb items={[{ label: "ホーム", href: "/" }, { label: "教材・単語帳" }]} className="mb-3" />
         <h1 className="text-xl font-bold text-navy-800 mb-4">教材・参考書</h1>
-        <SearchBar defaultValue={sp.q} />
+        <SearchBar defaultValue={q} />
         <p className="text-sm text-navy-500 mt-3 mb-3">
-          「{sp.q}」の検索結果 — {allMaterials.length} 件
+          「{q}」の検索結果 — {allMaterials.length} 件
         </p>
         <ul className="space-y-3">
           {allMaterials.map((m) => (

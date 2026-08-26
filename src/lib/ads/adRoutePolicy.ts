@@ -8,7 +8,17 @@ const ADS_ALLOWED_PREFIXES = ["/materials", "/guide"];
 // 独自コンテンツを持つページとして広告表示を許可する。
 const ADS_ALLOWED_SUBPATH_ONLY_PREFIXES = ["/dictionary"];
 
-export function isAdsAllowedPath(pathname: string): boolean {
+// AdSense Low value content是正(Issue #127): /materials?q=... はサーバーサイド検索の
+// 結果ビュー(該当ゼロ件の薄いページになりうる)で、noindex対象としている
+// (src/app/materials/page.tsxのgenerateMetadata参照)。usePathname()はクエリ文字列を
+// 含まないため、pathnameだけを見るisAdsAllowedPathはこの検索結果ビューと通常の一覧を
+// 区別できず、noindexにしたページにも広告が表示されたままになっていた
+// (Codexレビュー指摘対応)。呼び出し側からsearchParamsも渡せるようにし、
+// /materialsの検索結果ビュー(qが空でない)は広告を許可しない。
+export function isAdsAllowedPath(pathname: string, searchParams?: URLSearchParams | null): boolean {
+  if (pathname === "/materials" && (searchParams?.get("q") ?? "").trim()) {
+    return false;
+  }
   if (ADS_ALLOWED_EXACT.has(pathname)) return true;
   if (
     ADS_ALLOWED_PREFIXES.some(
