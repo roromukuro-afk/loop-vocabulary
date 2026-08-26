@@ -15,11 +15,21 @@ const MATERIALS_DESCRIPTION = "英検2級・準1級・TOEIC・大学受験・中
 // サイド検索のため、検索語の組み合わせ次第でcrawlable thin URL(該当ゼロ件の1行だけの
 // ページ)が量産されうる。検索結果ページは一覧ページ(/materials)と重複するnoindex対象と
 // し、ベースの/materialsのみindex対象に維持する。
+//
+// searchParamsの型注釈は{ q?: string }だが、`?q=foo&q=bar`のようにqが複数回指定された
+// リクエストでは実行時にstring[]が渡ってくる(Next.js App Routerの既知の挙動)。素朴に
+// sp.q.trim()を呼ぶと配列にはtrimが無く例外になり、この公開URLが500になってしまう
+// (Codexレビュー指摘対応)。配列の場合は先頭要素を使い、いずれの形でも安全に判定する。
+function firstSearchParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export async function generateMetadata(
-  { searchParams }: { searchParams: Promise<{ q?: string }> }
+  { searchParams }: { searchParams: Promise<{ q?: string | string[] }> }
 ): Promise<Metadata> {
   const sp = await searchParams;
-  const isSearchResult = Boolean(sp.q && sp.q.trim());
+  const q = firstSearchParam(sp.q);
+  const isSearchResult = Boolean(q && q.trim());
   return {
     title: MATERIALS_TITLE,
     description: MATERIALS_DESCRIPTION,
