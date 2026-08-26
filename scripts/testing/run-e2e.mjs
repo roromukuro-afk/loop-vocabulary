@@ -271,6 +271,21 @@ async function main() {
 
     console.log("\n=== 76. 試験日から逆算する学習計画メーカー 教材選択ロジック ユニットテスト ===");
     results.examCountdownMaterialSelection = runNode("scripts/testing/test-exam-countdown-material-selection.mjs");
+
+    console.log("\n=== 77. 英単語リスト整形・CSV変換ツール E2E ===");
+    results.wordListCleaner = runNode("scripts/testing/e2e/word-list-cleaner.mjs");
+
+    console.log("\n=== 78. 英単語リスト整形・CSV変換ツール 整形ロジック ユニットテスト ===");
+    results.wordListCleanerParser = runNode("scripts/testing/test-word-list-cleaner-parser.mjs");
+
+    console.log("\n=== 79. 英単語リスト整形・CSV変換ツール CSV/TSVパーサ 体系的監査(fuzz含む) ===");
+    results.wordListCleanerAudit = runNode("scripts/testing/test-word-list-cleaner-audit.mjs");
+
+    console.log("\n=== 80. 英単語リスト整形・CSV変換ツール CSV/TSV構造解析 PapaParse差分テスト ===");
+    results.wordListCleanerCsvDifferential = runNode("scripts/testing/test-word-list-cleaner-csv-differential.mjs");
+
+    console.log("\n=== 81. wordListCleaner.ts/csvImportParsing.ts共有CSV/TSVスキャナー 単体テスト ===");
+    results.csvScanner = runNode("scripts/testing/test-csv-scanner.mjs");
   } finally {
     stopDevServer(dev);
   }

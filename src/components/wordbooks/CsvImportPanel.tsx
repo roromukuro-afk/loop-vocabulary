@@ -3,77 +3,32 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { UpsellModal } from "@/components/premium/UpsellModal";
+import { parseCsv, type ParsedWord, type MalformedCsvWarning } from "@/lib/utils/csvImportParsing";
 
-type ParsedWord = {
-  word: string;
-  meaning: string;
-  phonetic?: string;
-  example?: string;
-  example_ja?: string;
-};
-
-function parseLine(line: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-      else inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
-      result.push(current); current = "";
-    } else {
-      current += char;
-    }
-  }
-  result.push(current);
-  return result;
+// malformedCsvWarningsの中から「個別復旧の試行回数上限を超え、残り全体を1件へ
+// 集約した」警告(note付き)を探す。これが存在する場合、その警告のskippedLineTextは
+// 破損行だけでなく、たまたま後続に存在した正常な単語も含む残り全体を丸ごと
+// 保持しており、それらは一切解析されず取り込み対象になっていない
+// (Codexレビュー指摘対応、PR #105、round-21再監査フレッシュレビューP2: 「それ以外の
+// 行は通常どおり取り込み対象です」という文言が、この集約ケースでは事実と反する
+// [例: 1,001件の破損行の直後にある正当な行が実際には一切取り込まれていないのに、
+// 取り込まれるかのように案内していた]ため、集約ケースを検出して文言を出し分ける)。
+function findAggregateMalformedWarning(warnings: MalformedCsvWarning[]): MalformedCsvWarning | undefined {
+  return warnings.find((w) => w.note);
 }
 
-function parseCsv(text: string): ParsedWord[] {
-  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
-  if (lines.length === 0) return [];
-
-  const firstLower = lines[0].toLowerCase();
-  const hasHeaders = firstLower.includes("word") || firstLower.includes("meaning") ||
-    firstLower.includes("単語") || firstLower.includes("英単語");
-
-  const headerMap: Record<string, number> = { word: 0, meaning: 1 };
-  let startLine = 0;
-
-  if (hasHeaders) {
-    startLine = 1;
-    const headers = parseLine(lines[0]);
-    headers.forEach((h, i) => {
-      const lh = h.toLowerCase().trim();
-      if (["word", "英単語", "単語", "english"].includes(lh)) headerMap.word = i;
-      else if (["meaning", "意味", "日本語", "japanese"].includes(lh)) headerMap.meaning = i;
-      else if (["phonetic", "発音", "読み方", "pronunciation"].includes(lh)) headerMap.phonetic = i;
-      else if (["example", "例文", "英語例文"].includes(lh)) headerMap.example = i;
-      else if (["example_ja", "例文日本語", "日本語例文"].includes(lh)) headerMap.example_ja = i;
-    });
-  }
-
-  return lines.slice(startLine).flatMap((line) => {
-    const cols = parseLine(line);
-    const word = cols[headerMap.word ?? 0]?.trim();
-    const meaning = cols[headerMap.meaning ?? 1]?.trim();
-    if (!word || !meaning) return [];
-    return [{
-      word,
-      meaning,
-      phonetic: headerMap.phonetic !== undefined ? cols[headerMap.phonetic]?.trim() || undefined : undefined,
-      example: headerMap.example !== undefined ? cols[headerMap.example]?.trim() || undefined : undefined,
-      example_ja: headerMap.example_ja !== undefined ? cols[headerMap.example_ja]?.trim() || undefined : undefined,
-    }];
-  });
+// 集約警告のskippedLineTextに含まれる物理行数を数える(末尾の改行による空要素は除外)。
+function countDiscardedLines(skippedLineText: string): number {
+  const lines = skippedLineText.split(/\r\n|\r|\n/);
+  if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  return lines.length;
 }
 
 export function CsvImportPanel({ wordbookId, isPremium }: { wordbookId: string; isPremium: boolean }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<ParsedWord[]>([]);
+  const [malformedWarnings, setMalformedWarnings] = useState<MalformedCsvWarning[]>([]);
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -87,12 +42,18 @@ export function CsvImportPanel({ wordbookId, isPremium }: { wordbookId: string; 
     setFileName(file.name);
     setError(null);
     setPreview([]);
+    setMalformedWarnings([]);
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const words = parseCsv(ev.target?.result as string);
+        const { words, malformedCsvWarnings } = parseCsv(ev.target?.result as string);
+        setMalformedWarnings(malformedCsvWarnings);
         if (words.length === 0) {
-          setError("単語が見つかりませんでした。フォーマットを確認してください。");
+          setError(
+            malformedCsvWarnings.length > 0
+              ? "単語が見つかりませんでした。クォート(\")が閉じられていない行があり、その行は取り込まれませんでした。下の警告を確認してください。"
+              : "単語が見つかりませんでした。フォーマットを確認してください。",
+          );
           return;
         }
         setPreview(words);
@@ -194,6 +155,24 @@ achieve,達成する,/əˈtʃiːv/`}</pre>
           </button>
 
           {error && <div role="alert" className="text-sm text-red-600 bg-red-50 rounded-xl p-3">{error}</div>}
+
+          {malformedWarnings.length > 0 && (() => {
+            const aggregateWarning = findAggregateMalformedWarning(malformedWarnings);
+            if (aggregateWarning) {
+              const discardedLineCount = countDiscardedLines(aggregateWarning.skippedLineText);
+              return (
+                <div className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                  クォート(&quot;)が閉じられていない行が連続したため、{aggregateWarning.physicalLine}行目で個別の行単位の復旧を打ち切りました。{aggregateWarning.physicalLine}行目から末尾までの{discardedLineCount}行は、その中に正常な単語データが含まれていても一切解析されておらず、取り込み対象に含まれていません。{aggregateWarning.physicalLine}行目より前でファイルを分割し、クォートの閉じ忘れを修正したうえで、{aggregateWarning.physicalLine}行目以降を改めてインポートし直してください。
+                </div>
+              );
+            }
+            return (
+              <div className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                クォート(&quot;)が閉じられていない行が{malformedWarnings.length}件あり、破損した値として取り込まずスキップしました(行番号:{" "}
+                {malformedWarnings.map((w) => w.physicalLine).join(", ")})。それ以外の行は通常どおり取り込み対象です。
+              </div>
+            );
+          })()}
 
           {preview.length > 0 && (
             <div>
