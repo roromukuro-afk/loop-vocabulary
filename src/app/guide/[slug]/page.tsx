@@ -2398,6 +2398,9 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
     "headline": article.title,
     "description": article.description,
     "datePublished": article.published,
+    // GuideBylineが表示する「最終更新日」と一致させる(Codexレビュー指摘対応)。
+    // bylineが無い記事はdatePublishedのみを引き続き最終更新日として扱う。
+    "dateModified": article.byline?.lastUpdated ?? article.published,
     "author": { "@type": "Organization", "name": "Loop Vocabulary" },
     "publisher": {
       "@type": "Organization",
