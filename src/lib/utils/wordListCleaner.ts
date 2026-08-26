@@ -341,21 +341,45 @@ function splitDelimitedRow(row: string, delimiter: string): string[] {
 // 貼り直した際、クォート内部の改行でレコードが分断され、後半が別の壊れた行として
 // 誤ってスキップされてしまう(Codexレビュー指摘対応、PR #105、10巡目、P2)。
 //
-// 区切り文字候補(タブ・カンマ)を両方ともクォート開始位置の判定へ渡すと、
-// 本物のTSV行の値の中に「カンマ+スペース+リテラルの"」がたまたま含まれる
-// だけで、カンマがTSVのフィールド境界だと誤認識され、そのクォートが閉じ
-// クォートを持たない未終端クォートとして誤検出されてしまう(Codexレビュー
-// 指摘対応、PR #105、round-18再監査P2: `word\tmeaning\nquote\tUse comma,
-// " literally\napple\tりんご`で、quote行がTSVのフィールド境界を一切
-// 使っていないにもかかわらず、その"がTSV側の候補カンマのせいで未終端クォート
-// と誤判定され、行ごと除外されていた)。ヘッダー行(先頭の生の1行、まだ
-// クォート解釈前)から先に実際の区切り文字を1つに確定できる場合は、それだけを
-// クォート開始位置の判定へ渡す。ヘッダーからword/meaning列を検出できない
-// (見出しの無い自由記述貼り付け等)場合のみ、従来どおり両方の候補を渡す
-// (delimiterが最後まで確定しない列モード外のケースへの後方互換)。
+// ヘッダー行(先頭の生の1行、まだクォート解釈前)からword/meaning列を検出でき、
+// 実際の区切り文字を1つに確定できる場合は、それだけをクォート開始位置の判定へ
+// 渡す(本物の構造化CSV/TSVとして、RFC4180ライクなクォート解釈を適用する)。
+//
+// ヘッダーから区切り文字を確定できない場合(見出しの無い自由記述貼り付け等)は、
+// もはやこのテキストが本当にCSV/TSVであると信じる根拠が無い。この場合に
+// 「カンマ・タブどちらの可能性もある」と両方を投機的にクォート境界判定へ渡すと、
+// 実際の区切り文字がコロン等の自由記述であっても、意味側にたまたま含まれる
+// カンマ/タブがCSV境界と誤認識され、その後に続くリテラルな"が閉じクォートを
+// 持たない未終端クォートとして誤検出され、行ごと静かに呑み込まれてしまう
+// (Codexレビュー指摘対応、PR #105、round-19再監査フレッシュレビューP2:
+// `quote: Use comma, " literally\napple: りんご`で、実際の区切り文字は
+// コロンなのに、投機的なカンマ候補のせいでquote行の意味中のカンマがCSV境界と
+// 誤認識され、直後のリテラルな"が未終端クォートと誤判定されてquote行ごと
+// 除外されていた)。このケースはRFC CSVの構造解析ではなく1行ずつのplain-text
+// heuristics(parseWordListLine)に委ねるべき自由記述であり、そもそもクォート
+// 構文を尊重する理由が無いため、クォート対応の状態machineを一切起動せず、
+// 単純な改行分割(splitPlainRecords)にフォールバックする。
 function splitIntoRecords(text: string) {
   const detectedDelimiter = detectDelimiterFromRawFirstLine(text);
-  return splitCsvRecords(text, detectedDelimiter ? [detectedDelimiter] : COLUMN_MODE_DELIMITERS);
+  if (!detectedDelimiter) return splitPlainRecords(text);
+  return splitCsvRecords(text, [detectedDelimiter]);
+}
+
+// クォート解釈を一切行わない、単純な改行区切りだけのレコード分割。
+// splitCsvRecords()と同じ戻り値の形(records/recordStartLines/warnings)に
+// 揃える — このテキストはCSV/TSVとして解釈しないため、除外される行も
+// unterminated_quote警告も発生しない(warningsは常に空配列)。
+function splitPlainRecords(text: string): {
+  records: string[];
+  recordStartLines: number[];
+  warnings: MalformedCsvWarning[];
+} {
+  const records = text.split(/\r\n|\r|\n/);
+  return {
+    records,
+    recordStartLines: records.map((_, i) => i + 1),
+    warnings: [],
+  };
 }
 
 // ヘッダー行として使う「生の先頭の非空行」を、クォート解釈を一切行わない単純な

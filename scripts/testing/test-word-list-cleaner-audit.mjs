@@ -273,6 +273,30 @@ function main() {
     }
   }
 
+  // ==== 9d. ヘッダーが無く実際の区切り文字がコロン等の自由記述テキストでは、
+  // カンマ/タブを投機的な区切り文字候補としてクォート対応の状態machineへ渡さない
+  // (Codexレビュー指摘対応、PR #105、round-19再監査フレッシュレビューP2:
+  // 9b/9cはヘッダーから区切り文字が確定した後の話だったが、こちらはそもそも
+  // ヘッダーが存在せずword/meaning列を検出できないケース。実際の区切り文字は
+  // コロンなのに、投機的なカンマ候補のせいでquote行の意味中のカンマがCSV境界と
+  // 誤認識され、直後のリテラルな"が未終端クォートと誤判定されてquote行ごと
+  // 静かに呑み込まれていた) ====
+  {
+    const r = parseWordList('quote: Use comma, " literally\napple: りんご');
+    if (
+      r.entries.length === 2 &&
+      r.entries[0].word === "quote" &&
+      r.entries[0].meaning === 'Use comma, " literally' &&
+      r.entries[1].word === "apple" &&
+      r.entries[1].meaning === "りんご" &&
+      r.malformedCsvWarnings.length === 0
+    ) {
+      ok("ヘッダー無しの自由記述テキスト(実際の区切り文字はコロン)では、投機的なカンマ/タブ候補でクォート状態machineが誤って起動せず、quote行が未終端クォートとして呑み込まれない");
+    } else {
+      bad(`ヘッダー無し自由記述テキストへの投機的クォート判定混入が想定外: ${JSON.stringify(r)}`);
+    }
+  }
+
   // ==== 11. 括弧内カンマ go (went, gone) ====
   {
     const r = parseWordListLine("go (went, gone) 行く");

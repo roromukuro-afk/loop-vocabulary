@@ -228,8 +228,19 @@ function main() {
   // 警告にまとめることで最悪ケースの総コストを抑える(正当なフィールドの
   // 長さには一切上限を課さない、round-18再監査フレッシュレビュー5巡目の
   // 指摘に対応した設計。次のテストで直接確認する) ====
-  {
-    const N = 5000;
+  //
+  // round-19再監査フレッシュレビューP2: 上記の試行回数上限は「1回1回の走査
+  // コスト」自体は減らさず、単に乗数を変えるだけだった(壊れた行を1行
+  // スキップして再開するたびに、依然として残りテキスト全体をEOFまで
+  // 再走査していた)ため、5,000行で1.8〜3秒、20,000行で6秒超かかっていた。
+  // splitCsvRecords()側に「この位置以降には有効な閉じクォートがどこにも
+  // 存在しないことが証明済み」という下限offset(noCloseFoundFrom)を導入し、
+  // scanOnePass()が新しいクォートを開く前にこの下限と照合することで、
+  // 2回目以降の試行はEOFまで実際に再走査することなく即座に「壊れている」と
+  // 判定できるようにした(scanOnePass()冒頭のコメント参照)。閾値を実測値に
+  // 合わせて大幅に引き締める(旧実装は5,000msぎりぎりの閾値でようやく通って
+  // いたが、この修正後は数十ms程度で完了する)。
+  for (const N of [5000, 20000]) {
     const lines = [];
     for (let i = 0; i < N; i++) lines.push(`bad${i}, " unterminated${i}`);
     const pathological = lines.join("\n");
@@ -237,10 +248,10 @@ function main() {
     const r = splitCsvRecords(pathological, [","]);
     const elapsedMs = Date.now() - t0;
     const hasAggregateWarning = r.warnings.some((w) => w.note);
-    if (r.records.length === 0 && r.warnings.length === 1001 && hasAggregateWarning && elapsedMs < 5000) {
-      ok(`${N}行の独立した未終端クォート行(閉じクォート無し)を${elapsedMs}msで処理し、1000件を超えた時点で残り全体を1件の集約警告にまとめる(旧実装は準二次的で約2.4秒かかっていた)`);
+    if (r.records.length === 0 && r.warnings.length === 1001 && hasAggregateWarning && elapsedMs < 500) {
+      ok(`${N}行の独立した未終端クォート行(閉じクォート無し)を${elapsedMs}msで処理し、1000件を超えた時点で残り全体を1件の集約警告にまとめる(旧実装は${N}行で準二次的に数秒かかっていた)`);
     } else {
-      bad(`多数の独立した未終端クォート行の処理が想定外: records.length=${r.records.length}, warnings.length=${r.warnings.length}, elapsedMs=${elapsedMs}`);
+      bad(`多数の独立した未終端クォート行の処理が想定外: N=${N}, records.length=${r.records.length}, warnings.length=${r.warnings.length}, elapsedMs=${elapsedMs}`);
     }
   }
 

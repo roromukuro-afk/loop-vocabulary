@@ -82,7 +82,23 @@ function findNextLineStart(text, fromOffset) {
 // 「その物理行だけ」を切り離して再開することで、EOFまで閉じられない
 // クォート1つのために後続の正当な行(クォート内の正しい複数行フィールドを
 // 含む)を丸ごと壊さないようにする。
-function scanOnePass(text, startOffset, delimiterSet, startLine) {
+//
+// noCloseFoundFrom: 「この位置以降には、どこにも有効な閉じクォートが
+// 存在しないことが既に証明済み」という下限offset(未証明ならnull)
+// (Codexレビュー指摘対応、PR #105、round-19再監査フレッシュレビューP2:
+// 閉じクォートを持たない行がN行連続する入力では、1回目の呼び出しが
+// startOffsetからEOFまで実際に走査してはじめて「閉じクォートがどこにも
+// 無い」と判明するが、[startOffset, EOF)の範囲でそれが真である以上、
+// その部分区間である[より後のstartOffset, EOF)でも自動的に真であることが
+// 論理的に保証される。呼び出し元がこの下限を記憶しておき、以降の再開位置が
+// この下限以上であれば、新しいクォート開始位置ごとに改めてEOFまで実際に
+// 走査して確かめる必要はなく、即座に「壊れている」と結論できる。これにより、
+// 壊れた行を1行ずつ個別に復旧するたびに残りテキスト全体を毎回EOFまで
+// 再走査していた準二次的なコストを、実質的な線形時間へ落とす。一度でも
+// 有効な閉じクォートが見つかった区間には一切影響しない — この下限は
+// 「閉じクォートが実在しないことが証明された」場合にのみ設定されるため、
+// 正当な複数行クォートフィールド(閉じクォートが実在する)の検出を妨げない)。
+function scanOnePass(text, startOffset, delimiterSet, startLine, noCloseFoundFrom) {
   const records = [];
   const recordStartLines = [];
   let current = "";
@@ -97,6 +113,12 @@ function scanOnePass(text, startOffset, delimiterSet, startLine) {
   for (let i = startOffset; i < text.length; i++) {
     const ch = text[i];
     if (ch === '"' && !inQuotes && atFieldBoundary) {
+      // この位置以降に有効な閉じクォートが存在しないことが既に証明済みなら、
+      // このクォートを開いて改めてEOFまで走査するまでもなく、即座に壊れて
+      // いると結論できる(上記noCloseFoundFromの説明参照)。
+      if (noCloseFoundFrom !== null && i >= noCloseFoundFrom) {
+        return { records, recordStartLines, brokenAtOffset: i, brokenAtLine: physicalLine };
+      }
       inQuotes = true;
       current += ch;
       atFieldBoundary = false;
@@ -249,12 +271,25 @@ export function splitCsvRecords(text, delimiterChars) {
   let scanFrom = 0;
   let lineBase = 1;
   let recoveryAttempts = 0;
+  // 「この位置以降には有効な閉じクォートがどこにも存在しないことが証明済み」
+  // という下限offset(未証明ならnull)。scanOnePass()内のコメント参照
+  // (Codexレビュー指摘対応、PR #105、round-19再監査フレッシュレビューP2:
+  // 壊れた行を1行ずつ個別に復旧するたびに残りテキスト全体を毎回EOFまで
+  // 再走査していたため、5,000行の未終端クォートで準二次的に遅くなっていた)。
+  // 再開位置(scanFrom)は毎回このoffset以降になる(壊れた行を1行ずつ前へ
+  // 進めていくだけで後戻りしないため)ので、一度確立されればそれ以降の
+  // 全ての試行が即座にshort-circuitされ、実質的な線形時間で完了する。
+  let noCloseFoundFrom = null;
 
   while (scanFrom <= text.length) {
-    const pass = scanOnePass(text, scanFrom, delimiterSet, lineBase);
+    const pass = scanOnePass(text, scanFrom, delimiterSet, lineBase, noCloseFoundFrom);
     records.push(...pass.records);
     recordStartLines.push(...pass.recordStartLines);
     if (pass.brokenAtOffset === null) break;
+
+    if (noCloseFoundFrom === null || pass.brokenAtOffset < noCloseFoundFrom) {
+      noCloseFoundFrom = pass.brokenAtOffset;
+    }
 
     if (++recoveryAttempts > MAX_MALFORMED_ROW_RECOVERY_ATTEMPTS) {
       // 個別復旧の試行回数が上限を超えた。これ以上1行ずつ精密に復旧しようと
