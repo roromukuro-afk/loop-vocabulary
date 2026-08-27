@@ -74,13 +74,16 @@ async function main() {
 
     // ---- 4. SPA遷移(広告許可ページ→広告許可ページ)後も再発しないこと ----
     // /materials は adRoutePolicy.ts で広告許可ルート(検索結果でない限り)。
-    await page.locator('a[href="/materials"]').first().click().catch(() => {});
-    await page.waitForTimeout(1500);
-
-    await page.waitForTimeout(500);
+    // Codexレビュー指摘: クリック失敗を.catch(()=>{})で握りつぶすと、リンクが無い/
+    // クリックがタイムアウトした場合でもSPA遷移が実際には起きないまま次に進み、
+    // 「エラーが0件」がSPA遷移シナリオを一度も検証していないことによる偽陽性になり得る。
+    // クリックの失敗はそのまま投げ、遷移後のURLを明示的に待って検証する。
+    await page.locator('a[href="/materials"]').first().click();
+    await page.waitForURL(/\/materials(?:$|[/?#])/, { timeout: 10000 });
+    await page.waitForTimeout(1500); // adsbygoogle.js の非同期処理を待つ
 
     if (hits.length === 0) {
-      ok("/ → SPA遷移後も 'enable_page_level_ads' 関連のコンソールエラー/例外が発生していない");
+      ok("/ → /materials へのSPA遷移後も 'enable_page_level_ads' 関連のコンソールエラー/例外が発生していない");
     } else {
       fail(`'enable_page_level_ads' 関連のエラーが検出された:\n${hits.join("\n")}`);
     }
