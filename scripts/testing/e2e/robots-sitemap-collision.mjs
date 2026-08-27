@@ -55,6 +55,15 @@ function fail(msg) {
   failed = true;
   console.error(`\n❌ FAIL: ${msg}`);
 }
+// KNOWN_INTENTIONAL_REMOVALSのドリフト検知専用。このPRがマージされ、origin/mainの
+// baselineが実際に(フォールバックではなく)更新版へ進んだ後は、このリストのエントリが
+// 「もう存在しないslug」を指すのが正しい・予期された状態になる(fail()にすると、
+// マージ直後から次のクリーンアップコミットが入るまでの間、無関係な全PRのCIを
+// 壊し続けてしまう — Codexレビュー指摘対応)。実際の削除退行ではなく「片付けの
+// お願い」に過ぎないため、CI失敗にはせず警告として出力するだけに留める。
+function warn(msg) {
+  console.warn(`\n⚠ WARN (non-blocking): ${msg}`);
+}
 function ok(msg) {
   console.log(`✅ ${msg}`);
 }
@@ -102,10 +111,11 @@ function extractStaticSitemapPaths(sitemapSrc) {
 // そこで、baselineを「origin/mainの現在のsitemap.ts」から動的に取得する。これにより
 // baselineは各PRのbase更新のたびに自動的に最新へ追従し、手動メンテナンスなしで
 // 「このPRで新たに追加したslug以外は、mainに存在するものが全て残っている」ことを
-// 常に検証できる(originが参照できない環境向けに、既知の44件への静的フォールバックも
-// 用意する)。
+// 常に検証できる(originが参照できない環境向けに、既知の43件への静的フォールバックも
+// 用意する。2026-08-26: english-vocabulary-quiz-makerをprintable-english-vocabulary-test
+// へ統合したため44件から43件に更新)。
 const FALLBACK_BASELINE_GUIDE_SLUGS = [
-  "vocabulary-quiz-pdf-for-teachers", "english-vocabulary-quiz-maker", "printable-english-vocabulary-test",
+  "vocabulary-quiz-pdf-for-teachers", "printable-english-vocabulary-test",
   "juku-vocabulary-test", "high-school-english-vocabulary-test", "spaced-repetition-english-vocabulary",
   "flashcards-vs-multiple-choice", "eiken-vocabulary-study", "university-exam-vocabulary",
   "school-test-vocabulary", "listening-and-pronunciation-vocabulary", "ai-vocabulary-learning",
@@ -131,6 +141,17 @@ function extractGuideSlugs(sitemapSrc) {
  * originが参照できない・抽出できない等の環境では、既知の静的フォールバックを使い、
  * その旨をコンソールへ明示する(検知漏れの可能性を静かに握りつぶさない)。
  */
+// getBaselineGuideSlugs()はorigin/mainから動的取得したbaseline(isFallback=false)と、
+// originを参照できない環境向けの静的フォールバック(isFallback=true)の2種類を返しうる。
+// この2つは意味が異なる: 前者は「このPRのマージ前時点のmainの実際の状態」だが、後者は
+// 手動更新される既知のリストで、意図的な削除(KNOWN_INTENTIONAL_REMOVALS)を反映済みの
+// ことがある(実際、2026-08-26のenglish-vocabulary-quiz-maker統合時、フォールバック
+// リスト自体を43件の更新後の状態へ書き換えた)。KNOWN_INTENTIONAL_REMOVALSの
+// ドリフト検知(「baselineに既に存在しないなら、このエントリはもう不要」)は、
+// origin/mainの実際のpre-merge状態を見ている場合にしか成立しない。フォールバック中に
+// 同じロジックを適用すると、フォールバックリスト自身が更新済みであることを「本PRの
+// マージでdriftした」と誤検知し、shallow clone等の環境で常に失敗してしまう
+// (Codexレビュー指摘対応)。
 function getBaselineGuideSlugs() {
   let mainSitemapSrc;
   try {
@@ -144,7 +165,7 @@ function getBaselineGuideSlugs() {
         `既知の${FALLBACK_BASELINE_GUIDE_SLUGS.length}件の静的baselineへフォールバックします` +
         `(このフォールバック中はPR単位の新規追加分の削除退行を検知できません)。`,
     );
-    return FALLBACK_BASELINE_GUIDE_SLUGS;
+    return { slugs: FALLBACK_BASELINE_GUIDE_SLUGS, isFallback: true };
   }
   const slugs = extractGuideSlugs(mainSitemapSrc);
   if (!slugs) {
@@ -152,12 +173,21 @@ function getBaselineGuideSlugs() {
       `⚠ origin/main:src/app/sitemap.ts からGUIDE_SLUGSを抽出できませんでした。` +
         `既知の${FALLBACK_BASELINE_GUIDE_SLUGS.length}件の静的baselineへフォールバックします。`,
     );
-    return FALLBACK_BASELINE_GUIDE_SLUGS;
+    return { slugs: FALLBACK_BASELINE_GUIDE_SLUGS, isFallback: true };
   }
-  return slugs;
+  return { slugs, isFallback: false };
 }
 
 const EXPECTED_SAMPLE_SLUGS = ["eigo-listening-renshu", "toeic-tango", "eiken-1kyu-tango"];
+
+// PR単位で意図的に統合・削除したslug。baselineはorigin/main(このPRのマージ前時点の
+// mainブランチ)から動的取得されるため、このPRで意図的に削除したslugは、マージされる
+// までの間「baselineには存在するが現在は存在しない」という差分として検出されてしまう。
+// ここに追加する場合は、next.config.jsのguideRedirects(308)・GUIDES一覧・関連ページからの
+// 内部リンク更新を必ずセットで行うこと。
+// 2026-08-26(Issue #127): english-vocabulary-quiz-makerは内容がほぼ全面的に重複していた
+// printable-english-vocabulary-testへ統合し、308リダイレクトを設定した。
+const KNOWN_INTENTIONAL_REMOVALS = ["english-vocabulary-quiz-maker"];
 
 function main() {
   const robotsTxt = readFileSync(ROBOTS_PATH, "utf-8");
@@ -216,7 +246,7 @@ function main() {
 
   console.log("\n=== 5. sitemap.ts のGUIDE_SLUGSが退行していないことの確認 ===");
   const currentGuideSlugs = new Set(extractGuideSlugs(sitemapSrc) ?? []);
-  const baselineGuideSlugs = getBaselineGuideSlugs();
+  const { slugs: baselineGuideSlugs, isFallback: baselineIsFallback } = getBaselineGuideSlugs();
   // 件数(>=)だけでなく、baseline(=origin/mainの現在のsitemap.ts、フォールバック時は
   // 既知の静的リスト)の全slugが現在も個別に存在するかを見る。これにより「追加でN件
   // 増えた後、その一部が誤って削除されて合計だけ元の件数に戻る」ようなケースも検知
@@ -226,13 +256,51 @@ function main() {
   // (Codexレビュー指摘、PR #89、2巡目: 静的ハードコードのみだと追加分は永遠に
   // 未保護のままだった)。
   const missingBaselineSlugs = baselineGuideSlugs.filter((slug) => !currentGuideSlugs.has(slug));
-  if (missingBaselineSlugs.length === 0) {
-    ok(`baselineのGUIDE_SLUGS ${baselineGuideSlugs.length}件が全て現在も存在する(現在の総数: ${currentGuideSlugs.size}件)`);
+  const unexpectedMissingSlugs = missingBaselineSlugs.filter((slug) => !KNOWN_INTENTIONAL_REMOVALS.includes(slug));
+  if (unexpectedMissingSlugs.length === 0) {
+    const intentional = missingBaselineSlugs.filter((slug) => KNOWN_INTENTIONAL_REMOVALS.includes(slug));
+    if (intentional.length > 0) {
+      ok(
+        `baselineのGUIDE_SLUGS ${baselineGuideSlugs.length}件のうち、既知の意図的な統合による削除` +
+          `(${intentional.join(", ")})を除き全て現在も存在する(現在の総数: ${currentGuideSlugs.size}件)`,
+      );
+    } else {
+      ok(`baselineのGUIDE_SLUGS ${baselineGuideSlugs.length}件が全て現在も存在する(現在の総数: ${currentGuideSlugs.size}件)`);
+    }
   } else {
     fail(
-      `sitemap.ts から既知のガイド記事が消えている: ${missingBaselineSlugs.join(", ")} ` +
-        `(baseline${baselineGuideSlugs.length}件中${missingBaselineSlugs.length}件が消失、現在の総数: ${currentGuideSlugs.size}件)`,
+      `sitemap.ts から既知のガイド記事が消えている: ${unexpectedMissingSlugs.join(", ")} ` +
+        `(baseline${baselineGuideSlugs.length}件中${unexpectedMissingSlugs.length}件が想定外に消失、現在の総数: ${currentGuideSlugs.size}件)`,
     );
+  }
+  // KNOWN_INTENTIONAL_REMOVALSのドリフト検知: このPRがマージされ、origin/mainのbaseline
+  // 自体からも当該slugが既に消えている場合、このリストのエントリはもう不要(むしろ以後は
+  // 本来の「本当の削除退行」を隠してしまう)ため、削除を促す。ただしこれは
+  // origin/mainから実際に取得したbaseline(pre-merge状態)に対してのみ意味を持つ
+  // 検知であり、静的フォールバック使用時(baselineIsFallback=true)はフォールバック
+  // リスト自体が既に更新済みのことがあるため、この検知はスキップする
+  // (Codexレビュー指摘1巡目対応: shallow clone等でorigin/mainを参照できない環境で
+  // 常に失敗していた)。
+  //
+  // また、この検知自体は「本当の削除退行」ではなく「片付けのお願い」に過ぎないため、
+  // fail()ではなくwarn()を使う(Codexレビュー指摘2巡目対応: このPRがマージされ
+  // origin/mainのbaselineが実際に更新版へ進んだ直後から、次にこのリストを手動で
+  // 掃除するコミットが入るまでの間、無関係な全てのPRのCIをfail()で壊し続けてしまう
+  // 設計上の欠陥だった。stale exemptionの検知そのものは有用なので削除はせず、
+  // 非ブロッキングの警告に格下げする)。
+  if (baselineIsFallback) {
+    console.log(
+      "\n(フォールバックbaseline使用中のため、KNOWN_INTENTIONAL_REMOVALSのドリフト検知はスキップします)",
+    );
+  } else {
+    for (const slug of KNOWN_INTENTIONAL_REMOVALS) {
+      if (!baselineGuideSlugs.includes(slug)) {
+        warn(
+          `KNOWN_INTENTIONAL_REMOVALSの "${slug}" はbaseline(origin/main)に既に存在しない ` +
+            `(マージ済みで役目を終えたと考えられる)。このリストから削除してください(このメッセージはCIを失敗させません)`,
+        );
+      }
+    }
   }
   for (const slug of EXPECTED_SAMPLE_SLUGS) {
     if (staticPaths.includes(`/guide/${slug}`)) {

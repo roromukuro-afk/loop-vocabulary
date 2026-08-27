@@ -34,7 +34,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "定期テスト直前に範囲を絞ったテストをすぐ作れますか？",
-    a: "はい。出題数や「未学習のみ」の絞り込みを使えば、テスト範囲の単語帳から直前に見直したい単語だけを抽出したテストをその場で作成できます。",
+    a: "はい。出題数や「未学習のみ」の絞り込みを使えば、テスト範囲の単語帳から直前に見直したい単語だけを抽出したテストをその場で作成できます。この絞り込みは無料登録して単語帳を作成した上で、小テスト作成画面から使える機能です。",
   },
 ];
 
@@ -139,6 +139,17 @@ export default function HighSchoolEnglishVocabularyTestPage() {
             </tbody>
           </table>
           <p className="text-xs text-navy-400 mt-2">※ あくまで一般的な目安です。学校・コースにより前後します。</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <h2 className="font-black text-navy-800 text-lg mb-3">「未学習のみ」で絞り込む方法</h2>
+          <p className="text-sm text-navy-700 leading-relaxed">
+            「未学習のみ」の絞り込みは、無料登録して単語帳を作成した上で、
+            <Link href="/pdf" className="underline font-semibold">小テスト作成画面</Link>
+            から使えます。登録不要ですぐ試したい場合は、貼り付けた単語からテストを作れる
+            <Link href="/tools/vocab-test-maker" className="underline font-semibold">英単語テスト作成ツール</Link>
+            もありますが、こちらは学習履歴による絞り込みには対応していません。
+          </p>
         </div>
 
         <div className="bg-navy-50 rounded-2xl p-4">

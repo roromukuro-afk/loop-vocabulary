@@ -38,10 +38,21 @@ const nextConfig = {
     // 2026-07-21: 「英単語の覚え方【自己想起の科学】」(旧 /guide/how-to-memorize-english-words)
     // は内容重複のため /guide/eitango-oboeru-houhou へ統合した。既存の外部リンク・共有URLを
     // 404にしないよう、旧URLは統合先へ308(permanent)で1回のみリダイレクトする。
+    // 2026-08-26(Issue #127): 「英単語小テスト作成ツールの使い方」(旧
+    // /guide/english-vocabulary-quiz-maker)は、印刷用PDF小テストの作り方という
+    // 同一機能を扱う /guide/printable-english-vocabulary-test とほぼ全面的に内容が
+    // 重複していたため統合した。独自だった手作業比較・使い方フローは統合先へ
+    // 移植済み。既存の外部リンク・共有URLを404にしないよう、旧URLは統合先へ
+    // 308(permanent)で1回のみリダイレクトする。
     const guideRedirects = [
       {
         source: "/guide/how-to-memorize-english-words",
         destination: "/guide/eitango-oboeru-houhou",
+        permanent: true,
+      },
+      {
+        source: "/guide/english-vocabulary-quiz-maker",
+        destination: "/guide/printable-english-vocabulary-test",
         permanent: true,
       },
     ];
