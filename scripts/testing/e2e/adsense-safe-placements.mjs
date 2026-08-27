@@ -76,6 +76,29 @@ async function main() {
     } else {
       fail("adRoutePolicy: /dictionary本体が誤って広告許可されている");
     }
+
+    // AdSense Low value content是正(Issue #127): /materials?q=...(検索結果ビュー、
+    // noindex対象)は広告非許可、通常の/materials(検索無し)は引き続き広告許可であることの
+    // 確認(Codexレビュー指摘対応: usePathname()はクエリを含まないため、pathnameだけでは
+    // この2つを区別できていなかった)
+    const searchResultParams = new URLSearchParams("q=test");
+    const emptySearchParams = new URLSearchParams("q=");
+    const whitespaceSearchParams = new URLSearchParams("q=+");
+    if (!isAdsAllowedPath("/materials", searchResultParams)) {
+      ok("adRoutePolicy: /materials?q=test(検索結果ビュー)は広告非許可");
+    } else {
+      fail("adRoutePolicy: /materials?q=test(検索結果ビュー)が誤って広告許可されている");
+    }
+    if (isAdsAllowedPath("/materials", emptySearchParams) && isAdsAllowedPath("/materials", whitespaceSearchParams)) {
+      ok("adRoutePolicy: /materials?q=(空)・?q=+(空白のみ)は検索結果ビューにならないため広告許可のまま");
+    } else {
+      fail("adRoutePolicy: 空/空白のみのqで誤って広告非許可になっている");
+    }
+    if (isAdsAllowedPath("/materials", searchResultParams) === false && isAdsAllowedPath("/materials")) {
+      ok("adRoutePolicy: searchParams省略時(SSR等)は従来どおり/materialsを広告許可");
+    } else {
+      fail("adRoutePolicy: searchParams省略時の挙動が想定と異なる");
+    }
   } finally {
     stopDevServer(dev);
   }

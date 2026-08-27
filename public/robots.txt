@@ -17,7 +17,6 @@ Allow: /review-date-calculator
 Disallow: /road
 Allow: /roadmap
 Disallow: /settings
-Disallow: /setup
 Disallow: /stats
 Disallow: /teacher
 Disallow: /test
@@ -56,7 +55,6 @@ Allow: /review-date-calculator
 Disallow: /road
 Allow: /roadmap
 Disallow: /settings
-Disallow: /setup
 Disallow: /stats
 Disallow: /teacher
 Disallow: /test
@@ -112,7 +110,6 @@ Allow: /review-date-calculator
 Disallow: /road
 Allow: /roadmap
 Disallow: /settings
-Disallow: /setup
 Disallow: /stats
 Disallow: /teacher
 Disallow: /test

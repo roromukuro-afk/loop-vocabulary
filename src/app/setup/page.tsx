@@ -1,7 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
+
+// AdSense Low value content是正(Issue #127): 以前はrobots.txtでDisallow: /setupと
+// noindexメタ不在の組み合わせだったが、robots.txt Disallowはクロール自体を防ぐため、
+// クローラーはこのnoindexタグを読みに行けず、他サイトからのリンク経由でURLだけが
+// 説明文無しでインデックスされうる不整合があった(Codexレビュー指摘対応)。
+// /beta・/login・/signup等と同じ「クロール可能かつnoindexメタで非インデックス化」
+// パターンに統一し、robots.txt側のDisallow: /setupは削除した(public/robots.txt参照)。
+export const metadata: Metadata = {
+  robots: { index: false, follow: true },
+};
 
 export default function SetupPage() {
   const env = getSupabaseEnv();

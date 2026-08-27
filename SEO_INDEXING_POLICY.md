@@ -10,7 +10,9 @@ AdSense審査前監査 Phase 4。2026-07-12時点の方針と実施内容をま�
 
 ## index対象（サイトマップに含む）
 
-`/`, `/dictionary`, 品質基準を満たす `/dictionary/[word]`（`isIndexEligible`）, `/materials`, `/materials/*` カテゴリLP, `/materials/[id]`（is_public かつ license_status in approved/original）, `/guide`, `/guide/*` 記事, `/grammar`, `/grammar/[slug]`, `/reports`, `/premium`, `/about`, `/press`, `/faq`, `/phrases`, `/shadowing`, `/roadmap`, `/privacy`, `/terms`, `/contact`, `/legal/*`, `/vocab-check`, `/vocab-check/eiken`, `/vocab-check/toeic`。
+`/`, `/dictionary`, 品質基準を満たす `/dictionary/[word]`（`isIndexEligible`）, `/materials`, `/materials/*` カテゴリLP, `/materials/[id]`（is_public かつ license_status in approved/original）, `/guide`, `/guide/*` 記事, `/grammar`, `/grammar/[slug]`, `/premium`, `/about`, `/press`, `/faq`, `/phrases`, `/shadowing`, `/roadmap`, `/privacy`, `/terms`, `/contact`, `/legal/*`, `/vocab-check`, `/vocab-check/eiken`, `/vocab-check/toeic`。
+
+**2026-08-26更新（AdSense Low value content是正, Issue #127, PR #128）**: `/reports`は実データを一切持たず、公開方針の説明のみの「準備中」ページと判定し、index対象から除外・noindex化・sitemap除外した。実データが基準サンプル数に達し公開された時点でindex化を再検討する（`ORIGINAL_DATA_REPORTS_PLAN.md`・`ADSENSE_PRE_REVIEW_AUDIT.md`も同時に更新済み）。
 
 ## noindex対象（今回の監査で新たに対応したもの）
 
@@ -21,6 +23,14 @@ AdSense審査前監査 Phase 4。2026-07-12時点の方針と実施内容をま�
 | `/referral/[code]` | robots.txt未掲載・noindexメタなし | robots.txt `Disallow: /referral/` 追加 + `robots:{index:false}` 追加。招待コードごとに大量の類似URLが生成される重複コンテンツ |
 | `/offline` | robots.txt未掲載・noindexメタなし | robots.txt Disallow追加 + `src/app/offline/layout.tsx` 新設で `robots:{index:false}` 追加（"use client"ページのためlayout側で対応） |
 | `/auth/callback` | robots.txt未掲載 | robots.txt `Disallow: /auth/` 追加（route.tsのためHTML/metaは存在せず、robots.txtのみで対応） |
+
+### noindex対象（2026-08-26更新、AdSense Low value content是正 Issue #127・PR #128）
+
+| パス | 状態(対応前) | 対応内容 |
+|---|---|---|
+| `/reports` | sitemap掲載・noindexメタなし | `robots:{index:false}` 追加 + sitemap.tsから除外。実データを一切持たない「準備中」ページのため |
+| `/setup` | robots.txt Disallowのみ・noindexメタなし | `robots:{index:false}` 追加 + robots.txtのDisallowは削除（Disallowのままだとクローラーがnoindexタグ自体を読めないため、`/beta`等と同じ「クロール可能+noindexメタ」パターンに統一） |
+| `/materials?q=...`（検索結果） | noindex判定なし | `generateMetadata()`で`?q=`が空でない場合のみ`robots:{index:false}`。ベースの`/materials`はindex維持 |
 
 ## noindex対象（既存・今回変更なし、robots.txt disallow + 認証リダイレクトで保護済み）
 

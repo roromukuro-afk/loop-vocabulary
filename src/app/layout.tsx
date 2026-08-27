@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import Script from "next/script";
 import { AdSenseLoader } from "@/components/ads/AdSenseLoader";
 import { toFundingChoicesPublisherId } from "@/lib/ads/consentManagement";
@@ -140,7 +141,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {`(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","${CLARITY_ID}");`}
           </Script>
         )}
-        <AdSenseLoader client={ADSENSE_CLIENT} />
+        {/* AdSenseLoaderはisAdsAllowedPath()の判定にuseSearchParams()を使うため、Suspense
+            なしでlayout.tsx直下に置くとアプリ全体のページが動的レンダリングへ強制的に
+            デオプトしてしまう。この境界だけを動的にして影響範囲を閉じ込める
+            (Codexレビュー指摘対応で検索クエリを見るようにした際に追加)。 */}
+        <Suspense fallback={null}>
+          <AdSenseLoader client={ADSENSE_CLIENT} />
+        </Suspense>
       </body>
     </html>
   );
