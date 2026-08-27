@@ -27,6 +27,8 @@ const PORT = Number(process.env.TEST_PORT || 3799);
 function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; }
 function ok(msg) { console.log(`✅ ${msg}`); }
 
+const ADSENSE_SCRIPT_URL_PART = "pagead2.googlesyndication.com/pagead/js/adsbygoogle.js";
+
 function collectPageLevelAdsErrors(page) {
   const hits = [];
   page.on("pageerror", (e) => {
@@ -36,6 +38,27 @@ function collectPageLevelAdsErrors(page) {
     if (msg.type() === "error" && /enable_page_level_ads/.test(msg.text())) hits.push(`console: ${msg.text()}`);
   });
   return hits;
+}
+
+// Codexレビュー指摘: CI環境がpagead2.googlesyndication.comへ到達できない、または
+// テスト用ダミーpublisher IDをGoogle側が拒否した場合、<script>タグ自体はDOMに
+// 存在してもGoogle側の初期化コードは一切実行されず、hitsは常に空のままになる。
+// この場合、明示的な二重初期化コードが将来再度混入しても検知できず、
+// 「エラーが0件」が「本当に初期化されて成功した」ことの証明にならない偽陽性になる。
+// adsbygoogle.jsへのネットワークレスポンスを実際に観測し、成功(2xx)を確認した上で
+// 初めてエラー0件を合格として扱う。requestfailedの場合は明示的にfailする。
+function watchAdsenseScriptNetwork(page) {
+  const state = { loaded: false, failed: false, failure: null };
+  page.on("response", (res) => {
+    if (res.url().includes(ADSENSE_SCRIPT_URL_PART) && res.ok()) state.loaded = true;
+  });
+  page.on("requestfailed", (req) => {
+    if (req.url().includes(ADSENSE_SCRIPT_URL_PART)) {
+      state.failed = true;
+      state.failure = req.failure()?.errorText ?? "unknown";
+    }
+  });
+  return state;
 }
 
 // NEXT_PUBLIC_ADSENSE_CLIENTはbuild時に静的に埋め込まれる値で、.env.localでは
@@ -48,11 +71,18 @@ process.env.NEXT_PUBLIC_ADSENSE_CLIENT = "ca-pub-0000000000000000";
 async function main() {
   const dev = await ensureDevServer(PORT, { forceRebuild: true });
   const baseUrl = dev.url;
-  const browser = await chromium.launch();
+  // Codexレビュー指摘: chromium.launch()がtry/finallyの外にあると、ブラウザ実行環境が
+  // 無い等でlaunch自体が例外を投げた場合にensureDevServerが起動したdetachedサーバーが
+  // 後始末されずポート占有されたまま残る(forceRebuild:trueのため次回実行が
+  // ポート競合で即失敗する)。browser変数をtry外で宣言し、finallyでは存在確認してから
+  // 閉じることで、launch失敗時もサーバーの後始末だけは必ず行われるようにする。
+  let browser;
 
   try {
+    browser = await chromium.launch();
     const page = await browser.newPage();
     const hits = collectPageLevelAdsErrors(page);
+    const scriptNetwork = watchAdsenseScriptNetwork(page);
 
     // ---- 1〜3. ホーム(広告許可ページ)への初回アクセス ----
     await gotoReady(page, `${baseUrl}/`);
@@ -63,6 +93,14 @@ async function main() {
       .count();
     if (hasAdsenseScript > 0) ok("/: adsbygoogle.js本体スクリプトタグが存在する(広告読み込みは維持)");
     else fail("/: adsbygoogle.js本体スクリプトタグが見つからない(広告が読み込まれなくなっている可能性)");
+
+    if (scriptNetwork.failed) {
+      fail(`/: adsbygoogle.jsへのネットワークリクエストが失敗した(${scriptNetwork.failure})。CI環境からGoogleへ到達できない可能性があり、この場合エラー0件は初期化成功を意味しないため後続の判定は無効。`);
+    } else if (scriptNetwork.loaded) {
+      ok("/: adsbygoogle.jsへのネットワークリクエストが成功している(初期化コードが実際に実行される環境であることを確認)");
+    } else {
+      fail("/: adsbygoogle.jsへのレスポンスが観測できなかった(読み込み未完了、またはネットワーク到達不可の可能性)");
+    }
 
     const hasMetaTag = await page.locator('meta[name="google-adsense-account"]').count();
     if (hasMetaTag > 0) ok("/: AdSense確認メタタグが存在する(維持)");
@@ -90,7 +128,7 @@ async function main() {
 
     console.log(process.exitCode ? "\n=== test:adsense-single-page-level-init: FAILED ===" : "\n=== test:adsense-single-page-level-init RESULT: all checks passed ===");
   } finally {
-    await browser.close();
+    if (browser) await browser.close();
     stopDevServer(dev);
   }
 }
