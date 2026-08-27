@@ -8,7 +8,6 @@ import { normalizeSiteUrl } from "@/lib/seo/siteUrl";
 const GUIDE_SLUGS = [
   "vocabulary-review-schedule-guide",
   "vocabulary-quiz-pdf-for-teachers",
-  "english-vocabulary-quiz-maker",
   "printable-english-vocabulary-test",
   "juku-vocabulary-test",
   "high-school-english-vocabulary-test",

@@ -26,7 +26,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "個別指導で毎回違う範囲のテストを作るのは大変ではないですか？",
-    a: "「苦手単語のみ」「未学習のみ」で絞り込む機能を使うと、前回の学習履歴に応じて出題範囲が自動的に変わるため、毎回同じ単語帳から異なる小テストを作成できます。",
+    a: "「苦手単語のみ」「未学習のみ」で絞り込む機能を使うと、前回の学習履歴に応じて出題範囲が自動的に変わるため、毎回同じ単語帳から異なる小テストを作成できます。この絞り込みは無料登録して単語帳を作成した上で、小テスト作成画面から使える機能です。",
   },
   {
     q: "少人数クラスで複数の生徒に同じテストを配れますか？",
@@ -123,6 +123,18 @@ export default function JukuVocabularyTestPage() {
           </div>
         </div>
 
+        <div className="bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-200 rounded-2xl p-5">
+          <h2 className="font-black text-navy-800 mb-3">「苦手単語のみ」「未学習のみ」の絞り込みの使い方</h2>
+          <p className="text-sm text-navy-700 leading-relaxed">
+            この絞り込みは、無料登録して単語帳を作成した上で、
+            <Link href="/pdf" className="underline font-semibold">小テスト作成画面</Link>
+            から使える機能です。生徒ごとに単語帳を分けておけば、出題範囲を選ぶだけで、その生徒の学習履歴に応じた小テストを作成できます。
+            貼り付けた単語からすぐテストを作りたいだけの場合は、
+            <Link href="/tools/vocab-test-maker" className="underline font-semibold">登録不要の英単語テスト作成ツール</Link>
+            も使えますが、そちらは学習履歴による絞り込みには対応していません。
+          </p>
+        </div>
+
         <div className="bg-navy-50 rounded-2xl p-4">
           <div className="text-sm font-bold text-navy-700 mb-2">注意点</div>
           <ul className="text-xs text-navy-600 space-y-1 list-disc pl-4">
@@ -156,9 +168,9 @@ export default function JukuVocabularyTestPage() {
         <div>
           <div className="text-sm font-bold text-navy-700 mb-3">関連ページ</div>
           <div className="space-y-2">
-            <Link href="/guide/english-vocabulary-quiz-maker" className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
-              <div className="text-[11px] text-sky-600 font-semibold mb-0.5">作成ツール</div>
-              <div className="text-sm font-semibold text-navy-800">英単語小テスト作成ツールの使い方</div>
+            <Link href="/guide/printable-english-vocabulary-test" className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
+              <div className="text-[11px] text-sky-600 font-semibold mb-0.5">印刷</div>
+              <div className="text-sm font-semibold text-navy-800">印刷できる英単語テストPDFを作る方法</div>
             </Link>
             <Link href="/materials/highschool" className="block bg-white rounded-xl border border-navy-100 p-3 hover:shadow-sm transition-shadow">
               <div className="text-[11px] text-sky-600 font-semibold mb-0.5">高校生向け</div>
