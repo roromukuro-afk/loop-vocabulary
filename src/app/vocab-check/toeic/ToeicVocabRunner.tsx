@@ -117,7 +117,9 @@ export function ToeicVocabRunner() {
       <div className="min-h-dvh bg-gradient-to-b from-sky-50 to-white px-4 py-10">
         <div className="max-w-md mx-auto">
           <div className="text-center mb-4">
-            <h1 className="text-2xl font-black text-navy-800">TOEIC語彙力チェック結果</h1>
+            {/* page.tsxの常時表示h1と重複しないよう、結果画面固有の見出しはh2にする
+                (AdSense是正、Issue #127)。 */}
+            <h2 className="text-2xl font-black text-navy-800">TOEIC語彙力チェック結果</h2>
             <p className="mt-1 text-sm text-navy-600">{result.message}</p>
           </div>
 

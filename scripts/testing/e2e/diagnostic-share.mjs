@@ -47,7 +47,8 @@ async function main() {
     // ---- 1. 一般版 /vocab-check を最後まで回答 ----
     await gotoReady(page, `${baseUrl}/vocab-check`);
     await answerAllQuestions(page);
-    const resultHeading = await page.locator("h1").textContent();
+    // AdSense是正(Issue #127)でh1をページ共通見出しに変更し、結果画面固有の見出しはh2になった
+    const resultHeading = await page.locator("h2").first().textContent();
     if (resultHeading?.includes("結果")) ok("/vocab-check: 20問回答後に結果画面が表示される");
     else fail(`/vocab-check: 結果画面が想定と異なる: "${resultHeading}"`);
 

@@ -62,9 +62,17 @@ async function main() {
       if (bannedFound.length === 0) ok(`${path}: カードに根拠のない順位・断定表現が含まれていない`);
       else fail(`${path}: カードに禁止表現が含まれている: ${bannedFound.join(", ")}`);
 
+      // AdSense是正(Issue #127): 診断中の画面にh1が無かった問題を修正するため、
+      // ページ全体で常時表示される単一のh1をpage.tsx側に追加し、結果画面固有の見出しは
+      // h2に変更した(h1の重複を避けるため)。したがって結果画面のh1はページ共通の
+      // タイトルを指し、結果固有の文言(「〜結果」)はh2側にある。
       const h1Text = await page.locator("h1").textContent();
-      if (h1Text?.includes("結果")) ok(`${path}: 結果画面のh1が想定通り`);
-      else fail(`${path}: h1が想定と異なる: "${h1Text}"`);
+      if (h1Text && h1Text.length > 0) ok(`${path}: ページ共通のh1が表示される: "${h1Text}"`);
+      else fail(`${path}: h1が見つからない`);
+
+      const h2Text = await page.locator("h2").first().textContent();
+      if (h2Text?.includes("結果")) ok(`${path}: 結果画面のh2が想定通り`);
+      else fail(`${path}: 結果画面のh2が想定と異なる: "${h2Text}"`);
     }
   } finally {
     await browser.close();

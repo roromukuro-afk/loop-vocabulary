@@ -45,6 +45,12 @@ export default function EikenVocabCheckPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(BREADCRUMB_LD) }} />
+      {/* AdSense Low value content是正(Issue #127): EikenVocabRunnerは診断中の画面に
+          見出しを持たず、h1は結果画面でのみ表示されていたため、診断中の初回アクセス時に
+          文書にh1が1つも無い状態になっていた(本番のrendered-content監査で検出)。 */}
+      <div className="max-w-md mx-auto px-4 pt-4">
+        <h1 className="text-sm font-bold text-navy-500">英検語彙力チェック（無料・20問診断）</h1>
+      </div>
       <EikenVocabRunner />
     </>
   );
