@@ -66,7 +66,16 @@ function watchAdsenseScriptNetwork(page) {
 // AdSenseLoaderは常にnullを返し、このテストの検証対象(adsbygoogle.js本体スクリプト
 // タグの有無)自体を確認できないため、テスト専用の値をここで注入してforceRebuild:trueで
 // 必ず反映させる(devServer.mjsのforceRebuild説明コメント参照)。
-process.env.NEXT_PUBLIC_ADSENSE_CLIENT = "ca-pub-0000000000000000";
+//
+// Codexレビュー指摘: 存在しないダミーID(ca-pub-0000000000000000)では、
+// adsbygoogle.jsが2xxレスポンスを返してもGoogle側がそのpublisher/domain向けの
+// Auto ads初期化を実際には行わない場合があり、その場合はhits(エラー件数)が
+// 常に0のままになる。これは「削除した明示的push相当のコードが将来再混入しても
+// 検知できない」偽陽性を生む。ads.txt・本番metaタグ等で既に公開情報である実
+// クライアントID(手動調査で実際に使用したものと同一)を使うことで、
+// window.adsbygoogle.loaded===true(Google側が実際に初期化を完了した証拠)を
+// 確認できる環境で検証する。
+process.env.NEXT_PUBLIC_ADSENSE_CLIENT = "ca-pub-5148247638505100";
 
 async function main() {
   const dev = await ensureDevServer(PORT, { forceRebuild: true });
@@ -100,6 +109,21 @@ async function main() {
       ok("/: adsbygoogle.jsへのネットワークリクエストが成功している(初期化コードが実際に実行される環境であることを確認)");
     } else {
       fail("/: adsbygoogle.jsへのレスポンスが観測できなかった(読み込み未完了、またはネットワーク到達不可の可能性)");
+    }
+
+    // Codexレビュー指摘: スクリプトの2xxレスポンスだけでは「Google側が実際に
+    // このpublisher/domain向けにAuto ads初期化を完了した」ことの証明にならない。
+    // window.adsbygoogleが(素の配列のままではなく)loaded:trueを持つオブジェクトに
+    // なっていることを確認して初めて、Google側の初期化が実行された環境での
+    // 検証であると言える(本番調査で実際に確認した状態と同じ判定基準)。
+    const adsGoogleState = await page.evaluate(() => ({
+      isArray: Array.isArray(window.adsbygoogle),
+      loaded: window.adsbygoogle && !Array.isArray(window.adsbygoogle) ? !!window.adsbygoogle.loaded : null,
+    }));
+    if (!adsGoogleState.isArray && adsGoogleState.loaded === true) {
+      ok("/: window.adsbygoogle.loaded===true(Google側のAuto ads初期化が実際に完了したことを確認)");
+    } else {
+      fail(`/: Google側のAuto ads初期化が完了した証拠が確認できない(isArray=${adsGoogleState.isArray}, loaded=${adsGoogleState.loaded})。この状態でのエラー0件は回帰検知の証明にならない。`);
     }
 
     const hasMetaTag = await page.locator('meta[name="google-adsense-account"]').count();
