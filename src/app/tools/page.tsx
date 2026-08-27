@@ -183,9 +183,9 @@ export default function ToolsPage() {
                   <tr key={row.href} className="border-b border-navy-50 last:border-0">
                     <td className="py-2 pr-2 text-navy-600 leading-relaxed">{row.need}</td>
                     <td className="py-2">
-                      <Link href={row.href} className="text-sky-700 font-semibold hover:underline">
+                      <ToolCardLink href={row.href} className="text-sky-700 font-semibold hover:underline">
                         {row.tool}
-                      </Link>
+                      </ToolCardLink>
                     </td>
                   </tr>
                 ))}
