@@ -81,6 +81,14 @@ export default function VocabCheckPage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(BREADCRUMB_LD) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
+      {/* AdSense Low value content是正(Issue #127): VocabCheckRunnerは診断中の画面に
+          見出しを持たず、h1は結果画面でのみ表示されていたため、診断中の初回アクセス時に
+          文書にh1が1つも無い状態になっていた(本番のrendered-content監査で検出)。
+          常時表示されるh1をここに1つ用意し、VocabCheckRunner側の結果画面の見出しは
+          h2に変更して、ページ全体でh1が重複しないようにした。 */}
+      <div className="max-w-md mx-auto px-4 pt-4">
+        <h1 className="text-sm font-bold text-navy-500">英語語彙力チェック（無料・20問診断）</h1>
+      </div>
       <VocabCheckRunner />
 
       <div className="max-w-2xl mx-auto px-4 mt-5 pb-10">
