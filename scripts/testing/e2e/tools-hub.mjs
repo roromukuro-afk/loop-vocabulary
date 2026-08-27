@@ -29,8 +29,20 @@ async function main() {
     const html = await res.text();
     const text = html.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-    if (text.length > 500) ok(`/tools: SSR本文 ${text.length}字を確認`);
-    else fail(`/tools: 本文が短すぎる (${text.length}字)`);
+    // AdSense是正(Issue #127): 薄いハブページ判定への対応として、各ツールの対象者・
+    // 利用例と「選び方」比較表を追加した。強化前は約1150字だったため、大幅増加を
+    // 実質的な閾値(2000字)で確認する。
+    if (text.length > 2000) ok(`/tools: SSR本文 ${text.length}字を確認(対象者・利用例・選び方表を含め強化済み)`);
+    else fail(`/tools: 本文が強化前の薄い状態のまま (${text.length}字、2000字超が必要)`);
+
+    if (text.includes("ツールの選び方")) ok("/tools: 「ツールの選び方」比較表セクションがある");
+    else fail("/tools: 「ツールの選び方」比較表セクションが見つからない");
+
+    if (text.includes("対象:") && text.includes("例:")) {
+      ok("/tools: 各ツールカードに対象者・利用例の説明がある");
+    } else {
+      fail("/tools: 各ツールカードに対象者・利用例の説明が見つからない");
+    }
 
     if ((html.match(/application\/ld\+json/g) || []).length > 0) ok("/tools: JSON-LDを確認");
     else fail("/tools: JSON-LDが見つからない");
