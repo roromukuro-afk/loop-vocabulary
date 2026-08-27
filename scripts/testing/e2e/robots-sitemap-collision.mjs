@@ -55,6 +55,15 @@ function fail(msg) {
   failed = true;
   console.error(`\n❌ FAIL: ${msg}`);
 }
+// KNOWN_INTENTIONAL_REMOVALSのドリフト検知専用。このPRがマージされ、origin/mainの
+// baselineが実際に(フォールバックではなく)更新版へ進んだ後は、このリストのエントリが
+// 「もう存在しないslug」を指すのが正しい・予期された状態になる(fail()にすると、
+// マージ直後から次のクリーンアップコミットが入るまでの間、無関係な全PRのCIを
+// 壊し続けてしまう — Codexレビュー指摘対応)。実際の削除退行ではなく「片付けの
+// お願い」に過ぎないため、CI失敗にはせず警告として出力するだけに留める。
+function warn(msg) {
+  console.warn(`\n⚠ WARN (non-blocking): ${msg}`);
+}
 function ok(msg) {
   console.log(`✅ ${msg}`);
 }
@@ -266,12 +275,19 @@ function main() {
   }
   // KNOWN_INTENTIONAL_REMOVALSのドリフト検知: このPRがマージされ、origin/mainのbaseline
   // 自体からも当該slugが既に消えている場合、このリストのエントリはもう不要(むしろ以後は
-  // 本来の「本当の削除退行」を隠してしまう)ため、削除するよう促す。ただしこれは
+  // 本来の「本当の削除退行」を隠してしまう)ため、削除を促す。ただしこれは
   // origin/mainから実際に取得したbaseline(pre-merge状態)に対してのみ意味を持つ
   // 検知であり、静的フォールバック使用時(baselineIsFallback=true)はフォールバック
   // リスト自体が既に更新済みのことがあるため、この検知はスキップする
-  // (Codexレビュー指摘対応: shallow clone等でorigin/mainを参照できない環境で
+  // (Codexレビュー指摘1巡目対応: shallow clone等でorigin/mainを参照できない環境で
   // 常に失敗していた)。
+  //
+  // また、この検知自体は「本当の削除退行」ではなく「片付けのお願い」に過ぎないため、
+  // fail()ではなくwarn()を使う(Codexレビュー指摘2巡目対応: このPRがマージされ
+  // origin/mainのbaselineが実際に更新版へ進んだ直後から、次にこのリストを手動で
+  // 掃除するコミットが入るまでの間、無関係な全てのPRのCIをfail()で壊し続けてしまう
+  // 設計上の欠陥だった。stale exemptionの検知そのものは有用なので削除はせず、
+  // 非ブロッキングの警告に格下げする)。
   if (baselineIsFallback) {
     console.log(
       "\n(フォールバックbaseline使用中のため、KNOWN_INTENTIONAL_REMOVALSのドリフト検知はスキップします)",
@@ -279,9 +295,9 @@ function main() {
   } else {
     for (const slug of KNOWN_INTENTIONAL_REMOVALS) {
       if (!baselineGuideSlugs.includes(slug)) {
-        fail(
+        warn(
           `KNOWN_INTENTIONAL_REMOVALSの "${slug}" はbaseline(origin/main)に既に存在しない ` +
-            `(マージ済みで役目を終えたと考えられる)。このリストから削除してください`,
+            `(マージ済みで役目を終えたと考えられる)。このリストから削除してください(このメッセージはCIを失敗させません)`,
         );
       }
     }
