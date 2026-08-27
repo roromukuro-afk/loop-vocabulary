@@ -6,9 +6,11 @@
  * 3. 各リンク先が実際に200で開ける(存在しないURLへのリンクがない)
  * 4. 準備中ツールは「準備中」ラベル付きで表示され、リンク化されていない
  * 5. sitemap.xmlに/toolsが含まれる
+ * 6. 「選び方」比較表のリンクもToolCardLink経由でtool_viewイベントを発火する
  *
  * 使い方: node scripts/testing/e2e/tools-hub.mjs
  */
+import { chromium } from "playwright";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
@@ -29,8 +31,24 @@ async function main() {
     const html = await res.text();
     const text = html.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-    if (text.length > 500) ok(`/tools: SSR本文 ${text.length}字を確認`);
-    else fail(`/tools: 本文が短すぎる (${text.length}字)`);
+    // AdSense是正(Issue #127): 薄いハブページ判定への対応として、各ツールの対象者・
+    // 利用例と「選び方」比較表を追加した。強化前は約1150字だったため、大幅増加を
+    // 実質的な閾値(2000字)で確認する。
+    if (text.length > 2000) ok(`/tools: SSR本文 ${text.length}字を確認(対象者・利用例・選び方表を含め強化済み)`);
+    else fail(`/tools: 本文が強化前の薄い状態のまま (${text.length}字、2000字超が必要)`);
+
+    if (text.includes("ツールの選び方")) ok("/tools: 「ツールの選び方」比較表セクションがある");
+    else fail("/tools: 「ツールの選び方」比較表セクションが見つからない");
+
+    // Codex指摘: 部分文字列の存在チェックだけでは「どこか1箇所にあれば良い」判定になり、
+    // 8枚中1枚から対象者/利用例が抜けても検知できない。LIVE_TOOLSは8件固定のため、
+    // 出現回数がちょうど8であることを数えて全カード分揃っていることを確認する。
+    const audienceCount = (text.match(/対象:/g) || []).length;
+    const useCaseCount = (text.match(/例:/g) || []).length;
+    if (audienceCount === 8) ok(`/tools: 対象者の説明(「対象:」)が8枚全カード分ある`);
+    else fail(`/tools: 対象者の説明(「対象:」)が8件ではない(実際: ${audienceCount}件、1枚以上で抜けている可能性)`);
+    if (useCaseCount === 8) ok(`/tools: 利用例の説明(「例:」)が8枚全カード分ある`);
+    else fail(`/tools: 利用例の説明(「例:」)が8件ではない(実際: ${useCaseCount}件、1枚以上で抜けている可能性)`);
 
     if ((html.match(/application\/ld\+json/g) || []).length > 0) ok("/tools: JSON-LDを確認");
     else fail("/tools: JSON-LDが見つからない");
@@ -76,6 +94,35 @@ async function main() {
     // ドメイン部分は問わず「/tools」で終わる<loc>があるかで判定する。
     if (/<loc>[^<]*\/tools<\/loc>/.test(sitemapXml)) ok("sitemap.xmlに/toolsが含まれる");
     else fail("sitemap.xmlに/toolsが含まれていない");
+
+    // Codex指摘: 「選び方」比較表のリンクが素の<Link>のままだと、ここ経由の遷移が
+    // tool_view(tool_key付き)を発火せずcomputeContentPerformanceの集計から漏れる。
+    // ToolCardLink化した後、実際にクリックしてイベントが送られることをブラウザで確認する。
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage();
+      const captured = [];
+      await page.route("**/api/analytics/events", async (route) => {
+        try {
+          const body = route.request().postDataJSON();
+          captured.push(...(Array.isArray(body) ? body : [body]));
+        } catch {
+          /* ignore malformed body */
+        }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, accepted: 1 }) });
+      });
+      await page.goto(`${baseUrl}/tools`, { waitUntil: "networkidle" });
+
+      const chooserLink = page.locator('table a[href="/vocab-check"], table [href="/vocab-check"]').first();
+      await chooserLink.click();
+      await page.waitForTimeout(500);
+
+      const toolViewFromChooser = captured.find((e) => e.event_name === "tool_view" && e.properties?.tool_key === "vocab-check");
+      if (toolViewFromChooser) ok("/tools: 「選び方」比較表のリンククリックでtool_view(tool_key=vocab-check)が送信される");
+      else fail(`/tools: 「選び方」比較表のリンククリックでtool_viewが送信されない(捕捉イベント: ${JSON.stringify(captured)})`);
+    } finally {
+      await browser.close();
+    }
 
     console.log(process.exitCode ? "\n=== test:tools-hub: FAILED ===" : "\n=== test:tools-hub RESULT: all checks passed ===");
   } finally {
