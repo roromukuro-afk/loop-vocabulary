@@ -34,7 +34,7 @@
     "test:canonical-domain-redirect": "node scripts/testing/e2e/canonical-domain-redirect.mjs",
     "test:growth-events": "node scripts/testing/e2e/growth-events.mjs",
     "test:campaign-funnel-tracking": "node scripts/testing/e2e/campaign-funnel-tracking.mjs",
-    "test:adsense-auto-ads-guard": "node scripts/testing/test-adsense-auto-ads-guard.mjs",
+    "test:adsense-single-page-level-init": "node scripts/testing/e2e/adsense-single-page-level-init.mjs",
     "test:analytics-event-sanitize": "node scripts/testing/test-analytics-event-sanitize.mjs",
     "test:google-oauth-signup-detection": "node scripts/testing/test-google-oauth-signup-detection.mjs",
     "test:track-server-event-attribution": "node scripts/testing/test-track-server-event-attribution.mjs",
