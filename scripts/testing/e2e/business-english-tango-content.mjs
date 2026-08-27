@@ -207,15 +207,25 @@ async function main() {
       fail("/premium へのCTAリンクが見つからない");
     }
 
-    // ---- 8. GuideMaterialCTAが動的版と同じ2件になっている ----
-    const materialTitles = ["TOEIC頻出基礎単語", "TOEIC 頻出単語 2500"];
+    // ---- 8. GuideMaterialCTAが動的版と同じ1件(実在する教材のみ)になっている ----
+    // (Issue #127・本番リンク切れ監査で発見): 「TOEIC頻出基礎単語」
+    // (96d6e5a2-c0f5-48b1-8eed-14a91424790f)は実データが投入されておらず
+    // 常に404だったため、静的版・動的版([slug]/page.tsx)の両方から削除した。
+    // 現在は実在する「TOEIC 頻出単語 2500」のみを案内する。
+    const materialTitles = ["TOEIC 頻出単語 2500"];
+    const removedMaterialTitle = "TOEIC頻出基礎単語";
     const missingMaterials = materialTitles.filter((m) => !bodyText.includes(m));
     if (missingMaterials.length === 0) {
-      ok("GuideMaterialCTAが動的版と同じ2教材(TOEIC頻出基礎単語・TOEIC 頻出単語 2500)になっている");
+      ok("GuideMaterialCTAが動的版と同じ1教材(TOEIC 頻出単語 2500)になっている");
     } else {
       fail(`教材CTAの一部が見つからない: ${missingMaterials.join(", ")}`);
     }
-    // 重複表示がないことも確認(2件のはずが3件以上検出されたら重複の疑い)
+    if (!bodyText.includes(removedMaterialTitle)) {
+      ok("リンク切れだった「TOEIC頻出基礎単語」への参照が残っていない");
+    } else {
+      fail("リンク切れの「TOEIC頻出基礎単語」への参照が残っている");
+    }
+    // 重複表示がないことも確認
     const materialOccurrences = materialTitles.map((m) => (bodyText.match(new RegExp(m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length);
     if (materialOccurrences.every((c) => c === 1)) {
       ok("教材CTAの各タイトルが重複せず1回ずつ表示されている");
