@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import Script from "next/script";
 import { AdSenseLoader } from "@/components/ads/AdSenseLoader";
 import { toFundingChoicesPublisherId } from "@/lib/ads/consentManagement";
+import { isProductionEnvironment } from "@/lib/analytics/testEventClassification";
 import "./globals.css";
 
 const APP_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
@@ -65,6 +66,14 @@ export const viewport: Viewport = {
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID;
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
+// GA4是正(Issue #136): 2026-08-27にAdSense是正作業の一環で本番190URL全件を複数回
+// Playwright監査した際、そのアクセスがGA4へ実ユーザーのDirectトラフィックとして
+// 大量混入した(1,364/1,408ユーザーが該当7日間に集中)。preview/local(VERCEL_ENV!==
+// "production")では元々GA4を読み込まない設計にし、production自体への自動巡回は
+// クライアント側のnavigator.webdriver判定(下記の初期化スクリプト内)で除外する。
+// isProductionEnvironment()はVERCEL_ENVのみを見るbuild/runtime判定でheaders()等を
+// 使わないため、静的レンダリングを妨げない。
+const SHOULD_LOAD_ANALYTICS = isProductionEnvironment();
 
 const ORGANIZATION_LD = {
   "@context": "https://schema.org",
@@ -120,13 +129,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             />
           </>
         )}
-        {GA_ID && (
+        {SHOULD_LOAD_ANALYTICS && GA_ID && (
           <>
             {/* GA4 must be in <head> for Google Search Console verification */}
             <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} />
+            {/* GA4是正(Issue #136): navigator.webdriverはPlaywright/Puppeteer/Selenium等の
+                自動操作ブラウザがdefaultでtrueにする標準プロパティ(意図的な回避コードが
+                無い限り)。これによりgtag('js',...)呼び出し自体は行いつつ('js'コマンドは
+                計測データを送信しない)、実際に計測イベントを送るgtag('config',...)だけを
+                自動巡回から除外する。将来の自動E2E・監査スクリプトは何も対応しなくても
+                自動的に除外される。 */}
             <script
               dangerouslySetInnerHTML={{
-                __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}');`,
+                __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());if(!(navigator.webdriver)){gtag('config','${GA_ID}');}`,
               }}
             />
           </>
@@ -136,9 +151,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_LD) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_LD) }} />
         {children}
-        {CLARITY_ID && (
+        {SHOULD_LOAD_ANALYTICS && CLARITY_ID && (
           <Script id="clarity-init" strategy="afterInteractive">
-            {`(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","${CLARITY_ID}");`}
+            {`if(!(navigator.webdriver)){(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","${CLARITY_ID}");}`}
           </Script>
         )}
         {/* AdSenseLoaderはisAdsAllowedPath()の判定にuseSearchParams()を使うため、Suspense
