@@ -49,6 +49,16 @@ export type PilotWordInput = {
   sourceType: PilotWordSourceType;
   /** 品質スコアに関わらず強制的にindex可否を固定したい場合のみ指定 */
   manualIndexOverride?: boolean;
+  /**
+   * カタカナ読み(任意)。IPAだけでなく「読み方」「カタカナ」で検索するユーザー向け
+   * (GSC実データで「〇〇 読み方」「〇〇とは」等のカタカナ起点クエリが確認できた語のみ設定)。
+   */
+  katakana?: string;
+  /**
+   * 品詞違いの関連語との使い分け(任意)。「〇〇 形容詞」のように品詞違いの語を
+   * 探しているクエリがGSC実データで確認できた語のみ設定し、冒頭付近で明確に回答する。
+   */
+  posContrast?: { relatedWord: string; note: string };
 };
 
 export type PilotWord = PilotWordInput & {
@@ -122,6 +132,11 @@ export const PILOT_WORDS: PilotWord[] = [
     antonyms: ["unavailable（利用できない）"],
     examLevels: ["英検2級", "TOEIC", "高校基礎"],
     relatedGuideSlug: "toeic-tango", sourceType: "material_licensed",
+    katakana: "アベイラブル",
+    posContrast: {
+      relatedWord: "availability",
+      note: "availableは「利用可能な」という状態を表す形容詞、availabilityは「利用可能性」という状態そのものを指す名詞です。The room is available（部屋は利用可能だ、形容詞）に対し、Check the availability of the room（部屋の空き状況を確認する、名詞）のように使い分けます。",
+    },
   }),
   defineWord({
     slug: "improve", word: "improve", ipa: "/ɪmˈpruːv/", pos: "動詞",
@@ -139,6 +154,11 @@ export const PILOT_WORDS: PilotWord[] = [
     antonyms: ["worsen（悪化させる）", "decline（衰える）"],
     examLevels: ["英検2級", "TOEIC", "高校基礎"],
     relatedGuideSlug: "eitango-oboeru-houhou", sourceType: "material_licensed",
+    katakana: "インプルーブ",
+    posContrast: {
+      relatedWord: "improvement",
+      note: "improveは「改善する・上達する」という動詞、improvementは「改善」という名詞です。improve productivity（生産性を改善する、動詞）に対し、a significant improvement（大幅な改善、名詞）のように使い分けます。",
+    },
   }),
   defineWord({
     slug: "support", word: "support", ipa: "/səˈpɔːrt/", pos: "動詞・名詞",
@@ -156,6 +176,11 @@ export const PILOT_WORDS: PilotWord[] = [
     antonyms: ["oppose（反対する）", "hinder（妨げる）"],
     examLevels: ["英検準2級", "TOEIC", "高校基礎"],
     relatedGuideSlug: "eiken-vocabulary-study", sourceType: "material_licensed",
+    katakana: "サポート",
+    posContrast: {
+      relatedWord: "supportive",
+      note: "supportは「支える・支援する」という動詞、または「支援」という名詞です。一方supportiveは「協力的な・支援的な」という形容詞で、人や態度を修飾します。support my dream（夢を支える、動詞）に対し、a supportive friend（協力的な友人、形容詞）のように使い分けます。",
+    },
   }),
   defineWord({
     slug: "evaluate", word: "evaluate", ipa: "/ɪˈvæljueɪt/", pos: "動詞",
@@ -343,6 +368,11 @@ export const PILOT_WORDS: PilotWord[] = [
     antonyms: [],
     examLevels: ["英検2級", "TOEIC", "共通テスト標準"],
     relatedGuideSlug: "ai-vocabulary-learning", sourceType: "material_licensed",
+    katakana: "リサーチ",
+    posContrast: {
+      relatedWord: "researcher",
+      note: "researchは「研究・調査」という名詞、または「研究する」という動詞です。一方researcherは「研究者」という人を表す名詞です。conduct research（研究を行う、名詞）に対し、She is a researcher（彼女は研究者だ）のように使い分けます。",
+    },
   }),
   defineWord({
     slug: "influence", word: "influence", ipa: "/ˈɪnfluəns/", pos: "名詞・動詞",
@@ -411,6 +441,11 @@ export const PILOT_WORDS: PilotWord[] = [
     antonyms: [],
     examLevels: ["英検2級", "TOEIC基礎〜標準", "共通テスト標準"],
     relatedGuideSlug: "tangocho-erabikata", sourceType: "material_licensed",
+    katakana: "ストラテジー",
+    posContrast: {
+      relatedWord: "strategic",
+      note: "strategyは「戦略」という計画そのものを指す名詞、strategicは「戦略的な」という形容詞です。a good strategy（良い戦略）のように名詞は計画を表し、a strategic decision（戦略的な決断）のように形容詞は物事の性質を修飾します。",
+    },
   }),
   defineWord({
     slug: "solution", word: "solution", ipa: "/səˈluːʃn/", pos: "名詞",
@@ -1276,10 +1311,14 @@ export function getIndexEligibleWords(): PilotWord[] {
 
 /** 単語ページのAEO「問い→答え」ブロック用に、既存フィールドから自然にQ&Aを導出する。 */
 export function getWordQaBlocks(w: PilotWord): { q: string; a: string }[] {
-  return [
+  const blocks = [
     { q: `${w.word}とは？`, a: w.conclusion },
     { q: `${w.word}の語源は？`, a: w.etymology },
     { q: `${w.word}の使い分けのポイントは？`, a: w.nuance },
     { q: `${w.word}は英作文・小論文でどう使う？`, a: w.essayUsage },
   ];
+  if (w.posContrast) {
+    blocks.push({ q: `${w.word}と${w.posContrast.relatedWord}の違いは？`, a: w.posContrast.note });
+  }
+  return blocks;
 }
