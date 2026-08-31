@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/supabase/requireUser";
 import { trackWordCountMilestones } from "@/lib/analytics/trackServerEvent";
 import { E2E_TEST_HEADER } from "@/lib/analytics/testEventClassification";
+import { AUDIT_MODE_COOKIE } from "@/lib/analytics/auditMode";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const e2eHeaderValue = req.headers.get(E2E_TEST_HEADER);
+  const auditCookieValue = req.cookies.get(AUDIT_MODE_COOKIE)?.value;
   const { user, supabase } = await requireUser();
 
   const { data: profile } = await supabase
@@ -51,7 +53,7 @@ export async function POST(
   const { error } = await supabase.from("words").insert(rows);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + rows.length, e2eHeaderValue);
+  await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + rows.length, e2eHeaderValue, auditCookieValue);
 
   return NextResponse.json({ ok: true, added: rows.length });
 }
