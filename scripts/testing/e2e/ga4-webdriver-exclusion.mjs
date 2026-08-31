@@ -34,6 +34,12 @@
  *    (Cookieによる状態維持)
  * 7. 監査モードを一切使っていない新規ページ(新しいbrowser context)では、
  *    通常どおり計測リクエストが発生する(監査モードがグローバルに漏れ出していないこと)
+ * 8. 監査モード中のレスポンスに Cache-Control: private, no-store が付与されている
+ *    (CDN・共有キャッシュに乗らない=次の別ユーザーへnoindexが漏れない)
+ * 9. 監査モードのCookieがSameSite=Lax・Path=/で発行されている(HTTPのlocalhostでは
+ *    Secureは付与されない設計だが、これは意図的: 本番はHTTPSのためSecureが自動的に付く)
+ * 10. 監査モードを一度も使っていない通常アクセスのレスポンスには、X-Robots-Tag・
+ *     Cache-Control: private, no-store・Set-Cookie(監査Cookie)のいずれも付与されない
  *
  * 使い方: node scripts/testing/e2e/ga4-webdriver-exclusion.mjs
  */
@@ -134,8 +140,12 @@ async function main() {
       const collectRequests = [];
       page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequests.push(req.url()); });
       let robotsTagHeader;
+      let cacheControlHeader;
       page.on("response", (res) => {
-        if (res.url() === `${devProd.url}/`) robotsTagHeader = res.headers()["x-robots-tag"];
+        if (res.url() === `${devProd.url}/`) {
+          robotsTagHeader = res.headers()["x-robots-tag"];
+          cacheControlHeader = res.headers()["cache-control"];
+        }
       });
       await gotoReady(page, `${devProd.url}/`); // gotoReady()がx-lv-e2e-test:1ヘッダーを送信
       await page.waitForTimeout(2000);
@@ -145,6 +155,19 @@ async function main() {
 
       if (robotsTagHeader === "noindex") ok("監査モード中のレスポンスに X-Robots-Tag: noindex が付与されている");
       else fail(`監査モード中でも X-Robots-Tag: noindex が付与されていない(実測: ${robotsTagHeader ?? "(なし)"})`);
+
+      // 8. Cache-Control: private, no-store の確認
+      if (cacheControlHeader === "private, no-store") ok("監査モード中のレスポンスに Cache-Control: private, no-store が付与されている");
+      else fail(`監査モード中の Cache-Control が想定と異なる(実測: ${cacheControlHeader ?? "(なし)"})`);
+
+      // 9. Cookie属性の確認(SameSite=Lax・Path=/。HTTPのlocalhostではSecureは付与されない設計)
+      const cookies = await page.context().cookies();
+      const auditCookie = cookies.find((c) => c.name === "lv_audit");
+      if (auditCookie && auditCookie.sameSite === "Lax" && auditCookie.path === "/") {
+        ok(`監査モードCookieがSameSite=Lax・Path=/で発行されている(secure=${auditCookie.secure}, HTTPのlocalhostのため意図的にfalse)`);
+      } else {
+        fail(`監査モードCookieの属性が想定と異なる(実測: ${JSON.stringify(auditCookie)})`);
+      }
 
       // 6. SPA遷移でも監査モードが維持されるか(ヘッダーを送らないクライアントサイド遷移)
       await page.setExtraHTTPHeaders({}); // 以後のナビゲーションでヘッダーを送らない(Cookieのみに依存させる)
@@ -163,18 +186,39 @@ async function main() {
       await page.close();
     }
 
-    // 7. 監査モードを使っていない完全に新規のページでは通常どおり計測リクエストが発生する
+    // 7・10. 監査モードを使っていない完全に新規のページでは通常どおり計測リクエストが発生し、
+    // noindex・Cache-Control・監査Cookieのいずれも付与されない
     {
       const page = await browser.newPage();
       await page.addInitScript(() => {
         Object.defineProperty(navigator, "webdriver", { get: () => false });
       });
       const collectRequests = [];
+      let robotsTagHeader;
+      let cacheControlHeader;
+      let setCookieHeader;
       page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequests.push(req.url()); });
+      page.on("response", (res) => {
+        if (res.url() === `${devProd.url}/`) {
+          robotsTagHeader = res.headers()["x-robots-tag"];
+          cacheControlHeader = res.headers()["cache-control"];
+          setCookieHeader = res.headers()["set-cookie"];
+        }
+      });
       await gotoAsRealUser(page, `${devProd.url}/`);
       await page.waitForTimeout(2000);
       if (collectRequests.length > 0) ok("監査モード未使用の新規ページでは通常どおりGA4計測リクエストが発生する(グローバルな漏れ出しがないことを確認)");
       else fail("監査モードを一度も使っていない新規ページでもGA4計測リクエストが発生しない(監査モードが意図せずグローバルに影響している可能性)");
+
+      if (robotsTagHeader === undefined) ok("通常アクセスには X-Robots-Tag が付与されない");
+      else fail(`通常アクセスにも X-Robots-Tag が付与されている(実測: ${robotsTagHeader})`);
+
+      if (cacheControlHeader !== "private, no-store") ok("通常アクセスには監査用の Cache-Control: private, no-store が付与されない");
+      else fail("通常アクセスにも監査用の Cache-Control: private, no-store が付与されている");
+
+      if (setCookieHeader === undefined || !setCookieHeader.includes("lv_audit")) ok("通常アクセスには監査モードCookieがセットされない");
+      else fail(`通常アクセスにも監査モードCookieがセットされている(実測Set-Cookie: ${setCookieHeader})`);
+
       await page.close();
     }
 

@@ -29,7 +29,12 @@
 
 export const AUDIT_MODE_HEADER = "x-lv-e2e-test";
 export const AUDIT_MODE_COOKIE = "lv_audit";
-export const AUDIT_MODE_COOKIE_MAX_AGE_SECONDS = 60 * 60; // 監査1回分の巡回を十分にカバーする1時間
+// オーナー指摘対応: サーバーは「監査が終わった」ことを能動的に検知してCookieを
+// 削除できない(ステートレスなため)。短い有効期限にすることで、監査終了後は
+// ブラウザが自動的に破棄する「実質的な削除」を保証する(詳細はmiddleware.ts参照)。
+// アクティブな監査中はページ遷移のたびに延長されるため、この値より長い監査でも
+// 途切れない。
+export const AUDIT_MODE_COOKIE_MAX_AGE_SECONDS = 10 * 60; // 10分
 
 /** レイアウトのインラインスクリプト文字列に埋め込む用の、Cookie存在チェック式(そのままJS内に展開する)。 */
 export const AUDIT_MODE_COOKIE_CHECK_EXPR = `document.cookie.indexOf('${AUDIT_MODE_COOKIE}=1')!==-1`;
