@@ -22,18 +22,21 @@
  *     hydration不一致特有のconsole.errorシグネチャ)が0件
  * 1c. desktop/mobile双方のビューポートで広告枠が表示される
  * 1d. 別ページ経由のSPA遷移後も広告枠の二重初期化が発生しない
- * 1e. 監査モード(x-lv-e2e-testヘッダー)中は第三者広告リクエストが0件
+ * 1e. 監査モード(x-lv-e2e-testヘッダー)中は第三者広告へのリクエスト試行が0件
+ *     (lib/adNetworkGuard.mjsのroute interceptionで全リクエストをabortし、
+ *     実際の外部通信を一切発生させずに「試みられたか」だけを判定する。Issue #136)
  *     ―――【既知のギャップ、オーナー承認済みの対応計画あり】―――
- *     現状このチェックはFAILする。AdPlacementClient.tsxにはPR #137
- *     (fix/ga4-webdriver-exclusion)で導入されたisAuditModeActiveClient()による
- *     監査モード除外ガードがまだ無い(このブランチはPR #137のマージ前に分岐して
- *     おり、src/lib/analytics/auditMode.ts自体が存在しない)。そのため忍者AdMaxの
- *     実タグ(adm.shinobi.jp等)がそのまま読み込まれ、監査ヘッダー付きアクセスでも
- *     実際の第三者広告リクエストが発生する。オーナー合意済みのmerge順序
- *     (PR #137を先にmerge → PR #138を新mainへrebase → 再テスト・再レビュー・
- *     再承認)どおり、AdPlacementClient.tsxへ同種のガードを追加する修正は
- *     rebase後に行う。このチェック自体は退行防止のため残し、rebase後に
- *     このコメントとあわせてgreenへ更新する。
+ *     現状このチェックはFAILする(=abort対象としてカウントされてしまう)。
+ *     AdPlacementClient.tsxにはPR #137(fix/ga4-webdriver-exclusion)で導入された
+ *     isAuditModeActiveClient()による監査モード除外ガードがまだ無い(このブランチは
+ *     PR #137のマージ前に分岐しており、src/lib/analytics/auditMode.ts自体が
+ *     存在しない)。そのため忍者AdMaxの実タグ(adm.shinobi.jp等)の読み込みが
+ *     試みられてしまう。オーナー合意済みのmerge順序(PR #137を先にmerge →
+ *     PR #138を新mainへrebase → 再テスト・再レビュー・再承認)どおり、
+ *     AdPlacementClient.tsxへ同種のガードを追加する修正はrebase後に行う。
+ *     このチェック自体は退行防止のため残し、rebase後にこのコメントとあわせて
+ *     greenへ更新する。route interceptionにより、このギャップが現状FAILのままでも
+ *     実際の外部通信は一切発生しない。
  * 2. production相当・忍者AdMax無効・i-mobile有効(スタブ): 何も表示されない
  *    (空の予約領域や「広告」ラベルだけの状態にならないことを確認、P2修正の確認)
  * 3. VERCEL_ENV未設定(preview/local相当)・忍者AdMax有効: 何も表示されない
@@ -50,6 +53,7 @@
 import { chromium } from "playwright";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { gotoReady } from "./lib/nav.mjs";
+import { guardAdNetworkRequests } from "./lib/adNetworkGuard.mjs";
 
 const PORT_PROD_SHOW = Number(process.env.TEST_PORT || 3809);
 const PORT_PROD_HIDE = PORT_PROD_SHOW + 1;
@@ -82,6 +86,7 @@ async function main() {
       const consoleErrors = [];
       const pageErrors = [];
       const page = await browser.newPage();
+      await guardAdNetworkRequests(page); // 忍者AdMax等への実通信を発生させない(Issue #136)
       page.on("console", (msg) => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
       page.on("pageerror", (err) => { pageErrors.push(String(err)); });
       await gotoReady(page, `${devShow.url}${TEST_PATH}`);
@@ -127,6 +132,7 @@ async function main() {
     // desktop/mobile viewportの双方で広告枠が表示されることを確認
     for (const [label, viewport] of [["desktop", { width: 1280, height: 800 }], ["mobile", { width: 375, height: 812 }]]) {
       const page = await browser.newPage({ viewport });
+      await guardAdNetworkRequests(page);
       await gotoReady(page, `${devShow.url}${TEST_PATH}`);
       await page.waitForTimeout(500);
       const admaxDivCount = await page.locator(".admax-ads").count();
@@ -138,6 +144,7 @@ async function main() {
     // SPA navigation: 別ページ経由でAdPlacementページへ遷移しても二重初期化・表示崩れが無いこと
     {
       const page = await browser.newPage();
+      await guardAdNetworkRequests(page);
       await gotoReady(page, `${devShow.url}/materials`);
       await page.evaluate((path) => { window.history.pushState({}, "", path); }, TEST_PATH);
       await page.goto(`${devShow.url}${TEST_PATH}`, { waitUntil: "load" });
@@ -149,23 +156,19 @@ async function main() {
       await page.close();
     }
 
-    // audit-mode中はNinja AdMax(admax枠)への初期化・第三者広告リクエストが発生しないこと
+    // audit-mode中はNinja AdMax(admax枠)への初期化・第三者広告リクエストが発生しないこと。
+    // route interceptionで全リクエストをabortしたうえで、「試みられたリクエスト」自体の
+    // 有無をblocked配列で判定する(実際の外部通信は一切発生させない、Issue #136)。
     {
       const page = await browser.newPage();
-      const thirdPartyAdRequests = [];
-      page.on("request", (req) => {
-        const url = req.url();
-        if (url.includes("pagead2.googlesyndication.com") || url.includes("admax") || url.includes("i-mobile") || url.includes("imobile")) {
-          thirdPartyAdRequests.push(url);
-        }
-      });
+      const blocked = await guardAdNetworkRequests(page);
       await gotoReady(page, `${devShow.url}${TEST_PATH}`); // gotoReady()がx-lv-e2e-test:1(監査モード)を送信
       await page.waitForTimeout(1500);
       const admaxDivCount = await page.locator(".admax-ads").count();
-      if (thirdPartyAdRequests.length === 0) {
-        ok(`監査モード中は第三者広告(AdSense/Ninja AdMax/i-mobile)へのリクエストが0件(admax-ads DOM件数=${admaxDivCount}は監査ヘッダー無効化と無関係にAdPlacement自体が出す枠のため参考値)`);
+      if (blocked.length === 0) {
+        ok(`監査モード中は第三者広告(AdSense/Ninja AdMax/i-mobile)へのリクエスト試行が0件(admax-ads DOM件数=${admaxDivCount}は監査ヘッダー無効化と無関係にAdPlacement自体が出す枠のため参考値)`);
       } else {
-        fail(`監査モード中にも第三者広告リクエストが発生した: ${thirdPartyAdRequests.join(", ")}`);
+        fail(`監査モード中にも第三者広告へのリクエスト試行が発生した(route interceptionでabort済み、外部への実通信は発生していない): ${blocked.join(", ")}`);
       }
       await page.close();
     }
@@ -184,6 +187,7 @@ async function main() {
     });
     {
       const page = await browser.newPage();
+      await guardAdNetworkRequests(page);
       await gotoReady(page, `${devHide.url}${TEST_PATH}`);
       const adLabelCount = await page.getByText("広告", { exact: true }).count();
       if (adLabelCount === 0) {
@@ -207,6 +211,7 @@ async function main() {
     });
     {
       const page = await browser.newPage();
+      await guardAdNetworkRequests(page);
       await gotoReady(page, `${devPreview.url}${TEST_PATH}`);
       const adLabelCount = await page.getByText("広告", { exact: true }).count();
       if (adLabelCount === 0) {
