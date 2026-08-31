@@ -52,7 +52,14 @@ export const KNOWN_LAUNCH_SCHEDULE = [
 // MARKETING_SOCIAL_LAUNCH_PACK_2026-08.mdで文書化済みの8本のうち、destinationが
 // /tools/vocab-test-makerではなく/guide/eiken-2kyu-tangoになっている投稿
 // (threads_launch_02のみ、MARKETING_SOCIAL_LAUNCH_PACK_2026-08.md:114-126参照)。
-export const GUIDE_DESTINATION_CONTENT_KEYS = ["threads_launch_02"];
+//
+// x_bizeng_01(2026-09round、campaign=guide_business_english_2026-08、
+// destination=/guide/business-english-tango)も同じくguide destinationのため
+// ここへ追加した。この投稿はKNOWN_LAUNCH_SCHEDULE/KNOWN_LAUNCH_CONTENT_KEYSには
+// 追加していない(campaignがvocab_test_maker_launchではなく別campaignのため、
+// 24hチェック側は--campaign=guide_business_english_2026-08を明示して個別実行する。
+// vocab-test-maker-7day-check.mjsのゼロ埋め一覧の対象にもしない)。
+export const GUIDE_DESTINATION_CONTENT_KEYS = ["threads_launch_02", "x_bizeng_01"];
 
 /**
  * content別のfunnel段階(pageViewed/generated/cta/saved)を、その投稿の実際の
