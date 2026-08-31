@@ -22,6 +22,7 @@ import { ensureServer, stopDevServer } from "../lib/devServer.mjs";
 import { getAdminClient } from "../lib/supabaseAdmin.mjs";
 import { TEST_ACCOUNTS } from "../lib/testAccounts.mjs";
 import { login, collectErrors } from "./lib/login.mjs";
+import { getAuditToken } from "../lib/auditToken.mjs";
 
 const PROD_PORT = Number(process.env.TEST_PORT_PROD_ENV || 3781);
 const PREVIEW_PORT = Number(process.env.TEST_PORT_PREVIEW_ENV || 3782);
@@ -107,7 +108,7 @@ async function fetchIsTestEventBySession(admin, sessionId) {
 
 async function main() {
   loadEnv();
-  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", TEST_ACCOUNTS.srs.passwordEnvKey]);
+  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "LV_AUDIT_TOKEN", TEST_ACCOUNTS.srs.passwordEnvKey]);
   const admin = getAdminClient();
   const testStartedAt = new Date().toISOString();
   // 別ランナー/別プロセスでこのテストが同時実行されると、"env-isolation-"という
@@ -173,7 +174,7 @@ async function main() {
       const res = await postEvent(page, prodServer.url, {
         eventName: "landing_view",
         sessionId,
-        extraHeaders: { "x-lv-e2e-test": "1" },
+        extraHeaders: { "x-lv-e2e-test": getAuditToken() },
       });
       const rows = res.body?.accepted === 1 ? await fetchIsTestEventBySession(admin, sessionId) : [];
       if (rows.length === 1 && rows[0].is_test_event === true) {
@@ -198,6 +199,15 @@ async function main() {
       // クリアする(このテストで意図的にヘッダーの有無を制御したいケースのみの対応で、
       // gotoReady自体の既定の挙動は変更しない)。
       await authPage.setExtraHTTPHeaders({});
+      // ヘッダーをクリアしても、login()中のgotoReady()が送った正しいトークン付き
+      // ヘッダーをmiddleware.tsが検証・承認し、その時点で発行したaudit Cookie
+      // (lv_audit)はブラウザのCookie jarに残ったままになる(Issue #136で追加された
+      // audit Cookieフォールバック。この発見時点でのバグ、オーナー指摘のセキュリティ
+      // 対応の一環で追加した検証中に判明: ヘッダーを消してもCookie経由でis_test_event=true
+      // のままになり、このテストが「正真正銘の本番リクエスト」を再現できていなかった)。
+      // Supabaseセッションcookie(sb-*)は認証状態の維持に必要なので、lv_auditだけを
+      // 名前指定でクリアする(全cookie削除だとログアウトしてしまう)。
+      await authContext.clearCookies({ name: "lv_audit" });
       const sessionId = `env-isolation-${runId}-prod-auth-${Date.now()}`;
       const res = await postEvent(authPage, prodServer.url, { eventName: "landing_view", sessionId });
       const rows = res.body?.accepted === 1 ? await fetchIsTestEventBySession(admin, sessionId) : [];

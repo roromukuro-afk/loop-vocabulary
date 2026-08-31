@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { trackServerEvent } from "@/lib/analytics/trackServerEvent";
 import { isNewGoogleOauthSignup } from "@/lib/auth/googleOauthSignup";
-import { AUDIT_MODE_COOKIE } from "@/lib/analytics/auditMode";
+import { resolveAnalyticsRequestContext } from "@/lib/analytics/resolveAnalyticsRequestContext";
 
 export const dynamic = "force-dynamic";
 
@@ -73,12 +73,10 @@ export async function GET(req: NextRequest) {
     // 保証されない(Codexレビュー指摘対応)。trackServerEvent()自体は例外を握りつぶし
     // 呼び出し元の処理を止めないため、ここでawaitしてもリダイレクト自体が失敗する
     // ことはない。
-    await trackServerEvent("signup_oauth_completed", {
+    await trackServerEvent("signup_oauth_completed", resolveAnalyticsRequestContext(req), {
       userId: user.id,
       anonymousSessionId,
       properties: { method: "google" },
-      e2eHeaderValue: req.headers.get("x-lv-e2e-test"),
-      auditCookieValue: req.cookies.get(AUDIT_MODE_COOKIE)?.value,
       source: attributionSource,
       campaign: attributionCampaign,
     });

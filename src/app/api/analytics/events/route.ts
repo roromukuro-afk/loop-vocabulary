@@ -3,8 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAllowedEventName, sanitizeProperties, MAX_STRING_PROPERTY_LENGTH } from "@/lib/analytics/eventSchema";
 import { looksLikeBot, isSameOriginRequest, checkRateLimit, isDuplicateEvent } from "@/lib/analytics/serverEventGuards";
-import { E2E_TEST_HEADER, computeIsTestEvent } from "@/lib/analytics/testEventClassification";
-import { AUDIT_MODE_COOKIE } from "@/lib/analytics/auditMode";
+import { resolveAnalyticsRequestContext } from "@/lib/analytics/resolveAnalyticsRequestContext";
 
 export const runtime = "nodejs";
 
@@ -62,10 +61,7 @@ export async function POST(req: NextRequest) {
   // フォールバック、Codexレビュー指摘対応) または 非production環境(Preview/ローカルdev/CI)
   // からの送信を is_test_event=true として保存し、集計(rollup)から除外する
   // (判定ロジックの詳細・環境契約はtestEventClassification.tsのコメント参照)。
-  const isTestRequest = computeIsTestEvent(
-    req.headers.get(E2E_TEST_HEADER),
-    req.cookies.get(AUDIT_MODE_COOKIE)?.value,
-  );
+  const isTestRequest = resolveAnalyticsRequestContext(req).isTestEvent;
 
   let body: unknown;
   try {

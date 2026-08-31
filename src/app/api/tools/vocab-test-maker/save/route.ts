@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { trackServerEvent, trackWordCountMilestones } from "@/lib/analytics/trackServerEvent";
 import { sanitizeRows } from "@/lib/vocabTest/parsePastedWords";
-import { E2E_TEST_HEADER } from "@/lib/analytics/testEventClassification";
-import { AUDIT_MODE_COOKIE } from "@/lib/analytics/auditMode";
+import { resolveAnalyticsRequestContext } from "@/lib/analytics/resolveAnalyticsRequestContext";
 
 export const runtime = "nodejs";
 
@@ -20,8 +19,7 @@ export const runtime = "nodejs";
  * ゼロから再検証する。
  */
 export async function POST(req: NextRequest) {
-  const e2eHeaderValue = req.headers.get(E2E_TEST_HEADER);
-  const auditCookieValue = req.cookies.get(AUDIT_MODE_COOKIE)?.value;
+  const analyticsContext = resolveAnalyticsRequestContext(req);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -143,26 +141,22 @@ export async function POST(req: NextRequest) {
   // 他のイベントと同じ相関キーで繋げられるようにする(/api/analytics/eventsの
   // 既存クライアント経路と同じ「未信用の相関キーとして100文字に切り詰め」方針)。
   const anonymousSessionId = req.cookies.get("lv_aid")?.value ?? null;
-  await trackServerEvent("wordbook_created", {
+  await trackServerEvent("wordbook_created", analyticsContext, {
     userId: user.id,
     anonymousSessionId,
-    e2eHeaderValue,
-    auditCookieValue,
     source: attributionSource,
     campaign: attributionCampaign,
     properties: { source_type: "custom" },
   });
-  await trackServerEvent("vocab_test_maker_saved_to_wordbook", {
+  await trackServerEvent("vocab_test_maker_saved_to_wordbook", analyticsContext, {
     userId: user.id,
     anonymousSessionId,
-    e2eHeaderValue,
-    auditCookieValue,
     source: attributionSource,
     campaign: attributionCampaign,
     properties: { row_count: rows.length },
   });
   if (!countBeforeErr) {
-    await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + wordRows.length, e2eHeaderValue, auditCookieValue);
+    await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + wordRows.length, analyticsContext);
   }
 
   return NextResponse.json({ ok: true, wordbook_id: newBook.id, word_count: rows.length });

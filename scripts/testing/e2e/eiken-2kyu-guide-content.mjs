@@ -21,6 +21,7 @@ import { chromium } from "playwright";
 import { loadEnv } from "../lib/env.mjs";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { collectErrors } from "./lib/login.mjs";
+import { getAuditToken } from "../lib/auditToken.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 const PAGE_PATH = "/guide/eiken-2kyu-tango";
@@ -74,7 +75,7 @@ async function main() {
     const errors = collectErrors(page);
     const analyticsEvents = await interceptAnalyticsEvents(page);
 
-    await page.setExtraHTTPHeaders({ "x-lv-e2e-test": "1" });
+    await page.setExtraHTTPHeaders({ "x-lv-e2e-test": getAuditToken() });
     const response = await page.goto(`${baseUrl}${PAGE_PATH}`, { waitUntil: "load" });
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(400);

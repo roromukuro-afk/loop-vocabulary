@@ -184,6 +184,7 @@
     "test:analytics-production-ingestion": "node scripts/testing/e2e/analytics-production-ingestion.mjs",
     "test:analytics-rejection-reasons": "node scripts/testing/e2e/analytics-rejection-reasons.mjs",
     "test:test-account-exclusion": "node scripts/testing/test-account-exclusion.mjs",
+    "test:analytics-central-context-usage": "node scripts/testing/analytics-central-context-usage.mjs",
     "test:retention-source-of-truth": "node scripts/testing/e2e/retention-source-of-truth.mjs",
     "test:revenue-test-account-exclusion": "node scripts/testing/revenue-test-account-exclusion.mjs",
     "test:growth-rollup-real-data": "node scripts/testing/e2e/growth-rollup-real-data.mjs",

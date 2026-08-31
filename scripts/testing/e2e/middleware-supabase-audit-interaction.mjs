@@ -44,6 +44,7 @@ import { TEST_ACCOUNTS } from "../lib/testAccounts.mjs";
 import { gotoReady } from "./lib/nav.mjs";
 import { login } from "./lib/login.mjs";
 import { guardAdNetworkRequests } from "./lib/adNetworkGuard.mjs";
+import { getAuditToken } from "../lib/auditToken.mjs";
 
 loadEnv();
 
@@ -64,7 +65,7 @@ async function main() {
     fail(`テストアカウント用パスワード(${account.passwordEnvKey})が.env.localに無い。先にnode scripts/testing/setup-test-users.mjsを実行してください`);
     return;
   }
-  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
+  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "LV_AUDIT_TOKEN"]);
   const admin = getAdminClient();
 
   process.env.VERCEL_ENV = "production";
@@ -137,7 +138,7 @@ async function main() {
       // 追加するため、updateSession()が既にセットしたsb-*のSet-Cookieが後から上書き・
       // 消去される経路はコード構造上存在しない。
       const res = await page.request.get(`${dev.url}/dashboard`, {
-        headers: { "x-lv-e2e-test": "1" },
+        headers: { "x-lv-e2e-test": getAuditToken() },
       });
       const headers = res.headers();
       if (headers["x-robots-tag"] === "noindex" && headers["cache-control"] === "private, no-store") {

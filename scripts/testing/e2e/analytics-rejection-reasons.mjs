@@ -7,6 +7,7 @@
  */
 import { loadEnv } from "../lib/env.mjs";
 import { ensureServer, stopDevServer } from "../lib/devServer.mjs";
+import { getAuditToken } from "../lib/auditToken.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 const REAL_BROWSER_UA =
@@ -62,7 +63,7 @@ async function main() {
     const dupEventId = `evt-dup-${Date.now()}`;
     const dupSessionId = `t-dup-${Date.now()}`;
     const first = await post(baseUrl, {
-      headers: { "x-lv-e2e-test": "1" },
+      headers: { "x-lv-e2e-test": getAuditToken() },
       body: { event_id: dupEventId, event_name: "landing_view", anonymous_session_id: dupSessionId },
     });
     const firstBody = await first.json();
@@ -70,7 +71,7 @@ async function main() {
     else bad(`1回目の送信が想定外: ${JSON.stringify(firstBody)}`);
 
     const second = await post(baseUrl, {
-      headers: { "x-lv-e2e-test": "1" },
+      headers: { "x-lv-e2e-test": getAuditToken() },
       body: { event_id: dupEventId, event_name: "landing_view", anonymous_session_id: dupSessionId },
     });
     const secondBody = await second.json();
@@ -83,7 +84,7 @@ async function main() {
     // サーバー側の上限は1分間60件(RATE_LIMIT_MAX_EVENTS)。同一session_idで61回連投する。
     for (let i = 0; i < 61; i++) {
       const r = await post(baseUrl, {
-        headers: { "x-lv-e2e-test": "1" },
+        headers: { "x-lv-e2e-test": getAuditToken() },
         body: { event_id: `evt-rl-${i}-${Date.now()}`, event_name: "landing_view", anonymous_session_id: rateLimitSessionId },
       });
       lastBody = await r.json();

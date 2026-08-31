@@ -62,24 +62,19 @@ function main() {
   if (route.includes("is_test_event: isTestRequest")) ok("取り込みAPI: is_test_event列への書き込みがある");
   else bad("取り込みAPI: is_test_event列への書き込みが見つからない");
   // Issue #95対応でE2Eヘッダー判定は共有helper computeIsTestEvent()
-  // (src/lib/analytics/testEventClassification.ts)へ抽出された。
-  // Issue #136強化(Codexレビュー指摘対応)でlv_audit Cookie(監査モードのSPA遷移で
-  // ヘッダーが再送されない場合のフォールバック)も第2引数として渡すよう拡張され、
-  // 呼び出しが複数行になった。exact single-line文字列一致は整形の変化に弱いため
-  // (Codexレビュー指摘: analytics-production-canary.ymlで実際に誤検知した)、
-  // 他のチェックと同じ近傍マッチ方式(assertGuardNear)へ変更する。
-  assertGuardNear(
-    route,
-    "computeIsTestEvent(",
-    ["req.headers.get(E2E_TEST_HEADER)"],
-    "取り込みAPI: E2Eテストヘッダー判定(共有helper経由)",
-  );
-  assertGuardNear(
-    route,
-    "computeIsTestEvent(",
-    ["AUDIT_MODE_COOKIE"],
-    "取り込みAPI: 監査Cookie判定(共有helper経由)",
-  );
+  // (src/lib/analytics/testEventClassification.ts)へ抽出されたが、PR #137の
+  // オーナー指摘対応(中央集約リファクタ)でcomputeIsTestEvent()自体が撤去され、
+  // resolveAnalyticsRequestContext()(src/lib/analytics/resolveAnalyticsRequestContext.ts)
+  // へ置き換わった。この取り込みAPIが実際にその中央helperを経由していること・
+  // E2Eヘッダー/audit Cookieの生値を自分で読み取っていないことの詳細な検証は
+  // test:analytics-central-context-usage(scripts/testing/analytics-central-context-usage.mjs)
+  // に一本化したため、ここでは「computeIsTestEventという撤去済みのAPIへ戻っていないか」
+  // の簡易チェックのみ残す。
+  if (!route.includes("computeIsTestEvent(")) {
+    ok("取り込みAPI: 撤去済みのcomputeIsTestEvent()を呼び出していない(resolveAnalyticsRequestContext経由の詳細はtest:analytics-central-context-usage参照)");
+  } else {
+    bad("取り込みAPI: 撤去済みのはずのcomputeIsTestEvent()が呼び出されている");
+  }
 
   console.log(fail ? `\n=== test:test-account-exclusion: ${fail}件失敗 (${pass}件成功) ===` : `\n=== test:test-account-exclusion RESULT: all ${pass} checks passed ===`);
   process.exit(fail ? 1 : 0);

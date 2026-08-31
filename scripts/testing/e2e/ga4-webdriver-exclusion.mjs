@@ -47,6 +47,7 @@ import { chromium } from "playwright";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { gotoReady } from "./lib/nav.mjs";
 import { guardAdNetworkRequests } from "./lib/adNetworkGuard.mjs";
+import { getAuditToken } from "../lib/auditToken.mjs";
 
 const PORT_LOCAL = Number(process.env.TEST_PORT || 3799);
 const PORT_PROD = PORT_LOCAL + 1;
@@ -208,7 +209,7 @@ async function main() {
           cacheControlHeader = res.headers()["cache-control"];
         }
       });
-      await gotoReady(page, `${devProd.url}/`); // gotoReady()がx-lv-e2e-test:1ヘッダーを送信
+      await gotoReady(page, `${devProd.url}/`); // gotoReady()がx-lv-e2e-test:<LV_AUDIT_TOKEN>ヘッダーを送信
       await page.waitForTimeout(2000);
 
       if (collectRequests.length === 0) ok("webdriver=false偽装 + 監査モード(x-lv-e2e-testヘッダー): GA4計測リクエストが発生しない");
@@ -233,6 +234,27 @@ async function main() {
         fail(`監査モードCookieの属性が想定と異なる(実測: ${JSON.stringify(auditCookie)})`);
       }
 
+      // オーナー指摘のセキュリティ対応(Issue #136是正の再強化)の直接検証: ヘッダー名は
+      // 正しいが値がLV_AUDIT_TOKENと一致しない("1"を含む、以前の固定値も含む)場合、
+      // 監査モードは一切起動しない(=X-Robots-Tag/Cache-Control/Set-Cookieが付与されない
+      // 通常アクセス扱いになる)ことを実測する。
+      {
+        const mismatchedContext = await browser.newContext();
+        const mismatchedPage = await mismatchedContext.newPage();
+        await mismatchedPage.setExtraHTTPHeaders({ "x-lv-e2e-test": "1" });
+        const res = await mismatchedPage.goto(`${devProd.url}/`, { waitUntil: "load" });
+        const headers = res.headers();
+        const cookiesAfter = await mismatchedContext.cookies();
+        const gotAuditCookie = cookiesAfter.some((c) => c.name === "lv_audit");
+        const leaked = headers["x-robots-tag"] || headers["cache-control"] === "private, no-store" || gotAuditCookie;
+        if (!leaked) {
+          ok("トークン不一致(旧固定値\"1\")のヘッダーは通常アクセスとして扱われ、監査モード用ヘッダー・Cookieが一切付与されない");
+        } else {
+          fail(`トークン不一致にも関わらず監査モードが起動した(実測: x-robots-tag=${headers["x-robots-tag"] ?? "(なし)"}, cache-control=${headers["cache-control"] ?? "(なし)"}, lv_audit cookie=${gotAuditCookie}) — LV_AUDIT_TOKEN照合が機能していない可能性がある`);
+        }
+        await mismatchedContext.close();
+      }
+
       // 6. SPA遷移でも監査モードが維持されるか(ヘッダーを送らないクライアントサイド遷移)
       await page.setExtraHTTPHeaders({}); // 以後のナビゲーションでヘッダーを送らない(Cookieのみに依存させる)
       const collectRequestsAfterSpaNav = [];
@@ -254,7 +276,7 @@ async function main() {
       // 付与されないことを確認する(推測でなく実測)。
       for (const staticPath of ["/robots.txt", "/sitemap.xml", "/ads.txt"]) {
         const res = await page.request.get(`${devProd.url}${staticPath}`, {
-          headers: { "x-lv-e2e-test": "1" },
+          headers: { "x-lv-e2e-test": getAuditToken() },
         });
         const headers = res.headers();
         const leaked = headers["x-robots-tag"] || headers["set-cookie"] || headers["cache-control"] === "private, no-store";
@@ -266,7 +288,7 @@ async function main() {
       // (先のページ読み込みで観測した実URLを再リクエストする)。
       if (nextStaticRequests.length > 0) {
         const chunkUrl = nextStaticRequests[0];
-        const res = await page.request.get(chunkUrl, { headers: { "x-lv-e2e-test": "1" } });
+        const res = await page.request.get(chunkUrl, { headers: { "x-lv-e2e-test": getAuditToken() } });
         const headers = res.headers();
         const leaked = headers["x-robots-tag"] || headers["set-cookie"] || headers["cache-control"] === "private, no-store";
         if (!leaked) ok(`middleware matcherが/_next/static配下を除外している(監査ヘッダー付きでも監査用ヘッダーが付与されない、status=${res.status()})`);
@@ -280,7 +302,7 @@ async function main() {
       for (const method of ["get", "post"]) {
         const start = Date.now();
         const res = await page.request[method](`${devProd.url}/api/analytics/events`, {
-          headers: { "x-lv-e2e-test": "1" },
+          headers: { "x-lv-e2e-test": getAuditToken() },
           timeout: 10000,
           ...(method === "post" ? { data: {} } : {}),
         });

@@ -3,8 +3,8 @@ import { updateSession } from "@/lib/supabase/middleware";
 import {
   AUDIT_MODE_COOKIE,
   AUDIT_MODE_COOKIE_MAX_AGE_SECONDS,
-  AUDIT_MODE_HEADER,
 } from "@/lib/analytics/auditMode";
+import { isAuditModeRequest } from "@/lib/analytics/auditModeServer";
 
 /**
  * Codexレビュー指摘(PR #137、P1)対応: Next.jsはプロジェクト内で1つの
@@ -49,10 +49,11 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  const hasAuditHeader = request.headers.get(AUDIT_MODE_HEADER) === "1";
-  const hasAuditCookie = request.cookies.get(AUDIT_MODE_COOKIE)?.value === "1";
-
-  if (!hasAuditHeader && !hasAuditCookie) {
+  // ヘッダー値は秘密トークンと照合される(src/lib/analytics/auditMode.tsの
+  // isAuditHeaderAuthorized参照、オーナー指摘のセキュリティ対応)。既存のCookie(値"1")の
+  // みでの維持判定と合わせて、この1関数だけが「監査モードかどうか」の唯一の判定基準になる
+  // (resolveAnalyticsRequestContext.tsも同じ関数を使う)。
+  if (!isAuditModeRequest(request)) {
     return response;
   }
 

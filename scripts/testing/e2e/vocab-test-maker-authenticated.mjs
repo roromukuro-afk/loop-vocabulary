@@ -27,6 +27,7 @@ import { TEST_ACCOUNTS } from "../lib/testAccounts.mjs";
 import { getAdminClient } from "../lib/supabaseAdmin.mjs";
 import { login, collectErrors } from "./lib/login.mjs";
 import { gotoReady } from "./lib/nav.mjs";
+import { getAuditToken } from "../lib/auditToken.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 const PAGE_PATH = "/tools/vocab-test-maker";
@@ -42,7 +43,7 @@ async function cleanupWordbook(admin, wordbookId) {
 
 async function main() {
   loadEnv();
-  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", TEST_ACCOUNTS.srs.passwordEnvKey]);
+  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "LV_AUDIT_TOKEN", TEST_ACCOUNTS.srs.passwordEnvKey]);
   const email = TEST_ACCOUNTS.srs.email;
   const password = process.env[TEST_ACCOUNTS.srs.passwordEnvKey];
 
@@ -446,7 +447,7 @@ async function main() {
       // それ自体が上で遅延させたauth/v1/userの解決を待ってしまうため、この
       // シナリオでは使えない(使うと「まだ未解決」の状態を再現できなくなる)。
       // 代わりにhydration待ちだけの軽量navigationを使う。
-      await page.setExtraHTTPHeaders({ "x-lv-e2e-test": "1" });
+      await page.setExtraHTTPHeaders({ "x-lv-e2e-test": getAuditToken() });
       await page.goto(`${baseUrl}${PAGE_PATH}`, { waitUntil: "load" });
       await page.waitForTimeout(600);
       const paste = "d1,テスト1\nd2,テスト2";

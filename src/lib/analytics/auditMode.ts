@@ -10,11 +10,12 @@
  * (3) 監査対象URLがnoindexにならない、
  * という3点が不十分だった。
  *
- * 監査モードは、監査スクリプト側が明示的に送る既存の `x-lv-e2e-test: 1` ヘッダー
- * (testEventClassification.tsのE2EヘッダーとPlaywright共通ナビゲーションヘルパー
- * scripts/testing/e2e/lib/nav.mjsのgotoReady()が既に全E2Eナビゲーションで送信済み。
- * 元々「本番へ意図的に送るProduction Canaryのためのオーバーライド」として設計されており、
- * 監査除外の用途に完全に合致する)を起点とし、推測では絶対に有効化されない。
+ * 監査モードは、監査スクリプト側が明示的に送る `x-lv-e2e-test` ヘッダー
+ * (値は秘密トークン。詳細はauditModeServer.ts参照。testEventClassification.tsの
+ * E2EヘッダーとPlaywright共通ナビゲーションヘルパー scripts/testing/e2e/lib/nav.mjsの
+ * gotoReady()が既に全E2Eナビゲーションで送信済み。元々「本番へ意図的に送るProduction
+ * Canaryのためのオーバーライド」として設計されており、監査除外の用途に完全に合致する)
+ * を起点とし、推測では絶対に有効化されない。
  *
  * ヘッダーはサーバーサイド(middleware.ts)でのみ観測できるため、
  * middleware.tsがこのヘッダーを見て:
@@ -25,10 +26,20 @@
  *     毎回ヘッダーを送らなくても、SPA遷移中は監査モードが維持される)
  * を行う。クライアント側(layout.tsx・AdSenseLoader.tsx)はこのCookieの有無だけを見て
  * GA4/Clarity/広告タグの読み込み自体を止める。
+ *
+ * 【このファイルはクライアントバンドルにも含まれる】layout.tsx(AUDIT_MODE_COOKIE_CHECK_EXPR)
+ * とAdSenseLoader.tsx("use client", isAuditModeActiveClient)がブラウザ側から直接importする
+ * ため、node:crypto等のNode専用API・process.env.LV_AUDIT_TOKEN(秘密トークン)の読み取りは
+ * 一切ここに置いてはならない(置くとwebpackがクライアントバンドルのビルドに失敗する上、
+ * 万一ビルドが通ってしまった場合は秘密がクライアントへ漏洩する)。ヘッダー値を秘密トークンと
+ * 照合するサーバー専用ロジックは ./auditModeServer.ts に分離されている
+ * (middleware.ts・resolveAnalyticsRequestContext.tsなど、Route Handler/Middlewareからのみ
+ * importされる)。
  */
 
 export const AUDIT_MODE_HEADER = "x-lv-e2e-test";
 export const AUDIT_MODE_COOKIE = "lv_audit";
+
 // オーナー指摘対応: サーバーは「監査が終わった」ことを能動的に検知してCookieを
 // 削除できない(ステートレスなため)。短い有効期限にすることで、監査終了後は
 // ブラウザが自動的に破棄する「実質的な削除」を保証する(詳細はmiddleware.ts参照)。
