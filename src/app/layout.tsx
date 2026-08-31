@@ -4,6 +4,7 @@ import Script from "next/script";
 import { AdSenseLoader } from "@/components/ads/AdSenseLoader";
 import { toFundingChoicesPublisherId } from "@/lib/ads/consentManagement";
 import { isProductionEnvironment } from "@/lib/analytics/testEventClassification";
+import { AUDIT_MODE_COOKIE_CHECK_EXPR } from "@/lib/analytics/auditMode";
 import "./globals.css";
 
 const APP_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loop-vocabulary.app";
@@ -70,9 +71,9 @@ const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
 // Playwright監査した際、そのアクセスがGA4へ実ユーザーのDirectトラフィックとして
 // 大量混入した(1,364/1,408ユーザーが該当7日間に集中)。preview/local(VERCEL_ENV!==
 // "production")では元々GA4を読み込まない設計にし、production自体への自動巡回は
-// クライアント側のnavigator.webdriver判定(下記の初期化スクリプト内)で除外する。
-// isProductionEnvironment()はVERCEL_ENVのみを見るbuild/runtime判定でheaders()等を
-// 使わないため、静的レンダリングを妨げない。
+// 「監査モード」(下記の初期化スクリプト内、詳細はsrc/lib/analytics/auditMode.tsと
+// src/middleware.ts参照)で除外する。isProductionEnvironment()はVERCEL_ENVのみを見る
+// build/runtime判定でheaders()等を使わないため、静的レンダリングを妨げない。
 const SHOULD_LOAD_ANALYTICS = isProductionEnvironment();
 
 const ORGANIZATION_LD = {
@@ -131,17 +132,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
         {SHOULD_LOAD_ANALYTICS && GA_ID && (
           <>
-            {/* GA4 must be in <head> for Google Search Console verification */}
+            {/* GA4 must be in <head> for Google Search Console verification.
+                gtag/js自体の読み込み(ライブラリのfetch)はそれ単体では計測データを
+                送信しない(データを送るのはgtag('config',...)呼び出し)。GSC側の
+                検証はこのタグの存在自体を見るため、静的に残す。 */}
             <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} />
-            {/* GA4是正(Issue #136): navigator.webdriverはPlaywright/Puppeteer/Selenium等の
-                自動操作ブラウザがdefaultでtrueにする標準プロパティ(意図的な回避コードが
-                無い限り)。これによりgtag('js',...)呼び出し自体は行いつつ('js'コマンドは
-                計測データを送信しない)、実際に計測イベントを送るgtag('config',...)だけを
-                自動巡回から除外する。将来の自動E2E・監査スクリプトは何も対応しなくても
-                自動的に除外される。 */}
+            {/* GA4是正(Issue #136強化): 実際に計測データを送るgtag('config',...)だけを
+                2層の判定で監査から除外する。
+                (1) navigator.webdriver: Playwright/Puppeteer/Selenium等の自動操作ブラウザが
+                    既定でtrueにする標準プロパティ。監査スクリプト側の対応なしに除外できる
+                    第一防衛線だが、推測ベースの判定。
+                (2) 監査モードCookie(AUDIT_MODE_COOKIE_CHECK_EXPR): Connected Chrome/CDP経由で
+                    navigator.webdriverがfalseになるケースでも、監査スクリプトが明示的に
+                    送った`x-lv-e2e-test: 1`ヘッダーをmiddleware.tsが検知してセットする
+                    Cookieを見て確実に除外する(推測ではなく明示的なオプトイン、詳細は
+                    src/lib/analytics/auditMode.ts参照)。
+                将来の自動E2E・監査スクリプトは何も対応しなくても(1)で自動的に除外され、
+                本番への意図的な監査は(2)のヘッダーを送ることで確実に除外できる。 */}
             <script
               dangerouslySetInnerHTML={{
-                __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());if(!(navigator.webdriver)){gtag('config','${GA_ID}');}`,
+                __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());if(!(navigator.webdriver||${AUDIT_MODE_COOKIE_CHECK_EXPR})){gtag('config','${GA_ID}');}`,
               }}
             />
           </>
@@ -152,8 +162,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_LD) }} />
         {children}
         {SHOULD_LOAD_ANALYTICS && CLARITY_ID && (
+          // Clarityはgtagと異なりGSC検証等の外部要件が無いため、除外対象の場合は
+          // scriptタグの生成自体を行わない(ネットワークリクエストが一切発生しない)。
           <Script id="clarity-init" strategy="afterInteractive">
-            {`if(!(navigator.webdriver)){(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","${CLARITY_ID}");}`}
+            {`if(!(navigator.webdriver||${AUDIT_MODE_COOKIE_CHECK_EXPR})){(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","${CLARITY_ID}");}`}
           </Script>
         )}
         {/* AdSenseLoaderはisAdsAllowedPath()の判定にuseSearchParams()を使うため、Suspense

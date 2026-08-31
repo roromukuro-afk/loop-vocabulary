@@ -3,21 +3,37 @@
  *
  * 背景: 2026-08-27にAdSense是正作業の一環で本番190URL全件を複数回Playwright監査した
  * 際、そのアクセスがGA4へ実ユーザーのDirectトラフィックとして大量混入した
- * (該当7日間で1,364/1,408ユーザーが集中)。対策として:
+ * (該当7日間で1,364/1,408ユーザーが集中)。オーナーからの追加指摘を受け、除外の根拠を
+ * navigator.webdriverのみに依存しない多層防御へ強化した:
+ *
  * 1. preview/local(VERCEL_ENV!=="production")ではGA4/Clarity自体を読み込まない
  * 2. production相当でも、navigator.webdriver(Playwright/Puppeteer/Selenium等の
- *    自動操作ブラウザがdefaultでtrueにする標準プロパティ)がtrueの場合は
- *    gtag('config',...)を呼ばない(スクリプト自体の読み込みは行うため、意図的な
- *    回避コードが無い限り将来の自動E2E・監査も何もせず自動的に除外される)
+ *    自動操作ブラウザがdefaultでtrueにする標準プロパティ)がtrueの場合はgtag('config',...)を
+ *    呼ばない(推測ベースの第一防衛線。監査スクリプト側の対応なしに自動的に除外される)
+ * 3. 「監査モード」: 監査スクリプトが明示的に送る`x-lv-e2e-test: 1`ヘッダー
+ *    (scripts/testing/e2e/lib/nav.mjsのgotoReady()が全E2Eナビゲーションで送信済み。
+ *    testEventClassification.tsで元々「本番へ意図的に送るProduction Canaryのための
+ *    オーバーライド」として設計済み)をsrc/middleware.tsが検知し、非httpOnly Cookieを
+ *    セットする。navigator.webdriverがfalseに偽装されていても、このCookieがあれば
+ *    確実に除外される(推測ではなく明示的なオプトイン)。Cookieはブラウザが以後の
+ *    リクエストへ自動付与するため、SPA遷移中も監査モードが維持される。
+ * 4. middleware.tsは監査モード検知時、レスポンスへ`X-Robots-Tag: noindex`も付与する
+ *    (監査対象URLをindexさせない)。
  *
  * 検証項目:
- * 1. VERCEL_ENV未設定(local/preview相当)では、GA4スクリプトタグ自体がDOMに存在しない
- * 2. VERCEL_ENV="production"相当・navigator.webdriver=true(Playwrightの既定値)では、
- *    スクリプトタグは存在するが、実際のGA4計測リクエスト(google-analytics.com等への
- *    collectリクエスト)は発生しない
- * 3. 同じproduction相当でも、navigator.webdriverをfalseに偽装すると計測リクエストが
- *    発生する(=ロジックが「常時ブロック」の壊れた実装ではなく、webdriver判定で
- *    正しく分岐していることの確認)
+ * 1. VERCEL_ENV未設定(local/preview相当): GA4スクリプトタグ自体がDOMに存在しない
+ * 2. production相当・webdriver=true・監査ヘッダーなし: スクリプトタグは存在するが
+ *    計測リクエストは発生しない(webdriver判定のみでの除外)
+ * 3. production相当・webdriver=false(偽装)・監査ヘッダーなし: 計測リクエストが発生する
+ *    (常時ブロックの壊れた実装ではないことの確認 = 実ユーザー相当の挙動)
+ * 4. production相当・webdriver=false(偽装)・監査ヘッダーあり: 計測リクエストが発生しない
+ *    (Connected Chrome/CDP等でwebdriverが偽装されていても、監査モードで確実に除外)
+ * 5. 上記4のレスポンスに X-Robots-Tag: noindex が付与されている
+ * 6. 監査モードで訪問したページから、ヘッダーを再送しないSPA遷移(クリックによる
+ *    クライアントサイド遷移)をしても、遷移先ページで監査モードが維持される
+ *    (Cookieによる状態維持)
+ * 7. 監査モードを一切使っていない新規ページ(新しいbrowser context)では、
+ *    通常どおり計測リクエストが発生する(監査モードがグローバルに漏れ出していないこと)
  *
  * 使い方: node scripts/testing/e2e/ga4-webdriver-exclusion.mjs
  */
@@ -36,6 +52,14 @@ function isGa4CollectRequest(url) {
   return /google-analytics\.com\/(g\/collect|mp\/collect)|analytics\.google\.com\/g\/collect/.test(url);
 }
 
+/** gotoReady()と異なり、監査ヘッダーを一切送らない「実ユーザー相当」の遷移。 */
+async function gotoAsRealUser(page, url) {
+  await page.setExtraHTTPHeaders({});
+  await page.goto(url, { waitUntil: "load" });
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(400);
+}
+
 async function main() {
   // GA_IDはNEXT_PUBLIC_*でbuild時に静的埋め込みされるため、テスト専用値を注入して
   // forceRebuild:trueで反映させる(既存のAdSenseテストと同じ手法)。
@@ -47,9 +71,6 @@ async function main() {
 
   try {
     // ---- 1. VERCEL_ENV未設定(local/preview相当)ではGA4スクリプトタグが存在しない ----
-    // ensureServer()のbuildステップ(execFileSync)はopts.envを受け取らずこのプロセス自身の
-    // process.envをそのまま継承するため、静的プリレンダーに焼き込ませたい値はここで直接
-    // process.env側に設定する(opts.envはnpm run startの起動プロセスにのみ渡る)。
     delete process.env.VERCEL_ENV;
     devLocal = await ensureDevServer(PORT_LOCAL, { forceRebuild: true, env: { VERCEL_ENV: "" } });
     const pageLocal = await browser.newPage();
@@ -60,66 +81,100 @@ async function main() {
     else fail(`VERCEL_ENV未設定でもGA4スクリプトタグが存在する(${gaScriptCountLocal}件)`);
     await pageLocal.close();
 
-    // ---- 2〜3. VERCEL_ENV="production"相当でのwebdriver判定 ----
-    // SHOULD_LOAD_ANALYTICSはlayout.tsx(ルートのServer Component)のモジュール
-    // トップレベルで評価されるため、静的プリレンダー対象のページではビルド時の
-    // process.env.VERCEL_ENVの値がHTMLに焼き込まれる(skipBuildでVERCEL_ENV未設定の
-    // ビルド成果物を使い回すと、起動時にVERCEL_ENVを注入してもstaticページには反映
-    // されない)。実際のVercelではビルドステップ自体もVERCEL_ENVが設定された状態で
-    // 走る(production buildはbuild時点からVERCEL_ENV=production)ため、これを正しく
-    // 再現するにはbuildする前からVERCEL_ENV=productionを設定し、このシナリオ専用に
-    // forceRebuildする必要がある。builドステップ自体はopts.envではなくprocess.envを
-    // 継承するため、ここでも直接process.env側に設定する(上のコメント参照)。
+    // ---- 2〜7. VERCEL_ENV="production"相当 ----
     process.env.VERCEL_ENV = "production";
     devProd = await ensureDevServer(PORT_PROD, {
       forceRebuild: true,
       env: { VERCEL_ENV: "production", PORT: String(PORT_PROD) },
     });
 
-    // 2. navigator.webdriver=true(Playwrightの既定値、偽装なし)では計測リクエストが発生しない
+    // 2. webdriver=true(偽装なし)・監査ヘッダーなし: 計測リクエストが発生しない
     {
       const page = await browser.newPage();
       const collectRequests = [];
-      page.on("request", (req) => {
-        if (isGa4CollectRequest(req.url())) collectRequests.push(req.url());
-      });
+      page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequests.push(req.url()); });
       const webdriverValue = await page.evaluate(() => navigator.webdriver);
-      await gotoReady(page, `${devProd.url}/`);
+      await gotoAsRealUser(page, `${devProd.url}/`);
       await page.waitForTimeout(2000);
 
       const gaScriptCount = await page.locator('script[src*="googletagmanager.com/gtag/js"]').count();
-      if (gaScriptCount > 0) ok("production相当: GA4スクリプトタグ自体は存在する(読み込み自体は維持)");
+      if (gaScriptCount > 0) ok("production相当: GA4スクリプトタグ自体は存在する(GSC検証用に読み込みは維持)");
       else fail("production相当でもGA4スクリプトタグが存在しない");
 
-      if (webdriverValue === true) ok(`navigator.webdriver=true(Playwright既定値)を確認`);
+      if (webdriverValue === true) ok("navigator.webdriver=true(Playwright既定値)を確認");
       else fail(`navigator.webdriverがtrueではない(実測: ${webdriverValue})。このテスト環境ではwebdriver除外の検証ができない`);
 
-      if (collectRequests.length === 0) {
-        ok("navigator.webdriver=true時、GA4計測リクエスト(collect)が発生しない");
-      } else {
-        fail(`navigator.webdriver=true時にもGA4計測リクエストが発生した: ${collectRequests.join(", ")}`);
-      }
+      if (collectRequests.length === 0) ok("webdriver=true・監査ヘッダーなし: GA4計測リクエストが発生しない");
+      else fail(`webdriver=true時にもGA4計測リクエストが発生した: ${collectRequests.join(", ")}`);
       await page.close();
     }
 
-    // 3. navigator.webdriverをfalseに偽装すると計測リクエストが発生する(常時ブロックでないことの確認)
+    // 3. webdriver=false(偽装)・監査ヘッダーなし: 計測リクエストが発生する(実ユーザー相当)
     {
       const page = await browser.newPage();
       await page.addInitScript(() => {
         Object.defineProperty(navigator, "webdriver", { get: () => false });
       });
       const collectRequests = [];
-      page.on("request", (req) => {
-        if (isGa4CollectRequest(req.url())) collectRequests.push(req.url());
-      });
-      await gotoReady(page, `${devProd.url}/`);
+      page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequests.push(req.url()); });
+      await gotoAsRealUser(page, `${devProd.url}/`);
       await page.waitForTimeout(2000);
 
-      if (collectRequests.length > 0) {
-        ok("navigator.webdriver=false偽装時はGA4計測リクエストが発生する(webdriver判定で正しく分岐していることを確認)");
+      if (collectRequests.length > 0) ok("webdriver=false偽装・監査ヘッダーなし: GA4計測リクエストが発生する(実ユーザー相当・常時ブロックでないことを確認)");
+      else fail("webdriver=false偽装・監査ヘッダーなしでもGA4計測リクエストが発生しない(常時ブロックの壊れた実装になっている可能性)");
+      await page.close();
+    }
+
+    // 4〜5. webdriver=false(偽装)・監査ヘッダーあり: 計測リクエストが発生しない + noindex付与
+    {
+      const page = await browser.newPage();
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, "webdriver", { get: () => false });
+      });
+      const collectRequests = [];
+      page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequests.push(req.url()); });
+      let robotsTagHeader;
+      page.on("response", (res) => {
+        if (res.url() === `${devProd.url}/`) robotsTagHeader = res.headers()["x-robots-tag"];
+      });
+      await gotoReady(page, `${devProd.url}/`); // gotoReady()がx-lv-e2e-test:1ヘッダーを送信
+      await page.waitForTimeout(2000);
+
+      if (collectRequests.length === 0) ok("webdriver=false偽装 + 監査モード(x-lv-e2e-testヘッダー): GA4計測リクエストが発生しない");
+      else fail(`監査モードでもGA4計測リクエストが発生した: ${collectRequests.join(", ")}`);
+
+      if (robotsTagHeader === "noindex") ok("監査モード中のレスポンスに X-Robots-Tag: noindex が付与されている");
+      else fail(`監査モード中でも X-Robots-Tag: noindex が付与されていない(実測: ${robotsTagHeader ?? "(なし)"})`);
+
+      // 6. SPA遷移でも監査モードが維持されるか(ヘッダーを送らないクライアントサイド遷移)
+      await page.setExtraHTTPHeaders({}); // 以後のナビゲーションでヘッダーを送らない(Cookieのみに依存させる)
+      const collectRequestsAfterSpaNav = [];
+      page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequestsAfterSpaNav.push(req.url()); });
+      const dictionaryLink = page.locator('a[href="/dictionary"]').first();
+      if (await dictionaryLink.count() > 0) {
+        await dictionaryLink.click();
+        await page.waitForLoadState("networkidle");
+        await page.waitForTimeout(1500);
+        if (collectRequestsAfterSpaNav.length === 0) ok("SPA遷移後(ヘッダー再送なし)も監査モードが維持され、GA4計測リクエストが発生しない");
+        else fail(`SPA遷移後に監査モードが外れ、GA4計測リクエストが発生した: ${collectRequestsAfterSpaNav.join(", ")}`);
       } else {
-        fail("navigator.webdriver=falseに偽装してもGA4計測リクエストが発生しない(常時ブロックの壊れた実装になっている可能性)");
+        fail("SPA遷移テスト用の/dictionaryへのリンクが見つからず検証できなかった");
       }
+      await page.close();
+    }
+
+    // 7. 監査モードを使っていない完全に新規のページでは通常どおり計測リクエストが発生する
+    {
+      const page = await browser.newPage();
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, "webdriver", { get: () => false });
+      });
+      const collectRequests = [];
+      page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequests.push(req.url()); });
+      await gotoAsRealUser(page, `${devProd.url}/`);
+      await page.waitForTimeout(2000);
+      if (collectRequests.length > 0) ok("監査モード未使用の新規ページでは通常どおりGA4計測リクエストが発生する(グローバルな漏れ出しがないことを確認)");
+      else fail("監査モードを一度も使っていない新規ページでもGA4計測リクエストが発生しない(監査モードが意図せずグローバルに影響している可能性)");
       await page.close();
     }
 

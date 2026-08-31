@@ -17,12 +17,16 @@
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
 import { isAdsAllowedPath } from "@/lib/ads/adRoutePolicy";
+import { isAuditModeActiveClient } from "@/lib/analytics/auditMode";
 
 export function AdSenseLoader({ client }: { client?: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  if (!client || !isAdsAllowedPath(pathname, searchParams)) return null;
+  // GA4是正(Issue #136強化)で追加した監査モード判定をここにも適用する
+  // (ユーザー指示による明示的な例外。AdSenseのAuto ads初期化ロジック自体は変更していない)。
+  // 監査モード中はadsbygoogle.js自体を読み込まない。
+  if (!client || !isAdsAllowedPath(pathname, searchParams) || isAuditModeActiveClient()) return null;
 
   return (
     <Script
