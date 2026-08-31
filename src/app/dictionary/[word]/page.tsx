@@ -108,7 +108,10 @@ export default async function WordPage({ params }: { params: Promise<{ word: str
         <header className="mt-3">
           <div className="flex items-baseline gap-3 flex-wrap">
             <h1 className="text-2xl font-black text-navy-800">{entry.word}</h1>
-            <span className="text-navy-400 text-sm">{entry.ipa}</span>
+            <span className="text-navy-400 text-sm">
+              {entry.ipa}
+              {entry.katakana ? `／${entry.katakana}` : ""}
+            </span>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-semibold">{entry.pos}</span>
           </div>
 
@@ -119,6 +122,16 @@ export default async function WordPage({ params }: { params: Promise<{ word: str
             <dt className="sr-only">{entry.word}の意味</dt>
             <dd className="text-lg text-navy-700">{entry.meaningJa}</dd>
           </dl>
+
+          {/* 品詞違いの関連語との使い分け(GSCで「〇〇 形容詞」等のクエリが確認できた語のみ)。
+              関連語リストへ埋没させず、冒頭付近で直接回答する。 */}
+          {entry.posContrast && (
+            <div className="mt-3 bg-sky-50 border border-sky-100 rounded-xl p-3">
+              <p className="text-sm text-navy-700 leading-relaxed">
+                <strong>{entry.word}</strong>と<strong>{entry.posContrast.relatedWord}</strong>の違い: {entry.posContrast.note}
+              </p>
+            </div>
+          )}
 
           <div className="mt-2 flex flex-wrap gap-1.5">
             {entry.examLevels.map((lv) => (
