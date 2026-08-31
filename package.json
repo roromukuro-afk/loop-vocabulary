@@ -195,6 +195,7 @@
     "test:all-production-domain-redirects": "node scripts/testing/e2e/all-production-domain-redirects.mjs",
     "test:noindex-crawlability": "node scripts/testing/e2e/noindex-crawlability.mjs",
     "test:ads-txt-live": "node scripts/testing/ads-txt-live.mjs",
+    "test:ad-placement-provider-gating": "node scripts/testing/e2e/ad-placement-provider-gating.mjs",
     "test:improvement-issue-generation": "node scripts/testing/e2e/improvement-issue-generation.mjs",
     "test:issue-deduplication": "node scripts/testing/test-issue-deduplication.mjs",
     "test:priority-scoring": "node scripts/testing/test-priority-scoring.mjs",

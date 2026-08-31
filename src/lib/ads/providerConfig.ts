@@ -41,8 +41,28 @@ export function getIMobileConfig(): IMobileConfig {
   };
 }
 
+// Codexレビュー指摘(P2)対応: IMobileConfigには実タグ由来のフィールド
+// (mediaId等)がまだ存在しない(承認後、実際に発行された値を見てから追加する)。
+// enabledフラグだけを見て「表示可能」と判定すると、IMobileSlotが常にnullを返す
+// スタブである以上、広告枠の外枠(CLS防止の予約領域+「広告」ラベル)だけが表示され
+// 中身が空、という状態になってしまう。実タグ由来のフィールドが揃うまでは、
+// enabledの値に関わらず常にfalseを返す。i-mobile承認後、IMobileConfigへ実際の
+// フィールドを追加したら、この関数もそれに応じて更新すること。
+export function isIMobileDisplayable(config: IMobileConfig): boolean {
+  void config;
+  return false;
+}
+
 // production以外(preview/local)では、providerの個別設定に関わらず一切配信しない。
 // GA4是正(Issue #136)のSHOULD_LOAD_ANALYTICSと同じ判定を再利用する。
+//
+// Codexレビュー指摘(P1)対応: この関数はprocess.env.VERCEL_ENVを見るが、これは
+// NEXT_PUBLIC_接頭辞が無いためクライアントバンドルには埋め込まれない。
+// クライアントコンポーネント(AdPlacementInner)から直接呼ぶと、ブラウザ上では
+// 常にundefined===undefinedでfalse相当になり、本番でも広告が永久に表示されない
+// (silent failure)。そのため、この関数は必ずServer Component側(AdPlacement.tsx、
+// "use client"の付いていないファイル)で呼び、結果をpropとしてクライアント側へ
+// 明示的に渡すこと。クライアントコンポーネント内で直接呼び出さない。
 export function isThirdPartyAdsAllowedEnvironment(): boolean {
   return isProductionEnvironment();
 }
