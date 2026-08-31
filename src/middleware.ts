@@ -62,7 +62,10 @@ export const config = {
   // ここへさらにヘッダーを追記すると応答がハングする(E2Eテストで
   // page.waitForLoadState("networkidle")がタイムアウトする形で発覚・再現確認済み)ため、
   // 安全のためAPI全体を対象外にする。
+  // /_next/ 配下はstatic/imageに限らず丸ごと除外する(Next.js内部アセット全般に
+  // 監査ヘッダーを付与する意味が無いため。オーナー指摘によりstatic/imageのみの
+  // 限定除外から拡張)。
   matcher: [
-    "/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|json|xml|txt)$).*)",
+    "/((?!api/|_next/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|json|xml|txt)$).*)",
   ],
 };

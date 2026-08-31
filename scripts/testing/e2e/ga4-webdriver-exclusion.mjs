@@ -50,12 +50,17 @@ import { gotoReady } from "./lib/nav.mjs";
 const PORT_LOCAL = Number(process.env.TEST_PORT || 3799);
 const PORT_PROD = PORT_LOCAL + 1;
 const TEST_GA_ID = "G-TESTID0001";
+const TEST_ADSENSE_CLIENT = "ca-pub-0000000000000001";
 
 function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; }
 function ok(msg) { console.log(`✅ ${msg}`); }
 
 function isGa4CollectRequest(url) {
   return /google-analytics\.com\/(g\/collect|mp\/collect)|analytics\.google\.com\/g\/collect/.test(url);
+}
+
+function isAdSenseRequest(url) {
+  return url.includes("pagead2.googlesyndication.com");
 }
 
 /** gotoReady()と異なり、監査ヘッダーを一切送らない「実ユーザー相当」の遷移。 */
@@ -70,6 +75,9 @@ async function main() {
   // GA_IDはNEXT_PUBLIC_*でbuild時に静的埋め込みされるため、テスト専用値を注入して
   // forceRebuild:trueで反映させる(既存のAdSenseテストと同じ手法)。
   process.env.NEXT_PUBLIC_GA_ID = TEST_GA_ID;
+  // 監査モード中はAdSense(pagead2.googlesyndication.com)への通信も0件であるべき
+  // (AdSenseLoader.tsxのisAuditModeActiveClient()ガード)ため、これも合わせて検証する。
+  process.env.NEXT_PUBLIC_ADSENSE_CLIENT = TEST_ADSENSE_CLIENT;
 
   const browser = await chromium.launch();
   let devLocal;
@@ -122,12 +130,19 @@ async function main() {
         Object.defineProperty(navigator, "webdriver", { get: () => false });
       });
       const collectRequests = [];
-      page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequests.push(req.url()); });
+      const adsenseRequests = [];
+      page.on("request", (req) => {
+        if (isGa4CollectRequest(req.url())) collectRequests.push(req.url());
+        if (isAdSenseRequest(req.url())) adsenseRequests.push(req.url());
+      });
       await gotoAsRealUser(page, `${devProd.url}/`);
       await page.waitForTimeout(2000);
 
       if (collectRequests.length > 0) ok("webdriver=false偽装・監査ヘッダーなし: GA4計測リクエストが発生する(実ユーザー相当・常時ブロックでないことを確認)");
       else fail("webdriver=false偽装・監査ヘッダーなしでもGA4計測リクエストが発生しない(常時ブロックの壊れた実装になっている可能性)");
+
+      if (adsenseRequests.length > 0) ok("webdriver=false偽装・監査ヘッダーなし: AdSense(pagead2.googlesyndication.com)通信が発生する(実ユーザー相当・常時ブロックでないことを確認)");
+      else fail("webdriver=false偽装・監査ヘッダーなしでもAdSense通信が発生しない(常時ブロックの壊れた実装になっている可能性)");
       await page.close();
     }
 
@@ -138,7 +153,13 @@ async function main() {
         Object.defineProperty(navigator, "webdriver", { get: () => false });
       });
       const collectRequests = [];
-      page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequests.push(req.url()); });
+      const adsenseRequests = [];
+      const nextStaticRequests = [];
+      page.on("request", (req) => {
+        if (isGa4CollectRequest(req.url())) collectRequests.push(req.url());
+        if (isAdSenseRequest(req.url())) adsenseRequests.push(req.url());
+        if (req.url().includes("/_next/static/")) nextStaticRequests.push(req.url());
+      });
       let robotsTagHeader;
       let cacheControlHeader;
       page.on("response", (res) => {
@@ -152,6 +173,9 @@ async function main() {
 
       if (collectRequests.length === 0) ok("webdriver=false偽装 + 監査モード(x-lv-e2e-testヘッダー): GA4計測リクエストが発生しない");
       else fail(`監査モードでもGA4計測リクエストが発生した: ${collectRequests.join(", ")}`);
+
+      if (adsenseRequests.length === 0) ok("監査モード中: AdSense(pagead2.googlesyndication.com)通信が発生しない");
+      else fail(`監査モードでもAdSense通信が発生した: ${adsenseRequests.join(", ")}`);
 
       if (robotsTagHeader === "noindex") ok("監査モード中のレスポンスに X-Robots-Tag: noindex が付与されている");
       else fail(`監査モード中でも X-Robots-Tag: noindex が付与されていない(実測: ${robotsTagHeader ?? "(なし)"})`);
@@ -183,6 +207,57 @@ async function main() {
       } else {
         fail("SPA遷移テスト用の/dictionaryへのリンクが見つからず検証できなかった");
       }
+
+      // middleware matcherの静的ファイル除外(robots.txt/sitemap.xml/ads.txt)を
+      // 明示的に検証する。監査ヘッダーを送っても、これらのレスポンスには
+      // 監査モード用ヘッダー(X-Robots-Tag/Cache-Control/Set-Cookie)が一切
+      // 付与されないことを確認する(推測でなく実測)。
+      for (const staticPath of ["/robots.txt", "/sitemap.xml", "/ads.txt"]) {
+        const res = await page.request.get(`${devProd.url}${staticPath}`, {
+          headers: { "x-lv-e2e-test": "1" },
+        });
+        const headers = res.headers();
+        const leaked = headers["x-robots-tag"] || headers["set-cookie"] || headers["cache-control"] === "private, no-store";
+        if (!leaked) ok(`middleware matcherが${staticPath}を除外している(監査ヘッダー付きでも監査用ヘッダーが付与されない、status=${res.status()})`);
+        else fail(`${staticPath}に監査モード用ヘッダーが漏れている(実測: ${JSON.stringify(headers)})`);
+      }
+
+      // middleware matcherの/_next/*除外を実際のチャンクURLで検証する
+      // (先のページ読み込みで観測した実URLを再リクエストする)。
+      if (nextStaticRequests.length > 0) {
+        const chunkUrl = nextStaticRequests[0];
+        const res = await page.request.get(chunkUrl, { headers: { "x-lv-e2e-test": "1" } });
+        const headers = res.headers();
+        const leaked = headers["x-robots-tag"] || headers["set-cookie"] || headers["cache-control"] === "private, no-store";
+        if (!leaked) ok(`middleware matcherが/_next/static配下を除外している(監査ヘッダー付きでも監査用ヘッダーが付与されない、status=${res.status()})`);
+        else fail(`/_next/static配下に監査モード用ヘッダーが漏れている(実測: ${JSON.stringify(headers)})`);
+      } else {
+        fail("/_next/static配下へのリクエストが1件も観測できず、除外検証ができなかった");
+      }
+
+      // /api/analytics/events のGET/POSTがハングしないことを明示的に検証する
+      // (これまでは全ナビゲーションが送るPOSTの完了で間接的にしか確認していなかった)。
+      for (const method of ["get", "post"]) {
+        const start = Date.now();
+        const res = await page.request[method](`${devProd.url}/api/analytics/events`, {
+          headers: { "x-lv-e2e-test": "1" },
+          timeout: 10000,
+          ...(method === "post" ? { data: {} } : {}),
+        });
+        const elapsedMs = Date.now() - start;
+        ok(`/api/analytics/events への${method.toUpperCase()}がハングせず完了(status=${res.status()}, ${elapsedMs}ms)`);
+      }
+
+      // E2E終了時にaudit-mode Cookieを削除する(オーナー指摘対応)。
+      // Cookie自体はMax-Age 10分で自動失効する設計だが、テストプロセス終了後に
+      // 同一マシン上の他のE2E実行やConnected Chromeへ残存しないよう、
+      // テストスクリプト側でも明示的にクリアし、削除できたことを検証する。
+      await page.context().clearCookies();
+      const cookiesAfterClear = await page.context().cookies();
+      const auditCookieAfterClear = cookiesAfterClear.find((c) => c.name === "lv_audit");
+      if (!auditCookieAfterClear) ok("E2E終了時にaudit-mode Cookie(lv_audit)を明示的に削除できた");
+      else fail(`E2E終了後もaudit-mode Cookieが残存している(実測: ${JSON.stringify(auditCookieAfterClear)})`);
+
       await page.close();
     }
 
