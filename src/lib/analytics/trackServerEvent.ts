@@ -27,6 +27,13 @@ export async function trackServerEvent(
      */
     e2eHeaderValue?: string | null;
     /**
+     * リクエストの `lv_audit` Cookie値(Codexレビュー指摘対応、Issue #136)。監査モードの
+     * SPA遷移ではヘッダーが再送されずCookieのみが残るため、ヘッダーだけを見ると
+     * SPA遷移後のサーバーイベント発火が実ユーザートラフィックとして誤って記録される。
+     * 渡さない場合はヘッダーと環境のみで判定する(従来どおり)。
+     */
+    auditCookieValue?: string | null;
+    /**
      * 呼び出し元がクライアント側で判定済みのsource/campaignをそのまま渡したい場合に
      * 使う(Codexレビュー指摘対応、16巡目、最重要: src/app/auth/callback/route.ts の
      * signup_oauth_completedがこれを使う。詳細はsrc/lib/analytics/track.tsの
@@ -61,7 +68,7 @@ export async function trackServerEvent(
       // クライアント側ingestion(/api/analytics/events)と同じ判定helperを使い、
       // Preview/ローカルdev/CIからのサーバー発火イベントを本番集計から除外する
       // (以前はこの列を設定しておらずDEFAULT falseのまま=本番イベントと区別不能だった)。
-      is_test_event: computeIsTestEvent(opts.e2eHeaderValue),
+      is_test_event: computeIsTestEvent(opts.e2eHeaderValue, opts.auditCookieValue),
     });
     if (error) {
       console.error("[trackServerEvent] insert failed:", eventName, error.message);
@@ -207,13 +214,14 @@ export async function trackWordCountMilestones(
   countBefore: number,
   countAfter: number,
   e2eHeaderValue?: string | null,
+  auditCookieValue?: string | null,
 ): Promise<void> {
   try {
     if (countBefore < 5 && countAfter >= 5) {
-      await trackServerEvent("five_words_added", { userId, e2eHeaderValue });
+      await trackServerEvent("five_words_added", { userId, e2eHeaderValue, auditCookieValue });
     }
     if (countBefore < 10 && countAfter >= 10) {
-      await trackServerEvent("ten_words_added", { userId, e2eHeaderValue });
+      await trackServerEvent("ten_words_added", { userId, e2eHeaderValue, auditCookieValue });
     }
   } catch (e) {
     console.error("[trackWordCountMilestones] unexpected error:", e);

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isAllowedEventName, sanitizeProperties, MAX_STRING_PROPERTY_LENGTH } from "@/lib/analytics/eventSchema";
 import { looksLikeBot, isSameOriginRequest, checkRateLimit, isDuplicateEvent } from "@/lib/analytics/serverEventGuards";
 import { E2E_TEST_HEADER, computeIsTestEvent } from "@/lib/analytics/testEventClassification";
+import { AUDIT_MODE_COOKIE } from "@/lib/analytics/auditMode";
 
 export const runtime = "nodejs";
 
@@ -57,10 +58,14 @@ export async function POST(req: NextRequest) {
   const origin = req.headers.get("origin");
   const referer = req.headers.get("referer");
   // 匿名イベントは is_test_account のようなユーザー単位の除外ができないため、
-  // E2Eヘッダー付与 または 非production環境(Preview/ローカルdev/CI)からの送信を
-  // is_test_event=true として保存し、集計(rollup)から除外する
+  // E2Eヘッダー付与・lv_audit Cookie(監査モードのSPA遷移でヘッダーが再送されない場合の
+  // フォールバック、Codexレビュー指摘対応) または 非production環境(Preview/ローカルdev/CI)
+  // からの送信を is_test_event=true として保存し、集計(rollup)から除外する
   // (判定ロジックの詳細・環境契約はtestEventClassification.tsのコメント参照)。
-  const isTestRequest = computeIsTestEvent(req.headers.get(E2E_TEST_HEADER));
+  const isTestRequest = computeIsTestEvent(
+    req.headers.get(E2E_TEST_HEADER),
+    req.cookies.get(AUDIT_MODE_COOKIE)?.value,
+  );
 
   let body: unknown;
   try {

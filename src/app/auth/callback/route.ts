@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { trackServerEvent } from "@/lib/analytics/trackServerEvent";
 import { isNewGoogleOauthSignup } from "@/lib/auth/googleOauthSignup";
+import { AUDIT_MODE_COOKIE } from "@/lib/analytics/auditMode";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,7 @@ export async function GET(req: NextRequest) {
       anonymousSessionId,
       properties: { method: "google" },
       e2eHeaderValue: req.headers.get("x-lv-e2e-test"),
+      auditCookieValue: req.cookies.get(AUDIT_MODE_COOKIE)?.value,
       source: attributionSource,
       campaign: attributionCampaign,
     });

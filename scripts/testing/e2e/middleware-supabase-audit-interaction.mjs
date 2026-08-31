@@ -24,21 +24,33 @@
  *    ヘッダーが1つに潰れて片方が消えていないことをheadersArray()で確認)
  * 7. ログアウトすると実際にセッションが破棄され、/dashboardへの再アクセスで
  *    /loginへredirectされる(audit-mode統合がログアウト処理を妨げない)
+ * 8. Codexレビュー指摘(P2)対応: 監査ヘッダーを送らずlv_audit Cookieのみを送った
+ *    /api/analytics/eventsへのPOST(監査モードのSPA遷移で実際に起きる状況)が、
+ *    analytics_eventsへis_test_event=trueとして保存される(x-lv-e2e-testヘッダーの
+ *    有無だけで判定していたtestEventClassification.tsの修正確認。DBへ直接SELECTして確認)
  *
- * 安全性: production DBへの書き込みを伴う操作は行わない。ログイン/ログアウトのみで、
+ * 安全性: production DBへの書き込みを伴う操作は行わない(8のみ、is_test_event=trueの
+ * ダミーイベント1件をtest-account名義の匿名session_idで挿入するが、これは既存の
+ * analytics-production-ingestion.mjsと同じ確立済みパターン)。ログイン/ログアウトは
  * 既存のTEST_ACCOUNTS.srs(is_test_account=true)を使う。実ユーザーには一切触れない。
  *
  * 使い方: node scripts/testing/e2e/middleware-supabase-audit-interaction.mjs
  */
 import { chromium } from "playwright";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
-import { loadEnv } from "../lib/env.mjs";
+import { loadEnv, requireEnv } from "../lib/env.mjs";
+import { getAdminClient } from "../lib/supabaseAdmin.mjs";
 import { TEST_ACCOUNTS } from "../lib/testAccounts.mjs";
 import { gotoReady } from "./lib/nav.mjs";
 import { login } from "./lib/login.mjs";
 import { guardAdNetworkRequests } from "./lib/adNetworkGuard.mjs";
 
 loadEnv();
+
+// Playwrightのheadless UAには一致しない、実ブラウザ相当のUA文字列
+// (analytics-production-ingestion.mjsと同じ、serverEventGuards.tsのbot判定を回避するため)。
+const REAL_BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
 const PORT = Number(process.env.TEST_PORT || 3813);
 const account = TEST_ACCOUNTS.srs;
@@ -52,6 +64,8 @@ async function main() {
     fail(`テストアカウント用パスワード(${account.passwordEnvKey})が.env.localに無い。先にnode scripts/testing/setup-test-users.mjsを実行してください`);
     return;
   }
+  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
+  const admin = getAdminClient();
 
   process.env.VERCEL_ENV = "production";
   const dev = await ensureDevServer(PORT, {
@@ -105,7 +119,23 @@ async function main() {
 
       // 5〜6. 認証済み + 監査ヘッダーを同時に送る(page.request.getは同一browser
       // contextのcookieを共有するため、既存のsb-*セッションcookieを保持したまま
-      // 監査ヘッダーを追加できる)
+      // 監査ヘッダーを追加できる)。
+      //
+      // Codexレビュー指摘(P2)への対応を試みた記録: 通常のログイン直後はaccess tokenが
+      // 有効期限内のためupdateSession()はSet-Cookieを出さず、「Supabaseの実リフレッシュと
+      // audit Set-Cookieが同一レスポンスで共存し、片方が欠落しない」を実リフレッシュで
+      // 強制発生させて検証することを一度試みた。sb-*-auth-token cookie(base64-プレフィックス
+      // 付きJSON)のexpires_atを過去へ書き換えて強制リフレッシュを狙ったが、実際には
+      // リフレッシュが発生せず、テストアカウントのセッション自体が壊れる(以降/dashboardへ
+      // 到達できなくなる)副作用が出たため撤回した。実アカウントのセッション内部構造への
+      // 手動改変はリスクが高いと判断し、この経路での強制検証は行わない。
+      //
+      // 代わりに、これが安全である根拠はsrc/middleware.tsの実装そのものにある: 監査モードの
+      // 分岐は`const response = await updateSession(request);`で得たNextResponseへ
+      // `response.cookies.set(AUDIT_MODE_COOKIE, ...)`を追加するだけで、新しいNextResponseを
+      // 作り直してはいない。NextResponseのcookies APIは名前ごとに独立してSet-Cookieを
+      // 追加するため、updateSession()が既にセットしたsb-*のSet-Cookieが後から上書き・
+      // 消去される経路はコード構造上存在しない。
       const res = await page.request.get(`${dev.url}/dashboard`, {
         headers: { "x-lv-e2e-test": "1" },
       });
@@ -118,20 +148,19 @@ async function main() {
 
       // 複数Set-Cookieヘッダーが1つに潰れて片方が消えていないか、headersArray()で
       // 個別のヘッダーエントリを確認する(res.headers()は重複ヘッダーを結合してしまうため)。
+      // このリクエストではSupabase側のトークンがまだ有効期限内でSet-Cookieを出さないのが
+      // 正常動作のため、sb-*のSet-Cookie有無自体は合否条件にしない(上記コメント参照)。
+      // ここでは「監査Cookieが確実に発行される」ことと、Set-Cookieが1エントリに
+      // 潰れて他のヘッダーと混ざっていないことを確認する。
       const rawHeaders = await res.headersArray();
       const setCookieEntries = rawHeaders.filter((h) => h.name.toLowerCase() === "set-cookie");
       const setCookieNames = setCookieEntries.map((h) => h.value.split("=")[0]);
       const hasAuditCookie = setCookieNames.some((n) => n === "lv_audit");
-      const hasSbCookie = setCookieNames.some((n) => n.startsWith("sb-"));
       if (hasAuditCookie && setCookieEntries.length >= 1) {
         ok(`認証済み+監査ヘッダー同時アクセスのSet-Cookieに監査Cookie(lv_audit)が含まれる(Set-Cookieエントリ数=${setCookieEntries.length}、内容: ${setCookieNames.join(", ")})`);
       } else {
         fail(`監査Cookie(lv_audit)がSet-Cookieに含まれない(実測Set-Cookieエントリ: ${JSON.stringify(setCookieNames)})`);
       }
-      // Supabase側がこの特定のリクエストでトークンリフレッシュを行うとは限らない
-      // (アクセストークンの有効期限内であればSet-Cookieを出さないのが正常動作のため)、
-      // sb-*のSet-Cookieが無いこと自体は失敗条件にしない。あくまで「監査Cookieの追加が
-      // 既存のセッションcookie(browser context側)を破棄していないか」を最終確認する。
       const cookiesAfterAuditAccess = await page.context().cookies();
       const sbCookiesAfterAuditAccess = cookiesAfterAuditAccess.filter((c) => c.name.startsWith("sb-"));
       const auditCookieAfterAuditAccess = cookiesAfterAuditAccess.find((c) => c.name === "lv_audit");
@@ -149,6 +178,57 @@ async function main() {
         ok("監査ヘッダー付きアクセスのあとも、引き続き認証済み表示のまま(/loginへ飛ばされない)");
       } else {
         fail(`監査ヘッダー付きアクセスのあとにログアウトさせられた(実測URL: ${urlAfterAuditAccess})`);
+      }
+
+      // ---- 8. 監査ヘッダーを送らずlv_audit Cookieのみで/api/analytics/eventsへPOSTした
+      //         イベントが、is_test_event=trueとしてDBへ保存される(SPA遷移でヘッダーが
+      //         再送されない状況を再現。Codexレビュー指摘対応) ----
+      {
+        const auditCookieOnly = (await page.context().cookies()).find((c) => c.name === "lv_audit");
+        if (!auditCookieOnly) {
+          fail("lv_audit Cookieが見つからず、監査Cookie限定でのanalytics_events検証ができなかった");
+        } else {
+          const sessionId = `test-audit-cookie-only-${Date.now()}`;
+          const ingestRes = await fetch(`${dev.url}/api/analytics/events`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "User-Agent": REAL_BROWSER_UA,
+              Origin: dev.url,
+              Cookie: `${auditCookieOnly.name}=${auditCookieOnly.value}`,
+              // x-lv-e2e-testヘッダーは意図的に送らない(SPA遷移でヘッダーが
+              // 再送されない状況の再現)。
+            },
+            body: JSON.stringify({
+              event_id: `evt-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              event_name: "landing_view",
+              occurred_at: new Date().toISOString(),
+              anonymous_session_id: sessionId,
+              path: "/",
+              source: "direct",
+              properties: {},
+            }),
+          });
+          const ingestBody = await ingestRes.json().catch(() => null);
+          if (ingestRes.status === 200 && ingestBody?.ok === true && ingestBody?.accepted === 1) {
+            ok("監査Cookieのみ(ヘッダーなし)でのPOSTがbot/origin判定に弾かれず受理される");
+          } else {
+            fail(`監査Cookieのみでのイベント送信が受理されなかった(status=${ingestRes.status}, body=${JSON.stringify(ingestBody)})`);
+          }
+          const { data: rows, error: selectError } = await admin
+            .from("analytics_events")
+            .select("event_name, is_test_event")
+            .eq("anonymous_session_id", sessionId);
+          if (selectError) {
+            fail(`analytics_eventsの確認SELECTが失敗した: ${selectError.message}`);
+          } else if ((rows ?? []).length !== 1) {
+            fail(`analytics_eventsの該当行数が想定外(実測=${(rows ?? []).length}件)`);
+          } else if (rows[0].is_test_event === true) {
+            ok("監査Cookieのみ(ヘッダーなし)で送ったイベントもis_test_event=trueとして保存される(本番集計から正しく除外される)");
+          } else {
+            fail(`監査Cookieのみで送ったイベントがis_test_event=trueで保存されていない(実測: ${rows[0].is_test_event})。SPA遷移中の実ユーザートラフィック誤記録の可能性`);
+          }
+        }
       }
 
       // ---- 7. ログアウトすると実際にセッションが破棄される ----

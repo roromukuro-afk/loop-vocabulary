@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { trackWordCountMilestones, trackServerEvent } from "@/lib/analytics/trackServerEvent";
 import { E2E_TEST_HEADER } from "@/lib/analytics/testEventClassification";
+import { AUDIT_MODE_COOKIE } from "@/lib/analytics/auditMode";
 
 const CHUNK = 100;
 const PAGE_SIZE = 1000;
@@ -11,6 +12,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const e2eHeaderValue = req.headers.get(E2E_TEST_HEADER);
+  const auditCookieValue = req.cookies.get(AUDIT_MODE_COOKIE)?.value;
   const { id: materialId } = await params;
   const supabase = await createClient();
   const {
@@ -104,12 +106,12 @@ export async function POST(
     }
   }
 
-  await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + rows.length, e2eHeaderValue);
+  await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + rows.length, e2eHeaderValue, auditCookieValue);
 
   // wordbook_created: 単語帳作成・単語一括挿入まですべて成功し、cleanup経路(book削除)に
   // 入らないことが確定してから発火する。途中で失敗した場合はbookごと削除されるため、
   // ここより前で発火すると存在しない単語帳のイベントが残ってしまう。
-  await trackServerEvent("wordbook_created", { userId: user.id, e2eHeaderValue, properties: { source_type: "material" } });
+  await trackServerEvent("wordbook_created", { userId: user.id, e2eHeaderValue, auditCookieValue, properties: { source_type: "material" } });
 
   return NextResponse.json({ bookId: book.id, count: rows.length });
 }

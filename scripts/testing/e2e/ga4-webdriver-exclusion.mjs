@@ -72,6 +72,28 @@ async function gotoAsRealUser(page, url) {
   await page.waitForTimeout(400);
 }
 
+/**
+ * window.dataLayerに gtag('config', gaId) 相当のpushが行われたかを確認する。
+ *
+ * adNetworkGuard.mjsがgoogletagmanager.com/gtag/js自体をabortするようになった
+ * (Codexレビュー指摘対応、Issue #136)ため、gtag.js本体は実行されず、実際の
+ * google-analytics.com/g/collectビーコンは(gtag.jsがdataLayerを処理して初めて
+ * 送信されるものなので)もう発生しない。「実ユーザーなら計測が有効になるか」の
+ * 検証は、実際のネットワーク到達ではなく、layout.tsxのインラインスクリプトが
+ * gtag('config', GA_ID)をdataLayerへpushしたかどうか(=除外ロジックの判定結果
+ * そのもの)で行う。このpush自体はgtag.js本体の読み込み成否に依存しない
+ * (dataLayer.push()を呼ぶ最小限のshim関数はインラインスクリプト内で定義済みのため)。
+ */
+async function hasGa4ConfigCall(page, gaId) {
+  return page.evaluate((id) => {
+    const dataLayer = window.dataLayer || [];
+    return dataLayer.some((entry) => {
+      const arr = Array.from(entry);
+      return arr[0] === "config" && arr[1] === id;
+    });
+  }, gaId);
+}
+
 async function main() {
   // GA_IDはNEXT_PUBLIC_*でbuild時に静的埋め込みされるため、テスト専用値を注入して
   // forceRebuild:trueで反映させる(既存のAdSenseテストと同じ手法)。
@@ -121,8 +143,12 @@ async function main() {
       if (webdriverValue === true) ok("navigator.webdriver=true(Playwright既定値)を確認");
       else fail(`navigator.webdriverがtrueではない(実測: ${webdriverValue})。このテスト環境ではwebdriver除外の検証ができない`);
 
-      if (collectRequests.length === 0) ok("webdriver=true・監査ヘッダーなし: GA4計測リクエストが発生しない");
-      else fail(`webdriver=true時にもGA4計測リクエストが発生した: ${collectRequests.join(", ")}`);
+      // gtag/js本体がadNetworkGuard.mjsでabortされるようになったため(Issue #136)、
+      // 実際のcollectビーコンはもう発生しない。dataLayerへgtag('config',...)が
+      // pushされたかどうかで、除外ロジックの判定結果そのものを検証する。
+      const configCalled2 = await hasGa4ConfigCall(page, TEST_GA_ID);
+      if (collectRequests.length === 0 && !configCalled2) ok("webdriver=true・監査ヘッダーなし: gtag('config',...)が呼ばれずGA4計測が有効化されない");
+      else fail(`webdriver=true時にもGA4計測が有効化された(collectRequests=${collectRequests.join(", ")}, configCalled=${configCalled2})`);
       await page.close();
     }
 
@@ -146,8 +172,13 @@ async function main() {
       await gotoAsRealUser(page, `${devProd.url}/`);
       await page.waitForTimeout(2000);
 
-      if (collectRequests.length > 0) ok("webdriver=false偽装・監査ヘッダーなし: GA4計測リクエスト試行が発生する(実ユーザー相当・常時ブロックでないことを確認。route interceptionによりabort済みで外部への実通信は発生していない)");
-      else fail("webdriver=false偽装・監査ヘッダーなしでもGA4計測リクエストが発生しない(常時ブロックの壊れた実装になっている可能性)");
+      // gtag/js本体がadNetworkGuard.mjsでabortされるようになったため、実際のcollect
+      // ビーコンはgtag.js自身が読み込めない限り発生しない(collectRequestsは常に0になる)。
+      // 「実ユーザーなら計測が有効になるか」は、dataLayerへのgtag('config',...) push
+      // (除外ロジックの判定結果そのもの)で検証する。
+      const configCalled3 = await hasGa4ConfigCall(page, TEST_GA_ID);
+      if (configCalled3) ok("webdriver=false偽装・監査ヘッダーなし: gtag('config',...)が呼ばれGA4計測が有効化される(実ユーザー相当・常時ブロックでないことを確認)");
+      else fail("webdriver=false偽装・監査ヘッダーなしでもGA4計測が有効化されない(常時ブロックの壊れた実装になっている可能性)");
 
       if (adsenseRequests.length > 0) ok("webdriver=false偽装・監査ヘッダーなし: AdSense(pagead2.googlesyndication.com)へのリクエスト試行が発生する(実ユーザー相当・常時ブロックでないことを確認。route interceptionによりabort済みで外部への実通信は発生していない)");
       else fail("webdriver=false偽装・監査ヘッダーなしでもAdSenseへのリクエスト試行が発生しない(常時ブロックの壊れた実装になっている可能性)");
@@ -292,8 +323,11 @@ async function main() {
       });
       await gotoAsRealUser(page, `${devProd.url}/`);
       await page.waitForTimeout(2000);
-      if (collectRequests.length > 0) ok("監査モード未使用の新規ページでは通常どおりGA4計測リクエスト試行が発生する(グローバルな漏れ出しがないことを確認。route interceptionによりabort済みで外部への実通信は発生していない)");
-      else fail("監査モードを一度も使っていない新規ページでもGA4計測リクエスト試行が発生しない(監査モードが意図せずグローバルに影響している可能性)");
+      // gtag/js本体がabortされるため実際のcollectビーコンは発生しない。dataLayerへの
+      // gtag('config',...) pushで、監査モードが意図せずグローバルに影響していないかを検証する。
+      const configCalled4 = await hasGa4ConfigCall(page, TEST_GA_ID);
+      if (configCalled4) ok("監査モード未使用の新規ページでは通常どおりgtag('config',...)が呼ばれる(グローバルな漏れ出しがないことを確認)");
+      else fail("監査モードを一度も使っていない新規ページでもgtag('config',...)が呼ばれない(監査モードが意図せずグローバルに影響している可能性)");
 
       if (robotsTagHeader === undefined) ok("通常アクセスには X-Robots-Tag が付与されない");
       else fail(`通常アクセスにも X-Robots-Tag が付与されている(実測: ${robotsTagHeader})`);

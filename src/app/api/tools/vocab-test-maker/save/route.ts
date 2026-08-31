@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { trackServerEvent, trackWordCountMilestones } from "@/lib/analytics/trackServerEvent";
 import { sanitizeRows } from "@/lib/vocabTest/parsePastedWords";
 import { E2E_TEST_HEADER } from "@/lib/analytics/testEventClassification";
+import { AUDIT_MODE_COOKIE } from "@/lib/analytics/auditMode";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,7 @@ export const runtime = "nodejs";
  */
 export async function POST(req: NextRequest) {
   const e2eHeaderValue = req.headers.get(E2E_TEST_HEADER);
+  const auditCookieValue = req.cookies.get(AUDIT_MODE_COOKIE)?.value;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -145,6 +147,7 @@ export async function POST(req: NextRequest) {
     userId: user.id,
     anonymousSessionId,
     e2eHeaderValue,
+    auditCookieValue,
     source: attributionSource,
     campaign: attributionCampaign,
     properties: { source_type: "custom" },
@@ -153,12 +156,13 @@ export async function POST(req: NextRequest) {
     userId: user.id,
     anonymousSessionId,
     e2eHeaderValue,
+    auditCookieValue,
     source: attributionSource,
     campaign: attributionCampaign,
     properties: { row_count: rows.length },
   });
   if (!countBeforeErr) {
-    await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + wordRows.length, e2eHeaderValue);
+    await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + wordRows.length, e2eHeaderValue, auditCookieValue);
   }
 
   return NextResponse.json({ ok: true, wordbook_id: newBook.id, word_count: rows.length });

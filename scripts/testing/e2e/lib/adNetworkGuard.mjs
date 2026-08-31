@@ -14,8 +14,15 @@ const AD_NETWORK_URL_PATTERNS = [
   /pagead2\.googlesyndication\.com/, // AdSense本体スクリプト
   /doubleclick\.net/,
   /googleadservices\.com/,
-  /google-analytics\.com\/(g|mp)\/collect/, // GA4計測ビーコン(gtag/js自体は対象外)
+  /google-analytics\.com\/(g|mp)\/collect/, // GA4計測ビーコン
   /analytics\.google\.com\/g\/collect/,
+  // Codexレビュー指摘(P1)対応: gtag/js本体ファイル・Funding Choices(同意管理)スクリプトは
+  // 監査モードでもsrc/app/layout.tsxが無条件に<script src>を出力するため、これまで
+  // route.continue()側に漏れて実際にGoogle側へリクエストが発生していた。DOM上の
+  // <script>タグ存在チェック(ga4-webdriver-exclusion.mjs)はネットワーク到達に依存しない
+  // ため、abort対象に含めても既存の検証意図は変わらない。
+  /googletagmanager\.com\/gtag\/js/,
+  /fundingchoicesmessages\.google\.com/,
   /clarity\.ms/, // Microsoft Clarity
   /adm\.shinobi\.jp/, // 忍者AdMax
   /cnobi\.jp/,
