@@ -46,6 +46,7 @@
 import { chromium } from "playwright";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { gotoReady } from "./lib/nav.mjs";
+import { guardAdNetworkRequests } from "./lib/adNetworkGuard.mjs";
 
 const PORT_LOCAL = Number(process.env.TEST_PORT || 3799);
 const PORT_PROD = PORT_LOCAL + 1;
@@ -88,6 +89,7 @@ async function main() {
     delete process.env.VERCEL_ENV;
     devLocal = await ensureDevServer(PORT_LOCAL, { forceRebuild: true, env: { VERCEL_ENV: "" } });
     const pageLocal = await browser.newPage();
+    await guardAdNetworkRequests(pageLocal); // 実通信を発生させない(Issue #136)
     await gotoReady(pageLocal, `${devLocal.url}/`);
     await pageLocal.waitForTimeout(1000);
     const gaScriptCountLocal = await pageLocal.locator('script[src*="googletagmanager.com/gtag/js"]').count();
@@ -105,6 +107,7 @@ async function main() {
     // 2. webdriver=true(偽装なし)・監査ヘッダーなし: 計測リクエストが発生しない
     {
       const page = await browser.newPage();
+      await guardAdNetworkRequests(page);
       const collectRequests = [];
       page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequests.push(req.url()); });
       const webdriverValue = await page.evaluate(() => navigator.webdriver);
@@ -126,6 +129,11 @@ async function main() {
     // 3. webdriver=false(偽装)・監査ヘッダーなし: 計測リクエストが発生する(実ユーザー相当)
     {
       const page = await browser.newPage();
+      // route interceptionで実際の外部通信は発生させないが、Playwrightの'request'
+      // イベント自体はabort前に発火するため、「試みられたか」は従来どおり検証できる
+      // (Issue #136: このE2Eテスト自身が実際のGA4/AdSense/広告ネットワークへ
+      // リクエストを送らないようにする)。
+      await guardAdNetworkRequests(page);
       await page.addInitScript(() => {
         Object.defineProperty(navigator, "webdriver", { get: () => false });
       });
@@ -138,17 +146,18 @@ async function main() {
       await gotoAsRealUser(page, `${devProd.url}/`);
       await page.waitForTimeout(2000);
 
-      if (collectRequests.length > 0) ok("webdriver=false偽装・監査ヘッダーなし: GA4計測リクエストが発生する(実ユーザー相当・常時ブロックでないことを確認)");
+      if (collectRequests.length > 0) ok("webdriver=false偽装・監査ヘッダーなし: GA4計測リクエスト試行が発生する(実ユーザー相当・常時ブロックでないことを確認。route interceptionによりabort済みで外部への実通信は発生していない)");
       else fail("webdriver=false偽装・監査ヘッダーなしでもGA4計測リクエストが発生しない(常時ブロックの壊れた実装になっている可能性)");
 
-      if (adsenseRequests.length > 0) ok("webdriver=false偽装・監査ヘッダーなし: AdSense(pagead2.googlesyndication.com)通信が発生する(実ユーザー相当・常時ブロックでないことを確認)");
-      else fail("webdriver=false偽装・監査ヘッダーなしでもAdSense通信が発生しない(常時ブロックの壊れた実装になっている可能性)");
+      if (adsenseRequests.length > 0) ok("webdriver=false偽装・監査ヘッダーなし: AdSense(pagead2.googlesyndication.com)へのリクエスト試行が発生する(実ユーザー相当・常時ブロックでないことを確認。route interceptionによりabort済みで外部への実通信は発生していない)");
+      else fail("webdriver=false偽装・監査ヘッダーなしでもAdSenseへのリクエスト試行が発生しない(常時ブロックの壊れた実装になっている可能性)");
       await page.close();
     }
 
     // 4〜5. webdriver=false(偽装)・監査ヘッダーあり: 計測リクエストが発生しない + noindex付与
     {
       const page = await browser.newPage();
+      await guardAdNetworkRequests(page);
       await page.addInitScript(() => {
         Object.defineProperty(navigator, "webdriver", { get: () => false });
       });
@@ -265,6 +274,7 @@ async function main() {
     // noindex・Cache-Control・監査Cookieのいずれも付与されない
     {
       const page = await browser.newPage();
+      await guardAdNetworkRequests(page);
       await page.addInitScript(() => {
         Object.defineProperty(navigator, "webdriver", { get: () => false });
       });
@@ -282,8 +292,8 @@ async function main() {
       });
       await gotoAsRealUser(page, `${devProd.url}/`);
       await page.waitForTimeout(2000);
-      if (collectRequests.length > 0) ok("監査モード未使用の新規ページでは通常どおりGA4計測リクエストが発生する(グローバルな漏れ出しがないことを確認)");
-      else fail("監査モードを一度も使っていない新規ページでもGA4計測リクエストが発生しない(監査モードが意図せずグローバルに影響している可能性)");
+      if (collectRequests.length > 0) ok("監査モード未使用の新規ページでは通常どおりGA4計測リクエスト試行が発生する(グローバルな漏れ出しがないことを確認。route interceptionによりabort済みで外部への実通信は発生していない)");
+      else fail("監査モードを一度も使っていない新規ページでもGA4計測リクエスト試行が発生しない(監査モードが意図せずグローバルに影響している可能性)");
 
       if (robotsTagHeader === undefined) ok("通常アクセスには X-Robots-Tag が付与されない");
       else fail(`通常アクセスにも X-Robots-Tag が付与されている(実測: ${robotsTagHeader})`);

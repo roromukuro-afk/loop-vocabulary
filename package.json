@@ -42,6 +42,7 @@
     "test:social-referrer-classification": "node scripts/testing/test-social-referrer-classification.mjs",
     "test:analytics-environment-classification": "node scripts/testing/test-analytics-environment-classification.mjs",
     "test:analytics-environment-isolation": "node scripts/testing/e2e/analytics-environment-isolation.mjs",
+    "test:middleware-supabase-audit-interaction": "node scripts/testing/e2e/middleware-supabase-audit-interaction.mjs",
     "test:indexnow-submit": "node scripts/testing/test-indexnow-submit.mjs",
     "test:indexnow-sitemap-sync-cron": "node scripts/testing/e2e/indexnow-sitemap-sync-cron.mjs",
     "test:insert-once-per-user-milestone-event": "node scripts/testing/test-insert-once-per-user-milestone-event.mjs",
