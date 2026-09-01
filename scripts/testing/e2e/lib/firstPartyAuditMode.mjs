@@ -50,9 +50,25 @@
 //
 // 同じpageに対してallowFirstPartyOrigin()を複数回呼んでも安全(route handlerの登録は
 // page単位で1回だけ、WeakMapで管理する)。
+//
+// オーナー指摘対応(Codexレビュー、805ac98に対する新規指摘、2026-09-01): 以前は
+// 「そのoriginへ一度ヘッダーを送ったら二度と送らない」(sentOrigins: Set)実装だった。
+// これはmiddleware.tsが発行するlv_audit Cookie(AUDIT_MODE_COOKIE_MAX_AGE_SECONDS=10分の
+// sliding window。ページ遷移のたびに延長される)が途切れない前提に依存していたが、
+// 本番監査ページ(特にcheck-prod-srs-v2-global.mjsのような人間が操作する長時間セッション)
+// がCookieの寿命を超えて完全にidle状態(遷移が一切発生しない)になると、Cookieが実際に
+// 期限切れになる。その後の次のnavigationでは、Cookieが無効なうえヘッダーも二度と
+// 送られないため、監査モードが静かに無効化され(navigator.webdriverが偽装されている
+// 環境ではGA4/広告が有効化されてしまい)、以降のfirst-party analyticsイベントが実本番
+// トラフィックとして誤って記録される。
+// 対策: 「一度きり」ではなく「Cookieの寿命より十分短い間隔でのみ再送を省略する」方式へ
+// 変更する(RESEND_INTERVAL_MSはCookie寿命の半分。ネットワーク遅延・処理時間のマージンを
+// 確保しつつ、Cookieが実際に切れる前に確実に再送する)。
 import { getAuditToken, getAuditTokenOrNull } from "../../lib/auditToken.mjs";
+import { AUDIT_MODE_COOKIE_MAX_AGE_SECONDS } from "../../../../src/lib/analytics/auditMode.ts";
 
 const HEADER_NAME = "x-lv-e2e-test";
+const RESEND_INTERVAL_MS = (AUDIT_MODE_COOKIE_MAX_AGE_SECONDS * 1000) / 2;
 const pageState = new WeakMap();
 
 async function fetchAndFulfillWithHeaderOnce(route, headers) {
@@ -68,11 +84,19 @@ async function fetchAndFulfillWithHeaderOnce(route, headers) {
   return route.fulfill({ response: apiResponse });
 }
 
-function ensureInstalled(page) {
+function ensureInstalled(page, resendIntervalMs) {
   let state = pageState.get(page);
   if (state) return state;
 
-  state = { allowedOrigins: new Set(), sentOrigins: new Set(), tokenByOrigin: new Map() };
+  // resendIntervalMsはテスト専用の上書き(scripts/testing/e2e/audit-header-leak-prevention.mjs
+  // が、実際の5分待機なしに再送ロジックを検証するために使う)。通常呼び出しでは常に
+  // 省略され、実際のCookie寿命から導出したRESEND_INTERVAL_MSを使う。
+  state = {
+    allowedOrigins: new Set(),
+    sentAt: new Map(),
+    tokenByOrigin: new Map(),
+    resendIntervalMs: resendIntervalMs ?? RESEND_INTERVAL_MS,
+  };
   pageState.set(page, state);
 
   state.installedPromise = page.route("**/*", async (route) => {
@@ -90,9 +114,11 @@ function ensureInstalled(page) {
     const isFirstParty = state.allowedOrigins.has(origin);
     const isMainFrameDocumentNav = request.isNavigationRequest() && request.frame() === page.mainFrame();
     const token = state.tokenByOrigin.get(origin);
+    const lastSentAt = state.sentAt.get(origin);
+    const needsResend = lastSentAt === undefined || Date.now() - lastSentAt >= state.resendIntervalMs;
 
-    if (isFirstParty && isMainFrameDocumentNav && !state.sentOrigins.has(origin) && token) {
-      state.sentOrigins.add(origin);
+    if (isFirstParty && isMainFrameDocumentNav && needsResend && token) {
+      state.sentAt.set(origin, Date.now());
       const existingHeaders = await request.allHeaders();
       return fetchAndFulfillWithHeaderOnce(route, { ...existingHeaders, [HEADER_NAME]: token });
     }
@@ -116,9 +142,12 @@ function ensureInstalled(page) {
  * @param {import("playwright").Page} page
  * @param {string} origin - 完全一致で比較する自サイトのorigin(例: "http://localhost:3799"、"https://loop-vocabulary.app")
  * @param {string | null} token - null/空文字ならこのoriginへは一切ヘッダーを送らない(installはするがtokenByOriginに登録しない)。
+ * @param {{ resendIntervalMs?: number }} [opts] - resendIntervalMsはテスト専用
+ *   (scripts/testing/e2e/audit-header-leak-prevention.mjs参照)。通常呼び出しでは省略し、
+ *   実際のCookie寿命から導出したRESEND_INTERVAL_MSを使うこと。
  */
-export async function allowFirstPartyOrigin(page, origin, token) {
-  const state = ensureInstalled(page);
+export async function allowFirstPartyOrigin(page, origin, token, opts = {}) {
+  const state = ensureInstalled(page, opts.resendIntervalMs);
   await state.installedPromise;
   state.allowedOrigins.add(origin);
   if (token) state.tokenByOrigin.set(origin, token);
@@ -126,7 +155,7 @@ export async function allowFirstPartyOrigin(page, origin, token) {
 
 /** テスト側検証用: 実際にヘッダーを送信済みのoriginかどうか。 */
 export function hasSentAuditHeaderFor(page, origin) {
-  return pageState.get(page)?.sentOrigins.has(origin) === true;
+  return pageState.get(page)?.sentAt.has(origin) === true;
 }
 
 /**

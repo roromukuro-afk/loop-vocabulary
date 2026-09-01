@@ -219,6 +219,41 @@ async function main() {
       await context.close();
     }
 
+    // ---------- シナリオ6: Cookie寿命相当のidle後、次のnavigationでheaderが再送される ----------
+    // Codexレビュー指摘(805ac98に対する新規指摘、2026-09-01)の回帰防止。以前は
+    // 「そのoriginへ一度送ったら二度と送らない」実装だったため、本番監査ページが
+    // lv_audit Cookieの寿命(AUDIT_MODE_COOKIE_MAX_AGE_SECONDS)を超えてidleになった後の
+    // 次のnavigationでは、Cookie失効・header再送なしの両方が重なり監査モードが静かに
+    // 無効化されていた。実際に5分待つ代わりに、allowFirstPartyOrigin()のresendIntervalMs
+    // (テスト専用オーバーライド)を短く設定し、その間隔経過後の2回目のnavigationで
+    // headerが実際に再送されることを確認する。
+    {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const SHORT_RESEND_INTERVAL_MS = 300;
+      await allowFirstPartyOrigin(page, firstParty.origin, FAKE_TOKEN, { resendIntervalMs: SHORT_RESEND_INTERVAL_MS });
+
+      await page.goto(`${firstParty.origin}/`, { waitUntil: "load" });
+      await page.waitForTimeout(200);
+      const firstNavRequests = firstParty.capturedRequests.filter((r) => r.url === "/").length;
+
+      // resendIntervalMsを超えてidle(2回目のnavigationを送らない)にした後、再度navigateする。
+      await page.waitForTimeout(SHORT_RESEND_INTERVAL_MS + 200);
+      await page.goto(`${firstParty.origin}/`, { waitUntil: "load" });
+      await page.waitForTimeout(200);
+
+      const docRequestsAfterIdle = firstParty.capturedRequests.filter((r) => r.url === "/");
+      const secondNavRequest = docRequestsAfterIdle[docRequestsAfterIdle.length - 1];
+      const secondNavHadHeader = secondNavRequest?.headers[HEADER_NAME] === FAKE_TOKEN;
+
+      if (docRequestsAfterIdle.length > firstNavRequests && secondNavHadHeader) {
+        ok("resendIntervalMs経過後の2回目のnavigationでaudit headerが再送される(Cookie失効に備えた再送)");
+      } else {
+        bad(`idle後の2回目navigationでheaderが再送されなかった(実測headers: ${JSON.stringify(secondNavRequest?.headers)})`);
+      }
+      await context.close();
+    }
+
     console.log(fail
       ? `\n=== test:audit-header-leak-prevention: ${fail}件失敗 (${pass}件成功) ===`
       : `\n=== test:audit-header-leak-prevention RESULT: all ${pass} checks passed ===`);
