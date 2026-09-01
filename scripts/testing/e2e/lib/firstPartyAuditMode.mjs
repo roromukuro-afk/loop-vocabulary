@@ -82,14 +82,24 @@ async function fetchAndFulfillWithHeaderOnce(route, headers) {
   // Chrome自身のnetwork stackを経由するため、Node組み込みfetch()を使う場合と
   // 異なりcontent-encoding/Set-Cookie複数件を手動で扱う必要が無い)。
   await route.fulfill({ response: apiResponse });
-  // オーナー指摘対応(Codexレビュー、2026-09-01、item 3の"Record the audit send only
-  // after activation succeeds"のさらなる指摘): route.fetch()はネットワークレベルの失敗
-  // (DNS不達・接続拒否・タイムアウト等)でのみ例外を投げ、5xx等のHTTPエラー応答は
-  // 例外にならず正常にresolveしてしまう(例: devサーバーの一時的な502)。そのため
-  // 「例外を投げなかったから成功」という判定だけでは不十分で、実際のHTTPステータスも
-  // 確認する必要がある。2xx/3xxのみを「audit headerが正しく処理された」とみなし、
-  // 4xx/5xxはsentAt記録を行わない(呼び出し元でこのstatusを見て判断する)。
-  return { status: apiResponse.status() };
+  // オーナー指摘対応(Codexレビュー、2026-09-01、3回にわたる指摘):
+  // 1回目: route.fetch()が例外を投げて失敗した場合でも「送信済み」と記録されて
+  //   いた → awaitの後へ移動。
+  // 2回目: route.fetch()はネットワークレベルの失敗でしか例外を投げず、5xx応答は
+  //   例外にならず正常にresolveする → HTTPステータスも確認するよう変更。
+  // 3回目(P1、このコミット): 「ステータスが2xx/3xxであること」は、実際に
+  //   LV_AUDIT_TOKENが正しく認証されたことの証明にはならない。トークンが
+  //   productionのLV_AUDIT_TOKENと一致しない場合(check-prod-srs-v2-global.mjsで
+  //   人間が誤ったトークンを渡した場合等)でも、middleware.tsは通常のページを
+  //   正常に(200で)返す — audit CookieもX-Robots-Tag: noindexも付けずに。
+  //   ステータスコードだけでは「ページが正常に返った」ことしか証明できず、
+  //   「監査ヘッダーがサーバー側で実際に認証された」ことは証明できない。
+  //   middleware.tsはisAuditModeRequest()がtrueの場合にのみX-Robots-Tag: noindexを
+  //   付与する(auditModeServer.tsのisAuditHeaderAuthorized()と1対1で対応する
+  //   唯一の観測可能なサーバー側証跡)ため、この値の有無で実際の認証成否を検証する。
+  const status = apiResponse.status();
+  const activated = (apiResponse.headers()["x-robots-tag"] ?? "").includes("noindex");
+  return { status, activated };
 }
 
 function ensureInstalled(page, resendIntervalMs) {
@@ -103,6 +113,7 @@ function ensureInstalled(page, resendIntervalMs) {
     allowedOrigins: new Set(),
     sentAt: new Map(),
     tokenByOrigin: new Map(),
+    strictByOrigin: new Map(),
     resendIntervalMs: resendIntervalMs ?? RESEND_INTERVAL_MS,
   };
   pageState.set(page, state);
@@ -126,18 +137,33 @@ function ensureInstalled(page, resendIntervalMs) {
     const needsResend = lastSentAt === undefined || Date.now() - lastSentAt >= state.resendIntervalMs;
 
     if (isFirstParty && isMainFrameDocumentNav && needsResend && token) {
-      // オーナー指摘対応(Codexレビュー、2026-09-01、2回にわたる指摘): sentAtの更新は
-      // fetchAndFulfillWithHeaderOnce()が実際に成功した後にする。
+      // オーナー指摘対応(Codexレビュー、2026-09-01、3回にわたる指摘): sentAtの更新は
+      // fetchAndFulfillWithHeaderOnce()が実際に「監査モードとして認証された」ことを
+      // 確認できた後にだけ行う。
       // 1回目: 以前はawaitより前に更新しており、route.fetch()が例外を投げて失敗した
       //   場合でも「送信済み」と記録されてしまっていた → awaitの後へ移動。
-      // 2回目: route.fetch()はネットワークレベルの失敗(DNS不達・接続拒否等)でしか
-      //   例外を投げず、devサーバーの一時的な502のようなHTTPエラー応答は例外にならず
-      //   正常にresolveしてしまう → 「例外を投げなかったから成功」だけでは不十分。
-      //   実際のHTTPステータスが2xx/3xxの場合だけsentAtを記録し、4xx/5xxの場合は
-      //   記録しない(次回のnavigationで確実に再送される)。
+      // 2回目: route.fetch()はネットワークレベルの失敗でしか例外を投げず、5xx応答は
+      //   例外にならず正常にresolveする → HTTPステータスも確認するよう変更。
+      // 3回目(P1): ステータスが2xx/3xxであることは「ページが正常に返った」ことしか
+      //   証明せず、「LV_AUDIT_TOKENが実際に認証された」ことは証明しない(トークン
+      //   不一致でもmiddleware.tsは通常ページを200で返す)。fetchAndFulfillWithHeaderOnce()が
+      //   返すactivated(X-Robots-Tag: noindexの有無、middleware.tsのisAuditModeRequest()と
+      //   1対1対応する唯一の観測可能な証跡)も必須条件に加える。
       const existingHeaders = await request.allHeaders();
-      const { status } = await fetchAndFulfillWithHeaderOnce(route, { ...existingHeaders, [HEADER_NAME]: token });
-      if (status < 400) state.sentAt.set(origin, Date.now());
+      const { status, activated } = await fetchAndFulfillWithHeaderOnce(route, { ...existingHeaders, [HEADER_NAME]: token });
+      if (status < 400 && activated) {
+        state.sentAt.set(origin, Date.now());
+      } else if (state.strictByOrigin.get(origin)) {
+        // strict:true(監査モードの実際の起動そのものを検証するテスト専用、
+        // gotoReadyFirstPartyOnly()のopts.strict参照)の場合、トークン不一致等で
+        // 監査モードが起動しなかったこと自体を検知不能なまま実処理を続行させない
+        // (production審査スクリプトが「監査モードのつもり」で実ユーザートラフィックを
+        // 生成し続けるのを防ぐfail-fast)。
+        throw new Error(
+          `監査モードの起動に失敗した(strict): origin=${origin}, status=${status}, activated=${activated}。` +
+          `LV_AUDIT_TOKENがproductionの値と一致しているか確認すること(値自体はログに出力しない)。`
+        );
+      }
       return;
     }
 
@@ -160,15 +186,22 @@ function ensureInstalled(page, resendIntervalMs) {
  * @param {import("playwright").Page} page
  * @param {string} origin - 完全一致で比較する自サイトのorigin(例: "http://localhost:3799"、"https://loop-vocabulary.app")
  * @param {string | null} token - null/空文字ならこのoriginへは一切ヘッダーを送らない(installはするがtokenByOriginに登録しない)。
- * @param {{ resendIntervalMs?: number }} [opts] - resendIntervalMsはテスト専用
- *   (scripts/testing/e2e/audit-header-leak-prevention.mjs参照)。通常呼び出しでは省略し、
- *   実際のCookie寿命から導出したRESEND_INTERVAL_MSを使うこと。
+ * @param {{ resendIntervalMs?: number, strict?: boolean }} [opts] - resendIntervalMsは
+ *   テスト専用(scripts/testing/e2e/audit-header-leak-prevention.mjs参照)。通常呼び出しでは
+ *   省略し、実際のCookie寿命から導出したRESEND_INTERVAL_MSを使うこと。strict:trueの場合、
+ *   このoriginへのヘッダー送信がステータス2xx/3xxかつX-Robots-Tag: noindexで実際に
+ *   認証されたことを確認できなければ例外を投げる(オーナー指摘対応、2026-09-01、P1:
+ *   トークン不一致でも通常ページが200で返るため、ステータスだけでは認証成功を
+ *   証明できない。check-prod-srs-v2-global.mjsのような、監査モードの実際の起動を
+ *   前提にproductionへアクセスするstrictスクリプトが、誤ったトークンのまま気づかず
+ *   実ユーザートラフィックを生成し続けるのを防ぐ)。
  */
 export async function allowFirstPartyOrigin(page, origin, token, opts = {}) {
   const state = ensureInstalled(page, opts.resendIntervalMs);
   await state.installedPromise;
   state.allowedOrigins.add(origin);
   if (token) state.tokenByOrigin.set(origin, token);
+  if (opts.strict) state.strictByOrigin.set(origin, true);
 }
 
 /** テスト側検証用: 実際にヘッダーを送信済みのoriginかどうか。 */
@@ -190,7 +223,7 @@ export function hasSentAuditHeaderFor(page, origin) {
 export async function gotoReadyFirstPartyOnly(page, url, opts = {}) {
   const token = opts.strict ? getAuditToken() : getAuditTokenOrNull();
   const origin = new URL(url).origin;
-  await allowFirstPartyOrigin(page, origin, token);
+  await allowFirstPartyOrigin(page, origin, token, { strict: opts.strict });
   const response = await page.goto(url, { waitUntil: "load" });
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(400);

@@ -52,7 +52,14 @@ const page = await browser.newPage();
 // 実通信自体が発生しないはずだが、念のためguardAdNetworkRequests()も併用し、
 // 万一のガード漏れがあっても実際の外部通信はabortする。
 await guardAdNetworkRequests(page);
-await allowFirstPartyOrigin(page, PROD_URL, auditToken);
+// strict:true(オーナー指摘対応、2026-09-01、P1): このスクリプトはproductionへの
+// 実アクセスを前提に、監査モードが実際に起動していること(=実ユーザートラフィックを
+// 生成していないこと)へ依存する。LV_AUDIT_TOKENがproductionの値と一致しない場合
+// (人間が誤った/古い値を渡した場合等)、ステータスコードだけでは検知できない
+// (middleware.tsは通常ページを200で返すため)。X-Robots-Tag: noindexの有無で
+// 実際の認証成否を確認し、失敗していれば例外で即座に停止する
+// (scripts/testing/e2e/lib/firstPartyAuditMode.mjs参照)。
+await allowFirstPartyOrigin(page, PROD_URL, auditToken, { strict: true });
 
 await page.goto(`${PROD_URL}/login`, { waitUntil: "load" });
 await page.waitForLoadState("networkidle");
