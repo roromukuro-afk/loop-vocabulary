@@ -9,6 +9,8 @@ import { loadEnv, requireEnv } from "./lib/env.mjs";
 import { getAdminClient } from "./lib/supabaseAdmin.mjs";
 import { TEST_ACCOUNTS } from "./lib/testAccounts.mjs";
 import { getAuditToken } from "./lib/auditToken.mjs";
+import { allowFirstPartyOrigin } from "./e2e/lib/firstPartyAuditMode.mjs";
+import { guardAdNetworkRequests } from "./e2e/lib/adNetworkGuard.mjs";
 
 loadEnv();
 requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", TEST_ACCOUNTS.srs.passwordEnvKey]);
@@ -34,7 +36,14 @@ if (prof?.srs_v2 !== false) {
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
-await page.setExtraHTTPHeaders({ "x-lv-e2e-test": auditToken });
+// オーナー指摘対応(Codexレビュー、セキュリティ、緊急): page.setExtraHTTPHeaders()は
+// page全体(第三者origin含む)へ適用されるため使わない。PROD_URL originへの最初の
+// navigationにだけ限定してヘッダーを送る(scripts/testing/e2e/lib/
+// firstPartyAuditMode.mjs参照)。監査モードが正しく機能していればGA4/AdSense等の
+// 実通信自体が発生しないはずだが、念のためguardAdNetworkRequests()も併用し、
+// 万一のガード漏れがあっても実際の外部通信はabortする。
+await guardAdNetworkRequests(page);
+await allowFirstPartyOrigin(page, PROD_URL, auditToken);
 
 await page.goto(`${PROD_URL}/login`, { waitUntil: "load" });
 await page.waitForLoadState("networkidle");

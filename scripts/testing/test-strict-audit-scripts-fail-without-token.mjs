@@ -41,7 +41,6 @@ export const STRICT_AUDIT_SCRIPTS = [
   { relPath: "scripts/testing/e2e/ga4-webdriver-exclusion.mjs", extraArgs: [] },
   { relPath: "scripts/testing/e2e/middleware-supabase-audit-interaction.mjs", extraArgs: [] },
   { relPath: "scripts/testing/e2e/analytics-environment-isolation.mjs", extraArgs: [] },
-  { relPath: "scripts/testing/e2e/vocab-test-maker-authenticated.mjs", extraArgs: [] },
   { relPath: "scripts/testing/e2e/analytics-production-ingestion.mjs", extraArgs: [] },
   { relPath: "scripts/testing/e2e/analytics-rejection-reasons.mjs", extraArgs: [] },
   { relPath: "scripts/testing/check-prod-srs-v2-global.mjs", extraArgs: [] },

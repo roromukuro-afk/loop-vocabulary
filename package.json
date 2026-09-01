@@ -36,6 +36,7 @@
     "test:campaign-funnel-tracking": "node scripts/testing/e2e/campaign-funnel-tracking.mjs",
     "test:adsense-single-page-level-init": "node scripts/testing/e2e/adsense-single-page-level-init.mjs",
     "test:ga4-webdriver-exclusion": "node scripts/testing/e2e/ga4-webdriver-exclusion.mjs",
+    "test:audit-header-leak-prevention": "node scripts/testing/e2e/audit-header-leak-prevention.mjs",
     "test:analytics-event-sanitize": "node scripts/testing/test-analytics-event-sanitize.mjs",
     "test:google-oauth-signup-detection": "node scripts/testing/test-google-oauth-signup-detection.mjs",
     "test:track-server-event-attribution": "node scripts/testing/test-track-server-event-attribution.mjs",

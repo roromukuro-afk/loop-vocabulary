@@ -14,7 +14,12 @@
  *    ヘッダー(値は環境変数LV_AUDIT_TOKENと照合される秘密トークン、
  *    src/lib/analytics/auditModeServer.ts参照。以前は固定文字列"1"で誰でも
  *    起動できたが、オーナー指摘のセキュリティ対応で変更された)。
- *    scripts/testing/e2e/lib/nav.mjsのgotoReady()が全E2Eナビゲーションで送信済み。
+ *    scripts/testing/e2e/lib/nav.mjsのgotoReady()が、自サイトoriginへの最初の
+ *    navigationでだけ送信する(scripts/testing/e2e/lib/firstPartyAuditMode.mjs
+ *    参照。第三者origin・2回目以降のnavigationへは一切送らない — オーナー指摘の
+ *    セキュリティ対応、Codexレビュー: page.setExtraHTTPHeaders()がpage全体へ
+ *    適用されGTM/Funding Choices等の第三者リクエストへ秘密が漏れる経路があった
+ *    ため修正)。
  *    testEventClassification.tsで元々「本番へ意図的に送るProduction Canaryのための
  *    オーバーライド」として設計済み)をsrc/middleware.tsが検知し、非httpOnly Cookieを
  *    セットする。navigator.webdriverがfalseに偽装されていても、このCookieがあれば
@@ -49,6 +54,7 @@
 import { chromium } from "playwright";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { gotoReady } from "./lib/nav.mjs";
+import { allowFirstPartyOrigin } from "./lib/firstPartyAuditMode.mjs";
 import { guardAdNetworkRequests } from "./lib/adNetworkGuard.mjs";
 import { getAuditToken } from "../lib/auditToken.mjs";
 import { requireEnv } from "../lib/env.mjs";
@@ -69,9 +75,12 @@ function isAdSenseRequest(url) {
   return url.includes("pagead2.googlesyndication.com");
 }
 
-/** gotoReady()と異なり、監査ヘッダーを一切送らない「実ユーザー相当」の遷移。 */
+/**
+ * gotoReady()と異なり、監査ヘッダーを一切送らない「実ユーザー相当」の遷移。
+ * page.setExtraHTTPHeaders()は使わない(このpageは元々ヘッダーを一切設定して
+ * いないため、明示的にクリアする操作自体が不要)。
+ */
 async function gotoAsRealUser(page, url) {
-  await page.setExtraHTTPHeaders({});
   await page.goto(url, { waitUntil: "load" });
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(400);
@@ -253,7 +262,14 @@ async function main() {
       {
         const mismatchedContext = await browser.newContext();
         const mismatchedPage = await mismatchedContext.newPage();
-        await mismatchedPage.setExtraHTTPHeaders({ "x-lv-e2e-test": "1" });
+        // オーナー指摘対応(Codexレビュー、セキュリティ、緊急): このpageもNEXT_PUBLIC_GA_ID/
+        // NEXT_PUBLIC_ADSENSE_CLIENTを強制注入したdevProdへ遷移するため、
+        // guardAdNetworkRequests()で実際の第三者通信を遮断してから、
+        // allowFirstPartyOrigin()でdevProd.url originだけへ限定して"1"(不一致トークン)を送る
+        // (以前はpage.setExtraHTTPHeaders()でpage全体へ設定しており、gtag/js・
+        // Funding Choices等の第三者リクエストへも"1"が漏れる経路があった)。
+        await guardAdNetworkRequests(mismatchedPage);
+        await allowFirstPartyOrigin(mismatchedPage, new URL(devProd.url).origin, "1");
         const res = await mismatchedPage.goto(`${devProd.url}/`, { waitUntil: "load" });
         const headers = res.headers();
         const cookiesAfter = await mismatchedContext.cookies();
@@ -268,7 +284,9 @@ async function main() {
       }
 
       // 6. SPA遷移でも監査モードが維持されるか(ヘッダーを送らないクライアントサイド遷移)
-      await page.setExtraHTTPHeaders({}); // 以後のナビゲーションでヘッダーを送らない(Cookieのみに依存させる)
+      // gotoReady()は元々このoriginへの最初のnavigationでしかヘッダーを送らない
+      // (allowFirstPartyOrigin()のsentOrigins管理)ため、ここで明示的にクリアする
+      // 操作は不要(以前のpage.setExtraHTTPHeaders({})相当の処理は無くなった)。
       const collectRequestsAfterSpaNav = [];
       page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequestsAfterSpaNav.push(req.url()); });
       const dictionaryLink = page.locator('a[href="/dictionary"]').first();

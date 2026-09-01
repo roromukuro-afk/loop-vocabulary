@@ -21,7 +21,7 @@ import { chromium } from "playwright";
 import { loadEnv } from "../lib/env.mjs";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { collectErrors } from "./lib/login.mjs";
-import { getAuditToken } from "../lib/auditToken.mjs";
+import { gotoReady } from "./lib/nav.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 const PAGE_PATH = "/guide/eiken-2kyu-tango";
@@ -75,10 +75,11 @@ async function main() {
     const errors = collectErrors(page);
     const analyticsEvents = await interceptAnalyticsEvents(page);
 
-    await page.setExtraHTTPHeaders({ "x-lv-e2e-test": getAuditToken() });
-    const response = await page.goto(`${baseUrl}${PAGE_PATH}`, { waitUntil: "load" });
-    await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(400);
+    // このテストはaudit-modeの実際の起動そのものを検証していない(コンテンツ正確性・
+    // CTA配置・analytics発火の検証のみ)ため、LV_AUDIT_TOKEN必須のstrictな
+    // getAuditToken()は使わない(オーナー指摘対応、Codexレビュー、P2)。
+    // gotoReady()はLV_AUDIT_TOKEN未設定でもヘッダーを省略して安全に進む。
+    const response = await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
     if (response && response.status() === 200) ok(`${PAGE_PATH} が200で表示される`);
     else fail(`${PAGE_PATH} が200で表示されない: status=${response?.status()}`);
 

@@ -27,7 +27,6 @@ import { TEST_ACCOUNTS } from "../lib/testAccounts.mjs";
 import { getAdminClient } from "../lib/supabaseAdmin.mjs";
 import { login, collectErrors } from "./lib/login.mjs";
 import { gotoReady } from "./lib/nav.mjs";
-import { getAuditToken } from "../lib/auditToken.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 const PAGE_PATH = "/tools/vocab-test-maker";
@@ -43,7 +42,11 @@ async function cleanupWordbook(admin, wordbookId) {
 
 async function main() {
   loadEnv();
-  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "LV_AUDIT_TOKEN", TEST_ACCOUNTS.srs.passwordEnvKey]);
+  // このテストはaudit-modeの実際の起動そのものを検証していない(wordbook保存の
+  // 競合状態・冪等性の検証のみ)ため、LV_AUDIT_TOKENは必須にしない(オーナー指摘
+  // 対応、Codexレビュー、P2)。生成されるanalytics_eventsは実行後に明示的に
+  // 削除する(このファイル冒頭のコメント参照)ため、is_test_event判定にも依存しない。
+  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", TEST_ACCOUNTS.srs.passwordEnvKey]);
   const email = TEST_ACCOUNTS.srs.email;
   const password = process.env[TEST_ACCOUNTS.srs.passwordEnvKey];
 
@@ -446,8 +449,12 @@ async function main() {
       // 注意: gotoReady()は内部でwaitForLoadState("networkidle")を使っており、
       // それ自体が上で遅延させたauth/v1/userの解決を待ってしまうため、この
       // シナリオでは使えない(使うと「まだ未解決」の状態を再現できなくなる)。
-      // 代わりにhydration待ちだけの軽量navigationを使う。
-      await page.setExtraHTTPHeaders({ "x-lv-e2e-test": getAuditToken() });
+      // 代わりにhydration待ちだけの軽量navigationを使う。監査ヘッダーは不要
+      // (直前のlogin()がgotoReady()経由でこのoriginへの最初のnavigationで既に
+      // audit Cookieを発行済みのため、同じpage・同じoriginへの2回目のnavigationは
+      // Cookieだけで監査モードが維持される。オーナー指摘対応: 以前はここでも
+      // page.setExtraHTTPHeaders()でpage全体へsecretを設定しており、第三者
+      // リクエストへ漏れる経路があった)。
       await page.goto(`${baseUrl}${PAGE_PATH}`, { waitUntil: "load" });
       await page.waitForTimeout(600);
       const paste = "d1,テスト1\nd2,テスト2";
