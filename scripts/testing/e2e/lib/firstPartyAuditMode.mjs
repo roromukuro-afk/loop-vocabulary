@@ -81,7 +81,15 @@ async function fetchAndFulfillWithHeaderOnce(route, headers) {
   // 処理・Set-Cookie複数件の扱いをPlaywright側にそのまま委ねる(route.fetch()は
   // Chrome自身のnetwork stackを経由するため、Node組み込みfetch()を使う場合と
   // 異なりcontent-encoding/Set-Cookie複数件を手動で扱う必要が無い)。
-  return route.fulfill({ response: apiResponse });
+  await route.fulfill({ response: apiResponse });
+  // オーナー指摘対応(Codexレビュー、2026-09-01、item 3の"Record the audit send only
+  // after activation succeeds"のさらなる指摘): route.fetch()はネットワークレベルの失敗
+  // (DNS不達・接続拒否・タイムアウト等)でのみ例外を投げ、5xx等のHTTPエラー応答は
+  // 例外にならず正常にresolveしてしまう(例: devサーバーの一時的な502)。そのため
+  // 「例外を投げなかったから成功」という判定だけでは不十分で、実際のHTTPステータスも
+  // 確認する必要がある。2xx/3xxのみを「audit headerが正しく処理された」とみなし、
+  // 4xx/5xxはsentAt記録を行わない(呼び出し元でこのstatusを見て判断する)。
+  return { status: apiResponse.status() };
 }
 
 function ensureInstalled(page, resendIntervalMs) {
@@ -118,15 +126,19 @@ function ensureInstalled(page, resendIntervalMs) {
     const needsResend = lastSentAt === undefined || Date.now() - lastSentAt >= state.resendIntervalMs;
 
     if (isFirstParty && isMainFrameDocumentNav && needsResend && token) {
-      // オーナー指摘対応(Codexレビュー、2026-09-01): sentAtの更新はfetchAndFulfillWithHeaderOnce()
-      // が実際に完了した後にする(以前はawaitより前に更新していた)。route.fetch()が
-      // 例外を投げて失敗した場合、以前の実装ではそれでも「送信済み」と記録されてしまい、
-      // resendIntervalMs内の同一ページ再試行がヘッダーもCookieも持たないまま進行し、
-      // 監査モードが有効化されないまま実リクエストが送られる恐れがあった。
+      // オーナー指摘対応(Codexレビュー、2026-09-01、2回にわたる指摘): sentAtの更新は
+      // fetchAndFulfillWithHeaderOnce()が実際に成功した後にする。
+      // 1回目: 以前はawaitより前に更新しており、route.fetch()が例外を投げて失敗した
+      //   場合でも「送信済み」と記録されてしまっていた → awaitの後へ移動。
+      // 2回目: route.fetch()はネットワークレベルの失敗(DNS不達・接続拒否等)でしか
+      //   例外を投げず、devサーバーの一時的な502のようなHTTPエラー応答は例外にならず
+      //   正常にresolveしてしまう → 「例外を投げなかったから成功」だけでは不十分。
+      //   実際のHTTPステータスが2xx/3xxの場合だけsentAtを記録し、4xx/5xxの場合は
+      //   記録しない(次回のnavigationで確実に再送される)。
       const existingHeaders = await request.allHeaders();
-      const result = await fetchAndFulfillWithHeaderOnce(route, { ...existingHeaders, [HEADER_NAME]: token });
-      state.sentAt.set(origin, Date.now());
-      return result;
+      const { status } = await fetchAndFulfillWithHeaderOnce(route, { ...existingHeaders, [HEADER_NAME]: token });
+      if (status < 400) state.sentAt.set(origin, Date.now());
+      return;
     }
 
     // route.continue()ではなくroute.fallback()を使う: このpage上でguardAdNetworkRequests()

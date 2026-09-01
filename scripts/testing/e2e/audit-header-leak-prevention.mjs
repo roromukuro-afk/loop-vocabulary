@@ -254,6 +254,54 @@ async function main() {
       await context.close();
     }
 
+    // ---------- シナリオ7: 5xxレスポンス(一時的なサーバーエラー)の後、resendIntervalMs内でも再送される ----------
+    // Codexレビュー指摘(2026-09-01、finding 3の2回目の指摘)の回帰防止。route.fetch()は
+    // ネットワークレベルの失敗(DNS不達・接続拒否等)でしか例外を投げず、5xxのような
+    // HTTPエラー応答は例外にならず正常にresolveしてしまう。「例外を投げなかったから
+    // 成功」という以前の判定だけでは、一時的な502等でも「送信済み」と記録され、
+    // resendIntervalMs内の再試行がヘッダーを持たないまま進行してしまう。専用の
+    // flakyサーバー(最初のリクエストだけ500を返す)で、resendIntervalMs内であっても
+    // 直後のnavigationでheaderが再送されることを確認する。
+    {
+      let flakyRequestCount = 0;
+      const flaky = await startServer((req, res) => {
+        const url = new URL(req.url, "http://127.0.0.1");
+        if (url.pathname === "/") {
+          flakyRequestCount++;
+          if (flakyRequestCount === 1) {
+            res.writeHead(500, { "content-type": "text/plain" });
+            res.end("temporary error");
+            return;
+          }
+          res.writeHead(200, { "content-type": "text/html" });
+          res.end("<!doctype html><html><body>ok</body></html>");
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const LONG_RESEND_INTERVAL_MS = 60_000; // 十分に長く、idle経過による再送とは無関係であることを保証する
+      await allowFirstPartyOrigin(page, flaky.origin, FAKE_TOKEN, { resendIntervalMs: LONG_RESEND_INTERVAL_MS });
+
+      await page.goto(`${flaky.origin}/`, { waitUntil: "load" }); // 1回目: 500が返る
+      await page.waitForTimeout(200);
+      await page.goto(`${flaky.origin}/`, { waitUntil: "load" }); // 2回目: resendIntervalMs内でもすぐ再試行
+      await page.waitForTimeout(200);
+
+      const flakyDocRequests = flaky.capturedRequests.filter((r) => r.url === "/");
+      const secondFlakyRequestHadHeader = flakyDocRequests[1]?.headers[HEADER_NAME] === FAKE_TOKEN;
+      if (flakyDocRequests.length >= 2 && secondFlakyRequestHadHeader) {
+        ok("5xx応答の直後、resendIntervalMs内でもaudit headerが再送される(一時的なサーバーエラーで「送信済み」と誤記録されない)");
+      } else {
+        bad(`5xx応答後の2回目リクエストにheaderが無い(実測: ${JSON.stringify(flakyDocRequests.map((r) => r.headers[HEADER_NAME]))})`);
+      }
+      await context.close();
+      await closeServer(flaky.server);
+    }
+
     console.log(fail
       ? `\n=== test:audit-header-leak-prevention: ${fail}件失敗 (${pass}件成功) ===`
       : `\n=== test:audit-header-leak-prevention RESULT: all ${pass} checks passed ===`);
