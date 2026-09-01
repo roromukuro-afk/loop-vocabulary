@@ -1,4 +1,3 @@
-// 明示的な.ts拡張子の理由はtestEventClassification.ts冒頭のコメント参照。
 import { AUDIT_MODE_HEADER, AUDIT_MODE_COOKIE } from "./auditMode.ts";
 
 /**
@@ -24,7 +23,8 @@ import { AUDIT_MODE_HEADER, AUDIT_MODE_COOKIE } from "./auditMode.ts";
  *   node:crypto等のNode専用APIは意図的に使わない: middleware.tsはNext.jsの既定では
  *   Edge Runtimeで動作し、Edge RuntimeはNode専用API(node:crypto含む)をサポートしない
  *   ため、下のsafeEqual()はNode/Edge/ブラウザのどこでも動く素のJavaScriptだけで
- *   タイミング攻撃耐性のある比較を実装している。
+ *   タイミング攻撃耐性のある比較を実装している。HMAC署名(computeSignedCookieValue)は
+ *   Web Crypto API(globalThis.crypto.subtle、Edge Runtimeでも標準で使える)を使う。
  * - `NEXT_PUBLIC_` prefixも付けない(Next.jsはNEXT_PUBLIC_を持つ変数のみをクライアント
  *   バンドルへ埋め込む。この変数名にはprefixが無いため、ビルド時にクライアントJSへ
  *   絶対に混入しない)。
@@ -88,17 +88,70 @@ function readCookieValue(request: Request, name: string): string | null {
   return null;
 }
 
+// オーナー指摘対応(Codexレビュー、805ac98/84522f8に対する新規指摘、2026-09-01、重要):
+// AUDIT_MODE_COOKIEは(layout.tsx・AdSenseLoader.tsxがdocument.cookieで直接読む必要が
+// あるため)意図的にhttpOnly=falseで発行している。以前はこのCookieの値が固定文字列
+// "1"であることだけを見ていたため、production上のどのクライアントJSも
+// `document.cookie = "lv_audit=1; path=/"` を実行するだけで、秘密トークンを一切
+// 知らずに監査モードを自称でき、AUDIT_MODE_HEADERの秘密トークン照合を導入した本来の
+// 目的(計測データ汚染・広告抑止の任意発動を防ぐ)を無効化できてしまっていた。
+//
+// 対策: Cookieの値を「秘密トークンで署名した検証可能な値」に変更する。ヘッダーが
+// 正しく認証された場合にのみサーバー(middleware.ts)がこの署名値を計算してCookieへ
+// セットし、Cookieによる維持判定(このファイルのisAuditModeRequest)は「値が"1"か」
+// ではなく「値が現在のLV_AUDIT_TOKENから導出した署名と一致するか」を確認する。
+// 秘密トークン自体はCookie値に含めない(HMAC出力は一方向関数のため、Cookie値を
+// 読めてもトークンを逆算できない)。Web Crypto API(globalThis.crypto.subtle)は
+// Edge Runtime・Node・ブラウザのいずれでも利用できる標準APIで、非同期のみ提供する
+// ため、isAuditModeRequest()を含む呼び出し経路(resolveAnalyticsRequestContext()・
+// middleware.ts・8箇所のRoute Handler)がすべてasync化されている。
+const AUDIT_COOKIE_SIGNATURE_MESSAGE = AUDIT_MODE_COOKIE;
+
+async function hmacSha256Hex(key: string, message: string): Promise<string> {
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(key),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(message));
+  return Array.from(new Uint8Array(signature))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * 現在設定されているLV_AUDIT_TOKENから、Cookieへセットすべき署名値を計算する。
+ * middleware.tsがAUDIT_MODE_HEADER認証成功時にだけ呼ぶ。トークン未設定ならnullを返す
+ * (呼び出し側はCookieを一切セットしないこと)。
+ */
+export async function getSignedAuditCookieValue(): Promise<string | null> {
+  const token = getConfiguredAuditToken();
+  if (!token) return null;
+  return hmacSha256Hex(token, AUDIT_COOKIE_SIGNATURE_MESSAGE);
+}
+
+/** Cookie値が現在のLV_AUDIT_TOKENから導出した署名と一致するか(定数時間比較)。 */
+async function isSignedAuditCookieValid(cookieValue: string | null): Promise<boolean> {
+  const token = getConfiguredAuditToken();
+  if (!token || !cookieValue) return false;
+  const expected = await hmacSha256Hex(token, AUDIT_COOKIE_SIGNATURE_MESSAGE);
+  return safeEqual(cookieValue, expected);
+}
+
 /**
  * リクエストが監査モードの対象かどうかを判定する唯一の場所。
  * (1) AUDIT_MODE_HEADERが秘密トークンと一致する(監査スクリプトが明示的に開始)、または
- * (2) 直前のレスポンスでmiddleware.tsがセットしたAUDIT_MODE_COOKIE(値"1")が既にある
- *     (SPA遷移中の維持。Cookie自体は秘密を持たない単なる状態フラグであり、
- *     httpOnly=falseでクライアントJSからも読めるため秘密を入れてはならない)
+ * (2) 直前のレスポンスでmiddleware.tsがセットしたAUDIT_MODE_COOKIE(値は現在の
+ *     LV_AUDIT_TOKENから導出した署名。SPA遷移中の維持用。Cookie自体はhttpOnly=falseで
+ *     クライアントJSからも読めるが、値がHMAC署名のため秘密トークンを知らない限り
+ *     有効な値を計算できない)が現在のトークンに対して有効な署名を持つ
  * のいずれかを満たす場合にtrueを返す。
  * middleware.ts(Cookieの発行元)とresolveAnalyticsRequestContext.ts(isTestEventの決定)の
  * 両方がこの1関数だけを使うことで、判定基準の二重実装を防ぐ。
  */
-export function isAuditModeRequest(request: Request): boolean {
+export async function isAuditModeRequest(request: Request): Promise<boolean> {
   if (isAuditHeaderAuthorized(request.headers.get(AUDIT_MODE_HEADER))) return true;
-  return readCookieValue(request, AUDIT_MODE_COOKIE) === "1";
+  return isSignedAuditCookieValid(readCookieValue(request, AUDIT_MODE_COOKIE));
 }

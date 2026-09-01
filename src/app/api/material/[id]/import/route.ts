@@ -10,7 +10,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const analyticsContext = resolveAnalyticsRequestContext(req);
+  const analyticsContext = await resolveAnalyticsRequestContext(req);
   const { id: materialId } = await params;
   const supabase = await createClient();
   const {

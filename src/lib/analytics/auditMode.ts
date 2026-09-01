@@ -47,8 +47,18 @@ export const AUDIT_MODE_COOKIE = "lv_audit";
 // 途切れない。
 export const AUDIT_MODE_COOKIE_MAX_AGE_SECONDS = 10 * 60; // 10分
 
+// オーナー指摘対応(Codexレビュー、2026-09-01): 以前はCookie値が固定文字列"1"かどうか
+// だけを見ていたが、middleware.ts側をLV_AUDIT_TOKENから導出したHMAC署名値へ変更した
+// (auditModeServer.tsのコメント参照)ため、クライアント側は「値が特定の文字列と一致するか」
+// ではなく「Cookieが(どんな値であれ)存在するか」だけを見る。署名値は秘密トークンを
+// 知らない限り計算できないため、Cookie名さえ知っていれば誰でもセットできた以前の
+// "=1"チェックと異なり、存在チェックへ緩めても安全性は後退しない
+// (サーバー側isAuditModeRequest()が実際の署名検証を行う唯一の場所であり、
+// クライアント側のこの判定はあくまで広告・計測タグの読み込み抑止という表示上の最適化に
+// すぎない。真に信頼すべき判定はサーバー側だけで完結している)。
+
 /** レイアウトのインラインスクリプト文字列に埋め込む用の、Cookie存在チェック式(そのままJS内に展開する)。 */
-export const AUDIT_MODE_COOKIE_CHECK_EXPR = `document.cookie.indexOf('${AUDIT_MODE_COOKIE}=1')!==-1`;
+export const AUDIT_MODE_COOKIE_CHECK_EXPR = `document.cookie.indexOf('${AUDIT_MODE_COOKIE}=')!==-1`;
 
 /** クライアントコンポーネント(AdSenseLoader等)から呼ぶ、監査モード判定。 */
 export function isAuditModeActiveClient(): boolean {
@@ -56,5 +66,5 @@ export function isAuditModeActiveClient(): boolean {
   return document.cookie
     .split(";")
     .map((c) => c.trim())
-    .some((c) => c === `${AUDIT_MODE_COOKIE}=1`);
+    .some((c) => c.startsWith(`${AUDIT_MODE_COOKIE}=`));
 }

@@ -118,9 +118,15 @@ function ensureInstalled(page, resendIntervalMs) {
     const needsResend = lastSentAt === undefined || Date.now() - lastSentAt >= state.resendIntervalMs;
 
     if (isFirstParty && isMainFrameDocumentNav && needsResend && token) {
-      state.sentAt.set(origin, Date.now());
+      // オーナー指摘対応(Codexレビュー、2026-09-01): sentAtの更新はfetchAndFulfillWithHeaderOnce()
+      // が実際に完了した後にする(以前はawaitより前に更新していた)。route.fetch()が
+      // 例外を投げて失敗した場合、以前の実装ではそれでも「送信済み」と記録されてしまい、
+      // resendIntervalMs内の同一ページ再試行がヘッダーもCookieも持たないまま進行し、
+      // 監査モードが有効化されないまま実リクエストが送られる恐れがあった。
       const existingHeaders = await request.allHeaders();
-      return fetchAndFulfillWithHeaderOnce(route, { ...existingHeaders, [HEADER_NAME]: token });
+      const result = await fetchAndFulfillWithHeaderOnce(route, { ...existingHeaders, [HEADER_NAME]: token });
+      state.sentAt.set(origin, Date.now());
+      return result;
     }
 
     // route.continue()ではなくroute.fallback()を使う: このpage上でguardAdNetworkRequests()

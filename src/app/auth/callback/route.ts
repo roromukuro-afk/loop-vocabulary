@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     // 保証されない(Codexレビュー指摘対応)。trackServerEvent()自体は例外を握りつぶし
     // 呼び出し元の処理を止めないため、ここでawaitしてもリダイレクト自体が失敗する
     // ことはない。
-    await trackServerEvent("signup_oauth_completed", resolveAnalyticsRequestContext(req), {
+    await trackServerEvent("signup_oauth_completed", await resolveAnalyticsRequestContext(req), {
       userId: user.id,
       anonymousSessionId,
       properties: { method: "google" },

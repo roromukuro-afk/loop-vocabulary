@@ -22,7 +22,10 @@ export interface AnalyticsRequestContext {
   readonly isTestEvent: boolean;
 }
 
-export function resolveAnalyticsRequestContext(request: Request): AnalyticsRequestContext {
-  const isTestEvent = isAuditModeRequest(request) || !isProductionEnvironment();
+export async function resolveAnalyticsRequestContext(request: Request): Promise<AnalyticsRequestContext> {
+  // isAuditModeRequest()がCookieの署名検証のためasync化された(オーナー指摘対応、
+  // 2026-09-01。src/lib/analytics/auditModeServer.tsのコメント参照)ため、この関数も
+  // async化されている。呼び出し側は全箇所でawaitすること。
+  const isTestEvent = (await isAuditModeRequest(request)) || !isProductionEnvironment();
   return { isTestEvent };
 }

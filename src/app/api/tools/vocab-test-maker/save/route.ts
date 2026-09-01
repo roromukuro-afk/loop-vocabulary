@@ -19,7 +19,7 @@ export const runtime = "nodejs";
  * ゼロから再検証する。
  */
 export async function POST(req: NextRequest) {
-  const analyticsContext = resolveAnalyticsRequestContext(req);
+  const analyticsContext = await resolveAnalyticsRequestContext(req);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });

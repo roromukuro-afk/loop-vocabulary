@@ -4,7 +4,7 @@ import {
   AUDIT_MODE_COOKIE,
   AUDIT_MODE_COOKIE_MAX_AGE_SECONDS,
 } from "@/lib/analytics/auditMode";
-import { isAuditModeRequest } from "@/lib/analytics/auditModeServer";
+import { isAuditModeRequest, getSignedAuditCookieValue } from "@/lib/analytics/auditModeServer";
 
 /**
  * Codexレビュー指摘(PR #137、P1)対応: Next.jsはプロジェクト内で1つの
@@ -50,10 +50,26 @@ export async function middleware(request: NextRequest) {
   }
 
   // ヘッダー値は秘密トークンと照合される(src/lib/analytics/auditMode.tsの
-  // isAuditHeaderAuthorized参照、オーナー指摘のセキュリティ対応)。既存のCookie(値"1")の
+  // isAuditHeaderAuthorized参照、オーナー指摘のセキュリティ対応)。既存のCookie(署名値)の
   // みでの維持判定と合わせて、この1関数だけが「監査モードかどうか」の唯一の判定基準になる
   // (resolveAnalyticsRequestContext.tsも同じ関数を使う)。
-  if (!isAuditModeRequest(request)) {
+  if (!(await isAuditModeRequest(request))) {
+    return response;
+  }
+
+  // オーナー指摘対応(Codexレビュー、2026-09-01): Cookie値を固定文字列"1"のままにすると、
+  // production上の誰でもdocument.cookie経由で秘密トークンを知らずに監査モードを
+  // 自称できてしまう(auditModeServer.tsのコメント参照)。ここではAUDIT_MODE_HEADERの
+  // 認証に成功した(=秘密トークンを知っている)リクエストに対してのみ、現在の
+  // LV_AUDIT_TOKENから導出した署名値を計算してCookieへセットする。
+  const signedCookieValue = await getSignedAuditCookieValue();
+  if (!signedCookieValue) {
+    // LV_AUDIT_TOKEN未設定(通常あり得ない: ここに到達した時点でisAuditModeRequest()が
+    // trueを返しており、ヘッダー認証成功かCookie署名検証成功のいずれかを意味するため、
+    // トークンは設定済みのはず。念のためのfail-closed: Cookieをセットせず、noindex等の
+    // ヘッダーだけは維持する)。
+    response.headers.set("X-Robots-Tag", "noindex");
+    response.headers.set("Cache-Control", "private, no-store");
     return response;
   }
 
@@ -61,7 +77,7 @@ export async function middleware(request: NextRequest) {
   // 監査用レスポンスがCDN・ブラウザ・共有キャッシュに一切乗らないようにする
   // (private=共有キャッシュ禁止、no-store=保存自体を禁止)。
   response.headers.set("Cache-Control", "private, no-store");
-  response.cookies.set(AUDIT_MODE_COOKIE, "1", {
+  response.cookies.set(AUDIT_MODE_COOKIE, signedCookieValue, {
     path: "/",
     maxAge: AUDIT_MODE_COOKIE_MAX_AGE_SECONDS,
     sameSite: "lax",
@@ -70,7 +86,8 @@ export async function middleware(request: NextRequest) {
     // 保存しなくなり、テストが検証不能になる。
     secure: request.nextUrl.protocol === "https:",
     // layout.tsxのインラインスクリプトとAdSenseLoader.tsx(クライアント側)が
-    // document.cookieで直接読む必要があるため、httpOnlyにはしない。
+    // document.cookieで直接読む必要があるため、httpOnlyにはしない(値自体はHMAC署名の
+    // ため、読めても秘密トークンを逆算できない)。
     httpOnly: false,
   });
   return response;

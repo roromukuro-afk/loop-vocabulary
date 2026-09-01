@@ -6,7 +6,7 @@ import { resolveAnalyticsRequestContext } from "@/lib/analytics/resolveAnalytics
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const analyticsContext = resolveAnalyticsRequestContext(req);
+  const analyticsContext = await resolveAnalyticsRequestContext(req);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 // POST: 他ユーザーの共有単語帳を自分の単語帳としてコピー
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const analyticsContext = resolveAnalyticsRequestContext(req);
+  const analyticsContext = await resolveAnalyticsRequestContext(req);
   const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

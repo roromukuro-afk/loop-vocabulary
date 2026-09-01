@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   // フォールバック、Codexレビュー指摘対応) または 非production環境(Preview/ローカルdev/CI)
   // からの送信を is_test_event=true として保存し、集計(rollup)から除外する
   // (判定ロジックの詳細・環境契約はtestEventClassification.tsのコメント参照)。
-  const isTestRequest = resolveAnalyticsRequestContext(req).isTestEvent;
+  const isTestRequest = (await resolveAnalyticsRequestContext(req)).isTestEvent;
 
   let body: unknown;
   try {
