@@ -51,6 +51,8 @@
  *
  * 使い方: node scripts/testing/e2e/ga4-webdriver-exclusion.mjs
  */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { gotoReady } from "./lib/nav.mjs";
@@ -58,6 +60,7 @@ import { allowFirstPartyOrigin } from "./lib/firstPartyAuditMode.mjs";
 import { guardAdNetworkRequests } from "./lib/adNetworkGuard.mjs";
 import { getAuditToken } from "../lib/auditToken.mjs";
 import { getEphemeralAuditToken } from "../lib/ephemeralAuditToken.mjs";
+import { REPO_ROOT } from "../lib/env.mjs";
 
 const PORT_LOCAL = Number(process.env.TEST_PORT || 3799);
 const PORT_PROD = PORT_LOCAL + 1;
@@ -136,6 +139,10 @@ async function main() {
     delete process.env.VERCEL_ENV;
     devLocal = await ensureDevServer(PORT_LOCAL, { forceRebuild: true, env: { VERCEL_ENV: "" } });
     const pageLocal = await browser.newPage();
+    // Codexレビュー指摘対応(2026-09-01、item 3): pageLocalのcontext参照を、close()より前に
+    // 保持しておく(後続scenarioでdevProdのpageのcontextと同一でないことを比較するため。
+    // オブジェクト参照自体の比較なので、context自体がcloseされた後でも安全に行える)。
+    const pageLocalContextRef = pageLocal.context();
     await guardAdNetworkRequests(pageLocal); // 実通信を発生させない(Issue #136)
     await gotoReady(pageLocal, `${devLocal.url}/`);
     await pageLocal.waitForTimeout(1000);
@@ -197,18 +204,21 @@ async function main() {
       await gotoAsRealUser(page, `${devProd.url}/`);
       await page.waitForTimeout(2000);
 
-      // Codexレビュー指摘の検証(2026-09-01、feeb0a0向け): このpage(browser.newPage())が
-      // 直前のdevLocal訪問(1.でgotoReady()がaudit headerを送りlv_audit Cookieを取得した
-      // pageLocal)からlv_audit Cookieを引き継いでいないことを明示的に確認する。
-      // browser.newPage()はPlaywright公式ドキュメントの記載どおり「新しいbrowser context」を
-      // 都度作成する(Browser.newPage(): "Creates a new page in a new browser context.")ため、
-      // Cookie自体がホスト単位でスコープされるにもかかわらず、context分離により
-      // pageLocal・各devProd pageの間でCookieが共有されることはない。もし将来この前提が
-      // (例えば共有contextへのリファクタ等で)崩れた場合、この直後のGA4計測checkが
-      // 誤って「常時ブロック」寄りの結果を返す形で検出される。
-      const leakedAuditCookie = (await page.context().cookies()).find((c) => c.name === "lv_audit");
-      if (!leakedAuditCookie) ok("devProd real-userシナリオのpageは、直前のdevLocal訪問のlv_audit Cookieを引き継いでいない(browser.newPage()のcontext分離を確認)");
-      else fail(`devProd real-userシナリオのpageがlv_audit Cookieを引き継いでいる(実測: ${JSON.stringify(leakedAuditCookie)}) — browser.newPage()のcontext分離が機能していない可能性`);
+      // Codexレビュー指摘の検証(2026-09-01、feeb0a0向け、item 3で実証テストを強化): この
+      // page(browser.newPage())が直前のdevLocal訪問(1.でgotoReady()がaudit headerを送り
+      // lv_audit_proof/lv_audit_ui Cookieを取得したpageLocal)からCookieを引き継いでいない
+      // ことを明示的に確認する。browser.newPage()はPlaywright公式ドキュメントの記載どおり
+      // 「新しいbrowser context」を都度作成する(Browser.newPage(): "Creates a new page in
+      // a new browser context.")ため、Cookie自体がホスト単位でスコープされるにもかかわらず、
+      // context分離によりpageLocal・各devProd pageの間でCookieが共有されることはない。
+      if (pageLocalContextRef !== page.context()) ok("pageLocal.context() !== devProdシナリオのpage.context()(別々のbrowser contextであることを確認)");
+      else fail("pageLocalとdevProdシナリオのpageが同一のcontextを共有している(context分離が機能していない)");
+
+      const cookiesOnThisPage = await page.context().cookies();
+      const leakedProofCookie = cookiesOnThisPage.find((c) => c.name === "lv_audit_proof");
+      const leakedUiCookie = cookiesOnThisPage.find((c) => c.name === "lv_audit_ui");
+      if (!leakedProofCookie && !leakedUiCookie) ok("devProd real-userシナリオのpageは、直前のdevLocal訪問のlv_audit_proof/lv_audit_ui Cookieのどちらも引き継いでいない(片方のcontextで設定したCookieが他方へ見えないことを確認)");
+      else fail(`devProd real-userシナリオのpageがCookieを引き継いでいる(実測: proof=${JSON.stringify(leakedProofCookie)}, ui=${JSON.stringify(leakedUiCookie)}) — browser.newPage()のcontext分離が機能していない可能性`);
 
       // gtag/js本体がadNetworkGuard.mjsでabortされるようになったため、実際のcollect
       // ビーコンはgtag.js自身が読み込めない限り発生しない(collectRequestsは常に0になる)。
@@ -264,11 +274,36 @@ async function main() {
 
       // 9. Cookie属性の確認(SameSite=Lax・Path=/。HTTPのlocalhostではSecureは付与されない設計)
       const cookies = await page.context().cookies();
-      const auditCookie = cookies.find((c) => c.name === "lv_audit");
-      if (auditCookie && auditCookie.sameSite === "Lax" && auditCookie.path === "/") {
-        ok(`監査モードCookieがSameSite=Lax・Path=/で発行されている(secure=${auditCookie.secure}, HTTPのlocalhostのため意図的にfalse)`);
+      const proofCookie = cookies.find((c) => c.name === "lv_audit_proof");
+      const uiCookie = cookies.find((c) => c.name === "lv_audit_ui");
+      if (proofCookie && proofCookie.sameSite === "Lax" && proofCookie.path === "/") {
+        ok(`lv_audit_proof CookieがSameSite=Lax・Path=/で発行されている(secure=${proofCookie.secure}, HTTPのlocalhostのため意図的にfalse)`);
       } else {
-        fail(`監査モードCookieの属性が想定と異なる(実測: ${JSON.stringify(auditCookie)})`);
+        fail(`lv_audit_proof Cookieの属性が想定と異なる(実測: ${JSON.stringify(proofCookie)})`);
+      }
+      // オーナー指摘対応(2026-09-01、item 2): server側のtest-event判定が信頼する唯一の
+      // proof CookieはHttpOnlyでなければならない(client JavaScriptから一切読めないように
+      // する多層防御)。Playwrightのcontext.cookies()はhttpOnlyでも値・属性を取得できる
+      // (DevTools相当の特権API、document.cookieの制約とは無関係)ため、実測で確認できる。
+      if (proofCookie && proofCookie.httpOnly === true) ok("lv_audit_proof CookieにHttpOnlyが付与されている(client JavaScriptから読み取れない)");
+      else fail(`lv_audit_proof CookieにHttpOnlyが付与されていない(実測: httpOnly=${proofCookie?.httpOnly})`);
+      // client側の広告抑制表示専用のUI markerは、引き続き非HttpOnly(document.cookieで
+      // 読む必要があるため)。
+      if (uiCookie && uiCookie.httpOnly === false) ok("lv_audit_ui CookieはHttpOnlyではない(client側の広告抑制表示がdocument.cookieで読める)");
+      else fail(`lv_audit_ui Cookieのhttponly属性が想定と異なる(実測: httpOnly=${uiCookie?.httpOnly})`);
+
+      // オーナー指摘対応(2026-09-01、item 2、「productionではSecureが付く」): ローカルdev
+      // serverはHTTPで動くためSecure=falseが実際には正しい挙動であり(HTTPS環境で
+      // Secure=trueにすると逆にCookie自体が保存されずテストが検証不能になる)、ここを
+      // HTTPSに差し替えて実際に確認することは現実的でない。代わりにmiddleware.tsの
+      // ソースコード自体が「request.nextUrl.protocol === "https:"のときだけSecureを
+      // 付与する」実装になっていることを静的に確認する(本番はHTTPSのため、この条件式が
+      // productionで確実にtrueへ評価されることを保証する)。
+      {
+        const middlewareSource = readFileSync(resolve(REPO_ROOT, "src/middleware.ts"), "utf-8");
+        const secureConditionCount = (middlewareSource.match(/secure:\s*request\.nextUrl\.protocol\s*===\s*"https:"/g) || []).length;
+        if (secureConditionCount >= 1) ok(`middleware.tsがCookieのsecure属性をrequest.nextUrl.protocol==="https:"から導出している(本番は自動的にSecureになる。該当箇所${secureConditionCount}件)`);
+        else fail("middleware.tsにsecure: request.nextUrl.protocol===\"https:\"の記述が見つからない(productionでSecureが付与されない可能性)");
       }
 
       // オーナー指摘のセキュリティ対応(Issue #136是正の再強化)の直接検証: ヘッダー名は
@@ -289,12 +324,12 @@ async function main() {
         const res = await mismatchedPage.goto(`${devProd.url}/`, { waitUntil: "load" });
         const headers = res.headers();
         const cookiesAfter = await mismatchedContext.cookies();
-        const gotAuditCookie = cookiesAfter.some((c) => c.name === "lv_audit");
+        const gotAuditCookie = cookiesAfter.some((c) => c.name === "lv_audit_proof" || c.name === "lv_audit_ui");
         const leaked = headers["x-robots-tag"] || headers["cache-control"] === "private, no-store" || gotAuditCookie;
         if (!leaked) {
           ok("トークン不一致(旧固定値\"1\")のヘッダーは通常アクセスとして扱われ、監査モード用ヘッダー・Cookieが一切付与されない");
         } else {
-          fail(`トークン不一致にも関わらず監査モードが起動した(実測: x-robots-tag=${headers["x-robots-tag"] ?? "(なし)"}, cache-control=${headers["cache-control"] ?? "(なし)"}, lv_audit cookie=${gotAuditCookie}) — LV_AUDIT_TOKEN照合が機能していない可能性がある`);
+          fail(`トークン不一致にも関わらず監査モードが起動した(実測: x-robots-tag=${headers["x-robots-tag"] ?? "(なし)"}, cache-control=${headers["cache-control"] ?? "(なし)"}, audit cookie=${gotAuditCookie}) — LV_AUDIT_TOKEN照合が機能していない可能性がある`);
         }
         await mismatchedContext.close();
       }
@@ -362,9 +397,9 @@ async function main() {
       // テストスクリプト側でも明示的にクリアし、削除できたことを検証する。
       await page.context().clearCookies();
       const cookiesAfterClear = await page.context().cookies();
-      const auditCookieAfterClear = cookiesAfterClear.find((c) => c.name === "lv_audit");
-      if (!auditCookieAfterClear) ok("E2E終了時にaudit-mode Cookie(lv_audit)を明示的に削除できた");
-      else fail(`E2E終了後もaudit-mode Cookieが残存している(実測: ${JSON.stringify(auditCookieAfterClear)})`);
+      const auditCookiesAfterClear = cookiesAfterClear.filter((c) => c.name === "lv_audit_proof" || c.name === "lv_audit_ui");
+      if (auditCookiesAfterClear.length === 0) ok("E2E終了時にaudit-mode Cookie(lv_audit_proof/lv_audit_ui)を明示的に削除できた");
+      else fail(`E2E終了後もaudit-mode Cookieが残存している(実測: ${JSON.stringify(auditCookiesAfterClear)})`);
 
       await page.close();
     }

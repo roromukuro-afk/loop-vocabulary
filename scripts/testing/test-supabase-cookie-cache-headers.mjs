@@ -88,17 +88,17 @@ function test4_missingHeadersArgDoesNotThrow() {
 }
 
 function test5_auditCookieNeverTouchedByThisFunction() {
-  // audit Cookie(lv_audit)はsrc/middleware.ts側が別途response.cookies.set()で
-  // 直接付与する(src/lib/analytics配下のロジック)。applySupabaseCookiesAndHeaders()
-  // はSupabaseから渡されたtoSet配列だけを処理するため、lv_auditという名前を
-  // 一切知らない・触れない設計になっていることをソースの近傍から確認する
-  // (「audit Cookie削除時にSupabase Cookieへ触れない」の裏返し: Supabase側の
+  // audit Cookie(lv_audit_proof・lv_audit_ui)はsrc/middleware.ts側が別途
+  // response.cookies.set()で直接付与する(src/lib/analytics配下のロジック)。
+  // applySupabaseCookiesAndHeaders()はSupabaseから渡されたtoSet配列だけを処理するため、
+  // lv_audit_*という名前を一切知らない・触れない設計になっていることをソースの近傍から
+  // 確認する(「audit Cookie削除時にSupabase Cookieへ触れない」の裏返し: Supabase側の
   // このヘルパーもaudit Cookieへ触れない、という分離が保たれていることの確認)。
   const res = makeMockResponse();
   applySupabaseCookiesAndHeaders(res, [{ name: "sb-access-token", value: "v1", options: {} }], SUPABASE_CACHE_HEADERS);
-  const touchedAuditCookie = res.cookieCalls.some((c) => c.name === "lv_audit");
-  if (!touchedAuditCookie) ok("applySupabaseCookiesAndHeaders()はSupabaseが渡したCookie以外(lv_audit等)を一切追加・削除しない");
-  else bad("applySupabaseCookiesAndHeaders()がlv_auditへ触れている(想定外)");
+  const touchedAuditCookie = res.cookieCalls.some((c) => c.name.startsWith("lv_audit"));
+  if (!touchedAuditCookie) ok("applySupabaseCookiesAndHeaders()はSupabaseが渡したCookie以外(lv_audit_*等)を一切追加・削除しない");
+  else bad("applySupabaseCookiesAndHeaders()がlv_audit_*へ触れている(想定外)");
 }
 
 test1_cacheHeadersApplied();

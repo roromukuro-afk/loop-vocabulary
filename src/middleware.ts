@@ -1,10 +1,10 @@
 import type { NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import {
-  AUDIT_MODE_COOKIE,
+  AUDIT_MODE_UI_COOKIE,
   AUDIT_MODE_COOKIE_MAX_AGE_SECONDS,
 } from "@/lib/analytics/auditMode";
-import { isAuditModeRequest, getSignedAuditCookieValue } from "@/lib/analytics/auditModeServer";
+import { isAuditModeRequest, createSignedAuditProof, AUDIT_PROOF_COOKIE } from "@/lib/analytics/auditModeServer";
 
 /**
  * Codexレビュー指摘(PR #137、P1)対応: Next.jsはプロジェクト内で1つの
@@ -57,15 +57,16 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // オーナー指摘対応(Codexレビュー、2026-09-01): Cookie値を固定文字列"1"のままにすると、
-  // production上の誰でもdocument.cookie経由で秘密トークンを知らずに監査モードを
-  // 自称できてしまう(auditModeServer.tsのコメント参照)。ここではAUDIT_MODE_HEADERの
-  // 認証に成功した(=秘密トークンを知っている)リクエストに対してのみ、現在の
-  // LV_AUDIT_TOKENから導出した署名値を計算してCookieへセットする。
-  const signedCookieValue = await getSignedAuditCookieValue();
-  if (!signedCookieValue) {
+  // オーナー指摘対応(Codexレビュー、2026-09-01、2回にわたり発見): Cookie値を固定文字列
+  // "1"のままにすると、production上の誰でもdocument.cookie経由で秘密トークンを知らずに
+  // 監査モードを自称できてしまう。その後HMAC署名値へ変更したが、署名対象が固定
+  // メッセージだったため無期限に再利用可能なままだった。ここではAUDIT_MODE_HEADERの
+  // 認証に成功した(=秘密トークンを知っている)リクエストに対してのみ、iat・exp・nonceを
+  // 含む期限付きproofを新規発行してCookieへセットする(auditModeServer.tsのコメント参照)。
+  const signedProof = await createSignedAuditProof();
+  if (!signedProof) {
     // LV_AUDIT_TOKEN未設定(通常あり得ない: ここに到達した時点でisAuditModeRequest()が
-    // trueを返しており、ヘッダー認証成功かCookie署名検証成功のいずれかを意味するため、
+    // trueを返しており、ヘッダー認証成功かproof署名検証成功のいずれかを意味するため、
     // トークンは設定済みのはず。念のためのfail-closed: Cookieをセットせず、noindex等の
     // ヘッダーだけは維持する)。
     response.headers.set("X-Robots-Tag", "noindex");
@@ -77,19 +78,23 @@ export async function middleware(request: NextRequest) {
   // 監査用レスポンスがCDN・ブラウザ・共有キャッシュに一切乗らないようにする
   // (private=共有キャッシュ禁止、no-store=保存自体を禁止)。
   response.headers.set("Cache-Control", "private, no-store");
-  response.cookies.set(AUDIT_MODE_COOKIE, signedCookieValue, {
+  const cookieBaseOptions = {
     path: "/",
     maxAge: AUDIT_MODE_COOKIE_MAX_AGE_SECONDS,
-    sameSite: "lax",
+    sameSite: "lax" as const,
     // HTTPS(本番)でのみSecure属性を付与する。ローカル/CIのE2EテストはHTTPの
     // localhostで動くため、Secureを常時trueにするとブラウザがCookie自体を
     // 保存しなくなり、テストが検証不能になる。
     secure: request.nextUrl.protocol === "https:",
-    // layout.tsxのインラインスクリプトとAdSenseLoader.tsx(クライアント側)が
-    // document.cookieで直接読む必要があるため、httpOnlyにはしない(値自体はHMAC署名の
-    // ため、読めても秘密トークンを逆算できない)。
-    httpOnly: false,
-  });
+  };
+  // server側のtest-event判定が信頼する唯一のCookie。httpOnly=trueでclient JavaScriptから
+  // 一切読めないようにする(値がHMAC署名でも、client JSから読めてしまうと将来の実装変更で
+  // 誤って信頼してしまうリスクが残るため、そもそも読めなくする=多層防御)。
+  response.cookies.set(AUDIT_PROOF_COOKIE, signedProof, { ...cookieBaseOptions, httpOnly: true });
+  // client側(layout.tsx・AdSenseLoader.tsx)の広告・計測タグ抑制表示専用。このCookie単独
+  // では監査モードにならない(isAuditModeRequest()は一切参照しない)。document.cookieで
+  // 直接読む必要があるためhttpOnlyにはしない。
+  response.cookies.set(AUDIT_MODE_UI_COOKIE, "1", { ...cookieBaseOptions, httpOnly: false });
   return response;
 }
 

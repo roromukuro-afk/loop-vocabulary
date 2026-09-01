@@ -19,12 +19,12 @@
  * 5. 認証済みセッション + 監査ヘッダーを同時に送っても、レスポンスに監査用ヘッダー
  *    (X-Robots-Tag: noindex, Cache-Control: private,no-store)が付与されつつ、
  *    ページは引き続き認証済み表示のまま(セッションが上書き・破棄されない)
- * 6. 上記5のレスポンスのSet-Cookieに、監査Cookie(lv_audit)とSupabaseの
- *    セッションCookie(sb-*)の両方が含まれる(片方が欠落しない、複数Set-Cookie
+ * 6. 上記5のレスポンスのSet-Cookieに、監査Cookie(lv_audit_proof・lv_audit_ui)と
+ *    Supabaseのセッションcookie(sb-*)の両方が含まれる(片方が欠落しない、複数Set-Cookie
  *    ヘッダーが1つに潰れて片方が消えていないことをheadersArray()で確認)
  * 7. ログアウトすると実際にセッションが破棄され、/dashboardへの再アクセスで
  *    /loginへredirectされる(audit-mode統合がログアウト処理を妨げない)
- * 8. Codexレビュー指摘(P2)対応: 監査ヘッダーを送らずlv_audit Cookieのみを送った
+ * 8. Codexレビュー指摘(P2)対応: 監査ヘッダーを送らずlv_audit_proof Cookieのみを送った
  *    /api/analytics/eventsへのPOST(監査モードのSPA遷移で実際に起きる状況)が、
  *    analytics_eventsへis_test_event=trueとして保存される(x-lv-e2e-testヘッダーの
  *    有無だけで判定していたtestEventClassification.tsの修正確認。DBへ直接SELECTして確認)
@@ -137,7 +137,8 @@ async function main() {
       //
       // 代わりに、これが安全である根拠はsrc/middleware.tsの実装そのものにある: 監査モードの
       // 分岐は`const response = await updateSession(request);`で得たNextResponseへ
-      // `response.cookies.set(AUDIT_MODE_COOKIE, ...)`を追加するだけで、新しいNextResponseを
+      // `response.cookies.set(AUDIT_PROOF_COOKIE, ...)`/`response.cookies.set(AUDIT_MODE_UI_COOKIE, ...)`を
+      // 追加するだけで、新しいNextResponseを
       // 作り直してはいない。NextResponseのcookies APIは名前ごとに独立してSet-Cookieを
       // 追加するため、updateSession()が既にセットしたsb-*のSet-Cookieが後から上書き・
       // 消去される経路はコード構造上存在しない。
@@ -160,19 +161,19 @@ async function main() {
       const rawHeaders = await res.headersArray();
       const setCookieEntries = rawHeaders.filter((h) => h.name.toLowerCase() === "set-cookie");
       const setCookieNames = setCookieEntries.map((h) => h.value.split("=")[0]);
-      const hasAuditCookie = setCookieNames.some((n) => n === "lv_audit");
+      const hasAuditCookie = setCookieNames.some((n) => n === "lv_audit_proof") && setCookieNames.some((n) => n === "lv_audit_ui");
       if (hasAuditCookie && setCookieEntries.length >= 1) {
-        ok(`認証済み+監査ヘッダー同時アクセスのSet-Cookieに監査Cookie(lv_audit)が含まれる(Set-Cookieエントリ数=${setCookieEntries.length}、内容: ${setCookieNames.join(", ")})`);
+        ok(`認証済み+監査ヘッダー同時アクセスのSet-Cookieに監査Cookie(lv_audit_proof・lv_audit_ui)が両方含まれる(Set-Cookieエントリ数=${setCookieEntries.length}、内容: ${setCookieNames.join(", ")})`);
       } else {
-        fail(`監査Cookie(lv_audit)がSet-Cookieに含まれない(実測Set-Cookieエントリ: ${JSON.stringify(setCookieNames)})`);
+        fail(`監査Cookie(lv_audit_proof/lv_audit_ui)がSet-Cookieに含まれない(実測Set-Cookieエントリ: ${JSON.stringify(setCookieNames)})`);
       }
       const cookiesAfterAuditAccess = await page.context().cookies();
       const sbCookiesAfterAuditAccess = cookiesAfterAuditAccess.filter((c) => c.name.startsWith("sb-"));
-      const auditCookieAfterAuditAccess = cookiesAfterAuditAccess.find((c) => c.name === "lv_audit");
+      const auditCookieAfterAuditAccess = cookiesAfterAuditAccess.find((c) => c.name === "lv_audit_proof");
       if (sbCookiesAfterAuditAccess.length > 0 && auditCookieAfterAuditAccess) {
         ok(`監査Cookie追加後もSupabaseセッションcookie(sb-*)が${sbCookiesAfterAuditAccess.length}件保持されている(上書き・破棄されていない)`);
       } else {
-        fail(`監査Cookie追加後にSupabaseセッションcookieが失われた(sb-*件数=${sbCookiesAfterAuditAccess.length}, lv_audit有無=${!!auditCookieAfterAuditAccess})`);
+        fail(`監査Cookie追加後にSupabaseセッションcookieが失われた(sb-*件数=${sbCookiesAfterAuditAccess.length}, lv_audit_proof有無=${!!auditCookieAfterAuditAccess})`);
       }
 
       // 監査ヘッダー付きアクセス後も、実際に認証済みページとして表示され続けることを
@@ -185,13 +186,16 @@ async function main() {
         fail(`監査ヘッダー付きアクセスのあとにログアウトさせられた(実測URL: ${urlAfterAuditAccess})`);
       }
 
-      // ---- 8. 監査ヘッダーを送らずlv_audit Cookieのみで/api/analytics/eventsへPOSTした
+      // ---- 8. 監査ヘッダーを送らずlv_audit_proof Cookieのみで/api/analytics/eventsへPOSTした
       //         イベントが、is_test_event=trueとしてDBへ保存される(SPA遷移でヘッダーが
-      //         再送されない状況を再現。Codexレビュー指摘対応) ----
+      //         再送されない状況を再現。Codexレビュー指摘対応。lv_audit_proofはhttpOnlyだが、
+      //         ブラウザは以後のリクエストへ自動付与するため、この手動fetch()でも
+      //         page.context().cookies()で値を取得しCookieヘッダーへ手動で載せれば
+      //         同じ状況を再現できる) ----
       {
-        const auditCookieOnly = (await page.context().cookies()).find((c) => c.name === "lv_audit");
+        const auditCookieOnly = (await page.context().cookies()).find((c) => c.name === "lv_audit_proof");
         if (!auditCookieOnly) {
-          fail("lv_audit Cookieが見つからず、監査Cookie限定でのanalytics_events検証ができなかった");
+          fail("lv_audit_proof Cookieが見つからず、監査Cookie限定でのanalytics_events検証ができなかった");
         } else {
           const sessionId = `test-audit-cookie-only-${Date.now()}`;
           const ingestRes = await fetch(`${dev.url}/api/analytics/events`, {

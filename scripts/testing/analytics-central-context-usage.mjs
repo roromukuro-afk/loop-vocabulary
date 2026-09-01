@@ -104,7 +104,7 @@ function main() {
     // 生のheader/cookie読み取りによる判定への迂回がないこと(この2定数のimport自体が
     // 無い=そもそも生値へアクセスする手段を持たない、という強い形で確認する)。
     const importsRawHeaderConst = /\bE2E_TEST_HEADER\b/.test(src) || /\bAUDIT_MODE_HEADER\b/.test(src);
-    const importsRawCookieConst = /\bAUDIT_MODE_COOKIE\b(?!_)/.test(src);
+    const importsRawCookieConst = /\bAUDIT_MODE_UI_COOKIE\b/.test(src) || /\bAUDIT_PROOF_COOKIE\b/.test(src);
     if (!importsRawHeaderConst && !importsRawCookieConst) {
       ok(`${relPath}: E2Eヘッダー/audit Cookieの生値を直接参照していない`);
     } else {
@@ -173,7 +173,7 @@ function main() {
   console.log("\n--- 判定実装ファイルの範囲確認 ---");
   let allRefs;
   try {
-    allRefs = execSync(`git grep -lE "\\bE2E_TEST_HEADER\\b|\\bAUDIT_MODE_HEADER\\b|\\bAUDIT_MODE_COOKIE\\b" -- src`, { cwd: REPO_ROOT, encoding: "utf8" });
+    allRefs = execSync(`git grep -lE "\\bE2E_TEST_HEADER\\b|\\bAUDIT_MODE_HEADER\\b|\\bAUDIT_MODE_UI_COOKIE\\b|\\bAUDIT_PROOF_COOKIE\\b" -- src`, { cwd: REPO_ROOT, encoding: "utf8" });
   } catch (e) {
     allRefs = "";
   }

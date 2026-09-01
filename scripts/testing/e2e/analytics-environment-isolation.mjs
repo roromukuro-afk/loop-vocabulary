@@ -203,13 +203,13 @@ async function main() {
       // page.setExtraHTTPHeaders()方式から変更された)。そのため以前のような
       // 明示的なヘッダークリア操作はもう不要。ただし、login()中の最初の
       // navigationでmiddleware.tsが発行したaudit Cookie
-      // (lv_audit)はブラウザのCookie jarに残ったままになる(Issue #136で追加された
-      // audit Cookieフォールバック。この発見時点でのバグ、オーナー指摘のセキュリティ
+      // (lv_audit_proof・lv_audit_ui)はブラウザのCookie jarに残ったままになる(Issue #136で
+      // 追加されたaudit Cookieフォールバック。この発見時点でのバグ、オーナー指摘のセキュリティ
       // 対応の一環で追加した検証中に判明: ヘッダーを消してもCookie経由でis_test_event=true
       // のままになり、このテストが「正真正銘の本番リクエスト」を再現できていなかった)。
-      // Supabaseセッションcookie(sb-*)は認証状態の維持に必要なので、lv_auditだけを
-      // 名前指定でクリアする(全cookie削除だとログアウトしてしまう)。
-      await authContext.clearCookies({ name: "lv_audit" });
+      // Supabaseセッションcookie(sb-*)は認証状態の維持に必要なので、lv_audit_*だけを
+      // 名前指定(正規表現)でクリアする(全cookie削除だとログアウトしてしまう)。
+      await authContext.clearCookies({ name: /^lv_audit_/ });
       const sessionId = `env-isolation-${runId}-prod-auth-${Date.now()}`;
       const res = await postEvent(authPage, prodServer.url, { eventName: "landing_view", sessionId });
       const rows = res.body?.accepted === 1 ? await fetchIsTestEventBySession(admin, sessionId) : [];
