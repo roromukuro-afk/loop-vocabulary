@@ -1,10 +1,16 @@
 import type { NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import {
+  AUDIT_MODE_HEADER,
   AUDIT_MODE_UI_COOKIE,
   AUDIT_MODE_COOKIE_MAX_AGE_SECONDS,
 } from "@/lib/analytics/auditMode";
-import { isAuditModeRequest, createSignedAuditProof, AUDIT_PROOF_COOKIE } from "@/lib/analytics/auditModeServer";
+import {
+  isAuditModeRequest,
+  isAuditHeaderAuthorized,
+  createSignedAuditProof,
+  AUDIT_PROOF_COOKIE,
+} from "@/lib/analytics/auditModeServer";
 
 /**
  * Codexレビュー指摘(PR #137、P1)対応: Next.jsはプロジェクト内で1つの
@@ -18,29 +24,42 @@ import { isAuditModeRequest, createSignedAuditProof, AUDIT_PROOF_COOKIE } from "
  *
  * 本番監査モード(Issue #136是正の強化、詳細は src/lib/analytics/auditMode.ts 参照)。
  *
- * 監査スクリプトが明示的に送る `x-lv-e2e-test: 1` ヘッダー、または前回のレスポンスで
- * セットしたCookieのどちらかが確認できたリクエストにのみ、updateSession()が返す
- * レスポンス(Supabaseの更新済みCookieを含む)へ追加で:
- *   - X-Robots-Tag: noindex を付与(監査対象URLをindexさせない)
+ * 監査スクリプトが明示的に送る `x-lv-e2e-test: <LV_AUDIT_TOKEN>` ヘッダー、または前回の
+ * レスポンスでセットした署名付きproof Cookie(lv_audit_proof)のどちらかが確認できた
+ * リクエストにのみ、updateSession()が返すレスポンス(Supabaseの更新済みCookieを含む)へ
+ * 追加で:
+ *   - X-LV-Audit-Active: 1 を付与(トークンが実際に検証された、という唯一の証拠)
+ *   - X-Robots-Tag: noindex を付与(監査対象URLをindexさせない。検索除外用途、
+ *     activation証跡としては使わない)
  *   - Cache-Control: private, no-store を付与(CDN・共有キャッシュに一切乗せない。
  *     これにより、次の別ユーザーの通常アクセスがキャッシュされた監査用レスポンス
  *     ―noindexヘッダー付き―を受け取ってしまう事態を防ぐ)
- *   - Cookieを再セット(SPA遷移中も監査モードを維持する)
  * を行う。ヘッダーもCookieも無い通常ユーザーのリクエストには一切影響しない
- * (このif分岐に入らないため、noindexもSet-Cookieも付与されない。updateSession()自体は
- * 通常どおり実行される)。
+ * (このif分岐に入らないため、これらのヘッダーもSet-Cookieも付与されない。
+ * updateSession()自体は通常どおり実行される)。
  *
- * /api/* では監査モード用ヘッダーの付与のみをスキップする(理由はconfig.matcherの
- * コメント参照)。updateSession()によるSupabaseセッション更新は/api/*にも必要なため、
- * matcherレベルでは除外しない。
+ * proof Cookieの新規発行(=有効期限のリセット)は、AUDIT_MODE_HEADERが実際に認証された
+ * リクエストに対してのみ行う(オーナー指摘対応、2026-09-01、重要: 以前はCookie
+ * (proof)だけで認証が成功した場合も無条件に新しいproofを発行していたため、有効な
+ * proof Cookieを一度でも入手できれば、秘密トークンを一切知らないまま通常の
+ * navigationを繰り返すだけで有効期限を無期限に延長し続けられてしまっていた)。
+ * proof-onlyで認証されたリクエストは、X-LV-Audit-Active等のヘッダーは引き続き
+ * 付与するが、Cookie自体は再セットしない(ブラウザが既に保持している、発行済み
+ * proofの元々の絶対的な有効期限をそのまま尊重する)。監査スクリプト側
+ * (scripts/testing/e2e/lib/firstPartyAuditMode.mjs)がCookie寿命の半分の間隔で
+ * ヘッダーを能動的に再送する設計になっているため、アクティブな監査中の実際の
+ * 期限延長はこのヘッダー再送によって行われ、middleware側でのCookie-onlyの
+ * 無条件延長には依存しない。
+ *
+ * /api/* では監査モード用ヘッダー・Cookie発行の付与を丸ごとスキップする(理由は
+ * config.matcherのコメント参照)。updateSession()によるSupabaseセッション更新は
+ * /api/*にも必要なため、matcherレベルでは除外しない。
  *
  * Cookieの生存期間について: サーバーはステートレスなため、「監査が終わった」ことを
  * 能動的に検知してCookieを削除するプッシュ型の仕組みは実装できない(次にどのリクエストが
  * 来るか、来ないかをサーバー側から知る手段が無いため)。代わりに有効期間を
  * AUDIT_MODE_COOKIE_MAX_AGE_SECONDS(10分)と短く保つことで、監査終了後は
- * ブラウザが自動的にCookieを破棄する「実質的な削除」を保証する。アクティブな監査中は
- * 各ページ遷移のたびにこの関数が呼ばれて期限が延長されるため、10分より長い監査でも
- * 途切れない。
+ * ブラウザが自動的にCookieを破棄する「実質的な削除」を保証する。
  */
 export async function middleware(request: NextRequest) {
   const response = await updateSession(request);
@@ -72,23 +91,36 @@ export async function middleware(request: NextRequest) {
   // 可能性がある。正しいtokenが実際に検証された場合だけに専用のresponse headerを
   // 付与し、これだけをactivation確認の根拠とする。
   response.headers.set("X-LV-Audit-Active", "1");
-
-  const signedProof = await createSignedAuditProof();
-  if (!signedProof) {
-    // LV_AUDIT_TOKEN未設定(通常あり得ない: ここに到達した時点でisAuditModeRequest()が
-    // trueを返しており、ヘッダー認証成功かproof署名検証成功のいずれかを意味するため、
-    // トークンは設定済みのはず。念のためのfail-closed: Cookieをセットせず、noindex等の
-    // ヘッダーだけは維持する。X-LV-Audit-Activeは既に付与済み — トークン自体は
-    // 実際に検証されているため、この専用headerを撤回する理由は無い)。
-    response.headers.set("X-Robots-Tag", "noindex");
-    response.headers.set("Cache-Control", "private, no-store");
-    return response;
-  }
-
   response.headers.set("X-Robots-Tag", "noindex");
   // 監査用レスポンスがCDN・ブラウザ・共有キャッシュに一切乗らないようにする
   // (private=共有キャッシュ禁止、no-store=保存自体を禁止)。
   response.headers.set("Cache-Control", "private, no-store");
+
+  // オーナー指摘対応(Codexレビュー、2026-09-01、重要、proof設計後の新規指摘):
+  // 新しいproofの発行(=有効期限のリセット)は、AUDIT_MODE_HEADERが実際に認証された
+  // (=秘密トークンを知っている)リクエストに対してのみ行う。以前はisAuditModeRequest()が
+  // true(ヘッダー認証 または 既存proofの署名検証)であれば無条件にcreateSignedAuditProof()
+  // を呼んでいたため、有効なproof Cookieを(監査ブラウザから)一度でも入手できれば、
+  // 秘密トークンを一切知らないまま、期限が切れる前に通常のnavigationを繰り返すだけで
+  // proofの有効期限を無期限に延長し続けられてしまっていた(=期限付きにした本来の目的が
+  // 無効化される)。proof-onlyで認証されたリクエスト(=既存Cookieの署名検証だけが
+  // 成功した場合)は、X-LV-Audit-Active/X-Robots-Tag/Cache-Controlは引き続き付与する
+  // (このrequest自体は正しく監査対象として分類してよい)が、Cookie自体は一切
+  // 再セットしない — ブラウザが既に保持している、発行済みproofの元々の絶対的な
+  // 有効期限(iat+AUDIT_MODE_COOKIE_MAX_AGE_SECONDS)をそのまま尊重する。
+  const headerAuthorized = isAuditHeaderAuthorized(request.headers.get(AUDIT_MODE_HEADER));
+  if (!headerAuthorized) {
+    return response;
+  }
+
+  const signedProof = await createSignedAuditProof();
+  if (!signedProof) {
+    // LV_AUDIT_TOKEN未設定(通常あり得ない: headerAuthorizedがtrueということは
+    // isAuditHeaderAuthorized()がLV_AUDIT_TOKENと比較して一致したことを意味するため、
+    // トークンは設定済みのはず。念のためのfail-closed: Cookieをセットしない)。
+    return response;
+  }
+
   const cookieBaseOptions = {
     path: "/",
     maxAge: AUDIT_MODE_COOKIE_MAX_AGE_SECONDS,
