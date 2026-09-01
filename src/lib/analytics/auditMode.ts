@@ -37,14 +37,24 @@
  * 2回にわたり発見)。
  *
  * middleware.tsは AUDIT_MODE_HEADER を見て:
- *   - レスポンスに X-Robots-Tag: noindex を付与する(監査対象URLを非indexにする)
+ *   - レスポンスに X-LV-Audit-Active: 1 を付与する(トークンが実際に検証された、という
+ *     唯一の証拠。オーナー指摘対応、2026-09-01: 以前はX-Robots-Tag: noindexの有無を
+ *     この証拠として使っていたが、noindexは通常のnoindexページ・auth/search/
+ *     placeholder系ページ自身の設定・Vercelや別middlewareの設定でも同じ値になりうる
+ *     ため、監査と無関係な理由でnoindexが付いたページを「activation成功」と誤判定する
+ *     恐れがあった。X-LV-Audit-ActiveはisAuditModeRequest()がtrueの場合にのみ、
+ *     かつこの目的のためだけに付与する専用header)
+ *   - レスポンスに X-Robots-Tag: noindex を付与する(監査対象URLを非indexにする、
+ *     検索除外用途。activation確認には使わない)
  *   - lv_audit_proof(HttpOnly)・lv_audit_ui(非HttpOnly)の両方を短時間
  *     (AUDIT_MODE_COOKIE_MAX_AGE_SECONDS)セットする(クライアント側JSとその後のSPA遷移・
  *     RSCフェッチ全てに状態を持ち越すため。Cookieはブラウザが自動的に以後の同一オリジン
  *     リクエストへ付与するため、監査スクリプトが毎回ヘッダーを送らなくても、SPA遷移中は
  *     監査モードが維持される)
  * を行う。クライアント側(layout.tsx・AdSenseLoader.tsx)はlv_audit_uiの有無だけを見て
- * GA4/Clarity/広告タグの読み込み自体を止める。
+ * GA4/Clarity/広告タグの読み込み自体を止める(isAuditModeActiveClient()のsticky
+ * session-stateフォールバックも参照。/api/*経由ではこれらのCookieは再発行されない
+ * ため)。
  *
  * 【このファイルはクライアントバンドルにも含まれる】layout.tsx(AUDIT_MODE_COOKIE_CHECK_EXPR)
  * とAdSenseLoader.tsx("use client", isAuditModeActiveClient)がブラウザ側から直接importする
@@ -78,11 +88,28 @@ export const AUDIT_MODE_COOKIE_MAX_AGE_SECONDS = 10 * 60; // 10分
 /** レイアウトのインラインスクリプト文字列に埋め込む用の、Cookie存在チェック式(そのままJS内に展開する)。 */
 export const AUDIT_MODE_COOKIE_CHECK_EXPR = `document.cookie.indexOf('${AUDIT_MODE_UI_COOKIE}=')!==-1`;
 
+// オーナー指摘対応(2026-09-01): SPA内操作のみ(document navigationを伴わない)で
+// AUDIT_MODE_COOKIE_MAX_AGE_SECONDS(10分)を超える長時間の監査セッションでは、
+// lv_audit_ui/lv_audit_proofのどちらも/api/*経由では再発行されない(middleware.tsが
+// /api/*を監査ヘッダー・Cookie発行ロジックの対象外にしているため。実測で確認済み、
+// firstPartyAuditMode.mjsのコメント参照)。そのためCookieだけに依存すると、Cookie失効後に
+// 新しくmountされる広告コンポーネント(例: SPA内遷移や再レンダリングで新規に現れる
+// 広告スロット)が「監査モードではない」と誤判定し、実際にはまだ監査セッション継続中
+// なのにGA4/広告が再開してしまう恐れがある。対策として、一度でもCookieの存在を
+// 確認できたら、このJSモジュールが生きている間(=document navigationを伴わない
+// SPA内遷移の範囲内)はその判定を記憶し続ける(sticky)。ハードリロード・新規
+// navigationが起きればこのモジュールも再読み込みされ、フラグは自然にリセットされる
+// (=その時点の実際のCookie状態からserver側middleware.tsが正しく再判定する)。
+let auditModeStickyClient = false;
+
 /** クライアントコンポーネント(AdSenseLoader等)から呼ぶ、監査モード判定(表示上の最適化のみ)。 */
 export function isAuditModeActiveClient(): boolean {
+  if (auditModeStickyClient) return true;
   if (typeof document === "undefined") return false;
-  return document.cookie
+  const active = document.cookie
     .split(";")
     .map((c) => c.trim())
     .some((c) => c.startsWith(`${AUDIT_MODE_UI_COOKIE}=`));
+  if (active) auditModeStickyClient = true;
+  return active;
 }

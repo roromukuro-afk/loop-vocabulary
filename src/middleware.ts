@@ -63,12 +63,23 @@ export async function middleware(request: NextRequest) {
   // メッセージだったため無期限に再利用可能なままだった。ここではAUDIT_MODE_HEADERの
   // 認証に成功した(=秘密トークンを知っている)リクエストに対してのみ、iat・exp・nonceを
   // 含む期限付きproofを新規発行してCookieへセットする(auditModeServer.tsのコメント参照)。
+  // オーナー指摘対応(2026-09-01、重要): X-Robots-Tag: noindexをaudit-token認証成功の
+  // 証明として使ってはならない。このヘッダーは監査モードと無関係な理由でも同じ値が
+  // 付与されうる(通常のnoindexページ・auth/search/placeholder系ページ自身のnoindex設定・
+  // Vercel/別middleware/next.config.jsによるnoindex付与)ため、トークン不一致でも
+  // 「たまたま」X-Robots-Tag: noindexが付いているページへアクセスした場合に、
+  // 外部の検証スクリプト(firstPartyAuditMode.mjs等)がactivation成功と誤判定する
+  // 可能性がある。正しいtokenが実際に検証された場合だけに専用のresponse headerを
+  // 付与し、これだけをactivation確認の根拠とする。
+  response.headers.set("X-LV-Audit-Active", "1");
+
   const signedProof = await createSignedAuditProof();
   if (!signedProof) {
     // LV_AUDIT_TOKEN未設定(通常あり得ない: ここに到達した時点でisAuditModeRequest()が
     // trueを返しており、ヘッダー認証成功かproof署名検証成功のいずれかを意味するため、
     // トークンは設定済みのはず。念のためのfail-closed: Cookieをセットせず、noindex等の
-    // ヘッダーだけは維持する)。
+    // ヘッダーだけは維持する。X-LV-Audit-Activeは既に付与済み — トークン自体は
+    // 実際に検証されているため、この専用headerを撤回する理由は無い)。
     response.headers.set("X-Robots-Tag", "noindex");
     response.headers.set("Cache-Control", "private, no-store");
     return response;

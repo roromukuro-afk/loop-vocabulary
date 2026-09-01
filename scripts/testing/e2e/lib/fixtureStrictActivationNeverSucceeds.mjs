@@ -1,7 +1,7 @@
 // scripts/testing/e2e/audit-header-leak-prevention.mjsのシナリオ8専用フィクスチャ。
 //
 // firstPartyAuditMode.mjsのstrict:trueは、監査モードが実際に起動しなかった場合
-// (X-Robots-Tag: noindexが確認できない場合)、page.route()のハンドラ内で例外を投げる。
+// (X-LV-Audit-Active: 1が確認できない場合)、page.route()のハンドラ内で例外を投げる。
 // この例外はPlaywrightの内部実装上、page.goto()の戻り値には伝播せず、Node.jsの
 // unhandled rejectionとしてプロセス全体をクラッシュさせる(実測で確認済み)。そのため
 // メインのテストプロセス内でtry/catchしても捕捉できず、代わりにこのフィクスチャを

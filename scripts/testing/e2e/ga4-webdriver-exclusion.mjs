@@ -250,10 +250,12 @@ async function main() {
       });
       let robotsTagHeader;
       let cacheControlHeader;
+      let auditActiveHeader;
       page.on("response", (res) => {
         if (res.url() === `${devProd.url}/`) {
           robotsTagHeader = res.headers()["x-robots-tag"];
           cacheControlHeader = res.headers()["cache-control"];
+          auditActiveHeader = res.headers()["x-lv-audit-active"];
         }
       });
       await gotoReady(page, `${devProd.url}/`); // gotoReady()がx-lv-e2e-test:<LV_AUDIT_TOKEN>ヘッダーを送信
@@ -265,7 +267,13 @@ async function main() {
       if (adsenseRequests.length === 0) ok("監査モード中: AdSense(pagead2.googlesyndication.com)通信が発生しない");
       else fail(`監査モードでもAdSense通信が発生した: ${adsenseRequests.join(", ")}`);
 
-      if (robotsTagHeader === "noindex") ok("監査モード中のレスポンスに X-Robots-Tag: noindex が付与されている");
+      // オーナー指摘対応(2026-09-01): X-LV-Audit-Active: 1は、トークンが実際に検証された
+      // ことの唯一の証拠として新設した専用header(X-Robots-Tag: noindexは監査と無関係な
+      // 理由でも付与されうるため証拠として使わない、auditMode.tsのコメント参照)。
+      if (auditActiveHeader === "1") ok("監査モード中のレスポンスに X-LV-Audit-Active: 1 が付与されている(トークン検証成功の専用証跡)");
+      else fail(`監査モード中でも X-LV-Audit-Active: 1 が付与されていない(実測: ${auditActiveHeader ?? "(なし)"})`);
+
+      if (robotsTagHeader === "noindex") ok("監査モード中のレスポンスに X-Robots-Tag: noindex が付与されている(検索除外用途、activation証跡としては使わない)");
       else fail(`監査モード中でも X-Robots-Tag: noindex が付与されていない(実測: ${robotsTagHeader ?? "(なし)"})`);
 
       // 8. Cache-Control: private, no-store の確認
@@ -325,11 +333,11 @@ async function main() {
         const headers = res.headers();
         const cookiesAfter = await mismatchedContext.cookies();
         const gotAuditCookie = cookiesAfter.some((c) => c.name === "lv_audit_proof" || c.name === "lv_audit_ui");
-        const leaked = headers["x-robots-tag"] || headers["cache-control"] === "private, no-store" || gotAuditCookie;
+        const leaked = headers["x-robots-tag"] || headers["x-lv-audit-active"] || headers["cache-control"] === "private, no-store" || gotAuditCookie;
         if (!leaked) {
           ok("トークン不一致(旧固定値\"1\")のヘッダーは通常アクセスとして扱われ、監査モード用ヘッダー・Cookieが一切付与されない");
         } else {
-          fail(`トークン不一致にも関わらず監査モードが起動した(実測: x-robots-tag=${headers["x-robots-tag"] ?? "(なし)"}, cache-control=${headers["cache-control"] ?? "(なし)"}, audit cookie=${gotAuditCookie}) — LV_AUDIT_TOKEN照合が機能していない可能性がある`);
+          fail(`トークン不一致にも関わらず監査モードが起動した(実測: x-robots-tag=${headers["x-robots-tag"] ?? "(なし)"}, x-lv-audit-active=${headers["x-lv-audit-active"] ?? "(なし)"}, cache-control=${headers["cache-control"] ?? "(なし)"}, audit cookie=${gotAuditCookie}) — LV_AUDIT_TOKEN照合が機能していない可能性がある`);
         }
         await mismatchedContext.close();
       }
@@ -360,7 +368,7 @@ async function main() {
           headers: { "x-lv-e2e-test": getAuditToken() },
         });
         const headers = res.headers();
-        const leaked = headers["x-robots-tag"] || headers["set-cookie"] || headers["cache-control"] === "private, no-store";
+        const leaked = headers["x-robots-tag"] || headers["x-lv-audit-active"] || headers["set-cookie"] || headers["cache-control"] === "private, no-store";
         if (!leaked) ok(`middleware matcherが${staticPath}を除外している(監査ヘッダー付きでも監査用ヘッダーが付与されない、status=${res.status()})`);
         else fail(`${staticPath}に監査モード用ヘッダーが漏れている(実測: ${JSON.stringify(headers)})`);
       }
@@ -371,7 +379,7 @@ async function main() {
         const chunkUrl = nextStaticRequests[0];
         const res = await page.request.get(chunkUrl, { headers: { "x-lv-e2e-test": getAuditToken() } });
         const headers = res.headers();
-        const leaked = headers["x-robots-tag"] || headers["set-cookie"] || headers["cache-control"] === "private, no-store";
+        const leaked = headers["x-robots-tag"] || headers["x-lv-audit-active"] || headers["set-cookie"] || headers["cache-control"] === "private, no-store";
         if (!leaked) ok(`middleware matcherが/_next/static配下を除外している(監査ヘッダー付きでも監査用ヘッダーが付与されない、status=${res.status()})`);
         else fail(`/_next/static配下に監査モード用ヘッダーが漏れている(実測: ${JSON.stringify(headers)})`);
       } else {
@@ -416,12 +424,14 @@ async function main() {
       let robotsTagHeader;
       let cacheControlHeader;
       let setCookieHeader;
+      let auditActiveHeader;
       page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequests.push(req.url()); });
       page.on("response", (res) => {
         if (res.url() === `${devProd.url}/`) {
           robotsTagHeader = res.headers()["x-robots-tag"];
           cacheControlHeader = res.headers()["cache-control"];
           setCookieHeader = res.headers()["set-cookie"];
+          auditActiveHeader = res.headers()["x-lv-audit-active"];
         }
       });
       await gotoAsRealUser(page, `${devProd.url}/`);
@@ -434,6 +444,9 @@ async function main() {
 
       if (robotsTagHeader === undefined) ok("通常アクセスには X-Robots-Tag が付与されない");
       else fail(`通常アクセスにも X-Robots-Tag が付与されている(実測: ${robotsTagHeader})`);
+
+      if (auditActiveHeader === undefined) ok("通常アクセスには X-LV-Audit-Active が付与されない");
+      else fail(`通常アクセスにも X-LV-Audit-Active が付与されている(実測: ${auditActiveHeader})`);
 
       if (cacheControlHeader !== "private, no-store") ok("通常アクセスには監査用の Cache-Control: private, no-store が付与されない");
       else fail("通常アクセスにも監査用の Cache-Control: private, no-store が付与されている");

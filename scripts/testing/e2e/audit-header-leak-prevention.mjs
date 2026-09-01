@@ -72,15 +72,20 @@ async function main() {
 
     if (url.pathname === "/") {
       // middleware.tsの実際の挙動を模す: 監査ヘッダーが一致したこのdocument
-      // navigationのレスポンスでだけ、監査Cookie相当とX-Robots-Tag: noindexをセットする
-      // (オーナー指摘対応、2026-09-01、P1: firstPartyAuditMode.mjs側がこのヘッダーの
-      // 有無で実際の認証成否を判定するようになったため、この疑似サーバーも実際の
-      // middleware.tsに忠実に模す必要がある。忠実でないと、常にactivated=falseとなり
-      // 「常に再送される」という別の理由でテストが見かけ上passしてしまう)。
+      // navigationのレスポンスでだけ、監査Cookie相当とX-LV-Audit-Active: 1・
+      // X-Robots-Tag: noindexをセットする(オーナー指摘対応、2026-09-01: 当初は
+      // firstPartyAuditMode.mjs側がX-Robots-Tagの有無で実際の認証成否を判定していたが、
+      // noindexは監査と無関係な理由でも付与されうるため、専用のX-LV-Audit-Active
+      // headerへ変更した。この疑似サーバーも実際のmiddleware.tsに忠実に模す必要がある。
+      // 忠実でないと、常にactivated=falseとなり「常に再送される」という別の理由で
+      // テストが見かけ上passしてしまう)。
       const setCookie = hasAuditHeader ? ["lv_audit_probe=1; Path=/; SameSite=Lax"] : [];
       if (hasAuditHeader) firstPartyAuditCookieSetCount++;
       const headers = { "content-type": "text/html", "set-cookie": setCookie };
-      if (hasAuditHeader) headers["x-robots-tag"] = "noindex";
+      if (hasAuditHeader) {
+        headers["x-lv-audit-active"] = "1";
+        headers["x-robots-tag"] = "noindex";
+      }
       res.writeHead(200, headers);
       res.end(`<!doctype html><html><body>
         <script src="${thirdParty.origin}/third-party.js"></script>
@@ -280,10 +285,11 @@ async function main() {
             res.end("temporary error");
             return;
           }
-          // オーナー指摘対応(2026-09-01、P1): 実際のmiddleware.tsに忠実に模すため、
-          // 認証成功時はX-Robots-Tag: noindexも付与する(firstPartyAuditMode.mjs側が
-          // この有無で実際の認証成否を判定するため)。
-          res.writeHead(200, { "content-type": "text/html", "x-robots-tag": "noindex" });
+          // オーナー指摘対応(2026-09-01、P1・その後の再指摘): 実際のmiddleware.tsに
+          // 忠実に模すため、認証成功時はX-LV-Audit-Active: 1・X-Robots-Tag: noindexを
+          // 付与する(firstPartyAuditMode.mjs側はX-LV-Audit-Activeの有無だけで
+          // 実際の認証成否を判定する)。
+          res.writeHead(200, { "content-type": "text/html", "x-lv-audit-active": "1", "x-robots-tag": "noindex" });
           res.end("<!doctype html><html><body>ok</body></html>");
           return;
         }
@@ -314,7 +320,7 @@ async function main() {
 
     // ---------- シナリオ8: strict:trueで、監査モードが実際には起動しなかった場合にfail-fastする ----------
     // Codexレビュー指摘(2026-09-01、P1)の回帰防止。トークン不一致等でmiddleware.tsが
-    // 通常ページを200で返す場合(=X-Robots-Tag: noindexが付かない)、ステータスコードだけでは
+    // 通常ページを200で返す場合(=X-LV-Audit-Activeが付かない)、ステータスコードだけでは
     // 「監査モードが実際に起動したか」を判定できない。strict:trueのcheck-prod-srs-v2-global.mjs
     // のような、production審査がproduction上で実行される前提のスクリプトは、この状態を
     // 検知できずに実ユーザートラフィックを生成し続けてはならない。
@@ -334,9 +340,32 @@ async function main() {
       const stderrText = result.stderr ?? "";
       const mentionsActivationFailure = stderrText.includes("監査モードの起動に失敗した");
       if (exitedNonZero && mentionsActivationFailure) {
-        ok(`strict:trueで監査モード未起動(X-Robots-Tag無し)のとき、プロセスが非ゼロ終了コード(${result.status})でfail-fastする`);
+        ok(`strict:trueで監査モード未起動(X-LV-Audit-Active無し)のとき、プロセスが非ゼロ終了コード(${result.status})でfail-fastする`);
       } else {
         bad(`strict:trueのfail-fastが機能していない(exitCode=${result.status}, stderr先頭300文字: ${stderrText.slice(0, 300)})`);
+      }
+    }
+
+    // ---------- シナリオ10: X-Robots-Tag: noindexだけではactivationの証拠にならない ----------
+    // オーナー指摘対応(2026-09-01、重要)の直接証明。通常のnoindexページ・auth/search/
+    // placeholder系ページ自身の設定・Vercel/別middleware由来のnoindexなど、監査モードと
+    // 無関係な理由でX-Robots-Tag: noindexが付与されるケースを、常にnoindexを返す
+    // (X-LV-Audit-Activeは一切返さない)専用サーバーで再現する。strict:trueが
+    // 正しくfail-fastすれば(=X-Robots-Tagを証拠として使っていなければ)、シナリオ8と
+    // 同じくプロセスがクラッシュする。
+    {
+      const fixturePath = new URL("./lib/fixtureStrictActivationNoindexIsNotProof.mjs", import.meta.url);
+      const result = spawnSync(process.execPath, [fixturePath.pathname.replace(/^\/([A-Za-z]:)/, "$1")], {
+        encoding: "utf-8",
+        timeout: 30000,
+      });
+      const exitedNonZero = result.status !== 0;
+      const stderrText = result.stderr ?? "";
+      const mentionsActivationFailure = stderrText.includes("監査モードの起動に失敗した");
+      if (exitedNonZero && mentionsActivationFailure) {
+        ok("X-Robots-Tag: noindexだけが付与された(X-LV-Audit-Activeは無い)応答では、strict:trueが正しくfail-fastする(noindexを証拠として使っていないことの直接証明)");
+      } else {
+        bad(`X-Robots-Tag: noindexだけでactivated=trueと誤判定されている疑い(exitCode=${result.status}, stderr先頭300文字: ${stderrText.slice(0, 300)})`);
       }
     }
 

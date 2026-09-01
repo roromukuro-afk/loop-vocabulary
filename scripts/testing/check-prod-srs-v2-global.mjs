@@ -56,9 +56,10 @@ await guardAdNetworkRequests(page);
 // 実アクセスを前提に、監査モードが実際に起動していること(=実ユーザートラフィックを
 // 生成していないこと)へ依存する。LV_AUDIT_TOKENがproductionの値と一致しない場合
 // (人間が誤った/古い値を渡した場合等)、ステータスコードだけでは検知できない
-// (middleware.tsは通常ページを200で返すため)。X-Robots-Tag: noindexの有無で
-// 実際の認証成否を確認し、失敗していれば例外で即座に停止する
-// (scripts/testing/e2e/lib/firstPartyAuditMode.mjs参照)。
+// (middleware.tsは通常ページを200で返すため)。X-LV-Audit-Active: 1(トークン検証
+// 成功専用のresponse header、オーナー指摘対応2026-09-01: X-Robots-Tag: noindexは
+// 監査と無関係な理由でも付与されうるため証拠として使わない)の有無で実際の認証成否を
+// 確認し、失敗していれば例外で即座に停止する(scripts/testing/e2e/lib/firstPartyAuditMode.mjs参照)。
 await allowFirstPartyOrigin(page, PROD_URL, auditToken, { strict: true });
 
 await page.goto(`${PROD_URL}/login`, { waitUntil: "load" });

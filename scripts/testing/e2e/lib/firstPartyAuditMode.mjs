@@ -82,23 +82,26 @@ async function fetchAndFulfillWithHeaderOnce(route, headers) {
   // Chrome自身のnetwork stackを経由するため、Node組み込みfetch()を使う場合と
   // 異なりcontent-encoding/Set-Cookie複数件を手動で扱う必要が無い)。
   await route.fulfill({ response: apiResponse });
-  // オーナー指摘対応(Codexレビュー、2026-09-01、3回にわたる指摘):
+  // オーナー指摘対応(Codexレビュー、2026-09-01、4回にわたる指摘):
   // 1回目: route.fetch()が例外を投げて失敗した場合でも「送信済み」と記録されて
   //   いた → awaitの後へ移動。
   // 2回目: route.fetch()はネットワークレベルの失敗でしか例外を投げず、5xx応答は
   //   例外にならず正常にresolveする → HTTPステータスも確認するよう変更。
-  // 3回目(P1、このコミット): 「ステータスが2xx/3xxであること」は、実際に
-  //   LV_AUDIT_TOKENが正しく認証されたことの証明にはならない。トークンが
-  //   productionのLV_AUDIT_TOKENと一致しない場合(check-prod-srs-v2-global.mjsで
-  //   人間が誤ったトークンを渡した場合等)でも、middleware.tsは通常のページを
-  //   正常に(200で)返す — audit CookieもX-Robots-Tag: noindexも付けずに。
-  //   ステータスコードだけでは「ページが正常に返った」ことしか証明できず、
-  //   「監査ヘッダーがサーバー側で実際に認証された」ことは証明できない。
-  //   middleware.tsはisAuditModeRequest()がtrueの場合にのみX-Robots-Tag: noindexを
-  //   付与する(auditModeServer.tsのisAuditHeaderAuthorized()と1対1で対応する
-  //   唯一の観測可能なサーバー側証跡)ため、この値の有無で実際の認証成否を検証する。
+  // 3回目(P1): 「ステータスが2xx/3xxであること」は、実際にLV_AUDIT_TOKENが
+  //   正しく認証されたことの証明にはならない。トークンがproductionのLV_AUDIT_TOKENと
+  //   一致しない場合(check-prod-srs-v2-global.mjsで人間が誤ったトークンを渡した場合等)
+  //   でも、middleware.tsは通常のページを正常に(200で)返す。
+  // 4回目(このコミット、オーナー再指摘): X-Robots-Tag: noindexを活性化の証拠として
+  //   使うのは不正確だった。このヘッダーは監査モードと無関係な理由(通常のnoindexページ・
+  //   auth/search/placeholder系ページ自身のnoindex設定・Vercelや別middleware/
+  //   next.config.jsによるnoindex付与)でも同じ値になりうるため、トークン不一致でも
+  //   「たまたま」X-Robots-Tag: noindexが付いたページへアクセスした場合に誤って
+  //   activated=trueと判定してしまう恐れがあった。middleware.tsは現在、
+  //   isAuditModeRequest()がtrueの場合にのみX-LV-Audit-Active: 1という専用headerを
+  //   付与する(audit-mode以外の一切の理由では付与されない、正しいtoken検証との
+  //   1対1対応)ため、この値の有無だけで実際の認証成否を検証する。
   const status = apiResponse.status();
-  const activated = (apiResponse.headers()["x-robots-tag"] ?? "").includes("noindex");
+  const activated = apiResponse.headers()["x-lv-audit-active"] === "1";
   return { status, activated };
 }
 
@@ -132,27 +135,39 @@ function ensureInstalled(page, resendIntervalMs) {
 
     const isFirstParty = state.allowedOrigins.has(origin);
     const isMainFrameDocumentNav = request.isNavigationRequest() && request.frame() === page.mainFrame();
-    // オーナー指摘対応(Codexレビュー、2026-09-01、4回目の指摘): 監査対象ページが
-    // ドキュメントnavigationを一切伴わないまま(SPA内操作のみで)Cookie寿命(10分)を
-    // 超えてidleになった場合、以前はmain-frame document navigationにしかヘッダーを
-    // 再送しなかったため、その後発火するXHR/fetch(例: /api/analytics/eventsへの
-    // 回答送信)は失効済みCookieのまま、ヘッダーも付かずに送られ、実本番トラフィックとして
-    // 記録されてしまっていた。resourceType()が"xhr"/"fetch"の同一origin requestも
-    // 対象に含める(third-partyへは元々isFirstPartyで絞られているため新たな漏洩経路には
-    // ならない)。ただしNext.js App Router自身が内部的に発行するRSC prefetch/navigation
-    // request(next-router-prefetch・rscヘッダーで識別可能。/api/*ではなくpage route自身へ
-    // 飛ぶため元々trackServerEvent/analytics取り込みの対象にもならず、傍受する意味が無い
-    // うえ、実測でこのrequestがpage/context終了と競合しPlaywright側の
-    // 「routing中にcontextが閉じた」エラーを誘発することを確認した)は対象から除外する。
+    // オーナー指摘対応(Codexレビュー、2026-09-01、4回目の指摘、その後オーナー自身の
+    // 再指摘で許可リスト方式へ変更): 監査対象ページがドキュメントnavigationを一切伴わない
+    // まま(SPA内操作のみで)Cookie寿命(10分)を超えてidleになった場合、以前はmain-frame
+    // document navigationにしかヘッダーを再送しなかったため、その後発火するXHR/fetch
+    // (例: /api/analytics/eventsへの回答送信)は失効済みCookieのまま、ヘッダーも付かずに
+    // 送られ、実本番トラフィックとして記録されてしまっていた。
+    //
+    // 当初は「xhr/fetchかつNext.js内部router requestではない」という除外リスト方式
+    // だったが、オーナー指摘により「明示的なfirst-party document/API requestへ限定する」
+    // 許可リスト方式へ変更した。middleware.ts自身が「/api/*だけを監査ヘッダー・Cookie
+    // 発行ロジックの対象外にする」という同じ境界線を使っている(config.matcherコメント
+    // 参照)ため、この境界線(pathname.startsWith("/api/"))を再利用するのが最も正確
+    // (server側の実際の判定境界と常に一致する)。これにより/_next/*・static asset
+    // (image/font/script/stylesheet等、そもそもresourceTypeがxhr/fetchと一致しない)・
+    // service worker・RSC prefetch(next-router-prefetch/rscヘッダー、念のため二重に除外)
+    // は自動的に対象外になる(third-party origin・redirect先の別originは元々
+    // isFirstPartyで絞られている)。
     const requestHeaders = request.headers();
     const isNextInternalRouterRequest = "rsc" in requestHeaders || "next-router-prefetch" in requestHeaders;
-    const isXhrOrFetch = !isNextInternalRouterRequest
+    let pathname = "";
+    try {
+      pathname = new URL(request.url()).pathname;
+    } catch {
+      pathname = "";
+    }
+    const isFirstPartyApiRequest = !isNextInternalRouterRequest
+      && pathname.startsWith("/api/")
       && (request.resourceType() === "xhr" || request.resourceType() === "fetch");
     const token = state.tokenByOrigin.get(origin);
     const lastSentAt = state.sentAt.get(origin);
     const needsResend = lastSentAt === undefined || Date.now() - lastSentAt >= state.resendIntervalMs;
 
-    if (isFirstParty && (isMainFrameDocumentNav || isXhrOrFetch) && needsResend && token) {
+    if (isFirstParty && (isMainFrameDocumentNav || isFirstPartyApiRequest) && needsResend && token) {
       // オーナー指摘対応(Codexレビュー、2026-09-01、3回にわたる指摘): sentAtの更新は
       // fetchAndFulfillWithHeaderOnce()が実際に「監査モードとして認証された」ことを
       // 確認できた後にだけ行う。
@@ -163,19 +178,22 @@ function ensureInstalled(page, resendIntervalMs) {
       // 3回目(P1): ステータスが2xx/3xxであることは「ページが正常に返った」ことしか
       //   証明せず、「LV_AUDIT_TOKENが実際に認証された」ことは証明しない(トークン
       //   不一致でもmiddleware.tsは通常ページを200で返す)。fetchAndFulfillWithHeaderOnce()が
-      //   返すactivated(X-Robots-Tag: noindexの有無、middleware.tsのisAuditModeRequest()と
-      //   1対1対応する唯一の観測可能な証跡)も必須条件に加える。
+      //   返すactivated(X-LV-Audit-Active: 1の有無、middleware.tsのisAuditModeRequest()と
+      //   1対1対応する専用の観測可能な証跡)も必須条件に加える。
       //
-      // XHR/fetchはactivatedを検証しない(4回目の指摘対応): middleware.tsは/api/*を
-      // 監査ヘッダー・Cookie発行ロジックの対象外にしている(chunked転送のレスポンスへ
-      // ヘッダーを追記するとハングする既知の問題、middleware.tsのconfig.matcherコメント
-      // 参照)ため、X-Robots-Tag自体がそもそも付与されない。XHR/fetchはCookieの発行に
-      // 依存せず、このrequest自体へ直接ヘッダーを載せてresolveAnalyticsRequestContext()に
-      // その場で正しく判定させることが目的であり、「将来のrequestのためにCookieが
-      // 有効化されたか」を確認する必要が無い(=activated確認が意味を持つのは
-      // navigationだけ)。そのためXHR/fetchの成功はstate.sentAtを更新しない
-      // (navigation側の「Cookieがまだ有効なはず」という判定を誤って上書きしないため。
-      // XHR/fetchはneedsResendが真である限り、送信のたびに正しくヘッダーを載せ続ける)。
+      // /api/*へのXHR/fetchはactivatedを検証しない: middleware.tsは/api/*を監査ヘッダー・
+      // Cookie発行ロジックの対象外にしている(chunked転送のレスポンスへヘッダーを
+      // 追記するとハングする既知の問題、middleware.tsのconfig.matcherコメント参照)ため、
+      // X-LV-Audit-Active自体がそもそも付与されない(=/api/*経由でCookieが再発行される
+      // ことはなく、client側のUI Cookieもこの経路では絶対に更新されない。オーナー指摘
+      // 対応で実測確認済み。auditMode.tsのisAuditModeActiveClient()側でsession-state
+      // フォールバックを持たせている理由)。/api/*へのXHR/fetchはCookieの発行に依存せず、
+      // このrequest自体へ直接ヘッダーを載せてresolveAnalyticsRequestContext()にその場で
+      // 正しく判定させることだけが目的であり、「将来のrequestのためにCookieが
+      // 有効化されたか」を確認する必要が無い(=activated確認が意味を持つのはnavigation
+      // だけ)。そのため/api/* XHR/fetchの成功はstate.sentAtを更新しない(navigation側の
+      // 「Cookieがまだ有効なはず」という判定を誤って上書きしないため。/api/* XHR/fetchは
+      // needsResendが真である限り、送信のたびに正しくヘッダーを載せ続ける)。
       const existingHeaders = await request.allHeaders();
       // page/contextがこのrequestの処理中に閉じられた場合(テスト終盤の非同期request等。
       // XHR/fetchを対象に含めたことで、テストの明示的なawaitの対象外だった非同期request
