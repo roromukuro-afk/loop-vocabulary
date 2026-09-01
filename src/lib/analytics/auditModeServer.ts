@@ -1,4 +1,5 @@
-import { AUDIT_MODE_HEADER, AUDIT_MODE_COOKIE } from "./auditMode";
+// 明示的な.ts拡張子の理由はtestEventClassification.ts冒頭のコメント参照。
+import { AUDIT_MODE_HEADER, AUDIT_MODE_COOKIE } from "./auditMode.ts";
 
 /**
  * 監査モード(analytics除外・広告抑止)の起動判定のうち、秘密トークン照合を含む

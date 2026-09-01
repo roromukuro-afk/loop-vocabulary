@@ -39,6 +39,7 @@
 import { chromium } from "playwright";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { loadEnv, requireEnv } from "../lib/env.mjs";
+import { getEphemeralAuditToken } from "../lib/ephemeralAuditToken.mjs";
 import { getAdminClient } from "../lib/supabaseAdmin.mjs";
 import { TEST_ACCOUNTS } from "../lib/testAccounts.mjs";
 import { gotoReady } from "./lib/nav.mjs";
@@ -65,7 +66,10 @@ async function main() {
     fail(`テストアカウント用パスワード(${account.passwordEnvKey})が.env.localに無い。先にnode scripts/testing/setup-test-users.mjsを実行してください`);
     return;
   }
-  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "LV_AUDIT_TOKEN"]);
+  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
+  // 監査モードの仕組み自体を検証するだけなので、production secretではなく
+  // このプロセス限りの使い捨てトークンを使う(scripts/testing/lib/ephemeralAuditToken.mjs参照)。
+  process.env.LV_AUDIT_TOKEN = getEphemeralAuditToken();
   const admin = getAdminClient();
 
   process.env.VERCEL_ENV = "production";

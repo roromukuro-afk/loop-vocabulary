@@ -6,17 +6,36 @@
 // このヘッダーを送る全てのE2E/監査スクリプトは、固定文字列ではなくこの関数が返す値を使う。
 import { loadEnv, requireEnv } from "./env.mjs";
 
+// src/lib/analytics/auditModeServer.tsのAUDIT_TOKEN_MIN_LENGTHと必ず同じ値を保つこと。
+// サーバー側はこの長さ未満のLV_AUDIT_TOKENを常に「不一致」= 監査モード起動せず、
+// fail-closedで扱う。ここで同じ下限を検証しないと、短い(が空ではない)値が
+// 誤設定された場合にrequireEnv()は通過してしまい、strictスクリプトが
+// 「トークンを確定した」と思い込んだままdevサーバー起動やproduction閲覧まで
+// 進行してしまう(Codexレビュー指摘、805ac98で発見)。実際にはヘッダーがサーバー側で
+// 黙って拒否され、監査モードが起動しないまま実リクエストが送られてしまうため、
+// 「外部通信の前に必ず落ちる」というfail-fast契約が壊れる。
+const AUDIT_TOKEN_MIN_LENGTH = 32;
+
 /**
  * 監査モードの実際の起動(X-Robots-Tag/Cache-Control/Cookie付与・GA4/AdSense抑止)を
- * 検証するテスト専用。LV_AUDIT_TOKEN未設定の場合はrequireEnv()が理由を表示して
- * process.exit(1)する(トークン不一致のまま実際にHTTPリクエストを送ってしまうと、
- * production DBへis_test_event=falseとして実データが混入する恐れがあるため、
- * 送信前に必ず落とす)。
+ * 検証するテスト専用。LV_AUDIT_TOKEN未設定、または設定されていてもサーバー側の
+ * 最小長未満の場合は、理由を表示してprocess.exit(1)する(トークン不一致のまま実際に
+ * HTTPリクエストを送ってしまうと、production DBへis_test_event=falseとして実データが
+ * 混入する恐れがあるため、送信前に必ず落とす)。
  */
 export function getAuditToken() {
   loadEnv();
   requireEnv(["LV_AUDIT_TOKEN"]);
-  return process.env.LV_AUDIT_TOKEN;
+  const token = process.env.LV_AUDIT_TOKEN;
+  if (token.length < AUDIT_TOKEN_MIN_LENGTH) {
+    console.error(
+      `\n❌ LV_AUDIT_TOKENが短すぎる(${token.length}文字、最小${AUDIT_TOKEN_MIN_LENGTH}文字必要)。` +
+        "サーバー側(auditModeServer.ts)はこの長さ未満のトークンを常に不一致として扱い、監査モードを起動しない。" +
+        "値そのものは表示しない。正しい長さの値を再設定してから再実行すること。"
+    );
+    process.exit(1);
+  }
+  return token;
 }
 
 /**

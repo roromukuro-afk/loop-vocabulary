@@ -57,7 +57,7 @@ import { gotoReady } from "./lib/nav.mjs";
 import { allowFirstPartyOrigin } from "./lib/firstPartyAuditMode.mjs";
 import { guardAdNetworkRequests } from "./lib/adNetworkGuard.mjs";
 import { getAuditToken } from "../lib/auditToken.mjs";
-import { requireEnv } from "../lib/env.mjs";
+import { getEphemeralAuditToken } from "../lib/ephemeralAuditToken.mjs";
 
 const PORT_LOCAL = Number(process.env.TEST_PORT || 3799);
 const PORT_PROD = PORT_LOCAL + 1;
@@ -109,13 +109,16 @@ async function hasGa4ConfigCall(page, gaId) {
 }
 
 async function main() {
-  // 監査モード(x-lv-e2e-testヘッダーがLV_AUDIT_TOKENと一致すること)そのものを
-  // 検証するテストのため、開始前(devサーバー起動・ブラウザ起動より前)に
-  // LV_AUDIT_TOKEN未設定を検出して落とす(オーナー指摘対応: 「strict scriptが
-  // tokenなしでページへ到達しない」ことをここでも保証する。以前はgetAuditToken()の
-  // 呼び出しがcheck 4付近まで遅延しており、それまでの複数回のページ遷移・
-  // devサーバービルドが未設定のまま無駄に進行してしまっていた)。
-  requireEnv(["LV_AUDIT_TOKEN"]);
+  // このテストは監査モード(x-lv-e2e-testヘッダーがLV_AUDIT_TOKENと一致すること)の
+  // 仕組みそのものを検証するのであって、production用の"本物の"値との一致を検証する
+  // のではない。よって、このプロセスの生存期間だけ有効な使い捨てトークンを自分自身で
+  // 生成し、devサーバー起動・ブラウザ起動より前にprocess.env.LV_AUDIT_TOKENへ設定する
+  // (オーナー指摘対応、2026-09-01: production secretをローカルE2Eから完全に分離する。
+  // scripts/testing/lib/ephemeralAuditToken.mjs参照)。これにより、以降spawnされる
+  // ensureDevServer()の子プロセスへも自動的に継承され、この後のgetAuditToken()/
+  // gotoReady()の呼び出しも変更なしでこの値を使う。ファイルにもログにも残らず、
+  // プロセス終了とともに破棄される。
+  process.env.LV_AUDIT_TOKEN = getEphemeralAuditToken();
 
   // GA_IDはNEXT_PUBLIC_*でbuild時に静的埋め込みされるため、テスト専用値を注入して
   // forceRebuild:trueで反映させる(既存のAdSenseテストと同じ手法)。

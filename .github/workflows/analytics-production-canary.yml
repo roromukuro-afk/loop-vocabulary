@@ -33,19 +33,16 @@ name: Analytics Production Canary
 # 4テストは個別のstepとして順番に実行する(continue-on-errorは付けない)。いずれかが
 # 失敗すればそこでjobは失敗し、後続stepは自動的にスキップされる(無制限リトライなし)。
 #
-# 【要手動設定】LV_AUDIT_TOKEN secret(オーナー指摘のセキュリティ対応、Issue #136是正の
-# 再強化): x-lv-e2e-testヘッダーの値が固定文字列"1"であれば誰でも監査モード
-# (analytics除外・広告抑止)を起動できた脆弱性を修正し、server-onlyの秘密トークンとの
-# 照合に変更した(src/lib/analytics/auditModeServer.ts参照)。このワークフローの
+# LV_AUDIT_TOKENについて(オーナー指摘対応、2026-09-01で削除): このワークフローの
 # test:analytics-production-ingestion・test:analytics-rejection-reasonsは、本番の
-# Supabaseへ書き込みつつx-lv-e2e-testヘッダーを送ってis_test_event=trueとして保存させる
-# ことで本番集計を汚さない設計のため、production(Vercel)側にも同じ値をLV_AUDIT_TOKEN
-# として環境変数設定する必要がある。本ワークフロー追加時点ではまだ
-# "autonomous-improvement" Environmentにこのsecretが設定されていない。設定されるまで
-# preflightステップで安全に(値を出力せず)失敗する(admin-materials-canary.ymlの
-# TEST_ADMIN_PASSWORD未設定時と同じ扱い)。リポジトリ管理者による手動追加が必要
-# (LV_AUDIT_TOKENの値は.env.localに設定済みのものと同じ値を使うこと。同じ値でないと、
-# このワークフローが送るヘッダーと本番アプリ側の照合が一致しない)。
+# Supabaseへ直接書き込む(SUPABASE_SERVICE_ROLE_KEY経由)が、x-lv-e2e-testヘッダーの
+# 送信先はスクリプト自身がこのjob内で起動するローカルdevサーバー(ensureServer())
+# であって、production(Vercel)にデプロイされた実アプリではない。よって検証している
+# のは「監査モードの仕組み自体」であり、production用の"本物の"LV_AUDIT_TOKENとの一致
+# ではないため、両スクリプトとも実行のたびに自分自身で使い捨てトークンを生成する
+# よう再設計された(scripts/testing/lib/ephemeralAuditToken.mjs参照)。これにより
+# このワークフローはLV_AUDIT_TOKEN secretを一切必要としない(production secretの
+# 存在範囲をscripts/testing/check-prod-srs-v2-global.mjsだけへ縮小する取り組みの一環)。
 
 on:
   workflow_dispatch: {}
@@ -64,7 +61,6 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      LV_AUDIT_TOKEN: ${{ secrets.LV_AUDIT_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -76,7 +72,7 @@ jobs:
 
       - run: npm ci
 
-      # 値そのものは一切表示せず、3つの環境変数が空でないことだけを確認する。
+      # 値そのものは一切表示せず、環境変数が空でないことだけを確認する。
       # 不足があれば変数名だけを表示してjobを失敗させる(secretをechoしない)。
       - name: Preflight - verify required env vars are present
         run: |
@@ -84,7 +80,6 @@ jobs:
           [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && missing="$missing NEXT_PUBLIC_SUPABASE_URL"
           [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] && missing="$missing NEXT_PUBLIC_SUPABASE_ANON_KEY"
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing="$missing SUPABASE_SERVICE_ROLE_KEY"
-          [ -z "$LV_AUDIT_TOKEN" ] && missing="$missing LV_AUDIT_TOKEN"
           if [ -n "$missing" ]; then
             echo "Missing required env var(s):$missing"
             exit 1

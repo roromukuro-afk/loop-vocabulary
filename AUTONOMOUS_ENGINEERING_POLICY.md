@@ -46,6 +46,18 @@ repository_dispatchトリガー)は、事前に用意された修正branchの検
 - ユーザー削除(`DELETE FROM profiles`相当、ユーザーデータ削除API)
 - DB破壊的migration(`DROP TABLE` / `DROP COLUMN` / データを失う`ALTER`を含むmigration)
 - `src/app/api/stripe/webhook/route.ts`の編集・import(このファイルは既存の全ラウンドを通じて一貫して編集禁止対象)
+- `protected-path-gate`の承認・却下コメント投稿(`/approve-protected-paths <SHA>` /
+  `/revoke-protected-paths <SHA>`)。この2コマンドはリポジトリOWNERのコメントとしてのみ
+  `.github/workflows/protected-path-gate.yml`に認識される、オーナー本人だけの操作。
+  Claude/AIがこれを代わりに投稿することは**技術的な理由(Git Bash/MSYS2の`/`始まり引数の
+  パス展開回避など)の有無にかかわらず、恒久的に禁止**(2026-09-01、実際にAIが誤って
+  `/approve-protected-paths`を投稿し到達済みHEADへ承認が付与されてしまった事故を受けて
+  明文化。「回避策があるから実行してよい」という判断そのものが誤り)。protected-path-gate
+  の承認状態に問題がある場合、Claude/AIは**状態の報告と、オーナーが実行すべき正確な
+  コマンド文字列の提示までに留める**(投稿はしない)。承認状態を確認する際は、
+  `gate`(Actions checkのconclusion)ではなく`protected-path-gate`という名前のstatus
+  context自体の最新の出力を根拠にする(古いSHAへの承認が新しいHEADへ引き継がれていると
+  誤認しないこと)。
 
 これらのパスに対する変更が必要だと判断した場合、`engineering-agent.mjs`は**コードを書かずに**、`improvement_tasks.status='rejected'`とし、`improvement_issues.implementation_type='human_only'`に更新し、`/admin/improvements`に「人間対応が必要」として表示する。
 

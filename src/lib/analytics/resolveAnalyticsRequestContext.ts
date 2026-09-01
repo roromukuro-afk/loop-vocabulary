@@ -14,8 +14,9 @@
  * (省略・デフォルト値でのすり抜けを防ぐため、オプショナル引数にはしない=省略すると
  * TypeScriptのコンパイルエラーになる)。
  */
-import { isAuditModeRequest } from "./auditModeServer";
-import { isProductionEnvironment } from "./testEventClassification";
+// 明示的な.ts拡張子の理由はtestEventClassification.ts冒頭のコメント参照。
+import { isAuditModeRequest } from "./auditModeServer.ts";
+import { isProductionEnvironment } from "./testEventClassification.ts";
 
 export interface AnalyticsRequestContext {
   readonly isTestEvent: boolean;

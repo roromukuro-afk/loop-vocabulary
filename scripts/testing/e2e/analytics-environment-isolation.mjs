@@ -18,6 +18,7 @@
  */
 import { chromium } from "playwright";
 import { loadEnv, requireEnv } from "../lib/env.mjs";
+import { getEphemeralAuditToken } from "../lib/ephemeralAuditToken.mjs";
 import { ensureServer, stopDevServer } from "../lib/devServer.mjs";
 import { getAdminClient } from "../lib/supabaseAdmin.mjs";
 import { TEST_ACCOUNTS } from "../lib/testAccounts.mjs";
@@ -108,7 +109,10 @@ async function fetchIsTestEventBySession(admin, sessionId) {
 
 async function main() {
   loadEnv();
-  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "LV_AUDIT_TOKEN", TEST_ACCOUNTS.srs.passwordEnvKey]);
+  requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", TEST_ACCOUNTS.srs.passwordEnvKey]);
+  // 監査モードの仕組み自体を検証するだけなので、production secretではなく
+  // このプロセス限りの使い捨てトークンを使う(scripts/testing/lib/ephemeralAuditToken.mjs参照)。
+  process.env.LV_AUDIT_TOKEN = getEphemeralAuditToken();
   const admin = getAdminClient();
   const testStartedAt = new Date().toISOString();
   // 別ランナー/別プロセスでこのテストが同時実行されると、"env-isolation-"という

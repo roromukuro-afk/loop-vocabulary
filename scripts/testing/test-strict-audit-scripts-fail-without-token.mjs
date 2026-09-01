@@ -12,17 +12,25 @@
  * 気づける。stderrの文言(process.exitCode/exit(1) + "LV_AUDIT_TOKEN"を含む
  * メッセージ)も合わせて確認する。
  *
+ * 対象範囲(2026-09-01、オーナー指摘対応で縮小): 監査モードの起動そのものだけを
+ * 検証するE2Eスクリプト(ga4-webdriver-exclusion.mjs等)は、production secretへの
+ * 依存を断ち切り、実行のたびに自分自身で使い捨てトークンを生成するよう再設計された
+ * (scripts/testing/lib/ephemeralAuditToken.mjs参照)。これらはもはやLV_AUDIT_TOKEN
+ * 環境変数の有無に一切依存しないため、この「未設定で確実に落ちる」契約の対象から
+ * 外れる。実際のproduction環境(https://loop-vocabulary.app)へアクセスする
+ * check-prod-srs-v2-global.mjsだけが、本物のLV_AUDIT_TOKENの事前設定を必要とする
+ * 唯一のスクリプトとして残る。
+ *
  * このテスト自身は、対象スクリプトをLV_AUDIT_TOKENだけ除いた環境変数で実際に
- * 起動する(spawnSync)。他のsecret([NEXT_PUBLIC_SUPABASE_URL等])は.env.localに
- * 委ねる(スクリプト自身のloadEnv()が読み込む)ため、このテスト自体はネットワーク・
- * DBアクセスを一切行わない(各対象スクリプトのrequireEnv()が最初の必須チェックで
- * 落ちるため、それ以降のコードには到達しない)。
+ * 起動する(spawnSync)。.env.localにはLV_AUDIT_TOKENを一切置かない方針
+ * (オーナー指摘対応)のため、親プロセスのenvから取り除くだけで「未設定」を
+ * 正しく再現できる(対象スクリプト自身のloadEnv()が.env.localから読み戻すことはない)。
+ * 他のsecret([NEXT_PUBLIC_SUPABASE_URL等])は.env.localに委ねる。
  *
  * 使い方: node scripts/testing/test-strict-audit-scripts-fail-without-token.mjs
  */
 import { spawnSync } from "child_process";
 import { resolve } from "path";
-import { readFileSync, writeFileSync, existsSync } from "fs";
 import { REPO_ROOT } from "./lib/env.mjs";
 
 let pass = 0;
@@ -34,27 +42,17 @@ function bad(msg) { console.error(`❌ FAIL: ${msg}`); fail++; }
 const FAIL_FAST_THRESHOLD_MS = 8000;
 const SPAWN_TIMEOUT_MS = 15000;
 
-// LV_AUDIT_TOKENの実際の起動(監査モードの有効化そのもの)に依存する、"strict"な
-// スクリプトの一覧。新しくこの依存を追加したスクリプトは必ずここへ追記すること
-// (追記を忘れると、この repo-wide 保証が静かに素通りする)。
+// production secretの実際の値(LV_AUDIT_TOKEN)を必要とする、"strict"なスクリプトの
+// 一覧。新しくこの依存を追加したスクリプトは必ずここへ追記すること(追記を忘れると、
+// この repo-wide 保証が静かに素通りする)。監査モードの仕組み自体だけを検証する
+// スクリプトは、production secretではなく使い捨てトークンを自分で生成するため、
+// ここには含めない(上記コメント参照)。
 export const STRICT_AUDIT_SCRIPTS = [
-  { relPath: "scripts/testing/e2e/ga4-webdriver-exclusion.mjs", extraArgs: [] },
-  { relPath: "scripts/testing/e2e/middleware-supabase-audit-interaction.mjs", extraArgs: [] },
-  { relPath: "scripts/testing/e2e/analytics-environment-isolation.mjs", extraArgs: [] },
-  { relPath: "scripts/testing/e2e/analytics-production-ingestion.mjs", extraArgs: [] },
-  { relPath: "scripts/testing/e2e/analytics-rejection-reasons.mjs", extraArgs: [] },
   { relPath: "scripts/testing/check-prod-srs-v2-global.mjs", extraArgs: [] },
 ];
 
 function runWithoutToken(relPath) {
   const scriptPath = resolve(REPO_ROOT, relPath);
-  // 対象スクリプトは自分自身でloadEnv()を呼び.env.localをファイルから直接読む
-  // (scripts/testing/lib/env.mjs::loadEnv()は`process.env[key] === undefined`の
-  // ときだけ.env.local由来の値を代入する)。そのため親プロセスのenvから
-  // LV_AUDIT_TOKENを取り除いて渡すだけでは、子プロセス自身のloadEnv()が
-  // .env.localから再度読み込んでしまい「未設定」を再現できない。実際に
-  // .env.local自体からLV_AUDIT_TOKEN行を一時的に取り除いてから起動し、
-  // 必ず(成功・失敗・例外を問わず)元に戻す。
   const env = { ...process.env };
   delete env.LV_AUDIT_TOKEN;
 
@@ -69,33 +67,10 @@ function runWithoutToken(relPath) {
   return { result, elapsedMs };
 }
 
-const ENV_LOCAL_PATH = resolve(REPO_ROOT, ".env.local");
-
-function withLvAuditTokenStripped(fn) {
-  if (!existsSync(ENV_LOCAL_PATH)) {
-    throw new Error(`${ENV_LOCAL_PATH} が見つからない(LV_AUDIT_TOKENが元々設定されていない環境ではこのテストは実行できない)`);
-  }
-  const original = readFileSync(ENV_LOCAL_PATH, "utf-8");
-  if (!/^LV_AUDIT_TOKEN=/m.test(original)) {
-    throw new Error(".env.local にLV_AUDIT_TOKEN行が見つからない(先にLV_AUDIT_TOKENを設定してからこのテストを実行すること)");
-  }
-  const stripped = original
-    .split("\n")
-    .filter((line) => !line.startsWith("LV_AUDIT_TOKEN="))
-    .join("\n");
-  writeFileSync(ENV_LOCAL_PATH, stripped, "utf-8");
-  try {
-    return fn();
-  } finally {
-    // 例外・タイムアウトを問わず必ず元の内容へ戻す。
-    writeFileSync(ENV_LOCAL_PATH, original, "utf-8");
-  }
-}
-
 function main() {
   for (const { relPath } of STRICT_AUDIT_SCRIPTS) {
     console.log(`\n--- ${relPath} (LV_AUDIT_TOKEN未設定) ---`);
-    const { result, elapsedMs } = withLvAuditTokenStripped(() => runWithoutToken(relPath));
+    const { result, elapsedMs } = runWithoutToken(relPath);
 
     const failedFast = elapsedMs < FAIL_FAST_THRESHOLD_MS;
     if (failedFast) {

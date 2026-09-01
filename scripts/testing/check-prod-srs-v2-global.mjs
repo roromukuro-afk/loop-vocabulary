@@ -21,6 +21,15 @@ requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", TEST_ACCOUN
 // 一切送っていなかったため、これまでの実行はすべて本番の意思決定用集計を
 // 汚す実ユーザートラフィックとして記録されていた。production監査script同様、
 // LV_AUDIT_TOKEN未設定なら開始前に落とす(getAuditToken()、strict)。
+//
+// このスクリプトは実際のproduction(PROD_URL)を検証する唯一のE2Eスクリプトであり、
+// 本物のLV_AUDIT_TOKEN(GitHub Environment secret「autonomous-improvement」/
+// Vercel Production)と一致する値が必要(オーナー指摘対応、2026-09-01: 他の
+// 監査モードE2Eテストはscripts/testing/lib/ephemeralAuditToken.mjs経由の
+// 使い捨てトークンへ移行済み)。.env.localへは絶対に保存しないこと — 実行時に
+// このプロセスの環境変数としてだけ渡す(例:
+// `LV_AUDIT_TOKEN=<値> node scripts/testing/check-prod-srs-v2-global.mjs`、
+// シェル履歴に残したくない場合は履歴に残らない入力手段を使う)。
 const auditToken = getAuditToken();
 
 const PROD_URL = "https://loop-vocabulary.app";

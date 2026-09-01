@@ -20,7 +20,11 @@
  * (オーナー指摘対応: 同じ伝播漏れが個別のcall siteで繰り返し発見されたため、
  * 判定ロジックの実装箇所を1か所に強制する)。
  */
-import { AUDIT_MODE_HEADER } from "./auditMode";
+// 明示的な.ts拡張子(tsconfig.jsonのallowImportingTsExtensions参照): このファイルは
+// scripts/testing/test-analytics-environment-classification.mjsからnode実行で直接
+// importされる(webpackを経由しない)。Node ESMの解決規則は拡張子省略を許さないため、
+// 拡張子省略のままだとERR_MODULE_NOT_FOUNDで落ちる(Codexレビュー指摘、805ac98で発見)。
+import { AUDIT_MODE_HEADER } from "./auditMode.ts";
 
 // 下位互換のための再export。実体はauditMode.tsのAUDIT_MODE_HEADER(値は同一の
 // "x-lv-e2e-test")であり、このモジュールでは値を重複定義しない。
