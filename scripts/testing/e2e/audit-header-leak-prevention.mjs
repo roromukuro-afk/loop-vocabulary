@@ -340,6 +340,37 @@ async function main() {
       }
     }
 
+    // ---------- シナリオ9: navigationを伴わないままresendIntervalMsを超えたXHR/fetchにもheaderが付く ----------
+    // Codexレビュー指摘(2026-09-01、4回目の指摘)の回帰防止。監査対象ページがSPA内操作
+    // だけでnavigationを一切伴わずCookie寿命に近づいた場合、以前はmain-frame document
+    // navigationにしかヘッダーを再送しなかったため、その後発火するXHR/fetch
+    // (例: クイズの回答送信)はヘッダーもCookieも十分でないまま送られ、実本番トラフィック
+    // として記録される恐れがあった。
+    {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const SHORT_RESEND_INTERVAL_MS = 300;
+      await allowFirstPartyOrigin(page, firstParty.origin, FAKE_TOKEN, { resendIntervalMs: SHORT_RESEND_INTERVAL_MS });
+
+      await page.goto(`${firstParty.origin}/`, { waitUntil: "load" }); // navigationでheader送信・sentAt更新
+      await page.waitForTimeout(200);
+
+      // resendIntervalMsを超えてidle(navigationを一切送らない)にした後、SPA内操作を
+      // 模したfetch()をXHR/fetchとして発火する(main-frame document navigationではない)。
+      await page.waitForTimeout(SHORT_RESEND_INTERVAL_MS + 200);
+      await page.evaluate(() => fetch("/api/ping", { credentials: "same-origin" }).catch(() => {}));
+      await page.waitForTimeout(300);
+
+      const pingRequests = firstParty.capturedRequests.filter((r) => r.url === "/api/ping");
+      const latestPingHadHeader = pingRequests[pingRequests.length - 1]?.headers[HEADER_NAME] === FAKE_TOKEN;
+      if (latestPingHadHeader) {
+        ok("navigationを伴わずresendIntervalMsを超えたXHR/fetchにもaudit headerが付与される(SPA内操作中のCookie失効に備えた再送)");
+      } else {
+        bad(`resendIntervalMs超過後のXHR/fetchにheaderが付与されなかった(実測: ${JSON.stringify(pingRequests[pingRequests.length - 1]?.headers)})`);
+      }
+      await context.close();
+    }
+
     console.log(fail
       ? `\n=== test:audit-header-leak-prevention: ${fail}件失敗 (${pass}件成功) ===`
       : `\n=== test:audit-header-leak-prevention RESULT: all ${pass} checks passed ===`);

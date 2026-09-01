@@ -132,11 +132,27 @@ function ensureInstalled(page, resendIntervalMs) {
 
     const isFirstParty = state.allowedOrigins.has(origin);
     const isMainFrameDocumentNav = request.isNavigationRequest() && request.frame() === page.mainFrame();
+    // オーナー指摘対応(Codexレビュー、2026-09-01、4回目の指摘): 監査対象ページが
+    // ドキュメントnavigationを一切伴わないまま(SPA内操作のみで)Cookie寿命(10分)を
+    // 超えてidleになった場合、以前はmain-frame document navigationにしかヘッダーを
+    // 再送しなかったため、その後発火するXHR/fetch(例: /api/analytics/eventsへの
+    // 回答送信)は失効済みCookieのまま、ヘッダーも付かずに送られ、実本番トラフィックとして
+    // 記録されてしまっていた。resourceType()が"xhr"/"fetch"の同一origin requestも
+    // 対象に含める(third-partyへは元々isFirstPartyで絞られているため新たな漏洩経路には
+    // ならない)。ただしNext.js App Router自身が内部的に発行するRSC prefetch/navigation
+    // request(next-router-prefetch・rscヘッダーで識別可能。/api/*ではなくpage route自身へ
+    // 飛ぶため元々trackServerEvent/analytics取り込みの対象にもならず、傍受する意味が無い
+    // うえ、実測でこのrequestがpage/context終了と競合しPlaywright側の
+    // 「routing中にcontextが閉じた」エラーを誘発することを確認した)は対象から除外する。
+    const requestHeaders = request.headers();
+    const isNextInternalRouterRequest = "rsc" in requestHeaders || "next-router-prefetch" in requestHeaders;
+    const isXhrOrFetch = !isNextInternalRouterRequest
+      && (request.resourceType() === "xhr" || request.resourceType() === "fetch");
     const token = state.tokenByOrigin.get(origin);
     const lastSentAt = state.sentAt.get(origin);
     const needsResend = lastSentAt === undefined || Date.now() - lastSentAt >= state.resendIntervalMs;
 
-    if (isFirstParty && isMainFrameDocumentNav && needsResend && token) {
+    if (isFirstParty && (isMainFrameDocumentNav || isXhrOrFetch) && needsResend && token) {
       // オーナー指摘対応(Codexレビュー、2026-09-01、3回にわたる指摘): sentAtの更新は
       // fetchAndFulfillWithHeaderOnce()が実際に「監査モードとして認証された」ことを
       // 確認できた後にだけ行う。
@@ -149,11 +165,36 @@ function ensureInstalled(page, resendIntervalMs) {
       //   不一致でもmiddleware.tsは通常ページを200で返す)。fetchAndFulfillWithHeaderOnce()が
       //   返すactivated(X-Robots-Tag: noindexの有無、middleware.tsのisAuditModeRequest()と
       //   1対1対応する唯一の観測可能な証跡)も必須条件に加える。
+      //
+      // XHR/fetchはactivatedを検証しない(4回目の指摘対応): middleware.tsは/api/*を
+      // 監査ヘッダー・Cookie発行ロジックの対象外にしている(chunked転送のレスポンスへ
+      // ヘッダーを追記するとハングする既知の問題、middleware.tsのconfig.matcherコメント
+      // 参照)ため、X-Robots-Tag自体がそもそも付与されない。XHR/fetchはCookieの発行に
+      // 依存せず、このrequest自体へ直接ヘッダーを載せてresolveAnalyticsRequestContext()に
+      // その場で正しく判定させることが目的であり、「将来のrequestのためにCookieが
+      // 有効化されたか」を確認する必要が無い(=activated確認が意味を持つのは
+      // navigationだけ)。そのためXHR/fetchの成功はstate.sentAtを更新しない
+      // (navigation側の「Cookieがまだ有効なはず」という判定を誤って上書きしないため。
+      // XHR/fetchはneedsResendが真である限り、送信のたびに正しくヘッダーを載せ続ける)。
       const existingHeaders = await request.allHeaders();
-      const { status, activated } = await fetchAndFulfillWithHeaderOnce(route, { ...existingHeaders, [HEADER_NAME]: token });
-      if (status < 400 && activated) {
+      // page/contextがこのrequestの処理中に閉じられた場合(テスト終盤の非同期request等。
+      // XHR/fetchを対象に含めたことで、テストの明示的なawaitの対象外だった非同期request
+      // がcontext.close()と競合する経路が増えた)、Playwrightはroute callback失敗として
+      // 例外を投げ、これを捕捉しなければプロセス全体がunhandled rejectionでクラッシュ
+      // する(実測で確認)。この場合はこのrequest自体の結果を気にする意味が既に無い
+      // (呼び出し元のtestが終了処理に入っている)ため、「未確認」として扱い(status=0,
+      // activated=false)、以降の既存ロジック(sentAt不更新・strict時はfail-fast)へ
+      // 委ねる。
+      let status = 0;
+      let activated = false;
+      try {
+        ({ status, activated } = await fetchAndFulfillWithHeaderOnce(route, { ...existingHeaders, [HEADER_NAME]: token }));
+      } catch {
+        // 上記コメントのとおり、意図的に握りつぶす(status=0/activated=falseのまま)。
+      }
+      if (isMainFrameDocumentNav && status < 400 && activated) {
         state.sentAt.set(origin, Date.now());
-      } else if (state.strictByOrigin.get(origin)) {
+      } else if (isMainFrameDocumentNav && state.strictByOrigin.get(origin)) {
         // strict:true(監査モードの実際の起動そのものを検証するテスト専用、
         // gotoReadyFirstPartyOnly()のopts.strict参照)の場合、トークン不一致等で
         // 監査モードが起動しなかったこと自体を検知不能なまま実処理を続行させない
