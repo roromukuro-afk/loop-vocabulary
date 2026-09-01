@@ -197,6 +197,19 @@ async function main() {
       await gotoAsRealUser(page, `${devProd.url}/`);
       await page.waitForTimeout(2000);
 
+      // Codexレビュー指摘の検証(2026-09-01、feeb0a0向け): このpage(browser.newPage())が
+      // 直前のdevLocal訪問(1.でgotoReady()がaudit headerを送りlv_audit Cookieを取得した
+      // pageLocal)からlv_audit Cookieを引き継いでいないことを明示的に確認する。
+      // browser.newPage()はPlaywright公式ドキュメントの記載どおり「新しいbrowser context」を
+      // 都度作成する(Browser.newPage(): "Creates a new page in a new browser context.")ため、
+      // Cookie自体がホスト単位でスコープされるにもかかわらず、context分離により
+      // pageLocal・各devProd pageの間でCookieが共有されることはない。もし将来この前提が
+      // (例えば共有contextへのリファクタ等で)崩れた場合、この直後のGA4計測checkが
+      // 誤って「常時ブロック」寄りの結果を返す形で検出される。
+      const leakedAuditCookie = (await page.context().cookies()).find((c) => c.name === "lv_audit");
+      if (!leakedAuditCookie) ok("devProd real-userシナリオのpageは、直前のdevLocal訪問のlv_audit Cookieを引き継いでいない(browser.newPage()のcontext分離を確認)");
+      else fail(`devProd real-userシナリオのpageがlv_audit Cookieを引き継いでいる(実測: ${JSON.stringify(leakedAuditCookie)}) — browser.newPage()のcontext分離が機能していない可能性`);
+
       // gtag/js本体がadNetworkGuard.mjsでabortされるようになったため、実際のcollect
       // ビーコンはgtag.js自身が読み込めない限り発生しない(collectRequestsは常に0になる)。
       // 「実ユーザーなら計測が有効になるか」は、dataLayerへのgtag('config',...) push
