@@ -10,8 +10,11 @@
  * 2. production相当でも、navigator.webdriver(Playwright/Puppeteer/Selenium等の
  *    自動操作ブラウザがdefaultでtrueにする標準プロパティ)がtrueの場合はgtag('config',...)を
  *    呼ばない(推測ベースの第一防衛線。監査スクリプト側の対応なしに自動的に除外される)
- * 3. 「監査モード」: 監査スクリプトが明示的に送る`x-lv-e2e-test: 1`ヘッダー
- *    (scripts/testing/e2e/lib/nav.mjsのgotoReady()が全E2Eナビゲーションで送信済み。
+ * 3. 「監査モード」: 監査スクリプトが明示的に送る`x-lv-e2e-test: <LV_AUDIT_TOKEN>`
+ *    ヘッダー(値は環境変数LV_AUDIT_TOKENと照合される秘密トークン、
+ *    src/lib/analytics/auditModeServer.ts参照。以前は固定文字列"1"で誰でも
+ *    起動できたが、オーナー指摘のセキュリティ対応で変更された)。
+ *    scripts/testing/e2e/lib/nav.mjsのgotoReady()が全E2Eナビゲーションで送信済み。
  *    testEventClassification.tsで元々「本番へ意図的に送るProduction Canaryのための
  *    オーバーライド」として設計済み)をsrc/middleware.tsが検知し、非httpOnly Cookieを
  *    セットする。navigator.webdriverがfalseに偽装されていても、このCookieがあれば
@@ -48,6 +51,7 @@ import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { gotoReady } from "./lib/nav.mjs";
 import { guardAdNetworkRequests } from "./lib/adNetworkGuard.mjs";
 import { getAuditToken } from "../lib/auditToken.mjs";
+import { requireEnv } from "../lib/env.mjs";
 
 const PORT_LOCAL = Number(process.env.TEST_PORT || 3799);
 const PORT_PROD = PORT_LOCAL + 1;
@@ -96,6 +100,14 @@ async function hasGa4ConfigCall(page, gaId) {
 }
 
 async function main() {
+  // 監査モード(x-lv-e2e-testヘッダーがLV_AUDIT_TOKENと一致すること)そのものを
+  // 検証するテストのため、開始前(devサーバー起動・ブラウザ起動より前)に
+  // LV_AUDIT_TOKEN未設定を検出して落とす(オーナー指摘対応: 「strict scriptが
+  // tokenなしでページへ到達しない」ことをここでも保証する。以前はgetAuditToken()の
+  // 呼び出しがcheck 4付近まで遅延しており、それまでの複数回のページ遷移・
+  // devサーバービルドが未設定のまま無駄に進行してしまっていた)。
+  requireEnv(["LV_AUDIT_TOKEN"]);
+
   // GA_IDはNEXT_PUBLIC_*でbuild時に静的埋め込みされるため、テスト専用値を注入して
   // forceRebuild:trueで反映させる(既存のAdSenseテストと同じ手法)。
   process.env.NEXT_PUBLIC_GA_ID = TEST_GA_ID;

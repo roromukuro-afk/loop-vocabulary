@@ -71,10 +71,21 @@ function main() {
     // git grep はマッチ0件だとexit code 1で例外を投げる。これが期待どおりの結果。
     hits = "";
   }
-  if (hits.trim() === "") {
-    ok("computeIsTestEvent(の呼び出しがsrc/に1件も存在しない(関数自体が撤去済み)");
+  // コメント内(経緯を説明する散文としての言及。例:
+  // resolveAnalyticsRequestContext.tsの設計コメント)は実コードの呼び出しではないため除外する。
+  // 行頭(先頭空白除去後)が `//`, `*`, `/**` のいずれかで始まる行をコメント行とみなす。
+  const codeHits = hits
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .filter((line) => {
+      const afterFilename = line.indexOf(":", line.indexOf(":") + 1);
+      const content = (afterFilename === -1 ? line : line.slice(afterFilename + 1)).trim();
+      return !/^(\/\/|\*|\/\*\*)/.test(content);
+    });
+  if (codeHits.length === 0) {
+    ok("computeIsTestEvent(のコード上の呼び出しがsrc/に1件も存在しない(関数自体が撤去済み。コメント内での経緯言及は除く)");
   } else {
-    bad(`computeIsTestEvent(の呼び出しが残っている:\n${hits}`);
+    bad(`computeIsTestEvent(の呼び出しが残っている:\n${codeHits.join("\n")}`);
   }
 
   // --- 2. 既知の全analytics発火routeがresolveAnalyticsRequestContext()を経由している ---

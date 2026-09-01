@@ -1,6 +1,7 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "./env";
+import { applySupabaseCookiesAndHeaders, type CookieToSet } from "./cookieHeaders";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -11,12 +12,13 @@ export async function updateSession(request: NextRequest) {
   const supabase = createServerClient(env.url!, env.anon!, {
     cookies: {
       getAll: () => request.cookies.getAll(),
-      setAll: (toSet: { name: string; value: string; options?: CookieOptions }[]) => {
+      // middleware.tsはmatcher対象の全リクエスト(/api/*含む)で必ず実行される
+      // ため、ここでheadersを適用すれば認証Cookieが更新される全レスポンスを
+      // カバーできる。
+      setAll: (toSet: CookieToSet[], headers: Record<string, string>) => {
         toSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
-        toSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options),
-        );
+        applySupabaseCookiesAndHeaders(response, toSet, headers);
       },
     },
   });

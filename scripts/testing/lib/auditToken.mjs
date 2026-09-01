@@ -29,13 +29,18 @@ export function getAuditToken() {
  * LV_AUDIT_TOKEN未設定でも(secretを一切渡さない独立PR CI = pr-quality-gate.ymlは
  * 意図的に一切secretを持たない設計。forbidden-paths.jsonのコメント参照)、
  * このヘッダーを送るだけの大多数のE2Eテストがそこで無条件に失敗しないよう、
- * ここではrequireEnv()で落とさず、未設定時は無害なプレースホルダー値を返す
- * (server側でLV_AUDIT_TOKENと一致するはずがない値のため、監査モードは起動しない。
- * それでよい — このヘルパーの利用箇所は監査モードの起動そのものを検証していない)。
+ * ここではrequireEnv()で落とさない。ただし(オーナー指摘対応)不一致がほぼ確実な
+ * プレースホルダー文字列を代わりに送ることもしない — ヘッダー自体を一切送らない
+ * (呼び出し側でヘッダーキーを省略する)のが唯一の安全な選択肢: 万が一将来
+ * LV_AUDIT_TOKENの最小長チェック(AUDIT_TOKEN_MIN_LENGTH)が緩められたり、
+ * 実際のトークン値が偶然この文字列と一致したりした場合でも、ヘッダーを送らなければ
+ * 監査モードが誤って起動する経路そのものが存在しない。未設定時はnullを返し、
+ * 呼び出し側は必ず「nullならヘッダーキー自体を組み立てない」こと
+ * (`"1"`のような固定値へのフォールバックも同様に禁止)。
  * 監査モードの実際の起動を検証するテストは、代わりに上のgetAuditToken()を使い、
  * 未設定時は明示的にテスト自体を落とすこと。
  */
-export function getAuditTokenOrPlaceholder() {
+export function getAuditTokenOrNull() {
   loadEnv();
-  return process.env.LV_AUDIT_TOKEN || "unset-lv-audit-token-placeholder";
+  return process.env.LV_AUDIT_TOKEN || null;
 }

@@ -8,9 +8,18 @@ import { chromium } from "playwright";
 import { loadEnv, requireEnv } from "./lib/env.mjs";
 import { getAdminClient } from "./lib/supabaseAdmin.mjs";
 import { TEST_ACCOUNTS } from "./lib/testAccounts.mjs";
+import { getAuditToken } from "./lib/auditToken.mjs";
 
 loadEnv();
 requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", TEST_ACCOUNTS.srs.passwordEnvKey]);
+// このスクリプトは実ブラウザ(chromium.launch())で本番URLへ遷移するため、
+// クライアント側GA4タグ・first-party analytics_eventsが実際に発火する
+// (verify-prod.mjs/ads-txt-live.mjsは素のfetch()のみでブラウザJSを実行しない
+// ため対象外)。オーナー指摘の repo-wide 監査で発見: 監査モード用ヘッダーを
+// 一切送っていなかったため、これまでの実行はすべて本番の意思決定用集計を
+// 汚す実ユーザートラフィックとして記録されていた。production監査script同様、
+// LV_AUDIT_TOKEN未設定なら開始前に落とす(getAuditToken()、strict)。
+const auditToken = getAuditToken();
 
 const PROD_URL = "https://loop-vocabulary.app";
 const admin = getAdminClient();
@@ -25,6 +34,7 @@ if (prof?.srs_v2 !== false) {
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
+await page.setExtraHTTPHeaders({ "x-lv-e2e-test": auditToken });
 
 await page.goto(`${PROD_URL}/login`, { waitUntil: "load" });
 await page.waitForLoadState("networkidle");

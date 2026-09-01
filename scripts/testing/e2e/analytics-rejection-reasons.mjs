@@ -5,7 +5,7 @@
  *
  * 使い方: node scripts/testing/e2e/analytics-rejection-reasons.mjs
  */
-import { loadEnv } from "../lib/env.mjs";
+import { loadEnv, requireEnv } from "../lib/env.mjs";
 import { ensureServer, stopDevServer } from "../lib/devServer.mjs";
 import { getAuditToken } from "../lib/auditToken.mjs";
 
@@ -28,6 +28,10 @@ function post(baseUrl, { headers = {}, body }) {
 
 async function main() {
   loadEnv();
+  // duplicate/rejected_rate_limitチェックが監査モードヘッダーを使うため、
+  // devサーバー起動より前にLV_AUDIT_TOKEN未設定を検出して落とす(オーナー指摘対応:
+  // strict scriptはtokenなしで開始前fail、を保証する)。
+  requireEnv(["LV_AUDIT_TOKEN"]);
   const dev = await ensureServer(PORT);
   const baseUrl = dev.url;
   console.log(`server: ${baseUrl} (startedByUs=${dev.startedByUs})`);
