@@ -196,6 +196,7 @@ export default function RoadmapPage() {
         <div className="text-center text-sm text-navy-400 space-y-2">
           <div className="flex gap-4 justify-center flex-wrap">
             <Link href="/guide/daigaku-juken-tango" className="underline">大学受験ガイド</Link>
+            <Link href="/guide/eiken-3kyu-tango" className="underline">英検3級ガイド</Link>
             <Link href="/guide/eiken-2kyu-tango" className="underline">英検2級ガイド</Link>
             <Link href="/guide/toeic-tango" className="underline">TOEICガイド</Link>
             <Link href="/guide/eiken-jun1-tango" className="underline">英検準1級ガイド</Link>

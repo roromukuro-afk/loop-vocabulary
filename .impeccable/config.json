@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "src/app/guide/toeic-tango/page.tsx"
+        ],
+        "createdAt": "2026-09-02T03:53:38.826Z",
+        "reason": "Claude: pre-existing SCORE_BANDS gradient (purple-500/600 for the 860+ score tier), part of an established multi-tier color-differentiation scheme, untouched by this Growth Batch 1 SEO-content diff (only FAQ_ITEMS was edited in this file)"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "src/app/roadmap/page.tsx"
+        ],
+        "createdAt": "2026-09-02T03:54:02.835Z",
+        "reason": "Claude: pre-existing LEVELS array gradient colors (indigo-500/600 for Lv.3, purple-500/600 for Lv.4), part of an established per-level color-differentiation scheme, untouched by this Growth Batch 1 SEO-content diff (only added one internal link line in the 関連リンク footer)"
+      }
+    ]
+  }
+}

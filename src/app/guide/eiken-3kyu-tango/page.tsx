@@ -70,6 +70,10 @@ const JSON_LD = {
 
 const FAQ_ITEMS = [
   {
+    q: "英検3級でよく出る単語・出やすい単語はどれですか？",
+    a: "英検協会は「頻出語ランキング」のような公式リストを公表していません。このページのカテゴリ別リストは、市販の単語帳や過去問で繰り返し登場する語を、日常生活・学校・動詞・形容詞・場所・自然環境の6テーマに整理したものです。年度・回によって実際の出題語は変わるため、特定の単語に絞り込むより、テーマ単位で幅広く押さえておく方法をおすすめします。",
+  },
+  {
     q: "英検3級に必要な単語数はどれくらいですか？",
     a: "必須単語の目安は約800語程度とされます。中学英語の基礎レベルが中心なので、まずはこの800語を「読んで意味が分かる」レベルから「聞いて分かる」レベルまで引き上げることを目指すと安定します。",
   },
@@ -140,7 +144,10 @@ export default function Eiken3KyuPage() {
         </div>
 
         {/* カテゴリ別単語 */}
-        <h2 className="font-black text-navy-800 text-lg px-1">カテゴリ別 頻出単語</h2>
+        <div className="px-1">
+          <h2 className="font-black text-navy-800 text-lg">英検3級でよく出る単語【カテゴリ別】</h2>
+          <p className="text-xs text-navy-500 mt-1">過去の出題傾向をもとに、よく出やすいテーマ別に整理しています。実際の出題語は年度・回によって変わります。</p>
+        </div>
         {CATEGORIES.map((c) => (
           <div key={c.title} className="bg-white rounded-2xl border border-navy-100 p-5">
             <div className="flex items-center justify-between mb-3">
