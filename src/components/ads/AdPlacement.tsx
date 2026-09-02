@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { createClient } from "@/lib/supabase/server";
 import { isThirdPartyAdsAllowedEnvironment } from "@/lib/ads/providerConfig";
 import { AdPlacementClient } from "./AdPlacementClient";
 
@@ -29,8 +30,32 @@ import { AdPlacementClient } from "./AdPlacementClient";
 // AdSense再審査も係属中のため、サイト全体テンプレートへは影響させない)。
 // 配置する際は、対象ページのコンテンツ内(ファーストビューの下)へ1箇所だけ
 // <AdPlacement /> を追加する。
-export function AdPlacement() {
+export async function AdPlacement() {
   const isProductionEnvironment = isThirdPartyAdsAllowedEnvironment();
+
+  // オーナー指摘対応(Codexレビュー、P1 "Gate third-party placements for premium
+  // subscribers"): プレミアム(有料)ユーザーには第三者広告を表示しない。dashboardの
+  // BannerAdPlaceholderと同じ「広告非表示はプレミアム特典」の約束を、このprovider
+  // 基盤にもサーバー側で適用する(profiles.is_premiumの参照パターンは
+  // src/app/dashboard/page.tsxと同一)。未ログイン・取得失敗時は非プレミアム扱い
+  // (広告は表示されるが、有料特典を誤って侵害することはない側に倒す)。
+  let isPremium = false;
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_premium")
+        .eq("id", user.id)
+        .maybeSingle();
+      isPremium = profile?.is_premium ?? false;
+    }
+  } catch {
+    isPremium = false;
+  }
+  if (isPremium) return null;
+
   return (
     <Suspense fallback={null}>
       <AdPlacementClient isProductionEnvironment={isProductionEnvironment} />

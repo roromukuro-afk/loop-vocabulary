@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdPlacement } from "@/components/ads/AdPlacement";
 
@@ -34,6 +35,12 @@ export default function TestAdPlacementPage() {
   return (
     <div>
       <p>E2Eテスト専用ページ(ad-placement-provider-gating.mjs)</p>
+      {/* Codexレビュー指摘(P2 "Exercise the transition through the Next router")対応:
+          E2EがApp Routerの実クライアント遷移(SPA)を検証できるよう、実在のnext/linkを
+          置く。このページ自体がE2E専用(本番404)のため実サイト導線には影響しない。 */}
+      <Link href="/materials" data-testid="e2e-spa-link-to-materials">
+        教材一覧へ(E2E SPA遷移用リンク)
+      </Link>
       <AdPlacement />
     </div>
   );

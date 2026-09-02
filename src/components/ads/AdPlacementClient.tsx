@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { isAuditModeActiveClient } from "@/lib/analytics/auditMode";
 import { isThirdPartyAdEligiblePath } from "@/lib/ads/adEligibility";
@@ -29,6 +30,20 @@ export function AdPlacementClient({ isProductionEnvironment }: { isProductionEnv
   // 持つため、他の条件の短絡評価に埋め込まず、必ず毎レンダー・条件分岐より先に呼ぶ
   // (AdSenseLoader.tsxの同種のCodexレビュー指摘対応コメント参照)。
   const auditModeActive = isAuditModeActiveClient(); // 副作用あり: 必ず呼ぶこと
+
+  // オーナー指摘対応(Codexレビュー、P2 "Keep the audit decision consistent during
+  // hydration"): 監査モードの初回document navigationでは、middlewareがlv_audit_uiを
+  // レスポンスで「これからセットする」ため、サーバーレンダーはCookie無しで広告枠を
+  // 出力し、ブラウザの初回(hydration)レンダーはセット済みCookieを見てnullを返す —
+  // という不一致がhydration errorを生む。対策として、サーバー/初回クライアント
+  // レンダーの双方でnullを返し(=マークアップが常に一致)、マウント後の再レンダーで
+  // 初めて表示判定を行う。第三者広告タグはいずれにせよクライアントJSでしか動作しない
+  // ため、マウント後表示にしても実質的な表示機会は変わらない。監査モード中は
+  // マウント後もauditModeActiveがtrueのままnullが維持され、子(実タグ)は一切
+  // マウントされない=リクエスト試行も発生しない。
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
 
   if (!isProductionEnvironment) return null;
   if (auditModeActive) return null;

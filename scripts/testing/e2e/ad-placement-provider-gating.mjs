@@ -151,18 +151,39 @@ async function main() {
       await page.close();
     }
 
-    // SPA navigation: 別ページ経由でAdPlacementページへ遷移しても二重初期化・表示崩れが無いこと
+    // SPA navigation: App Routerの実クライアント遷移を経由しても二重初期化・表示崩れが無いこと。
+    // オーナー指摘対応(Codexレビュー、P2 "Exercise the transition through the Next router"):
+    // 旧実装のhistory.pushState()+page.goto()は素のdocument navigationでありApp Routerの
+    // SPA遷移を一切通っていなかった(module-levelのslot状態が毎回リセットされ、検証したい
+    // 「クライアント遷移をまたぐ二重初期化」が実際には演習されない偽陽性)。テスト専用
+    // ページに置いた実在のnext/link(data-testid=e2e-spa-link-to-materials)でTEST_PATH→
+    // /materialsへ実SPA遷移し、page.goBack()(App Routerがpopstateとしてクライアント側で
+    // 処理する)でTEST_PATHへ戻る。full reloadが起きていないことはwindowマーカーの生存で証明する。
     {
       const page = await browser.newPage();
       await guardAdNetworkRequests(page);
-      await gotoAsNormalUser(page, `${devShow.url}/materials`);
-      await page.evaluate((path) => { window.history.pushState({}, "", path); }, TEST_PATH);
-      await page.goto(`${devShow.url}${TEST_PATH}`, { waitUntil: "load" });
-      await page.waitForLoadState("networkidle");
+      await gotoAsNormalUser(page, `${devShow.url}${TEST_PATH}`);
       await page.waitForTimeout(500);
+      await page.evaluate(() => { window.__e2eSpaMarker = "alive"; });
+
+      await page.locator('[data-testid="e2e-spa-link-to-materials"]').click();
+      await page.waitForURL(/\/materials(?:$|[?#])/, { timeout: 10000 });
+      await page.waitForTimeout(300);
+
+      await page.goBack();
+      await page.waitForURL(new RegExp(`${TEST_PATH.replace(/\//g, "\\/")}(?:$|[?#])`), { timeout: 10000 });
+      await page.waitForTimeout(500);
+
+      const markerAlive = await page.evaluate(() => window.__e2eSpaMarker === "alive");
+      if (markerAlive) {
+        ok("TEST_PATH→/materials(実Link)→goBackの往復がクライアント遷移で完結している(windowマーカー生存=full reloadなし)");
+      } else {
+        fail("SPA遷移検証中にfull reloadが発生している(windowマーカー消失)。このシナリオはクライアント遷移を演習できていない");
+      }
+
       const admaxDivCount = await page.locator(".admax-ads").count();
-      if (admaxDivCount === 1) ok("別ページからの遷移後もAdPlacementの二重初期化が発生しない(.admax-ads件数=1)");
-      else fail(`別ページからの遷移後、.admax-ads件数が想定外(実測=${admaxDivCount})`);
+      if (admaxDivCount === 1) ok("実SPA遷移(Link往復)後もAdPlacementの二重初期化が発生しない(.admax-ads件数=1)");
+      else fail(`実SPA遷移後、.admax-ads件数が想定外(実測=${admaxDivCount})`);
       await page.close();
     }
 
@@ -172,15 +193,91 @@ async function main() {
     {
       const page = await browser.newPage();
       const blocked = await guardAdNetworkRequests(page);
-      await gotoReady(page, `${devShow.url}${TEST_PATH}`); // gotoReady()がx-lv-e2e-test:1(監査モード)を送信
+      // オーナー指摘対応(Codexレビュー、P2 "Keep the audit decision consistent during
+      // hydration"): 監査モードの初回navigationこそhydration不一致が起きやすい経路の
+      // ため(サーバーはCookie無し・クライアント初回はCookieありになる)、このシナリオ
+      // にもシナリオ1bと同じhydrationエラー検出を追加する。
+      const auditConsoleErrors = [];
+      const auditPageErrors = [];
+      page.on("console", (msg) => { if (msg.type() === "error") auditConsoleErrors.push(msg.text()); });
+      page.on("pageerror", (err) => { auditPageErrors.push(String(err)); });
+      await gotoReady(page, `${devShow.url}${TEST_PATH}`); // gotoReady()が監査トークンヘッダーを送信
       await page.waitForTimeout(1500);
       const admaxDivCount = await page.locator(".admax-ads").count();
       if (blocked.length === 0) {
-        ok(`監査モード中は第三者広告(AdSense/Ninja AdMax/i-mobile)へのリクエスト試行が0件(admax-ads DOM件数=${admaxDivCount}は監査ヘッダー無効化と無関係にAdPlacement自体が出す枠のため参考値)`);
+        ok(`監査モード中は第三者広告(AdSense/Ninja AdMax/i-mobile)へのリクエスト試行が0件(admax-ads DOM件数=${admaxDivCount})`);
       } else {
         fail(`監査モード中にも第三者広告へのリクエスト試行が発生した(route interceptionでabort済み、外部への実通信は発生していない): ${blocked.join(", ")}`);
       }
+      const AUDIT_HYDRATION_SIGNATURES = [
+        "Hydration failed",
+        "did not match",
+        "hydrated but some attributes",
+        "Text content does not match",
+        "server rendered HTML",
+      ];
+      const auditHydrationErrors = auditConsoleErrors.filter((msg) =>
+        AUDIT_HYDRATION_SIGNATURES.some((sig) => msg.includes(sig)),
+      );
+      if (auditHydrationErrors.length === 0 && auditPageErrors.length === 0) {
+        ok("監査モードの初回navigationでもserver/client hydration errorが0件(mountedゲートによるマークアップ一致)");
+      } else {
+        fail(`監査モードの初回navigationでhydration errorを検出(console: ${JSON.stringify(auditHydrationErrors)}, pageerror: ${JSON.stringify(auditPageErrors)})`);
+      }
       await page.close();
+    }
+
+    // premium(有料)ユーザーには第三者広告を表示しないこと。
+    // オーナー指摘対応(Codexレビュー、P1 "Gate third-party placements for premium
+    // subscribers"): AdPlacement(Server Component)がprofiles.is_premiumを参照して
+    // プレミアムならnullを返す。テストアカウント(test+srs)のis_premiumを一時的に
+    // trueへ変更し、実ログイン後にTEST_PATHで広告枠が出ないことを実測する。
+    // 変更前の値を保存し、finallyで必ず元へ戻す(テストアカウント以外は操作しない)。
+    {
+      const { getAdminClient } = await import("../lib/supabaseAdmin.mjs");
+      const { TEST_ACCOUNTS } = await import("../lib/testAccounts.mjs");
+      const admin = getAdminClient();
+      const srsEmail = TEST_ACCOUNTS.srs.email;
+      const { data: beforeProfile, error: readErr } = await admin
+        .from("profiles").select("is_premium").eq("email", srsEmail).maybeSingle();
+      if (readErr || !beforeProfile) {
+        fail(`premiumシナリオ: test+srsのprofiles読み取りに失敗(${readErr?.message ?? "row無し"})`);
+      } else {
+        const originalIsPremium = beforeProfile.is_premium ?? false;
+        try {
+          const { error: upErr } = await admin
+            .from("profiles").update({ is_premium: true }).eq("email", srsEmail);
+          if (upErr) throw new Error(`is_premium=trueへの更新失敗: ${upErr.message}`);
+
+          const page = await browser.newPage();
+          await guardAdNetworkRequests(page);
+          await gotoAsNormalUser(page, `${devShow.url}/login`);
+          await page.locator('[data-testid="login-email"]').fill(srsEmail);
+          await page.locator('[data-testid="login-password"]').fill(process.env[TEST_ACCOUNTS.srs.passwordEnvKey]);
+          await Promise.all([
+            page.waitForURL(/\/dashboard/, { timeout: 15000 }),
+            page.locator('[data-testid="login-submit"]').click(),
+          ]);
+          await gotoAsNormalUser(page, `${devShow.url}${TEST_PATH}`);
+          await page.waitForTimeout(800);
+          const premiumAdmaxCount = await page.locator(".admax-ads").count();
+          const premiumLabelCount = await page.getByText("広告", { exact: true }).count();
+          if (premiumAdmaxCount === 0 && premiumLabelCount === 0) {
+            ok("premium(is_premium=true)ログインユーザーには広告枠・「広告」ラベルとも表示されない(P1対応の実測確認)");
+          } else {
+            fail(`premiumユーザーに広告枠が表示されている(.admax-ads=${premiumAdmaxCount}, 広告ラベル=${premiumLabelCount})`);
+          }
+          await page.close();
+        } finally {
+          const { error: restoreErr } = await admin
+            .from("profiles").update({ is_premium: originalIsPremium }).eq("email", srsEmail);
+          if (restoreErr) {
+            fail(`premiumシナリオ: is_premiumの復元に失敗(手動で${originalIsPremium}へ戻す必要あり): ${restoreErr.message}`);
+          } else {
+            console.log(`ℹ️  test+srsのis_premiumを元の値(${originalIsPremium})へ復元した`);
+          }
+        }
+      }
     }
 
     stopDevServer(devShow);
