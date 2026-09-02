@@ -210,6 +210,21 @@ function ensureInstalled(page, resendIntervalMs) {
       } catch {
         // 上記コメントのとおり、意図的に握りつぶす(status=0/activated=falseのまま)。
       }
+      // オーナー指摘対応(Codexレビュー、2026-09-02、P2 "Settle the route after a failed
+      // proxy fetch"): 上のcatchはpage/context closed競合のために置いたものだが、
+      // route.fetch()は「pageは開いたままだが一時的なDNS/接続/上流ネットワーク障害で
+      // 失敗した」場合にも例外を投げる。その場合にrouteを未確定(fulfillもabortもしない)
+      // のまま握りつぶすと、Playwrightはこのnavigation/API requestをpendingのまま放置し、
+      // 呼び出し側のpage.goto()等がnavigationタイムアウトまでハングしてしまう(トークン
+      // 再送を伴う次のリトライにも到達できない)。status===0(=fulfillまで到達しなかった)
+      // の場合はabortで明示的にrouteを確定させ、呼び出し側へ通常のネットワークエラーとして
+      // 即座に伝播させる(sentAtは未更新のため、リトライ時はトークンが正しく再送される)。
+      // page/contextが既に閉じているケースではabort自体も例外を投げるが、その場合は
+      // 確定させる相手のrequestがもう存在しないため握りつぶしてよい。
+      // strict時のfail-fast(下のthrow)はabort後も従来どおり発火する。
+      if (status === 0) {
+        try { await route.abort(); } catch { /* page/context closed: 確定不要 */ }
+      }
       if (isMainFrameDocumentNav && status < 400 && activated) {
         state.sentAt.set(origin, Date.now());
       } else if (isMainFrameDocumentNav && state.strictByOrigin.get(origin)) {

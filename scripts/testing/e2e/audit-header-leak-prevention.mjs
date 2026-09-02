@@ -400,6 +400,40 @@ async function main() {
       await context.close();
     }
 
+    // ---------- シナリオ11: route.fetch()失敗時にrouteが確定され、navigationがハングしない ----------
+    // Codexレビュー指摘(2026-09-02、P2 "Settle the route after a failed proxy fetch")の
+    // 回帰防止。監査対象originへのnavigation中にroute.fetch()が一時的なDNS/接続障害で
+    // 例外を投げた場合、以前はcatchがrouteを未確定のまま握りつぶしていたため、
+    // page.goto()がnavigationタイムアウトまでハングしていた。修正後はroute.abort()で
+    // 明示的に確定させるため、goto()はタイムアウトではなく通常のネットワークエラーで
+    // 即座にrejectする。誰もlistenしていないポートのoriginを許可対象に登録することで
+    // 「pageは開いたままroute.fetch()が失敗する」状況を決定的に再現する。
+    {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const deadOrigin = "http://127.0.0.1:59873"; // listenしていないポート(接続拒否)
+      await allowFirstPartyOrigin(page, deadOrigin, FAKE_TOKEN);
+
+      const startedAt = Date.now();
+      let gotoError = null;
+      try {
+        // 修正前はここがrouteのpending化により15秒のタイムアウトまでハングしていた。
+        await page.goto(`${deadOrigin}/`, { waitUntil: "commit", timeout: 15000 });
+      } catch (e) {
+        gotoError = e;
+      }
+      const elapsedMs = Date.now() - startedAt;
+      const isTimeout = gotoError?.name === "TimeoutError" || /Timeout/i.test(gotoError?.message ?? "");
+      if (gotoError && !isTimeout && elapsedMs < 10000) {
+        ok(`route.fetch()失敗時にrouteがabortで確定され、navigationがハングせず即座にエラーになる(${elapsedMs}ms、エラー種別: 非Timeout)`);
+      } else if (!gotoError) {
+        bad("接続不能originへのnavigationが成功扱いになった(想定外)");
+      } else {
+        bad(`route.fetch()失敗時にnavigationがハングした可能性(経過${elapsedMs}ms、Timeout=${isTimeout}、エラー: ${gotoError.message.slice(0, 120)})`);
+      }
+      await context.close();
+    }
+
     console.log(fail
       ? `\n=== test:audit-header-leak-prevention: ${fail}件失敗 (${pass}件成功) ===`
       : `\n=== test:audit-header-leak-prevention RESULT: all ${pass} checks passed ===`);
