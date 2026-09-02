@@ -286,6 +286,9 @@ async function main() {
 
     console.log("\n=== 81. wordListCleaner.ts/csvImportParsing.ts共有CSV/TSVスキャナー 単体テスト ===");
     results.csvScanner = runNode("scripts/testing/test-csv-scanner.mjs");
+
+    console.log("\n=== 82. AdSenseLoader sticky audit state 短絡評価回避(Codexレビュー、PR #137) E2E ===");
+    results.adsenseStickyInitOnDisallowedRoute = runNode("scripts/testing/e2e/adsense-sticky-init-on-disallowed-route.mjs");
   } finally {
     stopDevServer(dev);
   }
