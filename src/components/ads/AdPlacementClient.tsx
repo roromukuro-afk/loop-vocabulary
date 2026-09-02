@@ -69,17 +69,21 @@ export function AdPlacementClient({ isProductionEnvironment }: { isProductionEnv
   // ---- マウント後にのみ確定する条件(監査モード/1ページ1枠) ----
   if (mounted && (auditModeActive || !isFirstOnPage)) return null;
 
+  // オーナー指摘対応(Codexレビュー、P2 "Reserve space for the advertising label"):
+  // シェルの予約が250pxのみだと、マウント後にラベル行(約14-20px+mb-1)が加わって
+  // 全体が伸び、後続コンテンツが動く。ラベルは静的テキストでhydration不一致の
+  // 要因を持たないため、シェルの一部としてSSR時点から描画し、実タグ領域は固定高
+  // (height: AD_HEIGHT、min-heightではなく)にすることで、初回とマウント後の
+  // 寸法を完全に一致させる。マウント後に変わるのはタグ領域「内部」だけになる。
   return (
-    <div style={{ width: AD_WIDTH, minHeight: AD_HEIGHT }} className="mx-auto" data-testid="ad-placement-shell">
-      {mounted && (
-        <>
-          <div className="text-[10px] text-navy-400 uppercase tracking-wide font-semibold mb-1 text-center">
-            広告
-          </div>
-          {canShowNinjaAdMax && <NinjaAdMaxSlot admaxId={ninjaAdMax.admaxId as string} />}
-          {!canShowNinjaAdMax && canShowIMobile && <IMobileSlot />}
-        </>
-      )}
+    <div style={{ width: AD_WIDTH }} className="mx-auto" data-testid="ad-placement-shell">
+      <div className="text-[10px] text-navy-400 uppercase tracking-wide font-semibold mb-1 text-center">
+        広告
+      </div>
+      <div style={{ width: AD_WIDTH, height: AD_HEIGHT }}>
+        {mounted && canShowNinjaAdMax && <NinjaAdMaxSlot admaxId={ninjaAdMax.admaxId as string} />}
+        {mounted && !canShowNinjaAdMax && canShowIMobile && <IMobileSlot />}
+      </div>
     </div>
   );
 }

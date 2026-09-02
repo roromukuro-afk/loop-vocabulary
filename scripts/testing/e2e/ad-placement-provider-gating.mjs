@@ -124,6 +124,19 @@ async function main() {
       } else {
         fail("SSR初期HTMLに広告シェルが含まれない(マウント後挿入になっておりCLS防止が機能していない)");
       }
+      // オーナー指摘対応(Codexレビュー、P2 "Reserve space for the advertising label"):
+      // ラベル行がマウント後に追加されるとラベル高さ分(約14-20px)後続コンテンツが動く。
+      // ラベルと固定高タグ領域の両方がSSR初期HTMLに含まれる(=初回とマウント後で
+      // シェル外形寸法が変わらない)ことを検証する。
+      const shellIdx = ssrHtml.indexOf('data-testid="ad-placement-shell"');
+      const shellSlice = shellIdx >= 0 ? ssrHtml.slice(shellIdx, shellIdx + 800) : "";
+      const ssrHasLabel = shellSlice.includes("広告");
+      const ssrHasFixedHeightArea = /height:\s*250px/.test(shellSlice);
+      if (ssrHasLabel && ssrHasFixedHeightArea) {
+        ok("SSRシェルに「広告」ラベルと固定高(250px)タグ領域の両方が含まれる(マウント後にシェル外形が伸びない)");
+      } else {
+        fail(`SSRシェルの構成が不足(label=${ssrHasLabel}, fixedHeightArea=${ssrHasFixedHeightArea}) — マウント後にラベル/領域が追加されると後続コンテンツが動く`);
+      }
 
       // hydration error = 0(React本体が投げるuncaught exception、および
       // Reactのhydration不一致特有のconsole.errorシグネチャのみを対象とする。
