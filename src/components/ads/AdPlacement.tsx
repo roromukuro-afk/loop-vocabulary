@@ -37,24 +37,45 @@ export async function AdPlacement() {
   // subscribers"): プレミアム(有料)ユーザーには第三者広告を表示しない。dashboardの
   // BannerAdPlaceholderと同じ「広告非表示はプレミアム特典」の約束を、このprovider
   // 基盤にもサーバー側で適用する(profiles.is_premiumの参照パターンは
-  // src/app/dashboard/page.tsxと同一)。未ログイン・取得失敗時は非プレミアム扱い
-  // (広告は表示されるが、有料特典を誤って侵害することはない側に倒す)。
+  // src/app/dashboard/page.tsxと同一)。
+  //
+  // オーナー指摘対応(Codexレビュー、P2 "Fail closed when premium entitlement cannot
+  // be read"): supabase-jsはauth/PostgRESTのエラーを例外ではなく戻り値のerrorとして
+  // 返すため、errorを無視してisPremium=falseへ倒すと、一時的な障害時に課金ユーザーへ
+  // 第三者広告を表示してしまう。認証済み(またはセッションの有無自体が確認できない)
+  // なのにentitlementを検証できなかった場合は、広告を出さない側(fail closed)へ倒す。
+  // セッションが「存在しない」ことが正常に確認できた匿名アクセス(getUserが
+  // AuthSessionMissingErrorを返すのは@supabase/ssrの正常な匿名応答)は通常どおり
+  // 広告対象とする(匿名訪問者はentitlementを持ち得ないため)。
   let isPremium = false;
+  let entitlementUnverifiable = false;
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const isNormalAnonymous =
+      !user &&
+      (!authError ||
+        authError.name === "AuthSessionMissingError" ||
+        /auth session missing/i.test(authError.message ?? ""));
     if (user) {
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("is_premium")
         .eq("id", user.id)
         .maybeSingle();
-      isPremium = profile?.is_premium ?? false;
+      if (profileError) {
+        entitlementUnverifiable = true;
+      } else {
+        isPremium = profile?.is_premium ?? false;
+      }
+    } else if (!isNormalAnonymous) {
+      // セッションらしきものはあるが検証に失敗した(一時的なauth障害等)。
+      entitlementUnverifiable = true;
     }
   } catch {
-    isPremium = false;
+    entitlementUnverifiable = true;
   }
-  if (isPremium) return null;
+  if (isPremium || entitlementUnverifiable) return null;
 
   return (
     <Suspense fallback={null}>

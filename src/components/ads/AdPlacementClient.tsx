@@ -32,23 +32,31 @@ export function AdPlacementClient({ isProductionEnvironment }: { isProductionEnv
   const auditModeActive = isAuditModeActiveClient(); // 副作用あり: 必ず呼ぶこと
 
   // オーナー指摘対応(Codexレビュー、P2 "Keep the audit decision consistent during
-  // hydration"): 監査モードの初回document navigationでは、middlewareがlv_audit_uiを
-  // レスポンスで「これからセットする」ため、サーバーレンダーはCookie無しで広告枠を
-  // 出力し、ブラウザの初回(hydration)レンダーはセット済みCookieを見てnullを返す —
-  // という不一致がhydration errorを生む。対策として、サーバー/初回クライアント
-  // レンダーの双方でnullを返し(=マークアップが常に一致)、マウント後の再レンダーで
-  // 初めて表示判定を行う。第三者広告タグはいずれにせよクライアントJSでしか動作しない
-  // ため、マウント後表示にしても実質的な表示機会は変わらない。監査モード中は
-  // マウント後もauditModeActiveがtrueのままnullが維持され、子(実タグ)は一切
-  // マウントされない=リクエスト試行も発生しない。
+  // hydration" / P2 "Reserve the ad slot before the mounted render"、2段階の指摘):
+  //
+  // 1回目の指摘: 監査モードの初回document navigationでは、middlewareがlv_audit_uiを
+  // レスポンスで「これからセットする」ため、サーバーレンダーはCookie無しで枠を出力し、
+  // クライアント初回(hydration)レンダーはセット済みCookieを見てnullを返す不一致が
+  // hydration errorを生む。
+  // 2回目の指摘: その対策として「マウント前は全部null」にすると、今度は表示対象の
+  // 通常ページでマウント後に300x250がまるごと挿入され、下のコンテンツが広告高さ分
+  // 動いてCLS防止(このコンポーネントの明記された目的)を自ら壊す。
+  //
+  // 最終形: hydrationで一致「する」条件(production判定=サーバーprop、パス適格性=
+  // usePathname、providerフラグ=NEXT_PUBLIC_でバンドル埋め込み)だけで固定サイズの
+  // シェル(外枠)をサーバー/クライアント初回の双方で描画し、hydrationで一致「しない」
+  // 可能性のある判定(監査Cookie)とeffect依存の判定(1ページ1枠)だけをマウント後へ
+  // 遅延する。通常ユーザー: シェルはSSR時点から存在しサイズ固定(CLSなし)、実タグは
+  // マウント後にシェル内へ入る(枠内のためレイアウト移動なし)。監査モード/2枠目:
+  // マウント後にシェルごと畳む(クライアント側の後続レンダーでの変更のため
+  // hydration不一致にはならない。監査ツール/設定ミス経路のみで実ユーザーには
+  // 発生しない移動として許容)。
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
-  if (!mounted) return null;
 
+  // ---- hydration一致が保証される条件(サーバー/クライアント初回で同値) ----
   if (!isProductionEnvironment) return null;
-  if (auditModeActive) return null;
   if (!isThirdPartyAdEligiblePath(pathname, searchParams)) return null;
-  if (!isFirstOnPage) return null;
 
   const ninjaAdMax = getNinjaAdMaxConfig();
   const canShowNinjaAdMax = ninjaAdMax.enabled && !!ninjaAdMax.admaxId;
@@ -56,16 +64,22 @@ export function AdPlacementClient({ isProductionEnvironment }: { isProductionEnv
   // フィールドが揃って初めて「表示可能」とする(isIMobileDisplayable参照)。
   // 現状は常にfalseを返すため、Ninja無効時にi-mobileだけONでも空の広告枠は出ない。
   const canShowIMobile = isIMobileDisplayable(getIMobileConfig());
-
   if (!canShowNinjaAdMax && !canShowIMobile) return null;
 
+  // ---- マウント後にのみ確定する条件(監査モード/1ページ1枠) ----
+  if (mounted && (auditModeActive || !isFirstOnPage)) return null;
+
   return (
-    <div style={{ width: AD_WIDTH, minHeight: AD_HEIGHT }} className="mx-auto">
-      <div className="text-[10px] text-navy-400 uppercase tracking-wide font-semibold mb-1 text-center">
-        広告
-      </div>
-      {canShowNinjaAdMax && <NinjaAdMaxSlot admaxId={ninjaAdMax.admaxId as string} />}
-      {!canShowNinjaAdMax && canShowIMobile && <IMobileSlot />}
+    <div style={{ width: AD_WIDTH, minHeight: AD_HEIGHT }} className="mx-auto" data-testid="ad-placement-shell">
+      {mounted && (
+        <>
+          <div className="text-[10px] text-navy-400 uppercase tracking-wide font-semibold mb-1 text-center">
+            広告
+          </div>
+          {canShowNinjaAdMax && <NinjaAdMaxSlot admaxId={ninjaAdMax.admaxId as string} />}
+          {!canShowNinjaAdMax && canShowIMobile && <IMobileSlot />}
+        </>
+      )}
     </div>
   );
 }

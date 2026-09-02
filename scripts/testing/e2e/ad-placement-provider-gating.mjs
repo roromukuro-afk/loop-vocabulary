@@ -113,6 +113,18 @@ async function main() {
       if (admaxDivCount === 1) ok(`忍者AdMax枠の二重初期化なし(.admax-ads件数=${admaxDivCount})`);
       else fail(`忍者AdMax枠が想定外の件数マウントされている(.admax-ads件数=${admaxDivCount}、二重初期化の可能性)`);
 
+      // オーナー指摘対応(Codexレビュー、P2 "Reserve the ad slot before the mounted
+      // render"): CLS防止のための固定サイズシェルが、JS実行前のSSR初期HTMLの時点で
+      // 存在することを、ブラウザを介さない素のfetchで直接検証する(マウント後の挿入
+      // ではレイアウトが広告高さ分動いてしまうため、初期マークアップに含まれることが
+      // CLS防止の必要条件)。
+      const ssrHtml = await (await fetch(`${devShow.url}${TEST_PATH}`)).text();
+      if (ssrHtml.includes('data-testid="ad-placement-shell"')) {
+        ok("SSR初期HTML(JS実行前)に固定サイズの広告シェルが含まれる(CLS予約がサーバーレンダー時点で有効)");
+      } else {
+        fail("SSR初期HTMLに広告シェルが含まれない(マウント後挿入になっておりCLS防止が機能していない)");
+      }
+
       // hydration error = 0(React本体が投げるuncaught exception、および
       // Reactのhydration不一致特有のconsole.errorシグネチャのみを対象とする。
       // 忍者AdMax等サードパーティ広告スクリプト自身が出すネットワークエラー/CORS警告は
