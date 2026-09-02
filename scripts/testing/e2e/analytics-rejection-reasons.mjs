@@ -5,8 +5,10 @@
  *
  * 使い方: node scripts/testing/e2e/analytics-rejection-reasons.mjs
  */
-import { loadEnv } from "../lib/env.mjs";
+import { loadEnv, requireEnv } from "../lib/env.mjs";
+import { getEphemeralAuditToken } from "../lib/ephemeralAuditToken.mjs";
 import { ensureServer, stopDevServer } from "../lib/devServer.mjs";
+import { getAuditToken } from "../lib/auditToken.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 const REAL_BROWSER_UA =
@@ -27,6 +29,10 @@ function post(baseUrl, { headers = {}, body }) {
 
 async function main() {
   loadEnv();
+  // duplicate/rejected_rate_limitチェックが監査モードヘッダーを使うが、検証しているのは
+  // 監査モードの仕組み自体であってproduction secretとの一致ではないため、このプロセス
+  // 限りの使い捨てトークンを使う(scripts/testing/lib/ephemeralAuditToken.mjs参照)。
+  process.env.LV_AUDIT_TOKEN = getEphemeralAuditToken();
   const dev = await ensureServer(PORT);
   const baseUrl = dev.url;
   console.log(`server: ${baseUrl} (startedByUs=${dev.startedByUs})`);
@@ -62,7 +68,7 @@ async function main() {
     const dupEventId = `evt-dup-${Date.now()}`;
     const dupSessionId = `t-dup-${Date.now()}`;
     const first = await post(baseUrl, {
-      headers: { "x-lv-e2e-test": "1" },
+      headers: { "x-lv-e2e-test": getAuditToken() },
       body: { event_id: dupEventId, event_name: "landing_view", anonymous_session_id: dupSessionId },
     });
     const firstBody = await first.json();
@@ -70,7 +76,7 @@ async function main() {
     else bad(`1回目の送信が想定外: ${JSON.stringify(firstBody)}`);
 
     const second = await post(baseUrl, {
-      headers: { "x-lv-e2e-test": "1" },
+      headers: { "x-lv-e2e-test": getAuditToken() },
       body: { event_id: dupEventId, event_name: "landing_view", anonymous_session_id: dupSessionId },
     });
     const secondBody = await second.json();
@@ -83,7 +89,7 @@ async function main() {
     // サーバー側の上限は1分間60件(RATE_LIMIT_MAX_EVENTS)。同一session_idで61回連投する。
     for (let i = 0; i < 61; i++) {
       const r = await post(baseUrl, {
-        headers: { "x-lv-e2e-test": "1" },
+        headers: { "x-lv-e2e-test": getAuditToken() },
         body: { event_id: `evt-rl-${i}-${Date.now()}`, event_name: "landing_view", anonymous_session_id: rateLimitSessionId },
       });
       lastBody = await r.json();

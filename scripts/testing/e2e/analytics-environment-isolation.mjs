@@ -18,10 +18,12 @@
  */
 import { chromium } from "playwright";
 import { loadEnv, requireEnv } from "../lib/env.mjs";
+import { getEphemeralAuditToken } from "../lib/ephemeralAuditToken.mjs";
 import { ensureServer, stopDevServer } from "../lib/devServer.mjs";
 import { getAdminClient } from "../lib/supabaseAdmin.mjs";
 import { TEST_ACCOUNTS } from "../lib/testAccounts.mjs";
 import { login, collectErrors } from "./lib/login.mjs";
+import { getAuditToken } from "../lib/auditToken.mjs";
 
 const PROD_PORT = Number(process.env.TEST_PORT_PROD_ENV || 3781);
 const PREVIEW_PORT = Number(process.env.TEST_PORT_PREVIEW_ENV || 3782);
@@ -108,6 +110,9 @@ async function fetchIsTestEventBySession(admin, sessionId) {
 async function main() {
   loadEnv();
   requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", TEST_ACCOUNTS.srs.passwordEnvKey]);
+  // 監査モードの仕組み自体を検証するだけなので、production secretではなく
+  // このプロセス限りの使い捨てトークンを使う(scripts/testing/lib/ephemeralAuditToken.mjs参照)。
+  process.env.LV_AUDIT_TOKEN = getEphemeralAuditToken();
   const admin = getAdminClient();
   const testStartedAt = new Date().toISOString();
   // 別ランナー/別プロセスでこのテストが同時実行されると、"env-isolation-"という
@@ -173,7 +178,7 @@ async function main() {
       const res = await postEvent(page, prodServer.url, {
         eventName: "landing_view",
         sessionId,
-        extraHeaders: { "x-lv-e2e-test": "1" },
+        extraHeaders: { "x-lv-e2e-test": getAuditToken() },
       });
       const rows = res.body?.accepted === 1 ? await fetchIsTestEventBySession(admin, sessionId) : [];
       if (rows.length === 1 && rows[0].is_test_event === true) {
@@ -192,12 +197,19 @@ async function main() {
       // onboarding_started等をこのテストのsessionIdとは無関係のlv_aidで自動発火し得る
       // (Codexレビュー指摘対応)。これはfinallyでtestStartedAt以降・srsテストアカウントの
       // user_id向けの行として一括cleanupする(下記finally参照)。
-      // login()内部のgotoReady()がx-lv-e2e-testヘッダーをページに設定済みで、
-      // Playwrightのextra headersはページの以後の全リクエストに残り続ける。
-      // 「E2Eヘッダーが無い、正真正銘の本番リクエスト」を再現するため、ここで明示的に
-      // クリアする(このテストで意図的にヘッダーの有無を制御したいケースのみの対応で、
-      // gotoReady自体の既定の挙動は変更しない)。
-      await authPage.setExtraHTTPHeaders({});
+      // login()内部のgotoReady()は、遷移先originへの最初のnavigationにだけ
+      // ヘッダーを付与し、以後はpage全体へ残さない設計(scripts/testing/e2e/lib/
+      // firstPartyAuditMode.mjs参照。オーナー指摘のセキュリティ対応で
+      // page.setExtraHTTPHeaders()方式から変更された)。そのため以前のような
+      // 明示的なヘッダークリア操作はもう不要。ただし、login()中の最初の
+      // navigationでmiddleware.tsが発行したaudit Cookie
+      // (lv_audit_proof・lv_audit_ui)はブラウザのCookie jarに残ったままになる(Issue #136で
+      // 追加されたaudit Cookieフォールバック。この発見時点でのバグ、オーナー指摘のセキュリティ
+      // 対応の一環で追加した検証中に判明: ヘッダーを消してもCookie経由でis_test_event=true
+      // のままになり、このテストが「正真正銘の本番リクエスト」を再現できていなかった)。
+      // Supabaseセッションcookie(sb-*)は認証状態の維持に必要なので、lv_audit_*だけを
+      // 名前指定(正規表現)でクリアする(全cookie削除だとログアウトしてしまう)。
+      await authContext.clearCookies({ name: /^lv_audit_/ });
       const sessionId = `env-isolation-${runId}-prod-auth-${Date.now()}`;
       const res = await postEvent(authPage, prodServer.url, { eventName: "landing_view", sessionId });
       const rows = res.body?.accepted === 1 ? await fetchIsTestEventBySession(admin, sessionId) : [];

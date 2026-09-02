@@ -11,21 +11,23 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAllowedEventName, sanitizeProperties } from "./eventSchema";
 import { normalizeServerEventAttribution } from "./serverEventAttribution";
-import { computeIsTestEvent, isProductionEnvironment } from "./testEventClassification";
+import { isProductionEnvironment } from "./testEventClassification";
+import type { AnalyticsRequestContext } from "./resolveAnalyticsRequestContext";
 
 export async function trackServerEvent(
   eventName: string,
+  /**
+   * src/lib/analytics/resolveAnalyticsRequestContext.ts が返す、このリクエストの
+   * isTestEvent判定結果。必須引数(オプショナルにしない)にすることで、呼び出し元が
+   * この判定を省略・迂回できないようにする(省略するとTypeScriptのコンパイルエラーに
+   * なる)。「Requestの生header/cookieをここへ直接渡す」経路は意図的に廃止した
+   * (オーナー指摘対応: 同じ伝播漏れが個別のcall siteで繰り返し発見されたため)。
+   */
+  context: AnalyticsRequestContext,
   opts: {
     userId?: string | null;
     anonymousSessionId?: string | null;
     properties?: Record<string, unknown>;
-    /**
-     * リクエストの `x-lv-e2e-test` ヘッダー値。Production Canary等、本番環境から
-     * 意図的にtest eventとして送りたい場合にのみ呼び出し元が渡す。渡さない場合は
-     * 環境(VERCEL_ENV)のみで判定する(Preview/ローカルdev/CIからの呼び出しは、この
-     * 引数を渡さなくても自動的にis_test_event=trueになる)。
-     */
-    e2eHeaderValue?: string | null;
     /**
      * 呼び出し元がクライアント側で判定済みのsource/campaignをそのまま渡したい場合に
      * 使う(Codexレビュー指摘対応、16巡目、最重要: src/app/auth/callback/route.ts の
@@ -58,10 +60,11 @@ export async function trackServerEvent(
       device_category: "unknown",
       properties: sanitizeProperties(eventName, opts.properties ?? {}),
       schema_version: 1,
-      // クライアント側ingestion(/api/analytics/events)と同じ判定helperを使い、
-      // Preview/ローカルdev/CIからのサーバー発火イベントを本番集計から除外する
+      // クライアント側ingestion(/api/analytics/events)と同じ中央判定
+      // (resolveAnalyticsRequestContext)の結果をそのまま使い、Preview/ローカルdev/CI・
+      // 監査モードからのサーバー発火イベントを本番集計から除外する
       // (以前はこの列を設定しておらずDEFAULT falseのまま=本番イベントと区別不能だった)。
-      is_test_event: computeIsTestEvent(opts.e2eHeaderValue),
+      is_test_event: context.isTestEvent,
     });
     if (error) {
       console.error("[trackServerEvent] insert failed:", eventName, error.message);
@@ -206,14 +209,15 @@ export async function trackWordCountMilestones(
   userId: string,
   countBefore: number,
   countAfter: number,
-  e2eHeaderValue?: string | null,
+  /** resolveAnalyticsRequestContext()の結果。trackServerEvent()と同じ理由で必須引数にする。 */
+  context: AnalyticsRequestContext,
 ): Promise<void> {
   try {
     if (countBefore < 5 && countAfter >= 5) {
-      await trackServerEvent("five_words_added", { userId, e2eHeaderValue });
+      await trackServerEvent("five_words_added", context, { userId });
     }
     if (countBefore < 10 && countAfter >= 10) {
-      await trackServerEvent("ten_words_added", { userId, e2eHeaderValue });
+      await trackServerEvent("ten_words_added", context, { userId });
     }
   } catch (e) {
     console.error("[trackWordCountMilestones] unexpected error:", e);

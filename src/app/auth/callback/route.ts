@@ -3,6 +3,8 @@ import { createServerClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { trackServerEvent } from "@/lib/analytics/trackServerEvent";
 import { isNewGoogleOauthSignup } from "@/lib/auth/googleOauthSignup";
+import { resolveAnalyticsRequestContext } from "@/lib/analytics/resolveAnalyticsRequestContext";
+import { applySupabaseCookiesAndHeaders } from "@/lib/supabase/cookieHeaders";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +29,12 @@ export async function GET(req: NextRequest) {
   const supabase = createServerClient(env.url!, env.anon!, {
     cookies: {
       getAll: () => req.cookies.getAll(),
-      setAll: (toSet) => {
-        toSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options);
-        });
+      // オーナー指摘対応: このrouteはmiddleware.tsのupdateSession()とは別に、
+      // 自前でNextResponse.redirect(...)を組み立ててsetAllへcache header適用を
+      // 委ねているため(src/lib/supabase/middleware.tsと同じ理由・同じ実装を、
+      // next/server非依存のapplySupabaseCookiesAndHeaders()で共有する)。
+      setAll: (toSet, headers) => {
+        applySupabaseCookiesAndHeaders(response, toSet, headers);
       },
     },
   });
@@ -72,11 +76,10 @@ export async function GET(req: NextRequest) {
     // 保証されない(Codexレビュー指摘対応)。trackServerEvent()自体は例外を握りつぶし
     // 呼び出し元の処理を止めないため、ここでawaitしてもリダイレクト自体が失敗する
     // ことはない。
-    await trackServerEvent("signup_oauth_completed", {
+    await trackServerEvent("signup_oauth_completed", await resolveAnalyticsRequestContext(req), {
       userId: user.id,
       anonymousSessionId,
       properties: { method: "google" },
-      e2eHeaderValue: req.headers.get("x-lv-e2e-test"),
       source: attributionSource,
       campaign: attributionCampaign,
     });

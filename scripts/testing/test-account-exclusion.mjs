@@ -62,12 +62,18 @@ function main() {
   if (route.includes("is_test_event: isTestRequest")) ok("取り込みAPI: is_test_event列への書き込みがある");
   else bad("取り込みAPI: is_test_event列への書き込みが見つからない");
   // Issue #95対応でE2Eヘッダー判定は共有helper computeIsTestEvent()
-  // (src/lib/analytics/testEventClassification.ts)へ抽出された。route側では
-  // `computeIsTestEvent(req.headers.get(E2E_TEST_HEADER))`という呼び出し形になる。
-  if (route.includes("computeIsTestEvent(req.headers.get(E2E_TEST_HEADER))")) {
-    ok("取り込みAPI: E2Eテストヘッダー判定(共有helper経由)がある");
+  // (src/lib/analytics/testEventClassification.ts)へ抽出されたが、PR #137の
+  // オーナー指摘対応(中央集約リファクタ)でcomputeIsTestEvent()自体が撤去され、
+  // resolveAnalyticsRequestContext()(src/lib/analytics/resolveAnalyticsRequestContext.ts)
+  // へ置き換わった。この取り込みAPIが実際にその中央helperを経由していること・
+  // E2Eヘッダー/audit Cookieの生値を自分で読み取っていないことの詳細な検証は
+  // test:analytics-central-context-usage(scripts/testing/analytics-central-context-usage.mjs)
+  // に一本化したため、ここでは「computeIsTestEventという撤去済みのAPIへ戻っていないか」
+  // の簡易チェックのみ残す。
+  if (!route.includes("computeIsTestEvent(")) {
+    ok("取り込みAPI: 撤去済みのcomputeIsTestEvent()を呼び出していない(resolveAnalyticsRequestContext経由の詳細はtest:analytics-central-context-usage参照)");
   } else {
-    bad("取り込みAPI: E2Eテストヘッダー判定が見つからない");
+    bad("取り込みAPI: 撤去済みのはずのcomputeIsTestEvent()が呼び出されている");
   }
 
   console.log(fail ? `\n=== test:test-account-exclusion: ${fail}件失敗 (${pass}件成功) ===` : `\n=== test:test-account-exclusion RESULT: all ${pass} checks passed ===`);

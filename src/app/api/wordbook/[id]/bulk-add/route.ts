@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { trackWordCountMilestones } from "@/lib/analytics/trackServerEvent";
-import { E2E_TEST_HEADER } from "@/lib/analytics/testEventClassification";
+import { resolveAnalyticsRequestContext } from "@/lib/analytics/resolveAnalyticsRequestContext";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const e2eHeaderValue = req.headers.get(E2E_TEST_HEADER);
+  const analyticsContext = await resolveAnalyticsRequestContext(req);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { error } = await supabase.from("words").insert(rows);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + rows.length, e2eHeaderValue);
+  await trackWordCountMilestones(user.id, countBefore ?? 0, (countBefore ?? 0) + rows.length, analyticsContext);
 
   return NextResponse.json({ added: rows.length });
 }

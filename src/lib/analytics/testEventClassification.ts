@@ -1,15 +1,5 @@
 /**
- * client ingestion(/api/analytics/events)とserver-side event発火(trackServerEvent等)の
- * 両方で同じ判定を使うための共通pure helper。判定は必ずサーバー側(この関数の呼び出し元)
- * でのみ行い、クライアントから送られてきた値(is_test_event等)は一切信用しない
- * (IncomingEvent型自体がis_test_eventフィールドを持たないため、信用する経路が存在しない)。
- *
- * 契約:
- * - VERCEL_ENV="production" かつ E2Eヘッダーなし → 実ユーザーの本番イベント(false)
- * - VERCEL_ENV="preview" / "development" / 未設定(ローカルdev・CI・`next start`単体実行等、
- *   Vercelプラットフォーム外での実行) → test(true)
- * - x-lv-e2e-test: 1 ヘッダーがある場合は、環境に関係なくtest(true)
- *   (本番環境に対して意図的に送るProduction Canaryのためのオーバーライド)
+ * 「実行環境が本番かどうか」の判定と、E2Eヘッダー名の再export(下位互換用)のみを持つ。
  *
  * `NODE_ENV === "production"` だけでは判定しない: Vercel PreviewビルドのNODE_ENVも
  * "production"になりうるため、NODE_ENV単独ではPreviewと本番を区別できない
@@ -22,17 +12,24 @@
  * 未設定のまま実ユーザーにこのコードが実行されることはない。逆にlocal dev・CI・E2Eは
  * すべて未設定のまま実行されるため、ここをtest側に倒すことで「本番ユーザーを誤ってtest
  * 扱いする」リスクをゼロにしつつ「Preview/ローカルをreal扱いする」リスクも防げる。
+ *
+ * 【重要】「このリクエスト/イベントをtestとして扱うか(isTestEvent)」の実際の判定ロジック
+ * (E2Eヘッダー・audit Cookieを含む)は、この関数(isProductionEnvironment)を利用する
+ * src/lib/analytics/resolveAnalyticsRequestContext.ts に一本化されている。個別のAPI route
+ * やヘルパーがヘッダー・Cookieの生値を読み取って直接isTestEventを組み立てることは禁止
+ * (オーナー指摘対応: 同じ伝播漏れが個別のcall siteで繰り返し発見されたため、
+ * 判定ロジックの実装箇所を1か所に強制する)。
  */
-export const E2E_TEST_HEADER = "x-lv-e2e-test";
+// 明示的な.ts拡張子(tsconfig.jsonのallowImportingTsExtensions参照): このファイルは
+// scripts/testing/test-analytics-environment-classification.mjsからnode実行で直接
+// importされる(webpackを経由しない)。Node ESMの解決規則は拡張子省略を許さないため、
+// 拡張子省略のままだとERR_MODULE_NOT_FOUNDで落ちる(Codexレビュー指摘、805ac98で発見)。
+import { AUDIT_MODE_HEADER } from "./auditMode.ts";
+
+// 下位互換のための再export。実体はauditMode.tsのAUDIT_MODE_HEADER(値は同一の
+// "x-lv-e2e-test")であり、このモジュールでは値を重複定義しない。
+export const E2E_TEST_HEADER = AUDIT_MODE_HEADER;
 
 export function isProductionEnvironment(): boolean {
   return process.env.VERCEL_ENV === "production";
-}
-
-/**
- * @param e2eHeaderValue リクエストの `x-lv-e2e-test` ヘッダー値(未取得・未送信ならnull/undefined)
- */
-export function computeIsTestEvent(e2eHeaderValue: string | null | undefined): boolean {
-  if (e2eHeaderValue === "1") return true;
-  return !isProductionEnvironment();
 }

@@ -1,0 +1,471 @@
+/**
+ * GA4是正(Issue #136)の回帰防止 自律E2E検証。
+ *
+ * 背景: 2026-08-27にAdSense是正作業の一環で本番190URL全件を複数回Playwright監査した
+ * 際、そのアクセスがGA4へ実ユーザーのDirectトラフィックとして大量混入した
+ * (該当7日間で1,364/1,408ユーザーが集中)。オーナーからの追加指摘を受け、除外の根拠を
+ * navigator.webdriverのみに依存しない多層防御へ強化した:
+ *
+ * 1. preview/local(VERCEL_ENV!=="production")ではGA4/Clarity自体を読み込まない
+ * 2. production相当でも、navigator.webdriver(Playwright/Puppeteer/Selenium等の
+ *    自動操作ブラウザがdefaultでtrueにする標準プロパティ)がtrueの場合はgtag('config',...)を
+ *    呼ばない(推測ベースの第一防衛線。監査スクリプト側の対応なしに自動的に除外される)
+ * 3. 「監査モード」: 監査スクリプトが明示的に送る`x-lv-e2e-test: <LV_AUDIT_TOKEN>`
+ *    ヘッダー(値は環境変数LV_AUDIT_TOKENと照合される秘密トークン、
+ *    src/lib/analytics/auditModeServer.ts参照。以前は固定文字列"1"で誰でも
+ *    起動できたが、オーナー指摘のセキュリティ対応で変更された)。
+ *    scripts/testing/e2e/lib/nav.mjsのgotoReady()が、自サイトoriginへの最初の
+ *    navigationでだけ送信する(scripts/testing/e2e/lib/firstPartyAuditMode.mjs
+ *    参照。第三者origin・2回目以降のnavigationへは一切送らない — オーナー指摘の
+ *    セキュリティ対応、Codexレビュー: page.setExtraHTTPHeaders()がpage全体へ
+ *    適用されGTM/Funding Choices等の第三者リクエストへ秘密が漏れる経路があった
+ *    ため修正)。
+ *    testEventClassification.tsで元々「本番へ意図的に送るProduction Canaryのための
+ *    オーバーライド」として設計済み)をsrc/middleware.tsが検知し、非httpOnly Cookieを
+ *    セットする。navigator.webdriverがfalseに偽装されていても、このCookieがあれば
+ *    確実に除外される(推測ではなく明示的なオプトイン)。Cookieはブラウザが以後の
+ *    リクエストへ自動付与するため、SPA遷移中も監査モードが維持される。
+ * 4. middleware.tsは監査モード検知時、レスポンスへ`X-Robots-Tag: noindex`も付与する
+ *    (監査対象URLをindexさせない)。
+ *
+ * 検証項目:
+ * 1. VERCEL_ENV未設定(local/preview相当): GA4スクリプトタグ自体がDOMに存在しない
+ * 2. production相当・webdriver=true・監査ヘッダーなし: スクリプトタグは存在するが
+ *    計測リクエストは発生しない(webdriver判定のみでの除外)
+ * 3. production相当・webdriver=false(偽装)・監査ヘッダーなし: 計測リクエストが発生する
+ *    (常時ブロックの壊れた実装ではないことの確認 = 実ユーザー相当の挙動)
+ * 4. production相当・webdriver=false(偽装)・監査ヘッダーあり: 計測リクエストが発生しない
+ *    (Connected Chrome/CDP等でwebdriverが偽装されていても、監査モードで確実に除外)
+ * 5. 上記4のレスポンスに X-Robots-Tag: noindex が付与されている
+ * 6. 監査モードで訪問したページから、ヘッダーを再送しないSPA遷移(クリックによる
+ *    クライアントサイド遷移)をしても、遷移先ページで監査モードが維持される
+ *    (Cookieによる状態維持)
+ * 7. 監査モードを一切使っていない新規ページ(新しいbrowser context)では、
+ *    通常どおり計測リクエストが発生する(監査モードがグローバルに漏れ出していないこと)
+ * 8. 監査モード中のレスポンスに Cache-Control: private, no-store が付与されている
+ *    (CDN・共有キャッシュに乗らない=次の別ユーザーへnoindexが漏れない)
+ * 9. 監査モードのCookieがSameSite=Lax・Path=/で発行されている(HTTPのlocalhostでは
+ *    Secureは付与されない設計だが、これは意図的: 本番はHTTPSのためSecureが自動的に付く)
+ * 10. 監査モードを一度も使っていない通常アクセスのレスポンスには、X-Robots-Tag・
+ *     Cache-Control: private, no-store・Set-Cookie(監査Cookie)のいずれも付与されない
+ *
+ * 使い方: node scripts/testing/e2e/ga4-webdriver-exclusion.mjs
+ */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { chromium } from "playwright";
+import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
+import { gotoReady } from "./lib/nav.mjs";
+import { allowFirstPartyOrigin } from "./lib/firstPartyAuditMode.mjs";
+import { guardAdNetworkRequests } from "./lib/adNetworkGuard.mjs";
+import { getAuditToken } from "../lib/auditToken.mjs";
+import { getEphemeralAuditToken } from "../lib/ephemeralAuditToken.mjs";
+import { REPO_ROOT } from "../lib/env.mjs";
+
+const PORT_LOCAL = Number(process.env.TEST_PORT || 3799);
+const PORT_PROD = PORT_LOCAL + 1;
+const TEST_GA_ID = "G-TESTID0001";
+const TEST_ADSENSE_CLIENT = "ca-pub-0000000000000001";
+
+function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; }
+function ok(msg) { console.log(`✅ ${msg}`); }
+
+function isGa4CollectRequest(url) {
+  return /google-analytics\.com\/(g\/collect|mp\/collect)|analytics\.google\.com\/g\/collect/.test(url);
+}
+
+function isAdSenseRequest(url) {
+  return url.includes("pagead2.googlesyndication.com");
+}
+
+/**
+ * gotoReady()と異なり、監査ヘッダーを一切送らない「実ユーザー相当」の遷移。
+ * page.setExtraHTTPHeaders()は使わない(このpageは元々ヘッダーを一切設定して
+ * いないため、明示的にクリアする操作自体が不要)。
+ */
+async function gotoAsRealUser(page, url) {
+  await page.goto(url, { waitUntil: "load" });
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(400);
+}
+
+/**
+ * window.dataLayerに gtag('config', gaId) 相当のpushが行われたかを確認する。
+ *
+ * adNetworkGuard.mjsがgoogletagmanager.com/gtag/js自体をabortするようになった
+ * (Codexレビュー指摘対応、Issue #136)ため、gtag.js本体は実行されず、実際の
+ * google-analytics.com/g/collectビーコンは(gtag.jsがdataLayerを処理して初めて
+ * 送信されるものなので)もう発生しない。「実ユーザーなら計測が有効になるか」の
+ * 検証は、実際のネットワーク到達ではなく、layout.tsxのインラインスクリプトが
+ * gtag('config', GA_ID)をdataLayerへpushしたかどうか(=除外ロジックの判定結果
+ * そのもの)で行う。このpush自体はgtag.js本体の読み込み成否に依存しない
+ * (dataLayer.push()を呼ぶ最小限のshim関数はインラインスクリプト内で定義済みのため)。
+ */
+async function hasGa4ConfigCall(page, gaId) {
+  return page.evaluate((id) => {
+    const dataLayer = window.dataLayer || [];
+    return dataLayer.some((entry) => {
+      const arr = Array.from(entry);
+      return arr[0] === "config" && arr[1] === id;
+    });
+  }, gaId);
+}
+
+async function main() {
+  // このテストは監査モード(x-lv-e2e-testヘッダーがLV_AUDIT_TOKENと一致すること)の
+  // 仕組みそのものを検証するのであって、production用の"本物の"値との一致を検証する
+  // のではない。よって、このプロセスの生存期間だけ有効な使い捨てトークンを自分自身で
+  // 生成し、devサーバー起動・ブラウザ起動より前にprocess.env.LV_AUDIT_TOKENへ設定する
+  // (オーナー指摘対応、2026-09-01: production secretをローカルE2Eから完全に分離する。
+  // scripts/testing/lib/ephemeralAuditToken.mjs参照)。これにより、以降spawnされる
+  // ensureDevServer()の子プロセスへも自動的に継承され、この後のgetAuditToken()/
+  // gotoReady()の呼び出しも変更なしでこの値を使う。ファイルにもログにも残らず、
+  // プロセス終了とともに破棄される。
+  process.env.LV_AUDIT_TOKEN = getEphemeralAuditToken();
+
+  // GA_IDはNEXT_PUBLIC_*でbuild時に静的埋め込みされるため、テスト専用値を注入して
+  // forceRebuild:trueで反映させる(既存のAdSenseテストと同じ手法)。
+  process.env.NEXT_PUBLIC_GA_ID = TEST_GA_ID;
+  // 監査モード中はAdSense(pagead2.googlesyndication.com)への通信も0件であるべき
+  // (AdSenseLoader.tsxのisAuditModeActiveClient()ガード)ため、これも合わせて検証する。
+  process.env.NEXT_PUBLIC_ADSENSE_CLIENT = TEST_ADSENSE_CLIENT;
+
+  const browser = await chromium.launch();
+  let devLocal;
+  let devProd;
+
+  try {
+    // ---- 1. VERCEL_ENV未設定(local/preview相当)ではGA4スクリプトタグが存在しない ----
+    delete process.env.VERCEL_ENV;
+    devLocal = await ensureDevServer(PORT_LOCAL, { forceRebuild: true, env: { VERCEL_ENV: "" } });
+    const pageLocal = await browser.newPage();
+    // Codexレビュー指摘対応(2026-09-01、item 3): pageLocalのcontext参照を、close()より前に
+    // 保持しておく(後続scenarioでdevProdのpageのcontextと同一でないことを比較するため。
+    // オブジェクト参照自体の比較なので、context自体がcloseされた後でも安全に行える)。
+    const pageLocalContextRef = pageLocal.context();
+    await guardAdNetworkRequests(pageLocal); // 実通信を発生させない(Issue #136)
+    await gotoReady(pageLocal, `${devLocal.url}/`);
+    await pageLocal.waitForTimeout(1000);
+    const gaScriptCountLocal = await pageLocal.locator('script[src*="googletagmanager.com/gtag/js"]').count();
+    if (gaScriptCountLocal === 0) ok("VERCEL_ENV未設定: GA4スクリプトタグがDOMに存在しない(preview/local無効化を確認)");
+    else fail(`VERCEL_ENV未設定でもGA4スクリプトタグが存在する(${gaScriptCountLocal}件)`);
+    await pageLocal.close();
+
+    // ---- 2〜7. VERCEL_ENV="production"相当 ----
+    process.env.VERCEL_ENV = "production";
+    devProd = await ensureDevServer(PORT_PROD, {
+      forceRebuild: true,
+      env: { VERCEL_ENV: "production", PORT: String(PORT_PROD) },
+    });
+
+    // 2. webdriver=true(偽装なし)・監査ヘッダーなし: 計測リクエストが発生しない
+    {
+      const page = await browser.newPage();
+      await guardAdNetworkRequests(page);
+      const collectRequests = [];
+      page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequests.push(req.url()); });
+      const webdriverValue = await page.evaluate(() => navigator.webdriver);
+      await gotoAsRealUser(page, `${devProd.url}/`);
+      await page.waitForTimeout(2000);
+
+      const gaScriptCount = await page.locator('script[src*="googletagmanager.com/gtag/js"]').count();
+      if (gaScriptCount > 0) ok("production相当: GA4スクリプトタグ自体は存在する(GSC検証用に読み込みは維持)");
+      else fail("production相当でもGA4スクリプトタグが存在しない");
+
+      if (webdriverValue === true) ok("navigator.webdriver=true(Playwright既定値)を確認");
+      else fail(`navigator.webdriverがtrueではない(実測: ${webdriverValue})。このテスト環境ではwebdriver除外の検証ができない`);
+
+      // gtag/js本体がadNetworkGuard.mjsでabortされるようになったため(Issue #136)、
+      // 実際のcollectビーコンはもう発生しない。dataLayerへgtag('config',...)が
+      // pushされたかどうかで、除外ロジックの判定結果そのものを検証する。
+      const configCalled2 = await hasGa4ConfigCall(page, TEST_GA_ID);
+      if (collectRequests.length === 0 && !configCalled2) ok("webdriver=true・監査ヘッダーなし: gtag('config',...)が呼ばれずGA4計測が有効化されない");
+      else fail(`webdriver=true時にもGA4計測が有効化された(collectRequests=${collectRequests.join(", ")}, configCalled=${configCalled2})`);
+      await page.close();
+    }
+
+    // 3. webdriver=false(偽装)・監査ヘッダーなし: 計測リクエストが発生する(実ユーザー相当)
+    {
+      const page = await browser.newPage();
+      // route interceptionで実際の外部通信は発生させないが、Playwrightの'request'
+      // イベント自体はabort前に発火するため、「試みられたか」は従来どおり検証できる
+      // (Issue #136: このE2Eテスト自身が実際のGA4/AdSense/広告ネットワークへ
+      // リクエストを送らないようにする)。
+      await guardAdNetworkRequests(page);
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, "webdriver", { get: () => false });
+      });
+      const collectRequests = [];
+      const adsenseRequests = [];
+      page.on("request", (req) => {
+        if (isGa4CollectRequest(req.url())) collectRequests.push(req.url());
+        if (isAdSenseRequest(req.url())) adsenseRequests.push(req.url());
+      });
+      await gotoAsRealUser(page, `${devProd.url}/`);
+      await page.waitForTimeout(2000);
+
+      // Codexレビュー指摘の検証(2026-09-01、feeb0a0向け、item 3で実証テストを強化): この
+      // page(browser.newPage())が直前のdevLocal訪問(1.でgotoReady()がaudit headerを送り
+      // lv_audit_proof/lv_audit_ui Cookieを取得したpageLocal)からCookieを引き継いでいない
+      // ことを明示的に確認する。browser.newPage()はPlaywright公式ドキュメントの記載どおり
+      // 「新しいbrowser context」を都度作成する(Browser.newPage(): "Creates a new page in
+      // a new browser context.")ため、Cookie自体がホスト単位でスコープされるにもかかわらず、
+      // context分離によりpageLocal・各devProd pageの間でCookieが共有されることはない。
+      if (pageLocalContextRef !== page.context()) ok("pageLocal.context() !== devProdシナリオのpage.context()(別々のbrowser contextであることを確認)");
+      else fail("pageLocalとdevProdシナリオのpageが同一のcontextを共有している(context分離が機能していない)");
+
+      const cookiesOnThisPage = await page.context().cookies();
+      const leakedProofCookie = cookiesOnThisPage.find((c) => c.name === "lv_audit_proof");
+      const leakedUiCookie = cookiesOnThisPage.find((c) => c.name === "lv_audit_ui");
+      if (!leakedProofCookie && !leakedUiCookie) ok("devProd real-userシナリオのpageは、直前のdevLocal訪問のlv_audit_proof/lv_audit_ui Cookieのどちらも引き継いでいない(片方のcontextで設定したCookieが他方へ見えないことを確認)");
+      else fail(`devProd real-userシナリオのpageがCookieを引き継いでいる(実測: proof=${JSON.stringify(leakedProofCookie)}, ui=${JSON.stringify(leakedUiCookie)}) — browser.newPage()のcontext分離が機能していない可能性`);
+
+      // gtag/js本体がadNetworkGuard.mjsでabortされるようになったため、実際のcollect
+      // ビーコンはgtag.js自身が読み込めない限り発生しない(collectRequestsは常に0になる)。
+      // 「実ユーザーなら計測が有効になるか」は、dataLayerへのgtag('config',...) push
+      // (除外ロジックの判定結果そのもの)で検証する。
+      const configCalled3 = await hasGa4ConfigCall(page, TEST_GA_ID);
+      if (configCalled3) ok("webdriver=false偽装・監査ヘッダーなし: gtag('config',...)が呼ばれGA4計測が有効化される(実ユーザー相当・常時ブロックでないことを確認)");
+      else fail("webdriver=false偽装・監査ヘッダーなしでもGA4計測が有効化されない(常時ブロックの壊れた実装になっている可能性)");
+
+      if (adsenseRequests.length > 0) ok("webdriver=false偽装・監査ヘッダーなし: AdSense(pagead2.googlesyndication.com)へのリクエスト試行が発生する(実ユーザー相当・常時ブロックでないことを確認。route interceptionによりabort済みで外部への実通信は発生していない)");
+      else fail("webdriver=false偽装・監査ヘッダーなしでもAdSenseへのリクエスト試行が発生しない(常時ブロックの壊れた実装になっている可能性)");
+      await page.close();
+    }
+
+    // 4〜5. webdriver=false(偽装)・監査ヘッダーあり: 計測リクエストが発生しない + noindex付与
+    {
+      const page = await browser.newPage();
+      await guardAdNetworkRequests(page);
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, "webdriver", { get: () => false });
+      });
+      const collectRequests = [];
+      const adsenseRequests = [];
+      const nextStaticRequests = [];
+      page.on("request", (req) => {
+        if (isGa4CollectRequest(req.url())) collectRequests.push(req.url());
+        if (isAdSenseRequest(req.url())) adsenseRequests.push(req.url());
+        if (req.url().includes("/_next/static/")) nextStaticRequests.push(req.url());
+      });
+      let robotsTagHeader;
+      let cacheControlHeader;
+      let auditActiveHeader;
+      page.on("response", (res) => {
+        if (res.url() === `${devProd.url}/`) {
+          robotsTagHeader = res.headers()["x-robots-tag"];
+          cacheControlHeader = res.headers()["cache-control"];
+          auditActiveHeader = res.headers()["x-lv-audit-active"];
+        }
+      });
+      await gotoReady(page, `${devProd.url}/`); // gotoReady()がx-lv-e2e-test:<LV_AUDIT_TOKEN>ヘッダーを送信
+      await page.waitForTimeout(2000);
+
+      if (collectRequests.length === 0) ok("webdriver=false偽装 + 監査モード(x-lv-e2e-testヘッダー): GA4計測リクエストが発生しない");
+      else fail(`監査モードでもGA4計測リクエストが発生した: ${collectRequests.join(", ")}`);
+
+      if (adsenseRequests.length === 0) ok("監査モード中: AdSense(pagead2.googlesyndication.com)通信が発生しない");
+      else fail(`監査モードでもAdSense通信が発生した: ${adsenseRequests.join(", ")}`);
+
+      // オーナー指摘対応(2026-09-01): X-LV-Audit-Active: 1は、トークンが実際に検証された
+      // ことの唯一の証拠として新設した専用header(X-Robots-Tag: noindexは監査と無関係な
+      // 理由でも付与されうるため証拠として使わない、auditMode.tsのコメント参照)。
+      if (auditActiveHeader === "1") ok("監査モード中のレスポンスに X-LV-Audit-Active: 1 が付与されている(トークン検証成功の専用証跡)");
+      else fail(`監査モード中でも X-LV-Audit-Active: 1 が付与されていない(実測: ${auditActiveHeader ?? "(なし)"})`);
+
+      if (robotsTagHeader === "noindex") ok("監査モード中のレスポンスに X-Robots-Tag: noindex が付与されている(検索除外用途、activation証跡としては使わない)");
+      else fail(`監査モード中でも X-Robots-Tag: noindex が付与されていない(実測: ${robotsTagHeader ?? "(なし)"})`);
+
+      // 8. Cache-Control: private, no-store の確認
+      if (cacheControlHeader === "private, no-store") ok("監査モード中のレスポンスに Cache-Control: private, no-store が付与されている");
+      else fail(`監査モード中の Cache-Control が想定と異なる(実測: ${cacheControlHeader ?? "(なし)"})`);
+
+      // 9. Cookie属性の確認(SameSite=Lax・Path=/。HTTPのlocalhostではSecureは付与されない設計)
+      const cookies = await page.context().cookies();
+      const proofCookie = cookies.find((c) => c.name === "lv_audit_proof");
+      const uiCookie = cookies.find((c) => c.name === "lv_audit_ui");
+      if (proofCookie && proofCookie.sameSite === "Lax" && proofCookie.path === "/") {
+        ok(`lv_audit_proof CookieがSameSite=Lax・Path=/で発行されている(secure=${proofCookie.secure}, HTTPのlocalhostのため意図的にfalse)`);
+      } else {
+        fail(`lv_audit_proof Cookieの属性が想定と異なる(実測: ${JSON.stringify(proofCookie)})`);
+      }
+      // オーナー指摘対応(2026-09-01、item 2): server側のtest-event判定が信頼する唯一の
+      // proof CookieはHttpOnlyでなければならない(client JavaScriptから一切読めないように
+      // する多層防御)。Playwrightのcontext.cookies()はhttpOnlyでも値・属性を取得できる
+      // (DevTools相当の特権API、document.cookieの制約とは無関係)ため、実測で確認できる。
+      if (proofCookie && proofCookie.httpOnly === true) ok("lv_audit_proof CookieにHttpOnlyが付与されている(client JavaScriptから読み取れない)");
+      else fail(`lv_audit_proof CookieにHttpOnlyが付与されていない(実測: httpOnly=${proofCookie?.httpOnly})`);
+      // client側の広告抑制表示専用のUI markerは、引き続き非HttpOnly(document.cookieで
+      // 読む必要があるため)。
+      if (uiCookie && uiCookie.httpOnly === false) ok("lv_audit_ui CookieはHttpOnlyではない(client側の広告抑制表示がdocument.cookieで読める)");
+      else fail(`lv_audit_ui Cookieのhttponly属性が想定と異なる(実測: httpOnly=${uiCookie?.httpOnly})`);
+
+      // オーナー指摘対応(2026-09-01、item 2、「productionではSecureが付く」): ローカルdev
+      // serverはHTTPで動くためSecure=falseが実際には正しい挙動であり(HTTPS環境で
+      // Secure=trueにすると逆にCookie自体が保存されずテストが検証不能になる)、ここを
+      // HTTPSに差し替えて実際に確認することは現実的でない。代わりにmiddleware.tsの
+      // ソースコード自体が「request.nextUrl.protocol === "https:"のときだけSecureを
+      // 付与する」実装になっていることを静的に確認する(本番はHTTPSのため、この条件式が
+      // productionで確実にtrueへ評価されることを保証する)。
+      {
+        const middlewareSource = readFileSync(resolve(REPO_ROOT, "src/middleware.ts"), "utf-8");
+        const secureConditionCount = (middlewareSource.match(/secure:\s*request\.nextUrl\.protocol\s*===\s*"https:"/g) || []).length;
+        if (secureConditionCount >= 1) ok(`middleware.tsがCookieのsecure属性をrequest.nextUrl.protocol==="https:"から導出している(本番は自動的にSecureになる。該当箇所${secureConditionCount}件)`);
+        else fail("middleware.tsにsecure: request.nextUrl.protocol===\"https:\"の記述が見つからない(productionでSecureが付与されない可能性)");
+      }
+
+      // オーナー指摘のセキュリティ対応(Issue #136是正の再強化)の直接検証: ヘッダー名は
+      // 正しいが値がLV_AUDIT_TOKENと一致しない("1"を含む、以前の固定値も含む)場合、
+      // 監査モードは一切起動しない(=X-Robots-Tag/Cache-Control/Set-Cookieが付与されない
+      // 通常アクセス扱いになる)ことを実測する。
+      {
+        const mismatchedContext = await browser.newContext();
+        const mismatchedPage = await mismatchedContext.newPage();
+        // オーナー指摘対応(Codexレビュー、セキュリティ、緊急): このpageもNEXT_PUBLIC_GA_ID/
+        // NEXT_PUBLIC_ADSENSE_CLIENTを強制注入したdevProdへ遷移するため、
+        // guardAdNetworkRequests()で実際の第三者通信を遮断してから、
+        // allowFirstPartyOrigin()でdevProd.url originだけへ限定して"1"(不一致トークン)を送る
+        // (以前はpage.setExtraHTTPHeaders()でpage全体へ設定しており、gtag/js・
+        // Funding Choices等の第三者リクエストへも"1"が漏れる経路があった)。
+        await guardAdNetworkRequests(mismatchedPage);
+        await allowFirstPartyOrigin(mismatchedPage, new URL(devProd.url).origin, "1");
+        const res = await mismatchedPage.goto(`${devProd.url}/`, { waitUntil: "load" });
+        const headers = res.headers();
+        const cookiesAfter = await mismatchedContext.cookies();
+        const gotAuditCookie = cookiesAfter.some((c) => c.name === "lv_audit_proof" || c.name === "lv_audit_ui");
+        const leaked = headers["x-robots-tag"] || headers["x-lv-audit-active"] || headers["cache-control"] === "private, no-store" || gotAuditCookie;
+        if (!leaked) {
+          ok("トークン不一致(旧固定値\"1\")のヘッダーは通常アクセスとして扱われ、監査モード用ヘッダー・Cookieが一切付与されない");
+        } else {
+          fail(`トークン不一致にも関わらず監査モードが起動した(実測: x-robots-tag=${headers["x-robots-tag"] ?? "(なし)"}, x-lv-audit-active=${headers["x-lv-audit-active"] ?? "(なし)"}, cache-control=${headers["cache-control"] ?? "(なし)"}, audit cookie=${gotAuditCookie}) — LV_AUDIT_TOKEN照合が機能していない可能性がある`);
+        }
+        await mismatchedContext.close();
+      }
+
+      // 6. SPA遷移でも監査モードが維持されるか(ヘッダーを送らないクライアントサイド遷移)
+      // gotoReady()は元々このoriginへの最初のnavigationでしかヘッダーを送らない
+      // (allowFirstPartyOrigin()のsentOrigins管理)ため、ここで明示的にクリアする
+      // 操作は不要(以前のpage.setExtraHTTPHeaders({})相当の処理は無くなった)。
+      const collectRequestsAfterSpaNav = [];
+      page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequestsAfterSpaNav.push(req.url()); });
+      const dictionaryLink = page.locator('a[href="/dictionary"]').first();
+      if (await dictionaryLink.count() > 0) {
+        await dictionaryLink.click();
+        await page.waitForLoadState("networkidle");
+        await page.waitForTimeout(1500);
+        if (collectRequestsAfterSpaNav.length === 0) ok("SPA遷移後(ヘッダー再送なし)も監査モードが維持され、GA4計測リクエストが発生しない");
+        else fail(`SPA遷移後に監査モードが外れ、GA4計測リクエストが発生した: ${collectRequestsAfterSpaNav.join(", ")}`);
+      } else {
+        fail("SPA遷移テスト用の/dictionaryへのリンクが見つからず検証できなかった");
+      }
+
+      // middleware matcherの静的ファイル除外(robots.txt/sitemap.xml/ads.txt)を
+      // 明示的に検証する。監査ヘッダーを送っても、これらのレスポンスには
+      // 監査モード用ヘッダー(X-Robots-Tag/Cache-Control/Set-Cookie)が一切
+      // 付与されないことを確認する(推測でなく実測)。
+      for (const staticPath of ["/robots.txt", "/sitemap.xml", "/ads.txt"]) {
+        const res = await page.request.get(`${devProd.url}${staticPath}`, {
+          headers: { "x-lv-e2e-test": getAuditToken() },
+        });
+        const headers = res.headers();
+        const leaked = headers["x-robots-tag"] || headers["x-lv-audit-active"] || headers["set-cookie"] || headers["cache-control"] === "private, no-store";
+        if (!leaked) ok(`middleware matcherが${staticPath}を除外している(監査ヘッダー付きでも監査用ヘッダーが付与されない、status=${res.status()})`);
+        else fail(`${staticPath}に監査モード用ヘッダーが漏れている(実測: ${JSON.stringify(headers)})`);
+      }
+
+      // middleware matcherの/_next/*除外を実際のチャンクURLで検証する
+      // (先のページ読み込みで観測した実URLを再リクエストする)。
+      if (nextStaticRequests.length > 0) {
+        const chunkUrl = nextStaticRequests[0];
+        const res = await page.request.get(chunkUrl, { headers: { "x-lv-e2e-test": getAuditToken() } });
+        const headers = res.headers();
+        const leaked = headers["x-robots-tag"] || headers["x-lv-audit-active"] || headers["set-cookie"] || headers["cache-control"] === "private, no-store";
+        if (!leaked) ok(`middleware matcherが/_next/static配下を除外している(監査ヘッダー付きでも監査用ヘッダーが付与されない、status=${res.status()})`);
+        else fail(`/_next/static配下に監査モード用ヘッダーが漏れている(実測: ${JSON.stringify(headers)})`);
+      } else {
+        fail("/_next/static配下へのリクエストが1件も観測できず、除外検証ができなかった");
+      }
+
+      // /api/analytics/events のGET/POSTがハングしないことを明示的に検証する
+      // (これまでは全ナビゲーションが送るPOSTの完了で間接的にしか確認していなかった)。
+      for (const method of ["get", "post"]) {
+        const start = Date.now();
+        const res = await page.request[method](`${devProd.url}/api/analytics/events`, {
+          headers: { "x-lv-e2e-test": getAuditToken() },
+          timeout: 10000,
+          ...(method === "post" ? { data: {} } : {}),
+        });
+        const elapsedMs = Date.now() - start;
+        ok(`/api/analytics/events への${method.toUpperCase()}がハングせず完了(status=${res.status()}, ${elapsedMs}ms)`);
+      }
+
+      // E2E終了時にaudit-mode Cookieを削除する(オーナー指摘対応)。
+      // Cookie自体はMax-Age 10分で自動失効する設計だが、テストプロセス終了後に
+      // 同一マシン上の他のE2E実行やConnected Chromeへ残存しないよう、
+      // テストスクリプト側でも明示的にクリアし、削除できたことを検証する。
+      await page.context().clearCookies();
+      const cookiesAfterClear = await page.context().cookies();
+      const auditCookiesAfterClear = cookiesAfterClear.filter((c) => c.name === "lv_audit_proof" || c.name === "lv_audit_ui");
+      if (auditCookiesAfterClear.length === 0) ok("E2E終了時にaudit-mode Cookie(lv_audit_proof/lv_audit_ui)を明示的に削除できた");
+      else fail(`E2E終了後もaudit-mode Cookieが残存している(実測: ${JSON.stringify(auditCookiesAfterClear)})`);
+
+      await page.close();
+    }
+
+    // 7・10. 監査モードを使っていない完全に新規のページでは通常どおり計測リクエストが発生し、
+    // noindex・Cache-Control・監査Cookieのいずれも付与されない
+    {
+      const page = await browser.newPage();
+      await guardAdNetworkRequests(page);
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, "webdriver", { get: () => false });
+      });
+      const collectRequests = [];
+      let robotsTagHeader;
+      let cacheControlHeader;
+      let setCookieHeader;
+      let auditActiveHeader;
+      page.on("request", (req) => { if (isGa4CollectRequest(req.url())) collectRequests.push(req.url()); });
+      page.on("response", (res) => {
+        if (res.url() === `${devProd.url}/`) {
+          robotsTagHeader = res.headers()["x-robots-tag"];
+          cacheControlHeader = res.headers()["cache-control"];
+          setCookieHeader = res.headers()["set-cookie"];
+          auditActiveHeader = res.headers()["x-lv-audit-active"];
+        }
+      });
+      await gotoAsRealUser(page, `${devProd.url}/`);
+      await page.waitForTimeout(2000);
+      // gtag/js本体がabortされるため実際のcollectビーコンは発生しない。dataLayerへの
+      // gtag('config',...) pushで、監査モードが意図せずグローバルに影響していないかを検証する。
+      const configCalled4 = await hasGa4ConfigCall(page, TEST_GA_ID);
+      if (configCalled4) ok("監査モード未使用の新規ページでは通常どおりgtag('config',...)が呼ばれる(グローバルな漏れ出しがないことを確認)");
+      else fail("監査モードを一度も使っていない新規ページでもgtag('config',...)が呼ばれない(監査モードが意図せずグローバルに影響している可能性)");
+
+      if (robotsTagHeader === undefined) ok("通常アクセスには X-Robots-Tag が付与されない");
+      else fail(`通常アクセスにも X-Robots-Tag が付与されている(実測: ${robotsTagHeader})`);
+
+      if (auditActiveHeader === undefined) ok("通常アクセスには X-LV-Audit-Active が付与されない");
+      else fail(`通常アクセスにも X-LV-Audit-Active が付与されている(実測: ${auditActiveHeader})`);
+
+      if (cacheControlHeader !== "private, no-store") ok("通常アクセスには監査用の Cache-Control: private, no-store が付与されない");
+      else fail("通常アクセスにも監査用の Cache-Control: private, no-store が付与されている");
+
+      if (setCookieHeader === undefined || !setCookieHeader.includes("lv_audit")) ok("通常アクセスには監査モードCookieがセットされない");
+      else fail(`通常アクセスにも監査モードCookieがセットされている(実測Set-Cookie: ${setCookieHeader})`);
+
+      await page.close();
+    }
+
+    console.log(process.exitCode ? "\n=== test:ga4-webdriver-exclusion: FAILED ===" : "\n=== test:ga4-webdriver-exclusion RESULT: all checks passed ===");
+  } finally {
+    await browser.close();
+    if (devLocal) stopDevServer(devLocal);
+    if (devProd) stopDevServer(devProd);
+  }
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

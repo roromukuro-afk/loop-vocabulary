@@ -9,17 +9,46 @@
  * "Only one 'enable_page_level_ads' allowed per page" が本番190ページ中166ページ
  * (87%)で毎回発生していた。明示的な呼び出し側を削除して解消した。
  *
- * 1. 広告許可ページ(ホーム)で "enable_page_level_ads" 関連のコンソールエラーが発生しない
- * 2. adsbygoogle.js本体スクリプトタグ・AdSense確認メタタグは引き続き存在する(広告読み込み
- *    自体は維持されていることの確認)
- * 3. 旧・明示的初期化スクリプト(id="adsense-auto-ads")がDOMに存在しない
- * 4. SPA遷移(広告許可ページ→広告許可ページ)を挟んでも同エラーが発生しない
- *    (旧ガードが対策していたリマウントシナリオの回帰確認)
+ * 【ネットワーク安全化(オーナー指摘対応、2026-09-02、Issue #136へ実行記録を開示済み)】
+ * 旧版のこのテストは、実publisher ID(ca-pub-5148247638505100)をビルドへ注入し、
+ * pagead2.googlesyndication.comへの実リクエスト成功(2xx)とwindow.adsbygoogle.loaded
+ * ===trueを合格条件として「Google側の実Auto ads初期化が完了する環境」で二重初期化
+ * エラーの実行時検知を行っていた(当時のCodexレビュー指摘「ダミーIDだとGoogle側が
+ * 初期化せずエラー0件が偽陽性になる」への対応として意図された設計)。しかしこれは
+ * テスト実行のたびにGoogleの実インフラへ実通信を発生させるため、以下の方針で
+ * 全面的に安全化した:
+ *   - 全navigationの前に共有adNetworkGuard(route interception)を登録し、
+ *     AdSense/DoubleClick/Funding Choices/gtag/Clarity/忍者AdMax/i-mobile等への
+ *     リクエストを全てabortする(実通信0)
+ *   - publisher IDはダミー(ca-pub-0000000000000001)のみを使用する
+ *   - 検証は (a)DOM/HTML検査(スクリプトタグの存在・旧#adsense-auto-adsの不在)、
+ *     (b)「リクエストが試行され、guardがabortした」ことの確認(blocked配列)、
+ *     (c)ソースコード静的走査(enable_page_level_adsの明示的push再混入の検知)、
+ *     (d)広告ネットワークからの実レスポンス0件のassert、に置き換える
+ *   - 【失われる検証能力の明示】Google側スクリプトが実際に実行された場合にのみ
+ *     発生する実行時エラー("Only one 'enable_page_level_ads' allowed per page")の
+ *     実観測はできなくなる。この回帰は(c)のソース走査 — 明示的なpush呼び出しが
+ *     コードとして再混入していないこと — で静的に検知する。実行時挙動の最終確認は
+ *     本番デプロイ後の監査(check-prod系、オーナー承認の下で実施)に委ねる。
+ *
+ * 検証項目:
+ * 1. 広告許可ページ(ホーム)でadsbygoogle.js本体スクリプトタグがDOMに存在する
+ *    (AdSenseLoaderが広告読み込みを維持していることのHTML検査)
+ * 2. ブラウザがadsbygoogle.jsの読み込みを実際に試行し、guardがabortした
+ *    (=スクリプトタグが実際に機能するタグであることの確認)
+ * 3. 広告ネットワークドメインからの実レスポンスが0件(実通信が発生していない)
+ * 4. AdSense確認メタタグが存在する
+ * 5. 旧・明示的初期化スクリプト(id="adsense-auto-ads")がDOMに存在しない
+ * 6. ソースコード走査: enable_page_level_ads がコメント以外のコード行に存在しない
+ * 7. SPA遷移(広告許可ページ→広告許可ページ)後も旧スクリプトが出現しない
  *
  * 使い方: node scripts/testing/e2e/adsense-single-page-level-init.mjs
  */
+import { readFileSync, readdirSync, statSync } from "fs";
+import { join } from "path";
 import { chromium } from "playwright";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
+import { guardAdNetworkRequests } from "./lib/adNetworkGuard.mjs";
 import { gotoReady } from "./lib/nav.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
@@ -28,102 +57,90 @@ function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; 
 function ok(msg) { console.log(`✅ ${msg}`); }
 
 const ADSENSE_SCRIPT_URL_PART = "pagead2.googlesyndication.com/pagead/js/adsbygoogle.js";
+// 実IDは使わない(上記ヘッダーコメント参照)。存在しないダミーID。
+const TEST_ADSENSE_CLIENT = "ca-pub-0000000000000001";
 
-function collectPageLevelAdsErrors(page) {
-  const hits = [];
-  page.on("pageerror", (e) => {
-    if (/enable_page_level_ads/.test(e.message)) hits.push(`pageerror: ${e.message}`);
-  });
-  page.on("console", (msg) => {
-    if (msg.type() === "error" && /enable_page_level_ads/.test(msg.text())) hits.push(`console: ${msg.text()}`);
-  });
-  return hits;
-}
+// 広告ネットワークからの「実レスポンス」を監視する(guardが正しく機能していれば
+// 全てabortされるため0件になるはず。0件であることを明示的にassertする)。
+const AD_RESPONSE_PATTERNS = [
+  /googlesyndication\.com/,
+  /doubleclick\.net/,
+  /googleadservices\.com/,
+  /googletagmanager\.com/,
+  /fundingchoicesmessages\.google\.com/,
+  /clarity\.ms/,
+  /adm\.shinobi\.jp/,
+  /cnobi\.jp/,
+  /im-apps\.net/,
+  /i-mobile\.co\.jp/,
+];
 
-// Codexレビュー指摘: CI環境がpagead2.googlesyndication.comへ到達できない、または
-// テスト用ダミーpublisher IDをGoogle側が拒否した場合、<script>タグ自体はDOMに
-// 存在してもGoogle側の初期化コードは一切実行されず、hitsは常に空のままになる。
-// この場合、明示的な二重初期化コードが将来再度混入しても検知できず、
-// 「エラーが0件」が「本当に初期化されて成功した」ことの証明にならない偽陽性になる。
-// adsbygoogle.jsへのネットワークレスポンスを実際に観測し、成功(2xx)を確認した上で
-// 初めてエラー0件を合格として扱う。requestfailedの場合は明示的にfailする。
-function watchAdsenseScriptNetwork(page) {
-  const state = { loaded: false, failed: false, failure: null };
+function watchRealAdNetworkResponses(page) {
+  const received = [];
   page.on("response", (res) => {
-    if (res.url().includes(ADSENSE_SCRIPT_URL_PART) && res.ok()) state.loaded = true;
+    const url = res.url();
+    if (AD_RESPONSE_PATTERNS.some((re) => re.test(url))) received.push(`${res.status()} ${url}`);
   });
-  page.on("requestfailed", (req) => {
-    if (req.url().includes(ADSENSE_SCRIPT_URL_PART)) {
-      state.failed = true;
-      state.failure = req.failure()?.errorText ?? "unknown";
-    }
-  });
-  return state;
+  return received;
 }
 
-// NEXT_PUBLIC_ADSENSE_CLIENTはbuild時に静的に埋め込まれる値で、.env.localでは
-// (実本番でのみ設定される想定のため)コメントアウトされている。未設定のままだと
-// AdSenseLoaderは常にnullを返し、このテストの検証対象(adsbygoogle.js本体スクリプト
-// タグの有無)自体を確認できないため、テスト専用の値をここで注入してforceRebuild:trueで
-// 必ず反映させる(devServer.mjsのforceRebuild説明コメント参照)。
-//
-// Codexレビュー指摘: 存在しないダミーID(ca-pub-0000000000000000)では、
-// adsbygoogle.jsが2xxレスポンスを返してもGoogle側がそのpublisher/domain向けの
-// Auto ads初期化を実際には行わない場合があり、その場合はhits(エラー件数)が
-// 常に0のままになる。これは「削除した明示的push相当のコードが将来再混入しても
-// 検知できない」偽陽性を生む。ads.txt・本番metaタグ等で既に公開情報である実
-// クライアントID(手動調査で実際に使用したものと同一)を使うことで、
-// window.adsbygoogle.loaded===true(Google側が実際に初期化を完了した証拠)を
-// 確認できる環境で検証する。
-process.env.NEXT_PUBLIC_ADSENSE_CLIENT = "ca-pub-5148247638505100";
+// 検証6: ソースコード走査。enable_page_level_ads がコメント以外の行に存在しないこと。
+// 旧バグの本体(明示的なpush呼び出し)がコードとして再混入した場合に静的に検知する。
+function scanSourceForExplicitPageLevelAds(rootDir) {
+  const offending = [];
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      const st = statSync(p);
+      if (st.isDirectory()) { walk(p); continue; }
+      if (!/\.(ts|tsx|js|jsx|mjs)$/.test(name)) continue;
+      const lines = readFileSync(p, "utf8").split("\n");
+      lines.forEach((line, i) => {
+        if (!line.includes("enable_page_level_ads")) return;
+        const trimmed = line.trim();
+        // コメント行(// … / * … / /* …)での言及は許可(経緯説明のため)。コード行は禁止。
+        if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) return;
+        offending.push(`${p}:${i + 1}: ${trimmed.slice(0, 120)}`);
+      });
+    }
+  };
+  walk(rootDir);
+  return offending;
+}
+
+process.env.NEXT_PUBLIC_ADSENSE_CLIENT = TEST_ADSENSE_CLIENT;
 
 async function main() {
   const dev = await ensureDevServer(PORT, { forceRebuild: true });
   const baseUrl = dev.url;
-  // Codexレビュー指摘: chromium.launch()がtry/finallyの外にあると、ブラウザ実行環境が
-  // 無い等でlaunch自体が例外を投げた場合にensureDevServerが起動したdetachedサーバーが
-  // 後始末されずポート占有されたまま残る(forceRebuild:trueのため次回実行が
-  // ポート競合で即失敗する)。browser変数をtry外で宣言し、finallyでは存在確認してから
-  // 閉じることで、launch失敗時もサーバーの後始末だけは必ず行われるようにする。
   let browser;
 
   try {
     browser = await chromium.launch();
     const page = await browser.newPage();
-    const hits = collectPageLevelAdsErrors(page);
-    const scriptNetwork = watchAdsenseScriptNetwork(page);
 
-    // ---- 1〜3. ホーム(広告許可ページ)への初回アクセス ----
+    // 【重要】いかなるnavigationよりも先にguardを登録する。page.route()による
+    // interceptionはpageの生存期間中ずっと有効で、後続のassert失敗によって
+    // 解除されることはない(finallyでpage/browserごと閉じるまで維持される)。
+    const blocked = await guardAdNetworkRequests(page);
+    const realResponses = watchRealAdNetworkResponses(page);
+
+    // ---- 1. ホーム(広告許可ページ)への初回アクセス(HTML/DOM検査) ----
     await gotoReady(page, `${baseUrl}/`);
-    await page.waitForTimeout(1500); // adsbygoogle.js の非同期初期化を待つ
+    await page.waitForTimeout(1000);
 
     const hasAdsenseScript = await page
-      .locator('script[src*="pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"]')
+      .locator(`script[src*="${ADSENSE_SCRIPT_URL_PART}"]`)
       .count();
-    if (hasAdsenseScript > 0) ok("/: adsbygoogle.js本体スクリプトタグが存在する(広告読み込みは維持)");
+    if (hasAdsenseScript > 0) ok("/: adsbygoogle.js本体スクリプトタグがDOMに存在する(広告読み込みは維持・HTML検査)");
     else fail("/: adsbygoogle.js本体スクリプトタグが見つからない(広告が読み込まれなくなっている可能性)");
 
-    if (scriptNetwork.failed) {
-      fail(`/: adsbygoogle.jsへのネットワークリクエストが失敗した(${scriptNetwork.failure})。CI環境からGoogleへ到達できない可能性があり、この場合エラー0件は初期化成功を意味しないため後続の判定は無効。`);
-    } else if (scriptNetwork.loaded) {
-      ok("/: adsbygoogle.jsへのネットワークリクエストが成功している(初期化コードが実際に実行される環境であることを確認)");
+    // ---- 2. リクエスト試行がguardでabortされたことの確認 ----
+    const adsenseAttempts = blocked.filter((u) => u.includes(ADSENSE_SCRIPT_URL_PART));
+    if (adsenseAttempts.length > 0) {
+      ok(`/: ブラウザがadsbygoogle.jsの読み込みを試行し、guardがabortした(${adsenseAttempts.length}件。タグが実際に機能するタグであることの確認)`);
     } else {
-      fail("/: adsbygoogle.jsへのレスポンスが観測できなかった(読み込み未完了、またはネットワーク到達不可の可能性)");
-    }
-
-    // Codexレビュー指摘: スクリプトの2xxレスポンスだけでは「Google側が実際に
-    // このpublisher/domain向けにAuto ads初期化を完了した」ことの証明にならない。
-    // window.adsbygoogleが(素の配列のままではなく)loaded:trueを持つオブジェクトに
-    // なっていることを確認して初めて、Google側の初期化が実行された環境での
-    // 検証であると言える(本番調査で実際に確認した状態と同じ判定基準)。
-    const adsGoogleState = await page.evaluate(() => ({
-      isArray: Array.isArray(window.adsbygoogle),
-      loaded: window.adsbygoogle && !Array.isArray(window.adsbygoogle) ? !!window.adsbygoogle.loaded : null,
-    }));
-    if (!adsGoogleState.isArray && adsGoogleState.loaded === true) {
-      ok("/: window.adsbygoogle.loaded===true(Google側のAuto ads初期化が実際に完了したことを確認)");
-    } else {
-      fail(`/: Google側のAuto ads初期化が完了した証拠が確認できない(isArray=${adsGoogleState.isArray}, loaded=${adsGoogleState.loaded})。この状態でのエラー0件は回帰検知の証明にならない。`);
+      fail("/: adsbygoogle.jsの読み込み試行がguardに観測されなかった(スクリプトタグが機能していない可能性)");
     }
 
     const hasMetaTag = await page.locator('meta[name="google-adsense-account"]').count();
@@ -134,20 +151,31 @@ async function main() {
     if (hasOldAutoAdsScript === 0) ok("/: 旧・明示的Auto ads初期化スクリプト(#adsense-auto-ads)が削除されている");
     else fail("/: 旧・明示的Auto ads初期化スクリプトがまだDOMに存在する");
 
-    // ---- 4. SPA遷移(広告許可ページ→広告許可ページ)後も再発しないこと ----
-    // /materials は adRoutePolicy.ts で広告許可ルート(検索結果でない限り)。
-    // Codexレビュー指摘: クリック失敗を.catch(()=>{})で握りつぶすと、リンクが無い/
-    // クリックがタイムアウトした場合でもSPA遷移が実際には起きないまま次に進み、
-    // 「エラーが0件」がSPA遷移シナリオを一度も検証していないことによる偽陽性になり得る。
-    // クリックの失敗はそのまま投げ、遷移後のURLを明示的に待って検証する。
+    // ---- 6. ソースコード静的走査(実行時エラー観測の代替) ----
+    const offending = scanSourceForExplicitPageLevelAds("src");
+    if (offending.length === 0) {
+      ok("src/: enable_page_level_ads がコメント以外のコード行に存在しない(明示的push再混入なし・静的検知)");
+    } else {
+      fail(`src/: enable_page_level_ads がコード行に再混入している:\n${offending.join("\n")}`);
+    }
+
+    // ---- 7. SPA遷移(広告許可ページ→広告許可ページ)後も旧スクリプトが出現しないこと ----
     await page.locator('a[href="/materials"]').first().click();
     await page.waitForURL(/\/materials(?:$|[/?#])/, { timeout: 10000 });
-    await page.waitForTimeout(1500); // adsbygoogle.js の非同期処理を待つ
+    await page.waitForTimeout(1000);
 
-    if (hits.length === 0) {
-      ok("/ → /materials へのSPA遷移後も 'enable_page_level_ads' 関連のコンソールエラー/例外が発生していない");
+    const hasOldAutoAdsScriptAfterNav = await page.locator("#adsense-auto-ads").count();
+    if (hasOldAutoAdsScriptAfterNav === 0) {
+      ok("/ → /materials へのSPA遷移後も旧・明示的Auto ads初期化スクリプトが出現しない");
     } else {
-      fail(`'enable_page_level_ads' 関連のエラーが検出された:\n${hits.join("\n")}`);
+      fail("SPA遷移後に旧・明示的Auto ads初期化スクリプトがDOMへ出現した");
+    }
+
+    // ---- 3. 広告ネットワークからの実レスポンス0件(実通信が発生していないことのassert) ----
+    if (realResponses.length === 0) {
+      ok(`広告ネットワークdomainからの実レスポンス0件(guardが全リクエストをabort。abort総数=${blocked.length}件)`);
+    } else {
+      fail(`広告ネットワークdomainから実レスポンスを受信した(guardをすり抜けた実通信):\n${realResponses.join("\n")}`);
     }
 
     console.log(process.exitCode ? "\n=== test:adsense-single-page-level-init: FAILED ===" : "\n=== test:adsense-single-page-level-init RESULT: all checks passed ===");

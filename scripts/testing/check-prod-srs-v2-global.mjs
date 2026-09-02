@@ -8,9 +8,29 @@ import { chromium } from "playwright";
 import { loadEnv, requireEnv } from "./lib/env.mjs";
 import { getAdminClient } from "./lib/supabaseAdmin.mjs";
 import { TEST_ACCOUNTS } from "./lib/testAccounts.mjs";
+import { getAuditToken } from "./lib/auditToken.mjs";
+import { allowFirstPartyOrigin } from "./e2e/lib/firstPartyAuditMode.mjs";
+import { guardAdNetworkRequests } from "./e2e/lib/adNetworkGuard.mjs";
 
 loadEnv();
 requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", TEST_ACCOUNTS.srs.passwordEnvKey]);
+// このスクリプトは実ブラウザ(chromium.launch())で本番URLへ遷移するため、
+// クライアント側GA4タグ・first-party analytics_eventsが実際に発火する
+// (verify-prod.mjs/ads-txt-live.mjsは素のfetch()のみでブラウザJSを実行しない
+// ため対象外)。オーナー指摘の repo-wide 監査で発見: 監査モード用ヘッダーを
+// 一切送っていなかったため、これまでの実行はすべて本番の意思決定用集計を
+// 汚す実ユーザートラフィックとして記録されていた。production監査script同様、
+// LV_AUDIT_TOKEN未設定なら開始前に落とす(getAuditToken()、strict)。
+//
+// このスクリプトは実際のproduction(PROD_URL)を検証する唯一のE2Eスクリプトであり、
+// 本物のLV_AUDIT_TOKEN(GitHub Environment secret「autonomous-improvement」/
+// Vercel Production)と一致する値が必要(オーナー指摘対応、2026-09-01: 他の
+// 監査モードE2Eテストはscripts/testing/lib/ephemeralAuditToken.mjs経由の
+// 使い捨てトークンへ移行済み)。.env.localへは絶対に保存しないこと — 実行時に
+// このプロセスの環境変数としてだけ渡す(例:
+// `LV_AUDIT_TOKEN=<値> node scripts/testing/check-prod-srs-v2-global.mjs`、
+// シェル履歴に残したくない場合は履歴に残らない入力手段を使う)。
+const auditToken = getAuditToken();
 
 const PROD_URL = "https://loop-vocabulary.app";
 const admin = getAdminClient();
@@ -25,6 +45,22 @@ if (prof?.srs_v2 !== false) {
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
+// オーナー指摘対応(Codexレビュー、セキュリティ、緊急): page.setExtraHTTPHeaders()は
+// page全体(第三者origin含む)へ適用されるため使わない。PROD_URL originへの最初の
+// navigationにだけ限定してヘッダーを送る(scripts/testing/e2e/lib/
+// firstPartyAuditMode.mjs参照)。監査モードが正しく機能していればGA4/AdSense等の
+// 実通信自体が発生しないはずだが、念のためguardAdNetworkRequests()も併用し、
+// 万一のガード漏れがあっても実際の外部通信はabortする。
+await guardAdNetworkRequests(page);
+// strict:true(オーナー指摘対応、2026-09-01、P1): このスクリプトはproductionへの
+// 実アクセスを前提に、監査モードが実際に起動していること(=実ユーザートラフィックを
+// 生成していないこと)へ依存する。LV_AUDIT_TOKENがproductionの値と一致しない場合
+// (人間が誤った/古い値を渡した場合等)、ステータスコードだけでは検知できない
+// (middleware.tsは通常ページを200で返すため)。X-LV-Audit-Active: 1(トークン検証
+// 成功専用のresponse header、オーナー指摘対応2026-09-01: X-Robots-Tag: noindexは
+// 監査と無関係な理由でも付与されうるため証拠として使わない)の有無で実際の認証成否を
+// 確認し、失敗していれば例外で即座に停止する(scripts/testing/e2e/lib/firstPartyAuditMode.mjs参照)。
+await allowFirstPartyOrigin(page, PROD_URL, auditToken, { strict: true });
 
 await page.goto(`${PROD_URL}/login`, { waitUntil: "load" });
 await page.waitForLoadState("networkidle");

@@ -16,8 +16,10 @@
  * 使い方: node scripts/testing/e2e/analytics-production-ingestion.mjs
  */
 import { loadEnv, requireEnv } from "../lib/env.mjs";
+import { getEphemeralAuditToken } from "../lib/ephemeralAuditToken.mjs";
 import { ensureServer, stopDevServer } from "../lib/devServer.mjs";
 import { getAdminClient } from "../lib/supabaseAdmin.mjs";
+import { getAuditToken } from "../lib/auditToken.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 // Playwrightのheadless UAには一致しない、実ブラウザ相当のUA文字列
@@ -32,6 +34,9 @@ function bad(msg) { console.error(`❌ FAIL: ${msg}`); fail++; }
 async function main() {
   loadEnv();
   requireEnv(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
+  // 監査モードの仕組み自体を検証するだけなので、production secretではなく
+  // このプロセス限りの使い捨てトークンを使う(scripts/testing/lib/ephemeralAuditToken.mjs参照)。
+  process.env.LV_AUDIT_TOKEN = getEphemeralAuditToken();
   const admin = getAdminClient();
 
   const dev = await ensureServer(PORT);
@@ -49,7 +54,7 @@ async function main() {
         "Content-Type": "application/json",
         "User-Agent": REAL_BROWSER_UA,
         Origin: baseUrl,
-        "x-lv-e2e-test": "1",
+        "x-lv-e2e-test": getAuditToken(),
       },
       body: JSON.stringify({
         event_id: eventId,

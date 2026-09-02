@@ -26,8 +26,23 @@ name: Analytics Production Canary
 #   除外されていることのソースコード監査(こちらは実際にはDBアクセス不要だが、
 #   analytics関連の検証として同じtrusted workflowでまとめて実行する)。
 #
-# 3テストは個別のstepとして順番に実行する(continue-on-errorは付けない)。いずれかが
+# - test:analytics-central-context-usage: 「isTestEvent判定はresolveAnalyticsRequestContext()
+#   1か所だけを通る」ことのソースコード監査(こちらもDBアクセス不要)。PR #137の
+#   オーナー指摘対応(中央集約リファクタ)で追加した。
+#
+# 4テストは個別のstepとして順番に実行する(continue-on-errorは付けない)。いずれかが
 # 失敗すればそこでjobは失敗し、後続stepは自動的にスキップされる(無制限リトライなし)。
+#
+# LV_AUDIT_TOKENについて(オーナー指摘対応、2026-09-01で削除): このワークフローの
+# test:analytics-production-ingestion・test:analytics-rejection-reasonsは、本番の
+# Supabaseへ直接書き込む(SUPABASE_SERVICE_ROLE_KEY経由)が、x-lv-e2e-testヘッダーの
+# 送信先はスクリプト自身がこのjob内で起動するローカルdevサーバー(ensureServer())
+# であって、production(Vercel)にデプロイされた実アプリではない。よって検証している
+# のは「監査モードの仕組み自体」であり、production用の"本物の"LV_AUDIT_TOKENとの一致
+# ではないため、両スクリプトとも実行のたびに自分自身で使い捨てトークンを生成する
+# よう再設計された(scripts/testing/lib/ephemeralAuditToken.mjs参照)。これにより
+# このワークフローはLV_AUDIT_TOKEN secretを一切必要としない(production secretの
+# 存在範囲をscripts/testing/check-prod-srs-v2-global.mjsだけへ縮小する取り組みの一環)。
 
 on:
   workflow_dispatch: {}
@@ -57,7 +72,7 @@ jobs:
 
       - run: npm ci
 
-      # 値そのものは一切表示せず、3つの環境変数が空でないことだけを確認する。
+      # 値そのものは一切表示せず、環境変数が空でないことだけを確認する。
       # 不足があれば変数名だけを表示してjobを失敗させる(secretをechoしない)。
       - name: Preflight - verify required env vars are present
         run: |
@@ -79,3 +94,6 @@ jobs:
 
       - name: Run test-account exclusion audit
         run: npm run test:test-account-exclusion
+
+      - name: Run analytics central context usage audit
+        run: npm run test:analytics-central-context-usage
