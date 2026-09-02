@@ -1,5 +1,6 @@
 "use client";
 import { usePathname, useSearchParams } from "next/navigation";
+import { isAuditModeActiveClient } from "@/lib/analytics/auditMode";
 import { isThirdPartyAdEligiblePath } from "@/lib/ads/adEligibility";
 import {
   getIMobileConfig,
@@ -22,7 +23,15 @@ export function AdPlacementClient({ isProductionEnvironment }: { isProductionEnv
   const searchParams = useSearchParams();
   const isFirstOnPage = useAdSlotClaim(pathname);
 
+  // 監査モード(Issue #136是正、PR #137で導入されたクライアント側判定)中は第三者広告の
+  // 実タグ(忍者AdMax/i-mobile)を一切読み込まない。isAuditModeActiveClient()は呼ばれた
+  // 時点でlv_audit_ui Cookieを確認しsticky flag(SPA遷移をまたぐ)をラッチする副作用を
+  // 持つため、他の条件の短絡評価に埋め込まず、必ず毎レンダー・条件分岐より先に呼ぶ
+  // (AdSenseLoader.tsxの同種のCodexレビュー指摘対応コメント参照)。
+  const auditModeActive = isAuditModeActiveClient(); // 副作用あり: 必ず呼ぶこと
+
   if (!isProductionEnvironment) return null;
+  if (auditModeActive) return null;
   if (!isThirdPartyAdEligiblePath(pathname, searchParams)) return null;
   if (!isFirstOnPage) return null;
 

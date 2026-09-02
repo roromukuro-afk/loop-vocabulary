@@ -25,18 +25,11 @@
  * 1e. 監査モード(x-lv-e2e-testヘッダー)中は第三者広告へのリクエスト試行が0件
  *     (lib/adNetworkGuard.mjsのroute interceptionで全リクエストをabortし、
  *     実際の外部通信を一切発生させずに「試みられたか」だけを判定する。Issue #136)
- *     ―――【既知のギャップ、オーナー承認済みの対応計画あり】―――
- *     現状このチェックはFAILする(=abort対象としてカウントされてしまう)。
- *     AdPlacementClient.tsxにはPR #137(fix/ga4-webdriver-exclusion)で導入された
- *     isAuditModeActiveClient()による監査モード除外ガードがまだ無い(このブランチは
- *     PR #137のマージ前に分岐しており、src/lib/analytics/auditMode.ts自体が
- *     存在しない)。そのため忍者AdMaxの実タグ(adm.shinobi.jp等)の読み込みが
- *     試みられてしまう。オーナー合意済みのmerge順序(PR #137を先にmerge →
- *     PR #138を新mainへrebase → 再テスト・再レビュー・再承認)どおり、
- *     AdPlacementClient.tsxへ同種のガードを追加する修正はrebase後に行う。
- *     このチェック自体は退行防止のため残し、rebase後にこのコメントとあわせて
- *     greenへ更新する。route interceptionにより、このギャップが現状FAILのままでも
- *     実際の外部通信は一切発生しない。
+ *     2026-09-02: PR #137のmerge後、オーナー合意済みの計画どおり本ブランチを
+ *     最新mainへrebaseし、AdPlacementClient.tsxへisAuditModeActiveClient()による
+ *     監査モード除外ガードを追加した(旧コメントに記録していた既知のギャップは解消)。
+ *     ガード呼び出しは副作用(sticky flagのラッチ)を持つため短絡評価に埋め込まず
+ *     毎レンダー先頭で呼ぶ(AdSenseLoader.tsxの同種修正と同じパターン)。
  * 2. production相当・忍者AdMax無効・i-mobile有効(スタブ): 何も表示されない
  *    (空の予約領域や「広告」ラベルだけの状態にならないことを確認、P2修正の確認)
  * 3. VERCEL_ENV未設定(preview/local相当)・忍者AdMax有効: 何も表示されない
@@ -54,6 +47,23 @@ import { chromium } from "playwright";
 import { ensureDevServer, stopDevServer } from "../lib/devServer.mjs";
 import { gotoReady } from "./lib/nav.mjs";
 import { guardAdNetworkRequests } from "./lib/adNetworkGuard.mjs";
+import { getEphemeralAuditToken } from "../lib/ephemeralAuditToken.mjs";
+
+// rebase後の更新(2026-09-02): 新mainの監査モードは固定値"1"ではなくLV_AUDIT_TOKEN
+// (秘密トークン)との一致で認証される(PR #137、auditModeServer.ts参照)。サーバー起動
+// より前にephemeralトークンを設定し、gotoReady()側(firstPartyAuditMode.mjs)と同じ値を
+// 共有させる(audit-session-cookie-expiry.mjs等の既存パターンと同一)。
+process.env.LV_AUDIT_TOKEN = getEphemeralAuditToken();
+
+// 通常ユーザー相当のnavigation(監査ヘッダーを送らない)。gotoReady()は有効トークンを
+// 送って監査モードを起動してしまうため、「広告が表示されること」を検証するシナリオでは
+// 使えない(監査モード中は広告非表示が正しい挙動になったため。AdPlacementClient.tsxの
+// isAuditModeActiveClient()ガード参照)。ネットワーク実通信はguardAdNetworkRequests()が
+// 引き続き遮断する。
+async function gotoAsNormalUser(page, url) {
+  await page.goto(url, { waitUntil: "load" });
+  await page.waitForLoadState("networkidle").catch(() => {});
+}
 
 const PORT_PROD_SHOW = Number(process.env.TEST_PORT || 3809);
 const PORT_PROD_HIDE = PORT_PROD_SHOW + 1;
@@ -89,7 +99,7 @@ async function main() {
       await guardAdNetworkRequests(page); // 忍者AdMax等への実通信を発生させない(Issue #136)
       page.on("console", (msg) => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
       page.on("pageerror", (err) => { pageErrors.push(String(err)); });
-      await gotoReady(page, `${devShow.url}${TEST_PATH}`);
+      await gotoAsNormalUser(page, `${devShow.url}${TEST_PATH}`);
       await page.waitForTimeout(500);
       const adLabelCount = await page.getByText("広告", { exact: true }).count();
       const admaxDivCount = await page.locator(".admax-ads").count();
@@ -133,7 +143,7 @@ async function main() {
     for (const [label, viewport] of [["desktop", { width: 1280, height: 800 }], ["mobile", { width: 375, height: 812 }]]) {
       const page = await browser.newPage({ viewport });
       await guardAdNetworkRequests(page);
-      await gotoReady(page, `${devShow.url}${TEST_PATH}`);
+      await gotoAsNormalUser(page, `${devShow.url}${TEST_PATH}`);
       await page.waitForTimeout(500);
       const admaxDivCount = await page.locator(".admax-ads").count();
       if (admaxDivCount > 0) ok(`${label}ビューポート(${viewport.width}x${viewport.height})でも広告枠が表示される`);
@@ -145,7 +155,7 @@ async function main() {
     {
       const page = await browser.newPage();
       await guardAdNetworkRequests(page);
-      await gotoReady(page, `${devShow.url}/materials`);
+      await gotoAsNormalUser(page, `${devShow.url}/materials`);
       await page.evaluate((path) => { window.history.pushState({}, "", path); }, TEST_PATH);
       await page.goto(`${devShow.url}${TEST_PATH}`, { waitUntil: "load" });
       await page.waitForLoadState("networkidle");
@@ -188,7 +198,7 @@ async function main() {
     {
       const page = await browser.newPage();
       await guardAdNetworkRequests(page);
-      await gotoReady(page, `${devHide.url}${TEST_PATH}`);
+      await gotoAsNormalUser(page, `${devHide.url}${TEST_PATH}`);
       const adLabelCount = await page.getByText("広告", { exact: true }).count();
       if (adLabelCount === 0) {
         ok("production相当・忍者AdMax無効・i-mobile有効(スタブ): 何も表示されない(空の広告枠が出ないことを確認、P2修正の確認)");
@@ -212,7 +222,7 @@ async function main() {
     {
       const page = await browser.newPage();
       await guardAdNetworkRequests(page);
-      await gotoReady(page, `${devPreview.url}${TEST_PATH}`);
+      await gotoAsNormalUser(page, `${devPreview.url}${TEST_PATH}`);
       const adLabelCount = await page.getByText("広告", { exact: true }).count();
       if (adLabelCount === 0) {
         ok("VERCEL_ENV未設定(preview/local相当)・忍者AdMax有効でも何も表示されない(production限定であることを確認)");
