@@ -57,7 +57,7 @@ const SCENES = [
       { en: "defer", jp: "延期する・委ねる" },
       { en: "take precedence", jp: "優先する" },
       { en: "action item", jp: "対応事項" },
-      { en: "circle back", jp: "後で話を戻す" },
+      { en: "revisit", jp: "改めて検討する" },
       { en: "table (a topic)", jp: "議題を保留にする" },
       { en: "on the same page", jp: "認識が一致している" },
       { en: "touch base", jp: "軽く連絡・確認を取る" },
