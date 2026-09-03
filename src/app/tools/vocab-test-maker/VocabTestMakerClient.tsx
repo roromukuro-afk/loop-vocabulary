@@ -28,6 +28,13 @@ const QR_TARGET_URL = "https://loop-vocabulary.app/tools/vocab-test-maker?utm_so
 const SHARE_URL = "https://loop-vocabulary.app/tools/vocab-test-maker";
 const SHARE_TITLE = "英単語テスト作成【無料・登録不要】";
 const SHARE_TEXT = "自分の単語リストから、登録不要ですぐ英単語の小テストを作れます。";
+// ShareUrlButton(Web Share API/クリップボードコピー)経由の流入計測用。
+// navigator.share()の遷移先はOS側のシートに委ねられ実際にどこへ渡ったか分からないため、
+// utm_mediumは特定チャネルを騙らず汎用の"share"にとどめる。
+const SHARE_URL_TAGGED = `${SHARE_URL}?utm_source=vocab_test_maker&utm_medium=share&utm_campaign=tool_share`;
+// X(旧Twitter)共有ボタン専用。遷移先が確実にXであることが分かっているため
+// utm_source=x&utm_medium=socialで個別に計測する。
+const X_SHARE_URL_TAGGED = `${SHARE_URL}?utm_source=x&utm_medium=social&utm_campaign=vocab_test_maker_share`;
 
 const PENDING_KEY = "lv_pending_vocab_test";
 const PENDING_VERSION = 1;
@@ -282,6 +289,16 @@ export function VocabTestMakerClient() {
     }
   };
 
+  // X intent linkを新規タブで開く操作そのものをshare_invokedとして記録する。
+  // window.open()の戻り値は実際に投稿されたかを示さない(ポップアップブロック時も
+  // 呼び出しは成功したように見える)ため、ShareUrlButtonと同様「共有操作を開始した」
+  // 事実のみを表す(投稿完了/share_completedは計測しない)。
+  const handleXShare = () => {
+    const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(SHARE_TEXT)}&url=${encodeURIComponent(X_SHARE_URL_TAGGED)}`;
+    window.open(intentUrl, "_blank", "noopener,noreferrer");
+    trackEvent("vocab_test_maker_share_invoked", { method: "x_intent" });
+  };
+
   const handleSrsCta = async () => {
     if (!generatedRows || generatedRows.length === 0) return;
     if (savingRef.current) return;
@@ -446,13 +463,23 @@ export function VocabTestMakerClient() {
             )}
             <div className="mt-5 pt-4 border-t border-white/10">
               <p className="text-[11px] text-navy-300 mb-2">このツールが役に立ったら、友だちや同僚にも教えてください</p>
-              <ShareUrlButton
-                url={SHARE_URL}
-                title={SHARE_TITLE}
-                text={SHARE_TEXT}
-                label="🔗 このツールをシェア"
-                onShareInvoked={(method) => trackEvent("vocab_test_maker_share_invoked", { method })}
-              />
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <ShareUrlButton
+                  url={SHARE_URL_TAGGED}
+                  title={SHARE_TITLE}
+                  text={SHARE_TEXT}
+                  label="🔗 このツールをシェア"
+                  onShareInvoked={(method) => trackEvent("vocab_test_maker_share_invoked", { method })}
+                />
+                <button
+                  type="button"
+                  onClick={handleXShare}
+                  data-testid="vocab-test-x-share-button"
+                  className="px-5 py-2.5 rounded-xl bg-white text-navy-800 font-bold text-sm hover:bg-navy-50 transition-colors"
+                >
+                  𝕏でシェア
+                </button>
+              </div>
             </div>
           </div>
         )}
