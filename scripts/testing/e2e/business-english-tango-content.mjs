@@ -72,8 +72,7 @@ const STATIC_ONLY_PHRASES = [
 // 動的版が配信されている(ルーティング競合の回帰)ことを意味する。
 const DYNAMIC_ONLY_PHRASES = [
   DYNAMIC_TITLE_MARKER,
-  // (2026-09-02 Growth Batch 1) "circle back" は静的版のシーン別語彙にも
-  // 追加されたため衝突検知マーカーから除外し、静的版側の単語を"revisit"へ変更した
+  "circle back", // 動的版のみの会議語彙(静的版は"revisit"へ変更済み、2026-09-02 Growth Batch 1)
   "週1回「苦手単語」を集中復習して完全定着", // 動的版の継続学習の断定表現
   "用語集・対訳表を一括取り込み", // 動的版のCSV機能の説明
 ];
