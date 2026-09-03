@@ -15,6 +15,8 @@
  *  8. navigator.share が使えるがそれ以外の理由(非対応payload・権限ポリシー等)で
  *     拒否された場合は、クリップボードコピーへfallbackする(Codexレビュー指摘対応:
  *     修正前はこのケースで何も起きずボタンが反応しないように見えていた)
+ *  9. Xシェアボタンは、X share intent linkをwindow.open()で新規タブに開き、
+ *     vocab_test_maker_share_invoked(method=x_intent)をちょうど1回だけ発火する
  *
  * 使い方: node scripts/testing/e2e/vocab-test-maker-share.mjs
  */
@@ -25,7 +27,8 @@ import { gotoReady } from "./lib/nav.mjs";
 
 const PORT = Number(process.env.TEST_PORT || 3799);
 const PAGE_PATH = "/tools/vocab-test-maker";
-const EXPECTED_SHARE_URL = "https://loop-vocabulary.app/tools/vocab-test-maker";
+const EXPECTED_SHARE_URL =
+  "https://loop-vocabulary.app/tools/vocab-test-maker?utm_source=vocab_test_maker&utm_medium=share&utm_campaign=tool_share";
 const FORBIDDEN_SUBSTRINGS = ["apple", "りんご", "beautiful", "美しい", "banana", "バナナ"];
 
 function fail(msg) { console.error(`\n❌ FAIL: ${msg}`); process.exitCode = 1; }
@@ -320,6 +323,52 @@ async function main() {
 
       if (errors.length === 0) ok("mobile viewport操作中にconsole error/5xxなし");
       else fail(`mobile viewport操作中にエラー検出: ${errors.join(" | ")}`);
+      await context.close();
+    }
+
+    // ---------- 7. Xシェアボタン: X intent linkを新規タブで開き、method=x_intentで1回だけ発火する ----------
+    {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const errors = collectErrors(page);
+      const captured = await interceptAnalyticsEvents(page);
+      await page.addInitScript(() => {
+        window.__openedUrls = [];
+        const originalOpen = window.open;
+        // @ts-ignore
+        window.open = (url, ...rest) => {
+          window.__openedUrls.push(url);
+          return originalOpen ? originalOpen.call(window, url, ...rest) : null;
+        };
+      });
+
+      await gotoReady(page, `${baseUrl}${PAGE_PATH}`);
+      await generateTest(page);
+
+      await page.locator('[data-testid="vocab-test-x-share-button"]').click();
+      await page.waitForTimeout(300);
+
+      // window.open()は「テストを作成する」ボタンの印刷プレビュー(window.open("", "_blank"))でも
+      // 呼ばれているため、ここではtwitter.com向けの呼び出しのみを対象にする。
+      const openedUrls = await page.evaluate(() => window.__openedUrls);
+      const tweetUrls = openedUrls.filter((u) => u.startsWith("https://twitter.com/intent/tweet?"));
+      const expectedTweetUrlParam = encodeURIComponent(EXPECTED_SHARE_URL.replace("utm_medium=share&utm_campaign=tool_share", "utm_medium=social&utm_campaign=vocab_test_maker_share").replace("utm_source=vocab_test_maker", "utm_source=x"));
+      if (tweetUrls.length === 1 && tweetUrls[0].includes(`url=${expectedTweetUrlParam}`)) {
+        ok(`Xシェアボタンが正しいintent URLを新規タブで開く (${tweetUrls[0]})`);
+      } else {
+        fail(`Xシェアボタンのwindow.open呼び出しが想定外: ${JSON.stringify(openedUrls)}`);
+      }
+      assertNoForbiddenSubstrings(tweetUrls[0], "X share intent URL");
+
+      const xShareEvents = captured.filter((e) => e.event_name === "vocab_test_maker_share_invoked");
+      if (xShareEvents.length === 1 && xShareEvents[0]?.properties?.method === "x_intent") {
+        ok("vocab_test_maker_share_invoked(method=x_intent)がちょうど1回だけ発火する");
+      } else {
+        fail(`Xシェアのイベント発火が想定外: ${JSON.stringify(xShareEvents)}`);
+      }
+
+      if (errors.length === 0) ok("Xシェア操作中にconsole error/5xxなし");
+      else fail(`Xシェア操作中にエラー検出: ${errors.join(" | ")}`);
       await context.close();
     }
   } finally {
