@@ -188,6 +188,27 @@ const PII_AND_UNKNOWN_PROBE = {
   assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "vocab_test_maker_share_invoked: sanitize後にemail/user_id/password/未許可キーが残らない");
 }
 
+// ── vocab_test_maker_share_invoked: method="x_intent"(Xシェアボタン)も、既存スキーマの
+// properties.method: "string"(enum制約なし)のまま追加のスキーマ変更なしで受理されることを
+// 証明する。sanitizeProperties()は型(string/number/boolean)のみを見て許可リストの値までは
+// 制限しないため、新しいmethod値を送るだけならeventSchema.ts自体を変更する必要はない。──
+{
+  const raw = {
+    method: "x_intent",
+    utm_source: "x",
+    utm_medium: "social",
+    utm_campaign: "vocab_test_maker_share",
+    ...PII_AND_UNKNOWN_PROBE,
+  };
+  const sanitized = sanitizeProperties("vocab_test_maker_share_invoked", raw);
+  assertEqual(
+    sanitized,
+    { method: "x_intent" },
+    "vocab_test_maker_share_invoked: method='x_intent'も既存スキーマのまま受理され、utm_*・PIIは含まれない(スキーマ変更不要)"
+  );
+  assertNoLeakedKeys(sanitized, Object.keys(PII_AND_UNKNOWN_PROBE), "vocab_test_maker_share_invoked(x_intent): sanitize後にemail/user_id/password/未許可キーが残らない");
+}
+
 // ── guide_share_invoked: guide_slug/methodのみが残る(Issue #98) ──
 {
   const raw = {
