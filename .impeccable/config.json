@@ -29,6 +29,24 @@
         ],
         "createdAt": "2026-09-02T03:54:02.835Z",
         "reason": "Claude: pre-existing LEVELS array gradient colors (indigo-500/600 for Lv.3, purple-500/600 for Lv.4), part of an established per-level color-differentiation scheme, untouched by this Growth Batch 1 SEO-content diff (only added one internal link line in the 関連リンク footer). Scoped to this exact value only (2026-09-03, Codex P2)."
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "src/app/guide/eitango-oboeru-houhou/page.tsx"
+        ],
+        "createdAt": "2026-09-03T03:26:54.151Z",
+        "reason": "Claude: pre-existing METHODS array color fields (rose/emerald/sky/purple/amber/indigo/teal 7-method scheme). Not introduced or touched by this Growth Batch 2 session (only METHODS[1].body text and FAQ_ITEMS were edited). Scoped to this single file only, not repo-wide."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/app/guide/eitango-oboeru-houhou/page.tsx"
+        ],
+        "createdAt": "2026-09-03T03:27:05.558Z",
+        "reason": "Claude: pre-existing MISTAKES list left-border accent (よくある失敗と対策 section, border-l-4 border-red-300). Not introduced or touched by this Growth Batch 2 session. Scoped to this single file only."
       }
     ]
   }
