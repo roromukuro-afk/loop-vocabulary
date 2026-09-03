@@ -39,6 +39,10 @@ const FAQ_ITEMS = [
     q: "毎日どれくらい復習すればいいですか？",
     a: "新しい単語を増やしすぎると復習量が雪だるま式に増えてしまいます。まずは1日あたりの新規語数を少なめに設定し、SRSが提示する「今日の復習」を優先してこなす方が、長期的には安定して語彙が増えます。",
   },
+  {
+    q: "復習のタイミングは何日後という固定パターンで決まっていますか？",
+    a: "いいえ、単語ごとに動的に計算されるため、全員・全単語共通の「◯日後」という一律のパターンはありません。初めて正解した単語は数日以内に再出題され、簡単だと感じるたびに間隔が伸びていきます(上限は半年程度)。もう一度と答えると、それまでの間隔に関係なく翌日に戻ります。同じ単語でも、フラッシュカード・タイピング・4択のどのモードで答えたかによって、次の間隔の伸び方が変わります。",
+  },
 ];
 
 const JSON_LD = {
@@ -49,7 +53,7 @@ const JSON_LD = {
   author: { "@type": "Organization", name: "Loop Vocabulary" },
   publisher: { "@type": "Organization", name: "Loop Vocabulary" },
   datePublished: "2026-07-08",
-  dateModified: "2026-07-08",
+  dateModified: "2026-09-03",
   url: `${SITE_URL}/guide/${SLUG}`,
 };
 
@@ -115,7 +119,7 @@ export default function SpacedRepetitionPage() {
           <div className="space-y-3">
             {[
               { icon: "1️⃣", title: "自己評価を記録する", desc: "フラッシュカードで答え合わせをした後、「もう一度」〜「簡単」の4段階（または正解・不正解）で自己評価します。" },
-              { icon: "2️⃣", title: "評価に応じて次の出題日を計算", desc: "評価が低い（思い出せなかった）単語ほど短い間隔で再出題し、評価が高い単語ほど間隔を伸ばしていきます。" },
+              { icon: "2️⃣", title: "評価に応じて次の出題日を計算", desc: "具体的には、単語ごとに持つ「思い出しやすさ」の指標に、直前の復習間隔を掛けて次の間隔を決めます。簡単だった単語は指標が上がってさらに間隔が伸び、難しかった単語は指標が下がって伸び方が緩やかになります。「もう一度」を選ぶと指標に関わらず翌日に戻ります(間隔の上限は半年程度)。" },
               { icon: "3️⃣", title: "学習モードごとに負荷を調整", desc: "フラッシュカードでの自己想起、タイピングでのスペル入力、4択での選択など、モードによって記憶への負荷が異なるため、間隔の伸び方も調整されます。" },
               { icon: "4️⃣", title: "「今日の復習」に集約して出題", desc: "計算されたタイミングが来た単語だけが「今日の復習」に表示されるため、毎日どれを復習すべきか迷う必要がありません。" },
             ].map((s) => (
@@ -170,8 +174,11 @@ export default function SpacedRepetitionPage() {
         <GuideByline
           targetAudience="単語をどのタイミングで復習すればいいか分からない、詰め込み学習で忘れやすいと感じている英語学習者向け"
           sources="ドイツの心理学者ヘルマン・エビングハウスの忘却曲線の考え方と、その後の間隔反復(spaced repetition)研究で一般的に支持されている知見を要約したものです。特定の論文の引用ではありません。"
-          lastUpdated="2026-07-12"
-          changelog={[{ date: "2026-07-12", note: "対象者・出典・更新履歴セクションを追加" }]}
+          lastUpdated="2026-09-03"
+          changelog={[
+            { date: "2026-09-03", note: "GSCで実際に検索されているクエリ(「単語 復習 タイミング」)を踏まえ、復習間隔が具体的にどう計算されるか(単語ごとの動的な指標・学習モード別の重み付け)を明記し、関連FAQを追加。" },
+            { date: "2026-07-12", note: "対象者・出典・更新履歴セクションを追加" },
+          ]}
         />
 
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
@@ -201,6 +208,7 @@ export default function SpacedRepetitionPage() {
           <div className="space-y-2">
             {[
               { href: "/guide/eitango-oboeru-houhou", tag: "学習法", title: "英単語の覚え方・効率的な記憶術【自己想起×忘却曲線】" },
+              { href: "/guide/flashcards-vs-multiple-choice", tag: "学習法", title: "フラッシュカードと4択テストの違い【消去法で正解するリスク】" },
               { href: "/guide/eitango-ichinichi-nanko", tag: "学習法", title: "英単語は1日何個が最適？続く適正量の決め方" },
               { href: "/guide/tangocho-erabikata", tag: "単語帳", title: "英単語帳の選び方と正しい使い方" },
             ].map((r) => (
