@@ -79,9 +79,7 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
   // vocab_test_maker_share_invoked: 生成後のvalue momentに置いた共有CTAの操作起点を
   // 記録する(Issue #98)。navigator.share()のPromiseがresolveすることは実際の投稿
   // 完了を意味しないため、「投稿された/共有された」ではなく「共有操作を開始した」
-  // という事実のみを表す名前・propertiesにする(methodはweb_share/copy_link/x_intent。
-  // x_intentはX share intent linkを新規タブで開いた操作起点のみを表し、実際に
-  // 投稿されたかは示さない)。
+  // という事実のみを表す名前・propertiesにする(methodはweb_share/copy_linkのみ)。
   vocab_test_maker_share_invoked: { category: "acquisition", properties: { method: "string" } },
 
   // ── 試験日から逆算する学習計画メーカー(/exam-countdown-planner、no-login公開ツール) ──
