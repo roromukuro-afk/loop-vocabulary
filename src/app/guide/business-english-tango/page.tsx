@@ -58,7 +58,7 @@ const SCENES = [
       { en: "take precedence", jp: "優先する" },
       { en: "action item", jp: "対応事項" },
       { en: "revisit", jp: "改めて検討する" },
-      { en: "table (a topic)", jp: "議題を保留にする" },
+      { en: "table (a topic)", jp: "（主に米）議題を保留にする ※英では逆に「上程する」の意味になる場合あり" },
       { en: "on the same page", jp: "認識が一致している" },
       { en: "touch base", jp: "軽く連絡・確認を取る" },
     ],
