@@ -37,6 +37,11 @@ const SCENES = [
       { en: "enclosed", jp: "同封の" },
       { en: "revise", jp: "修正する" },
       { en: "acknowledge", jp: "受領確認する" },
+      { en: "attached", jp: "添付の" },
+      { en: "kindly", jp: "どうか（丁寧な依頼）" },
+      { en: "at your earliest convenience", jp: "ご都合のつき次第" },
+      { en: "follow up", jp: "フォローアップする" },
+      { en: "cc / bcc", jp: "同報・非表示同報" },
     ],
     tip: "フォーマルな書き言葉に特有の表現。件名・書き出し・締め言葉のパターンを覚えると効率的。",
   },
@@ -51,6 +56,11 @@ const SCENES = [
       { en: "clarify", jp: "明確にする" },
       { en: "defer", jp: "延期する・委ねる" },
       { en: "take precedence", jp: "優先する" },
+      { en: "action item", jp: "対応事項" },
+      { en: "revisit", jp: "改めて検討する" },
+      { en: "table (a topic)", jp: "（主に米）議題を保留にする ※英では逆に「上程する」の意味になる場合あり" },
+      { en: "on the same page", jp: "認識が一致している" },
+      { en: "touch base", jp: "軽く連絡・確認を取る" },
     ],
     tip: "「Can you clarify what you mean by...」など定型フレーズで使えると実用的。",
   },
@@ -65,6 +75,11 @@ const SCENES = [
       { en: "ROI", jp: "投資対効果" },
       { en: "streamline", jp: "効率化する" },
       { en: "scale", jp: "拡大する（スケールする）" },
+      { en: "milestone", jp: "節目・重要な達成点" },
+      { en: "key takeaway", jp: "重要な要点" },
+      { en: "in summary", jp: "要約すると" },
+      { en: "trend", jp: "傾向" },
+      { en: "projection", jp: "見込み・予測値" },
     ],
     tip: "数値・グラフ説明に頻出。「As you can see from this chart...」などの接続フレーズとセットで。",
   },
@@ -79,6 +94,11 @@ const SCENES = [
       { en: "liability", jp: "責任・負債" },
       { en: "provisional", jp: "仮の・暫定的な" },
       { en: "mutual", jp: "相互の" },
+      { en: "terms and conditions", jp: "利用規約・契約条件" },
+      { en: "binding", jp: "拘束力のある" },
+      { en: "concession", jp: "譲歩" },
+      { en: "counteroffer", jp: "対案・カウンターオファー" },
+      { en: "terminate", jp: "解約する・終了する" },
     ],
     tip: "契約書・NDA・覚書に頻出。法的な文書は言い回しの正確な意味を押さえておくことが重要。",
   },
@@ -93,6 +113,11 @@ const SCENES = [
       { en: "forecast", jp: "予測" },
       { en: "overhead", jp: "間接費" },
       { en: "stakeholder", jp: "利害関係者" },
+      { en: "budget", jp: "予算" },
+      { en: "asset", jp: "資産" },
+      { en: "margin", jp: "利益率・マージン" },
+      { en: "fiscal year", jp: "会計年度" },
+      { en: "headcount", jp: "人員数" },
     ],
     tip: "TOEICパート7の長文読解でも頻出。財務三表（PL/BS/CF）のコンテキストで覚えると定着しやすい。",
   },
@@ -106,8 +131,34 @@ const JSON_LD = {
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-11-01",
-  "dateModified": "2026-07-24",
+  "dateModified": "2026-09-02",
   "url": "https://loop-vocabulary.app/guide/business-english-tango",
+};
+
+const FAQ_ITEMS = [
+  {
+    q: "ビジネス英語の用語・単語一覧はどこで見られますか？",
+    a: "このページの「ビジネス英単語 一覧」セクションで、メール・会議・プレゼン・交渉・財務の5シーン別に計50語を掲載しています。網羅的な用語集としてではなく、実務でまず押さえておきたい頻出語を厳選しているため、業界特有の専門用語は別途その分野の資料も参照することをおすすめします。",
+  },
+  {
+    q: "ビジネス英語の単語とTOEICの単語は同じですか？",
+    a: "重なる部分は多いですが、狙いが異なります。TOEIC対策はテストのスコア帯別に語彙を整理するのに対し、このページはメール・会議・交渉など実際の業務シーン別に語彙を整理しています。TOEICのスコア対策を優先したい場合は、"
+      + "TOEIC頻出単語ガイドも参考にしてください。",
+  },
+  {
+    q: "ビジネス英語の単語はどのくらい覚えれば実務で困りませんか？",
+    a: "業種・職種・業務内容によって必要な語彙は大きく異なるため、一律の目安を示すことはできません。まずは自分の業務でよく使うメール・会議・資料から、実際に分からなかった語句を記録し、頻度の高いものから優先的に覚えていく方法が実践的です。",
+  },
+];
+
+const FAQ_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ_ITEMS.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
 };
 
 export default function BusinessEnglishPage() {
@@ -120,6 +171,7 @@ export default function BusinessEnglishPage() {
       <GuideTracker slug="business-english-tango" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"ホーム","item":"https://loop-vocabulary.app"},{"@type":"ListItem","position":2,"name":"学習ガイド","item":"https://loop-vocabulary.app/guide"},{"@type":"ListItem","position":3,"name":"ビジネス英語の必須単語・表現と実践的な覚え方","item":"https://loop-vocabulary.app/guide/business-english-tango"}]}) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
 
       {/* ヘッダー */}
       <div className="bg-gradient-to-br from-slate-700 to-slate-900 px-5 pt-12 pb-12 text-white text-center">
@@ -160,7 +212,12 @@ export default function BusinessEnglishPage() {
 
         {/* シーン別語彙 */}
         <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
-          <h2 className="font-black text-navy-800 text-lg mb-4">シーン別 頻出語彙リスト</h2>
+          <h2 className="font-black text-navy-800 text-lg mb-1">ビジネス英単語 一覧【シーン別50語】</h2>
+          <p className="text-xs text-navy-500 leading-relaxed mb-4">
+            メール・会議・プレゼン・交渉・財務の5シーンで実際によく使われる単語を、シーンごとに10語ずつ整理しました。TOEICのスコア帯別対策をお探しの場合は
+            <Link href="/guide/toeic-tango" className="text-sky-600 underline">TOEIC頻出単語ガイド</Link>
+            もあわせてご覧ください（このページは実務のシーン別、TOEICガイドはスコア帯別に単語を整理しています）。
+          </p>
           <div className="space-y-4">
             {SCENES.map((scene) => (
               <div key={scene.title} className={`rounded-xl border p-4 ${scene.bg}`}>
@@ -270,6 +327,19 @@ export default function BusinessEnglishPage() {
               </li>
             ))}
           </ul>
+        </div>
+
+        {/* よくある質問 */}
+        <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-5">
+          <div className="text-sm font-bold text-navy-800 mb-2">よくある質問</div>
+          <div className="space-y-2">
+            {FAQ_ITEMS.map((f) => (
+              <div key={f.q} className="border border-navy-100 rounded-xl px-4 py-3">
+                <div className="font-bold text-navy-800 text-sm">Q. {f.q}</div>
+                <div className="mt-1 text-xs text-navy-600 leading-relaxed">A. {f.a}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Amazon書籍 */}

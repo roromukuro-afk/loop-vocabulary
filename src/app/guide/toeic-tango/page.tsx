@@ -68,11 +68,19 @@ const JSON_LD = {
   "author": { "@type": "Organization", "name": "Loop Vocabulary" },
   "publisher": { "@type": "Organization", "name": "Loop Vocabulary" },
   "datePublished": "2024-10-01",
-  "dateModified": "2026-07-25",
+  "dateModified": "2026-09-02",
   "url": "https://loop-vocabulary.app/guide/toeic-tango",
 };
 
 const FAQ_ITEMS = [
+  {
+    q: "TOEICに必要な語彙数・単語数はどれくらいですか？",
+    a: "ETS（TOEICの実施団体）は「合格・目標スコアに語彙〇語が必要」という公式の数値を公表していません。市販の単語帳では1,000〜2,500語程度を収録しているものが多く、これは各出版社が過去の出題傾向から独自に選定した目安です。冊数や語数そのものよりも、模試・問題演習で分からなかった語句を記録し、繰り返し復習して定着させる方が実践的です。",
+  },
+  {
+    q: "TOEICで頻出の単語はどう見分ければいいですか？",
+    a: "公式の頻出語彙ランキングはありませんが、市販の単語帳や問題集で複数回登場する語（このページのスコア帯別リストのようなビジネス頻出語）は優先度が高いと考えられます。加えて、自分が受けた模試・問題演習で実際に分からなかった語句は、次に出会う可能性が高い「自分にとっての頻出語」として優先的に復習するのがおすすめです。",
+  },
   {
     q: "TOEICの単語対策はスコア帯によって変えるべきですか？",
     a: "ETS・IIBCによるスコア帯別の公式単語リストは確認できないため、模試や問題演習で分からなかった語句を記録し、現在の弱点に合わせて学習範囲を調整する方法があります。",
@@ -289,6 +297,10 @@ export default function ToeicTangoPage() {
 
         {/* 関連ガイド */}
         <div className="grid grid-cols-2 gap-3">
+          <Link href="/guide/business-english-tango" className="bg-white rounded-2xl border border-navy-100 p-4 hover:shadow-sm transition-shadow">
+            <div className="text-lg mb-1">💼</div>
+            <div className="font-bold text-navy-800 text-sm">ビジネス英単語一覧【シーン別】</div>
+          </Link>
           <Link href="/guide/eitango-oboeru-houhou" className="bg-white rounded-2xl border border-navy-100 p-4 hover:shadow-sm transition-shadow">
             <div className="text-lg mb-1">🧠</div>
             <div className="font-bold text-navy-800 text-sm">効率的な単語の覚え方</div>

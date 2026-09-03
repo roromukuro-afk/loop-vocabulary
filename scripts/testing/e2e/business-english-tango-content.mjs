@@ -56,7 +56,7 @@ const DYNAMIC_TITLE_MARKER = "必須単語300選";
 // 静的版にしか存在しない見出し・本文フレーズ(動的版のマークダウン本文には
 // 出てこない表現を選んでいる)。
 const STATIC_ONLY_HEADINGS = [
-  "シーン別 頻出語彙リスト",
+  "ビジネス英単語 一覧【シーン別50語】", // (2026-09-02 Growth Batch 1) 旧見出し「シーン別 頻出語彙リスト」から変更
   "KPI・財務語彙の使い分け",
   "ビジネス英語を速く身につける4つのコツ",
   "Loop Vocabulary でビジネス英語を管理する",
@@ -72,7 +72,7 @@ const STATIC_ONLY_PHRASES = [
 // 動的版が配信されている(ルーティング競合の回帰)ことを意味する。
 const DYNAMIC_ONLY_PHRASES = [
   DYNAMIC_TITLE_MARKER,
-  "circle back", // 動的版のみの会議語彙
+  "circle back", // 動的版のみの会議語彙(静的版は"revisit"へ変更済み、2026-09-02 Growth Batch 1)
   "週1回「苦手単語」を集中復習して完全定着", // 動的版の継続学習の断定表現
   "用語集・対訳表を一括取り込み", // 動的版のCSV機能の説明
 ];
@@ -249,7 +249,7 @@ async function main() {
     const hasArticleLd = html.includes('"@type":"Article"');
     const hasBreadcrumbLd = html.includes('"@type":"BreadcrumbList"');
     const hasDatePublished = html.includes('"datePublished":"2024-11-01"');
-    const hasDateModified = html.includes('"dateModified":"2026-07-24"');
+    const hasDateModified = html.includes('"dateModified":"2026-09-02"'); // (2026-09-02 Growth Batch 1) 50語化・FAQ追加に伴い更新
     if (hasArticleLd && hasBreadcrumbLd) {
       ok("Article・BreadcrumbList JSON-LDが出力されている");
     } else {
@@ -261,9 +261,9 @@ async function main() {
       fail("Article JSON-LDのdatePublished(2024-11-01)が見つからない(変更された可能性)");
     }
     if (hasDateModified) {
-      ok("Article JSON-LDにdateModified(2026-07-24)が出力されている");
+      ok("Article JSON-LDにdateModified(2026-09-02)が出力されている");
     } else {
-      fail("Article JSON-LDにdateModified(2026-07-24)が見つからない");
+      fail("Article JSON-LDにdateModified(2026-09-02)が見つからない");
     }
 
     // ---- 11. mobile幅で横スクロールが発生しない ----
