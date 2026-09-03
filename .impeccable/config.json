@@ -32,21 +32,30 @@
       },
       {
         "rule": "ai-color-palette",
-        "value": "*",
+        "value": "from-purple-500 to-purple-600",
         "files": [
           "src/app/guide/eitango-oboeru-houhou/page.tsx"
         ],
-        "createdAt": "2026-09-03T03:26:54.151Z",
-        "reason": "Claude: pre-existing METHODS array color fields (rose/emerald/sky/purple/amber/indigo/teal 7-method scheme). Not introduced or touched by this Growth Batch 2 session (only METHODS[1].body text and FAQ_ITEMS were edited). Scoped to this single file only, not repo-wide."
+        "createdAt": "2026-09-03T04:20:00.000Z",
+        "reason": "Claude: pre-existing METHODS[3] (例文・文脈で覚える) color field, part of the established rose/emerald/sky/purple/amber/indigo/teal 7-method scheme. Not introduced or touched by this Growth Batch 2 session (only METHODS[1].body text and FAQ_ITEMS were edited). Scoped to this exact value only (2026-09-03, Codex P2) so a genuinely new ai-color-palette finding in this file would not be silently suppressed."
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "from-indigo-500 to-indigo-600",
+        "files": [
+          "src/app/guide/eitango-oboeru-houhou/page.tsx"
+        ],
+        "createdAt": "2026-09-03T04:20:00.000Z",
+        "reason": "Claude: pre-existing METHODS[5] (書いて覚える) color field, part of the established rose/emerald/sky/purple/amber/indigo/teal 7-method scheme. Not introduced or touched by this Growth Batch 2 session. Scoped to this exact value only (2026-09-03, Codex P2)."
       },
       {
         "rule": "side-tab",
-        "value": "*",
+        "value": "border-l-4 border-red-300",
         "files": [
           "src/app/guide/eitango-oboeru-houhou/page.tsx"
         ],
-        "createdAt": "2026-09-03T03:27:05.558Z",
-        "reason": "Claude: pre-existing MISTAKES list left-border accent (よくある失敗と対策 section, border-l-4 border-red-300). Not introduced or touched by this Growth Batch 2 session. Scoped to this single file only."
+        "createdAt": "2026-09-03T04:20:00.000Z",
+        "reason": "Claude: pre-existing MISTAKES list left-border accent (よくある失敗と対策 section). Not introduced or touched by this Growth Batch 2 session. Scoped to this exact value only (2026-09-03, Codex P2)."
       }
     ]
   }
