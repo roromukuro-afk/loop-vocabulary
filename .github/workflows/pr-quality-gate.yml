@@ -38,7 +38,15 @@ concurrency:
 jobs:
   quality-gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 2026-08-19: PR #105/#107で"Install Playwright Chromium"(npx playwright
+    # install --with-deps)がapt/CDN側の一時的な詰まりで丸ごと20分ハングし、
+    # ジョブ全体がtimeout-minutesで強制終了する事象を確認(5回連続含む)。
+    # "Run independent quality gate checks"自体は毎回およそ16分と安定しており、
+    # テストスイート自体の肥大化が原因ではない。対策としてPlaywrightブラウザの
+    # actions/cacheと、インストールstep単体のtimeout+リトライを追加したうえで、
+    # 通常ケース(npm ci + install + checks ≒ 17〜18.5分)に対する余裕を確保する
+    # ため20→25分に緩めている(スイート増加を見込んだ緩和ではない)。
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,8 +65,31 @@ jobs:
       # "browserType.launch: Executable doesn't exist" でクラッシュしていた
       # (2026-07-20、PR #4の独立PR Quality Gate run #29729753115で発覚)。
       # Chromiumのみをインストールする(Firefox/WebKitはこのリポジトリのどのテストも使わない)。
+      - name: Cache Playwright Chromium
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # インストール自体が(apt-get側の詰まりやCDNのスローダウンで)無応答のまま
+      # 何十分もハングする事象があったため、1回の試行を`timeout`コマンドで
+      # 打ち切ってリトライする。キャッシュヒット時はほぼ一瞬で完了する。
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 8
+        run: |
+          for attempt in 1 2; do
+            echo "::group::Playwright install attempt ${attempt}"
+            if timeout 180 npx playwright install --with-deps chromium; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "Playwright install attempt ${attempt} failed or hung past 3m, retrying..."
+            sleep 5
+          done
+          echo "Playwright install failed after 2 attempts"
+          exit 1
 
       - name: Run independent quality gate checks
         id: checks
