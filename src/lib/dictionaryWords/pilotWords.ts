@@ -580,7 +580,9 @@ export const PILOT_WORDS: PilotWord[] = [
     antonyms: ["oppose（反対する）"],
     examLevels: ["大学受験難関", "英検準1級"],
     relatedGuideSlug: "university-exam-vocabulary", sourceType: "material_licensed",
-    katakana: "アドヴォケイト",
+    // advocateは品詞で語尾の発音が変わるため、見出し部分の読みも動詞・名詞の両方を併記する
+    // (片方だけ載せると、直下のposContrastの説明と矛盾して見えるため)。
+    katakana: "アドヴォケイト（動詞）・アドヴォケット（名詞）",
     posContrast: {
       relatedWord: "advocacy",
       note: "advocateは動詞「主張する・提唱する」と名詞「支持者・提唱者」の両方で使われ、品詞によって語尾の発音が変わる点が特徴です。動詞では語尾を/eɪt/とはっきり読み（アドヴォケイト）、名詞では/ət/と弱く読みます（アドヴォケット）。advocacyは「擁護・支持する活動」そのものを指す名詞で、人ではなく活動を表します。He is an advocate of reform（彼は改革の支持者だ＝人、名詞）、They advocate reform（彼らは改革を主張する＝動詞）、her advocacy for reform（彼女の改革支持の活動＝活動、名詞）のように使い分けます。",
@@ -673,7 +675,7 @@ export const PILOT_WORDS: PilotWord[] = [
     katakana: "アーティフィシャル",
     posContrast: {
       relatedWord: "artificially・artificiality",
-      note: "artificialは「人工の・人工的な」という性質を表す形容詞で、名詞を修飾します（artificial light「人工の光」、artificial intelligence「人工知能」）。artificiallyは「人工的に」という副詞で、動詞や過去分詞を修飾します（artificially produced「人工的に生産された」、artificially low prices「人為的に低く抑えられた価格」）。artificialityは「人工的であること・不自然さ」という性質そのものを指す名詞です。入試長文では圧倒的に形容詞のartificialが多く、特にartificial intelligenceの形で登場します。",
+      note: "artificialは「人工の・人工的な」という性質を表す形容詞で、名詞を修飾します（artificial light「人工の光」、artificial intelligence「人工知能」）。artificiallyは「人工的に」という副詞で、動詞・形容詞・他の副詞を修飾します（artificially produced「人工的に生産された」は過去分詞を、artificially low prices「人為的に低く抑えられた価格」は形容詞lowを修飾しています）。artificialityは「人工的であること・不自然さ」という性質そのものを指す名詞です。入試長文では圧倒的に形容詞のartificialが多く、特にartificial intelligenceの形で登場します。",
     },
   }),
   defineWord({
