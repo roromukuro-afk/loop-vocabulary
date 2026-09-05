@@ -565,7 +565,9 @@ export const PILOT_WORDS: PilotWord[] = [
     relatedGuideSlug: "university-exam-vocabulary", sourceType: "material_licensed",
   }),
   defineWord({
-    slug: "advocate", word: "advocate", ipa: "/ˈædvəkeɪt/", pos: "動詞・名詞",
+    // advocateは品詞で語尾の発音が変わる語のため、見出しではIPA・カタカナともに
+    // 動詞形と名詞形を同じ順序で併記する(片方だけだと直下のposContrastと矛盾する)。
+    slug: "advocate", word: "advocate", ipa: "動詞 /ˈædvəkeɪt/・名詞 /ˈædvəkət/", pos: "動詞・名詞",
     meaningJa: "主張する、提唱する（動詞）／支持者、提唱者（名詞）",
     conclusion: "advocateは、ある意見や政策を強く主張する、または支持者を意味する語です。",
     exampleEn: "Environmental advocates have long advocated for stricter regulations on carbon emissions.",
@@ -580,9 +582,7 @@ export const PILOT_WORDS: PilotWord[] = [
     antonyms: ["oppose（反対する）"],
     examLevels: ["大学受験難関", "英検準1級"],
     relatedGuideSlug: "university-exam-vocabulary", sourceType: "material_licensed",
-    // advocateは品詞で語尾の発音が変わるため、見出し部分の読みも動詞・名詞の両方を併記する
-    // (片方だけ載せると、直下のposContrastの説明と矛盾して見えるため)。
-    katakana: "アドヴォケイト（動詞）・アドヴォケット（名詞）",
+    katakana: "アドヴォケイト・アドヴォケット",
     posContrast: {
       relatedWord: "advocacy",
       note: "advocateは動詞「主張する・提唱する」と名詞「支持者・提唱者」の両方で使われ、品詞によって語尾の発音が変わる点が特徴です。動詞では語尾を/eɪt/とはっきり読み（アドヴォケイト）、名詞では/ət/と弱く読みます（アドヴォケット）。advocacyは「擁護・支持する活動」そのものを指す名詞で、人ではなく活動を表します。He is an advocate of reform（彼は改革の支持者だ＝人、名詞）、They advocate reform（彼らは改革を主張する＝動詞）、her advocacy for reform（彼女の改革支持の活動＝活動、名詞）のように使い分けます。",
