@@ -969,7 +969,7 @@ export const PILOT_WORDS: PilotWord[] = [
     katakana: "コンヴィンス",
     posContrast: {
       relatedWord: "convincing・conviction",
-      note: "convinceは「納得させる」という動詞、convincingは「説得力のある」という形容詞、convictionは「確信・信念」という名詞です。The data convinced me（そのデータが私を納得させた＝動詞）、a convincing argument（説得力のある議論＝形容詞）、a strong conviction（強い確信＝名詞）のように使い分けます。日本語の「説得力がある」を英訳するとき、His opinion is convince. のようにconvinceをそのまま形容詞の位置に置く誤りが多く見られます。名詞を修飾する位置や be動詞の後ろでは convincing を使い、His opinion is convincing. と表します。",
+      note: "convinceは「納得させる」という動詞、convincingは「説得力のある」という形容詞、convictionは「確信・信念」という名詞です。The data convinced me（そのデータが私を納得させた＝動詞）、a convincing argument（説得力のある議論＝形容詞）、a strong conviction（強い確信＝名詞）のように使い分けます。日本語の「説得力がある」を英訳するとき、His opinion is convince. のようにconvinceをそのまま形容詞の位置に置く誤りが多く見られます。形容詞形は位置ではなく意味で選びます。相手を納得させる側（意見・議論・証拠など）を説明するならconvincing（His opinion is convincing.「彼の意見は説得力がある」）、納得させられた側（人）を説明するならconvinced（I am convinced.「私は納得している」、a convinced supporter「確信を持った支持者」）を使います。",
     },
   }),
   defineWord({
