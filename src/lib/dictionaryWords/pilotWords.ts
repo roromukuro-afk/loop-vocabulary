@@ -237,6 +237,11 @@ export const PILOT_WORDS: PilotWord[] = [
     antonyms: [],
     examLevels: ["TOEIC", "共通テスト標準", "高校基礎"],
     relatedGuideSlug: "toeic-tango", sourceType: "material_licensed",
+    katakana: "イシュー",
+    posContrast: {
+      relatedWord: "issuance",
+      note: "issueは名詞では「問題・論点」、動詞では「発行する」を表す多義語です。名詞のissueは日常的な文章では「問題・論点」の意味で使われることが多い一方、金融・出版の文脈では the issue of new shares（新株の発行）、the latest issue（最新号）のように「発行」「号」の意味でも使われます。issuanceは「発行するという手続き・行為」そのものに焦点を当てたより形式的な名詞で、The issuance of the permit took two weeks（許可証の発行に2週間かかった）のように使います。",
+    },
   }),
   defineWord({
     slug: "hypothesis", word: "hypothesis", ipa: "/haɪˈpɒθəsɪs/", pos: "名詞",
@@ -560,7 +565,9 @@ export const PILOT_WORDS: PilotWord[] = [
     relatedGuideSlug: "university-exam-vocabulary", sourceType: "material_licensed",
   }),
   defineWord({
-    slug: "advocate", word: "advocate", ipa: "/ˈædvəkeɪt/", pos: "動詞・名詞",
+    // advocateは品詞で語尾の発音が変わる語のため、見出しではIPA・カタカナともに
+    // 動詞形と名詞形を同じ順序で併記する(片方だけだと直下のposContrastと矛盾する)。
+    slug: "advocate", word: "advocate", ipa: "動詞 /ˈædvəkeɪt/・名詞 /ˈædvəkət/", pos: "動詞・名詞",
     meaningJa: "主張する、提唱する（動詞）／支持者、提唱者（名詞）",
     conclusion: "advocateは、ある意見や政策を強く主張する、または支持者を意味する語です。",
     exampleEn: "Environmental advocates have long advocated for stricter regulations on carbon emissions.",
@@ -575,6 +582,11 @@ export const PILOT_WORDS: PilotWord[] = [
     antonyms: ["oppose（反対する）"],
     examLevels: ["大学受験難関", "英検準1級"],
     relatedGuideSlug: "university-exam-vocabulary", sourceType: "material_licensed",
+    katakana: "アドヴォケイト・アドヴォケット",
+    posContrast: {
+      relatedWord: "advocacy",
+      note: "advocateは動詞「主張する・提唱する」と名詞「支持者・提唱者」の両方で使われ、品詞によって語尾の発音が変わる点が特徴です。動詞では語尾を/eɪt/とはっきり読み（アドヴォケイト）、名詞では/ət/と弱く読みます（アドヴォケット）。advocacyは「擁護・支持する活動」そのものを指す名詞で、人ではなく活動を表します。He is an advocate of reform（彼は改革の支持者だ＝人、名詞）、They advocate reform（彼らは改革を主張する＝動詞）、her advocacy for reform（彼女の改革支持の活動＝活動、名詞）のように使い分けます。",
+    },
   }),
   defineWord({
     slug: "assess", word: "assess", ipa: "/əˈses/", pos: "動詞",
@@ -660,6 +672,11 @@ export const PILOT_WORDS: PilotWord[] = [
     antonyms: ["natural（自然の）"],
     examLevels: ["英検2級", "大学受験標準"],
     relatedGuideSlug: "eiken-vocabulary-study", sourceType: "material_licensed",
+    katakana: "アーティフィシャル",
+    posContrast: {
+      relatedWord: "artificially・artificiality",
+      note: "artificialは「人工の・人工的な」という性質を表す形容詞で、名詞を修飾します（artificial light「人工の光」、artificial intelligence「人工知能」）。artificiallyは「人工的に」という副詞で、動詞・形容詞・他の副詞を修飾します（artificially produced「人工的に生産された」は過去分詞を、artificially low prices「人為的に低く抑えられた価格」は形容詞lowを修飾しています）。artificialityは「人工的であること・不自然さ」という性質そのものを指す名詞です。入試長文では圧倒的に形容詞のartificialが多く、特にartificial intelligenceの形で登場します。",
+    },
   }),
   defineWord({
     slug: "regulation", word: "regulation", ipa: "/ˌreɡjuˈleɪʃn/", pos: "名詞",
@@ -949,6 +966,11 @@ export const PILOT_WORDS: PilotWord[] = [
     antonyms: [],
     examLevels: ["英検2級", "大学受験標準"],
     relatedGuideSlug: "school-test-vocabulary", sourceType: "material_licensed",
+    katakana: "コンヴィンス",
+    posContrast: {
+      relatedWord: "convincing・conviction",
+      note: "convinceは「納得させる」という動詞、convincingは「説得力のある」という形容詞、convictionは「確信・信念」という名詞です。The data convinced me（そのデータが私を納得させた＝動詞）、a convincing argument（説得力のある議論＝形容詞）、a strong conviction（強い確信＝名詞）のように使い分けます。日本語の「説得力がある」を英訳するとき、His opinion is convince. のようにconvinceをそのまま形容詞の位置に置く誤りが多く見られます。形容詞形は位置ではなく意味で選びます。相手を納得させる側（意見・議論・証拠など）を説明するならconvincing（His opinion is convincing.「彼の意見は説得力がある」）、納得させられた側（人）を説明するならconvinced（I am convinced.「私は納得している」、a convinced supporter「確信を持った支持者」）を使います。",
+    },
   }),
   defineWord({
     slug: "conclude", word: "conclude", ipa: "/kənˈkluːd/", pos: "動詞",
